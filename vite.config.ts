@@ -1,5 +1,10 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  base: '/seanchai-explorer/',
+  base: './',
+  build: {
+    rolldownOptions: {
+      input: { main: 'index.html', viewer: 'viewer.html', rfc: 'rfc.html' },
+    },
+  },
 });

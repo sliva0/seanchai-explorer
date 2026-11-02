@@ -1,0 +1,25 @@
+:root { font: 12px system-ui, sans-serif; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; overflow: hidden; }
+#toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; padding: 0.4rem; border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); }
+#toolbar label { display: inline-flex; align-items: center; gap: 0.25rem; }
+#chapters-toggle[hidden] { display: none; }
+button, input, select { font: inherit; }
+#page { width: 4rem; }
+#find { width: 8rem; min-width: 3rem; }
+#find-controls { display: inline-flex; align-items: center; gap: 0.3rem; }
+#pdf-workspace { position: absolute; inset: var(--toolbar-height, 5rem) 0 0; display: flex; min-height: 0; overflow: hidden; }
+#outline { flex: none; width: 12rem; min-width: 5rem; max-width: 40%; resize: horizontal; padding: 0.5rem; overflow: auto; border-right: 1px solid var(--ui-border); background: var(--ui-surface); overscroll-behavior: contain; }
+#outline[hidden] { display: none; }
+#outline ul { margin: 0; padding-left: 0.9rem; list-style: none; }
+#outline > ul { padding-left: 0; }
+#outline li { margin-block: 0.25rem; }
+#outline summary { cursor: pointer; }
+#outline a { color: var(--ui-fg); text-decoration: none; overflow-wrap: anywhere; }
+#outline a:hover { text-decoration: underline; }
+#outline a[aria-current] { color: var(--ui-link); font-weight: bold; }
+#page-pane { flex: 1; min-width: 0; position: relative; }
+#viewerContainer { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; background: var(--pdf-surround); }
+:root[data-theme="dark"] .pdfViewer .page { filter: invert(0.9) hue-rotate(180deg); }
+@media print { :root[data-theme="dark"] .pdfViewer .page { filter: none; } }
+@media (max-width: 480px) { #outline { width: 8rem; font-size: 11px; } }

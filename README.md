@@ -1,1 +1,1 @@
-# Seanchaí Explorer
+# Seanchaí

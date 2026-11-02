@@ -1,5 +1,5 @@
 {
-  "name": "seanchai-explorer",
+  "name": "seanchai",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,13 +8,20 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "vite",
+    "prepare:data": "node scripts/prepare.mjs",
+    "dev": "node scripts/prepare.mjs && vite --host 127.0.0.1",
     "check": "tsc --noEmit",
-    "build": "tsc --noEmit && vite build",
+    "build": "node scripts/prepare.mjs && tsc --noEmit && vite build",
+    "build:public": "node scripts/prepare.mjs --public && tsc --noEmit && vite build",
+    "test": "npm run build && node --test tests/*.test.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "happy-dom": "^21.0.4",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
+  },
+  "dependencies": {
+    "pdfjs-dist": "^6.5.438"
   }
 }

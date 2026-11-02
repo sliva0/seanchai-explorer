@@ -1,0 +1,72 @@
+:root {
+  color-scheme: light;
+  --ui-bg: #fff;
+  --ui-fg: #202833;
+  --ui-surface: #f7f9fb;
+  --ui-border: #d7dde3;
+  --ui-link: #205c9a;
+  --ui-link-hover: #123d69;
+  --ui-hover: #eaf1f8;
+  --ui-muted: #66717d;
+  --ui-divider: #eef1f4;
+  --ui-divider-hover: #c5d8eb;
+  --ui-stripe: rgb(35 50 70 / 4.5%);
+  --pdf-surround: #e9edf2;
+  --syntax-keyword: #47567b;
+  --syntax-keyword-bg: #edf0f8;
+  --syntax-type: #245e48;
+  --syntax-type-bg: #eaf4ee;
+  --syntax-number: #725511;
+  --syntax-number-bg: #faf3df;
+  --syntax-reference: #654182;
+  --syntax-reference-bg: #f2ebf8;
+  --syntax-fixed: #7b4d2e;
+  --syntax-fixed-bg: #fbefe5;
+  --syntax-required: #265e47;
+  --syntax-required-bg: #e9f3ec;
+  --syntax-optional: #335e85;
+  --syntax-optional-bg: #edf3fa;
+  --syntax-fixed-strong: #943f0e;
+  --syntax-required-strong: #09663b;
+  --syntax-optional-strong: #144f9e;
+  --syntax-string: #5c596c;
+  --syntax-string-bg: #f3f1f7;
+  color: var(--ui-fg);
+  background: var(--ui-bg);
+}
+.visibility-toggle { display: inline-flex; align-items: center; gap: 0.25rem; cursor: pointer; user-select: none; white-space: nowrap; }
+.visibility-toggle input { width: 13px; height: 13px; margin: 0; flex: none; accent-color: var(--ui-link); }
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --ui-bg: #151c24;
+    --ui-fg: #dce4ed;
+    --ui-surface: #1d2732;
+    --ui-border: #354352;
+    --ui-link: #9ac8ff;
+    --ui-link-hover: #c4e0ff;
+    --ui-hover: #283b50;
+    --ui-muted: #a0afbf;
+    --ui-divider: #25313e;
+    --ui-divider-hover: #496989;
+    --ui-stripe: transparent;
+    --pdf-surround: #202a35;
+    --syntax-keyword: #c3cdf6;
+    --syntax-keyword-bg: transparent;
+    --syntax-type: #a2dac0;
+    --syntax-type-bg: transparent;
+    --syntax-number: #e4ce92;
+    --syntax-number-bg: transparent;
+    --syntax-reference: #d4b9f0;
+    --syntax-reference-bg: transparent;
+    --syntax-fixed: #e8be9c;
+    --syntax-fixed-bg: transparent;
+    --syntax-required: #aad9bd;
+    --syntax-required-bg: transparent;
+    --syntax-optional: #adceec;
+    --syntax-optional-bg: transparent;
+    --syntax-fixed-strong: #ffd1a8;
+    --syntax-required-strong: #a1efc0;
+    --syntax-optional-strong: #bbdcff;
+    --syntax-string: #c5bed7;
+    --syntax-string-bg: transparent;
+}

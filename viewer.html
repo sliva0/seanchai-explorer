@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Seanchaí</title>
+  </head>
+  <body>
+    <form id="toolbar">
+      <label id="chapters-toggle" class="visibility-toggle" hidden>Chapters <input id="chapters" type="checkbox" aria-controls="outline" aria-expanded="true" checked /></label>
+      <label>Page <input id="page" type="number" min="1" value="1" /></label>
+      <span id="pages"></span>
+      <label>Zoom <select id="zoom"><option value="page-width">Width</option><option value="page-fit">Page</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option></select></label>
+      <div id="find-controls">
+        <label>Find <input id="find" type="search" /></label>
+        <button type="submit">Find</button>
+        <button id="find-previous" type="button" aria-label="Previous match" title="Previous match">↑</button>
+        <button id="find-next" type="button" aria-label="Next match" title="Next match">↓</button>
+        <output id="matches"></output>
+      </div>
+    </form>
+    <div id="pdf-workspace">
+      <aside id="outline" hidden></aside>
+      <div id="page-pane"><div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div></div>
+    </div>
+    <script type="module" src="/src/viewer.ts"></script>
+  </body>
+</html>
