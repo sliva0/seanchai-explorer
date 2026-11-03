@@ -1,5 +1,5 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 5;
+export const SCHEMA_VERSION = 6;
 
 export type SeanchaiExport = Index | Search | Document | RawDocument;
 /**
@@ -85,7 +85,7 @@ export interface DocumentSummary {
   id: string;
   path: string;
   pinned: string | null;
-  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'oneM2M';
+  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M';
   raw: string | null;
   reference: string;
   release: number | null;
@@ -225,7 +225,7 @@ export interface Document {
   lines: Line[];
   path: string;
   pinned: string | null;
-  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'oneM2M';
+  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M';
   raw: string | null;
   reference: string;
   release: number | null;

@@ -34,6 +34,18 @@ test('viewer uses the editor grammar for directives, presence, enums, types, fla
   assert.equal(scopeFor(lines[10], 'https://example.org/a.pdf'), 'markup.underline.link.dad');
 });
 
+test('void values highlight like reserved ones, single or ranged', () => {
+  const [reserved, single, ranged] = highlight([line('    ; RESERVED = 5'), line('    ; VOID = 5'), line('    ; VOID = 6-7')]);
+  assert.equal(scopeFor(reserved, '; RESERVED'), 'keyword.other.reserved.dad');
+  assert.equal(scopeFor(reserved, '5'), 'constant.numeric.dad');
+  assert.equal(scopeFor(single, '; VOID'), 'keyword.other.void.dad');
+  assert.equal(scopeFor(single, '='), 'keyword.operator.assignment.dad');
+  assert.equal(scopeFor(single, '5'), 'constant.numeric.dad');
+  assert.equal(scopeFor(ranged, '; VOID'), 'keyword.other.void.dad');
+  assert.equal(scopeFor(ranged, '-'), 'keyword.operator.range.dad');
+  assert.equal(scopeFor(ranged, '7'), 'constant.numeric.dad');
+});
+
 test('a grammar rule the scanner cannot run is refused rather than ignored', () => {
   const empty = { patterns: [], repository: {} };
   assert.doesNotThrow(() => createHighlighter({ ...empty, patterns: [{ comment: 'note', match: 'x', name: 'y', captures: { 1: { name: 'z' } } }] }));
