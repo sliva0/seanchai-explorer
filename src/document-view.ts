@@ -3,7 +3,7 @@ import type { ClickAction } from './clicks.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { compactComment } from './comments.ts';
-import { element, externalLink, link, scrollToNode } from './dom.ts';
+import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { AvpPopup } from './avp-popup.ts';
@@ -97,45 +97,67 @@ function tablesNote(lines: Line[], section: string): string {
 }
 
 function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const sections = element('details');
-  sections.append(element('summary', `Sections (${doc.sections.length})`));
   const list = element('ul', undefined, 'section-list');
   for (const { section, page, title } of doc.sections) {
     const item = element('li');
-    item.append(sectionLink(section), ` ${title}`);
     const tables = tablesNote(doc.lines, section);
-    if (tables) item.append(` · ${tables}`);
-    if (page) item.append(` · p. ${page}`);
+    item.append(sectionLink(section), ' ', element('span', tables ? `${title} · ${tables}` : title));
+    if (page) item.append(' ', element('span', `p. ${page}`, 'section-page'));
     list.append(item);
   }
-  sections.append(list);
-  return sections;
+  return list;
 }
 
 function renderFindings(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const findings = element('details');
-  findings.append(element('summary', `Findings (${doc.findings.length})`));
   const list = element('ul');
   for (const finding of doc.findings) {
     const item = element('li', `${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `);
     if (finding.section) item.append(sectionLink(finding.section));
     list.append(item);
   }
-  findings.append(list);
-  return findings;
+  return list;
 }
 
 function renderHoles(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const holes = element('details');
-  holes.append(element('summary', `Holes (${doc.holes.length})`));
   const list = element('ul');
   for (const hole of doc.holes) {
     const item = element('li', `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `);
     if (hole.section) item.append(sectionLink(hole.section));
     list.append(item);
   }
-  holes.append(list);
-  return holes;
+  return list;
+}
+
+/** A row of toggles and the panels they open under the strip, one at a time. A toggle with nothing to show stays off. */
+function renderDiagnostics(panels: { title: string; count: number; list: HTMLElement }[]) {
+  const toggles = element('div');
+  toggles.id = 'diagnostics';
+  const entries = panels.map(({ title, count, list }) => {
+    const panel = element('div', undefined, 'diagnostic-panel');
+    panel.id = `diagnostic-${title.toLowerCase()}`;
+    panel.hidden = true;
+    panel.append(list);
+    const toggle = element('button', undefined, 'disclosure');
+    toggle.type = 'button';
+    toggle.append(...counted(title, count));
+    toggle.disabled = !count;
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-controls', panel.id);
+    toggles.append(toggle);
+    return { toggle, panel };
+  });
+  for (const { toggle, panel } of entries) {
+    toggle.onclick = () => {
+      const opening = panel.hidden;
+      for (const other of entries) {
+        other.panel.hidden = true;
+        other.toggle.setAttribute('aria-expanded', 'false');
+      }
+      panel.hidden = !opening;
+      toggle.setAttribute('aria-expanded', String(opening));
+    };
+  }
+  return { toggles, bodies: entries.map(entry => entry.panel) };
 }
 
 /** The first line at or below the pane's top edge that `filter` selects. */
@@ -201,17 +223,19 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   const pre = renderLines(lines, doc, site);
   documentPane.append(pre);
   workspace.insertBefore(documentPane, workspace.children[1] ?? null);
-  const diagnostics = element('div');
-  diagnostics.id = 'diagnostics';
   const sectionLink: SectionLink = section => {
     const anchor = element('a', section);
     anchor.href = routeFor({ document: doc.id, section }, { raw: Boolean(raw) });
     return anchor;
   };
-  diagnostics.append(renderSections(doc, sectionLink), renderFindings(doc, sectionLink), renderHoles(doc, sectionLink));
+  const { toggles, bodies } = renderDiagnostics([
+    { title: 'Sections', count: doc.sections.length, list: renderSections(doc, sectionLink) },
+    { title: 'Findings', count: doc.findings.length, list: renderFindings(doc, sectionLink) },
+    { title: 'Holes', count: doc.holes.length, list: renderHoles(doc, sectionLink) },
+  ]);
   const tools = element('div');
   tools.id = 'document-tools';
-  tools.append(diagnostics, controls);
+  tools.append(toggles, controls, ...bodies);
   container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];

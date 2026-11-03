@@ -1,6 +1,6 @@
 import { docLabel, sourceHref } from './data.ts';
 import type { Site } from './data.ts';
-import { element, externalLink, link, scrollToNode } from './dom.ts';
+import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document } from './types.ts';
@@ -124,7 +124,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       list.append(button);
     });
     const rows = element('div', undefined, 'usage-details');
-    rows.append(element('div', `Table (${table.rows.length})`), list);
+    const rowsTitle = element('div');
+    rowsTitle.append(...counted('Table', table.rows.length));
+    rows.append(rowsTitle, list);
     panel.append(rows);
     mark(active);
     place(panel, closeButton, opener);
@@ -189,7 +191,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       list.append(button);
     });
     const usages = element('div', undefined, 'usage-details');
-    usages.append(element('div', `Mentions (${occurrences.length})`), list);
+    const usagesTitle = element('div');
+    usagesTitle.append(...counted('Mentions', occurrences.length));
+    usages.append(usagesTitle, list);
     panel.append(usages);
     place(panel, closeButton, opener);
   }

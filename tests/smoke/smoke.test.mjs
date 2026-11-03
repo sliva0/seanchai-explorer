@@ -135,6 +135,43 @@ test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { sk
   await done();
 });
 
+test('the strip\'s section panel is bounded, one column, and moves the text below only by its own height', { skip }, async () => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
+    const { page, done } = await open('#29217-j00', { viewport });
+    const geometry = () => page.evaluate(() => ({
+      toggle: document.querySelector('#diagnostics button').getBoundingClientRect().toJSON(),
+      strip: document.querySelector('#document-tools').getBoundingClientRect().height,
+      text: document.querySelector('#document').getBoundingClientRect().top,
+      width: document.querySelector('#document').getBoundingClientRect().width,
+      scrollTop: document.querySelector('#document').scrollTop,
+    }));
+    const before = await geometry();
+    await page.locator('#diagnostics button').first().click();
+    const after = await geometry();
+    const panel = await page.locator('.diagnostic-panel:not([hidden])').evaluate(node => {
+      const items = [...node.querySelectorAll('li')].map(item => item.getBoundingClientRect());
+      const links = [...node.querySelectorAll('li a')].map(a => a.getBoundingClientRect().left);
+      return {
+        height: node.getBoundingClientRect().height,
+        rowsStacked: items.every((item, index) => !index || item.top >= items[index - 1].bottom - 0.5),
+        sameLeft: new Set(links).size,
+        overflowsSideways: node.scrollWidth > node.clientWidth,
+      };
+    });
+    assert.deepEqual(after.toggle, before.toggle, 'the toggle stays put');
+    assert.ok(panel.height <= Math.min(viewport.height * 0.4, 18 * 16) + 1, JSON.stringify(panel));
+    assert.ok(panel.rowsStacked);
+    assert.equal(panel.sameLeft, 1, 'entries align');
+    assert.equal(panel.overflowsSideways, false);
+    assert.ok(Math.abs(after.text - before.text - (after.strip - before.strip)) < 1, 'the text moves by the panel alone');
+    assert.equal(after.width, before.width);
+    assert.equal(after.scrollTop, before.scrollTop);
+    await page.locator('#diagnostics button').first().click();
+    assert.deepEqual(await geometry(), before, 'closing restores it');
+    await done();
+  }
+});
+
 test('lines are blocks reaching the pane edge, at the spacing of one text line', { skip }, async () => {
   const { page, done } = await open('#29153-j00', { viewport: { width: 1280, height: 800 } });
   const sizes = await page.evaluate(() => {

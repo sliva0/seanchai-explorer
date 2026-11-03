@@ -1,6 +1,6 @@
 import { docLabel, docTitle } from './data.ts';
 import type { Site } from './data.ts';
-import { element, link } from './dom.ts';
+import { counted, element, link } from './dom.ts';
 import { routeFor } from './navigation.ts';
 import { filterMentions, identityLabel, searchEntries, searchSpecifications, sortMentions } from './search.ts';
 import type { NameGroup } from './search.ts';
@@ -94,7 +94,9 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     function section<T>(key: string, title: string, items: T[], render: (item: T) => HTMLElement, wrap = false) {
       if (!items.length) return;
       const node = element('section', undefined, `search-section search-${key}`);
-      node.append(element('h2', `${title} (${items.length})`));
+      const heading = element('h2');
+      heading.append(...counted(title, items.length));
+      node.append(heading);
       results.append(node);
       const parent = wrap ? element('ul') : node;
       if (wrap) node.append(parent);

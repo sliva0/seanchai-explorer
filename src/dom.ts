@@ -8,6 +8,11 @@ export function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: st
   return node;
 }
 
+/** A title and its count as a muted badge, to append to a heading or toggle. */
+export function counted(title: string, count: number): (string | HTMLElement)[] {
+  return [`${title} `, element('span', String(count), 'count')];
+}
+
 export function link(text: string, target: Target): HTMLAnchorElement {
   const node = element('a', text);
   node.href = routeFor(target);

@@ -20,12 +20,17 @@ ul { margin: 0; padding: 0; list-style: none; }
 #document-tools { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--ui-border); font: var(--text-xs)/1.4 var(--mono); }
 #controls, #diagnostics { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); }
 #controls > a { min-width: 9ch; text-align: right; }
-#diagnostics > details { min-width: 0; max-width: 100%; max-height: 28vh; overflow: auto; }
-#diagnostics ul { margin: var(--space-2) 0; }
-#diagnostics li { max-width: 100ch; line-height: 1.6; overflow-wrap: anywhere; white-space: normal; }
-#diagnostics li + li { margin-top: var(--space-1); }
-.section-list { columns: 22rem; }
-.section-list li { break-inside: avoid; }
+#diagnostics .disclosure { display: inline-flex; align-items: center; height: var(--control-height); padding: 0 var(--space-1); border: 0; border-radius: var(--radius); color: inherit; background: none; font: inherit; white-space: nowrap; cursor: pointer; }
+#diagnostics .disclosure:hover:not(:disabled) { color: var(--ui-link-hover); background: var(--ui-hover); }
+#diagnostics .disclosure:disabled { color: var(--ui-muted); cursor: default; }
+#diagnostics .disclosure:disabled::before { visibility: hidden; }
+#diagnostics .count { margin-left: var(--space-1); }
+.diagnostic-panel { flex: 1 0 100%; max-height: min(40vh, 18rem); margin: var(--space-1) calc(-1 * var(--space-2)) calc(-1 * var(--space-1)); padding: var(--space-2) var(--space-3); overflow: auto; overscroll-behavior: contain; border-top: 1px solid var(--ui-border); line-height: 1.5; }
+.diagnostic-panel[hidden] { display: none; }
+.diagnostic-panel li { max-width: 100ch; padding-block: 0.125rem; overflow-wrap: anywhere; }
+.section-list { display: grid; grid-template-columns: max-content minmax(0, max-content) max-content; gap: 0 var(--space-3); width: fit-content; max-width: 100%; }
+.section-list li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
+.section-page { color: var(--ui-muted); text-align: right; white-space: nowrap; }
 
 /* Panes */
 #workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }

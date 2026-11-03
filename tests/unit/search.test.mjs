@@ -107,8 +107,8 @@ test('the search page shows a section per kind with matches over the fixture, an
   try {
     const { document, window } = page;
     const headings = [...document.querySelectorAll('#search-results h2')].map(node => node.textContent);
-    assert.ok(headings.some(heading => heading.startsWith('Commands (')));
-    assert.ok(!headings.some(heading => heading.endsWith('(0)')), 'groups without matches are left out');
+    assert.ok(headings.some(heading => heading.startsWith('Commands ')));
+    assert.ok(!headings.some(heading => heading.endsWith(' 0')), 'groups without matches are left out');
     assert.ok(document.querySelector('.search-command summary').textContent.includes(named('command').name));
     const input = document.querySelector('.search-form input');
     assert.equal(document.activeElement, input);
@@ -130,7 +130,7 @@ test('more shows every remaining entry of its group, and only of that group', as
   const page = await boot({ hash: '#search?q=zzexpand', transform: (path, data) => path === 'data/search.json' ? { ...data, entries: [...data.entries, ...extra], mentions: [...data.mentions, ...mentions] } : data });
   try {
     const { document } = page;
-    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent), ['AVPs (47)', 'Mentions (47)']);
+    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent), ['AVPs 47', 'Mentions 47']);
     assert.equal(document.querySelectorAll('.search-avp details').length, 20);
     assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
     document.querySelector('.search-avp details').open = true;
@@ -181,7 +181,7 @@ test('the search page groups values per kind, and a row\'s link opens its table 
   const page = await boot({ hash: `#search?q=${encodeURIComponent('DIAMETER_ERROR_SERVICE_AREA')}` });
   try {
     const { document } = page;
-    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent)[0], 'Result codes (1)');
+    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent)[0], 'Result codes 1');
     const summary = document.querySelector('.search-result-codes summary').textContent;
     assert.match(summary, /DIAMETER_ERROR_SERVICE_AREA/);
     assert.match(summary, /Result code 5123 of Experimental-Result-Code/);
@@ -198,7 +198,7 @@ test('the search page groups values per kind, and a row\'s link opens its table 
 test('bits and features get their own groups', async () => {
   const { entries } = await readFixture('search.json');
   const named = kind => entries.find(entry => entry.kind === 'value' && entry.identity.value_kind === kind);
-  for (const [kind, heading] of [['bits', 'Bits ('], ['features', 'Features (']]) {
+  for (const [kind, heading] of [['bits', 'Bits '], ['features', 'Features ']]) {
     const page = await boot({ hash: `#search?q=${encodeURIComponent(named(kind).name)}` });
     try {
       assert.ok([...page.document.querySelectorAll('#search-results h2')].some(node => node.textContent.startsWith(heading)), kind);

@@ -496,17 +496,43 @@ test('sections, findings and holes link to their clause in the current view', as
   });
   try {
     const { document } = page;
-    const [sections, findings, holes] = document.querySelectorAll('#diagnostics > details');
-    assert.match(sections.querySelector('summary').textContent, /^Sections \(\d+\)$/);
+    const [sections, findings, holes] = document.querySelectorAll('.diagnostic-panel');
+    assert.match(document.querySelector('#diagnostics button').textContent, /^Sections \d+$/);
     const first = sections.querySelector('li');
     const { sections: listed } = await readFixture('documents/29061-6f0.json');
-    assert.equal(first.textContent, `${listed[0].section} ${listed[0].title} · p. ${listed[0].page}`);
+    assert.equal(first.textContent, `${listed[0].section} ${listed[0].title} p. ${listed[0].page}`);
     assert.match(first.querySelector('a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
     assert.equal(findings.querySelector('li a').getAttribute('href'), '#29061-6f0/5.1');
     assert.ok(holes.querySelector('li a'), 'a hole links to its clause');
     assert.match(holes.querySelector('li a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
     await page.go('#29061-6f0?raw=1');
-    assert.match(document.querySelector('#diagnostics li a').getAttribute('href'), /\?raw=1$/);
+    assert.match(document.querySelector('.diagnostic-panel li a').getAttribute('href'), /\?raw=1$/);
+  } finally { await page.close(); }
+});
+
+test('the strip\'s toggles open one panel at a time, and one with nothing to show stays off', async () => {
+  const page = await boot({
+    hash: '#29061-6f0',
+    transform: (path, data) => path === 'data/documents/29061-6f0.json' ? { ...data, findings: [{ severity: 'warning', rule: 'r', message: 'm', section: '5.1', accepted_by: null }], holes: [] } : data,
+  });
+  try {
+    const { document } = page;
+    const [sections, findings, holes] = document.querySelectorAll('#diagnostics button');
+    const panel = toggle => document.getElementById(toggle.getAttribute('aria-controls'));
+    assert.equal(holes.disabled, true);
+    assert.equal(holes.textContent, 'Holes 0');
+    assert.equal(sections.disabled, false);
+    assert.equal(panel(sections).hidden, true);
+    sections.click();
+    assert.equal(sections.getAttribute('aria-expanded'), 'true');
+    assert.equal(panel(sections).hidden, false);
+    findings.click();
+    assert.equal(sections.getAttribute('aria-expanded'), 'false');
+    assert.equal(panel(sections).hidden, true);
+    assert.equal(panel(findings).hidden, false);
+    findings.click();
+    assert.equal(panel(findings).hidden, true);
+    assert.equal(findings.getAttribute('aria-expanded'), 'false');
   } finally { await page.close(); }
 });
 
