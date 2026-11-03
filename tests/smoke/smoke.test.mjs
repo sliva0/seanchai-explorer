@@ -376,6 +376,20 @@ test('light applies under a dark OS, the reader in the pane follows the toggle, 
   await done();
 });
 
+test('search: a typo finds a labelled name, and mentions group by document', { skip }, async () => {
+  const { page, done } = await open('#search?q=DRMPP');
+  await page.waitForSelector('.search-avp details.approximate summary:has-text("DRMP")');
+  assert.equal(await page.locator('.search-avp details.approximate em').first().textContent(), 'approximate');
+  await page.locator('.search-form input').fill('DRMP');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.search-mentions .mention-document h3 a');
+  const headings = await page.locator('.mention-document h3 a').allTextContents();
+  assert.equal(new Set(headings).size, headings.length, 'one heading per document');
+  assert.ok(await page.locator('.mention-document li .mention-link').first().textContent().then(text => text.startsWith('· ')));
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll');
+  await done();
+});
+
 test('the header link opens search with its input focused, and search data loads only there', { skip }, async () => {
   const requests = [];
   const { page, done } = await open('', {}, async opened => {

@@ -6,6 +6,8 @@ with the corpus's own TextMate grammar. AVP names link to their definitions,
 section and page numbers to the source document, and search covers specifications,
 AVPs, commands, applications, registry rows, result codes, bits, features and every
 line of text.
+A name is also found by its initials or a misspelling, labelled approximate and listed
+after the precise matches.
 
 It is unofficial and not affiliated with or endorsed by any of the specifications'
 publishers. The site holds no Python and reads only what `seanchai export` writes.

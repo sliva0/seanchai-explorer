@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { filterMentions, identityLabel, searchEntries, searchSpecifications, sortMentions } from '../../src/search.ts';
+import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, identityLabel, indexEntries, INITIALS, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
 import { boot, readFixture } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -8,6 +8,8 @@ const command = (name, command_code, application_id, more = {}) => ({ name, kind
 const application = (name, application_id) => ({ name, kind: 'application', document: 'a', identity: { kind: 'application', application_id }, wireshark_name: null, abbreviation: null, defined_in: [] });
 const registry = (name, code) => ({ name, kind: 'registry', document: 'a', identity: { kind: 'registry', registry: 'Application IDs', code }, wireshark_name: null, abbreviation: null, defined_in: [] });
 const names = groups => groups.map(group => group.name);
+const searchEntries = (entries, ...rest) => searchIndex(indexEntries(entries), ...rest);
+const filterMentions = (mentions, ...rest) => filterFolded(foldMentions(mentions), ...rest);
 
 test('every kind of name is searched, and a number means what it identifies for each kind', () => {
   const entries = [avp('Session-Id', 0, 263), avp('Other', 10415, 300), command('Capabilities-Exchange-Request', 257, 0, { abbreviation: 'CER' }), command('Three-Hundred', 300, 16777216), application('Cx', 16777216), registry('3GPP Cx/Px', 16777216), registry('Code-300', 300)];
@@ -36,9 +38,135 @@ test('a command is found by its resolved application name too', () => {
   assert.deepEqual(names(searchEntries([entry], 's6a').command), ['Update-Location-Request']);
 });
 
-test('results go exact, prefix, then substring', () => {
-  const entries = ['Mid-Session', 'Session', 'Session-Id', 'A-Session-B', 'Session-Binding'].map((name, code) => avp(name, 0, code));
-  assert.deepEqual(names(searchEntries(entries, 'session').avp), ['Session', 'Session-Binding', 'Session-Id', 'A-Session-B', 'Mid-Session']);
+test('results go exact, prefix, word, then substring, the shorter of equals first', () => {
+  const entries = ['Mid-Session', 'Session', 'Session-Id', 'A-Session-B', 'Session-Binding', 'Obsessions'].map((name, code) => avp(name, 0, code));
+  assert.deepEqual(names(searchEntries(entries, 'session').avp), ['Session', 'Session-Id', 'Session-Binding', 'A-Session-B', 'Mid-Session', 'Obsessions']);
+  const ranks = Object.fromEntries(searchEntries(entries, 'session').avp.map(group => [group.name, group.rank]));
+  assert.deepEqual([ranks.Session, ranks['Session-Id'], ranks['Mid-Session'], ranks.Obsessions], [EXACT, PREFIX, WORD, SUBSTRING]);
+});
+
+const avps = (...list) => list.map((name, code) => avp(name, 0, code));
+const found = (entries, query) => names(searchEntries(entries, query).avp);
+const ranked = (entries, query) => searchEntries(entries, query).avp.map(group => [group.name, group.rank]);
+
+test('a query of several words needs no separators, and may come in any order', () => {
+  const entries = avps('OC-OLR', 'Session-Id', 'User-Authorization-Type', 'Abort', 'A-Bort', 'Other');
+  assert.deepEqual(ranked(entries, 'oc olr'), [['OC-OLR', EXACT]]);
+  assert.deepEqual(ranked(entries, 'oc_olr'), [['OC-OLR', EXACT]]);
+  assert.deepEqual(ranked(entries, 'session id'), [['Session-Id', EXACT]]);
+  assert.deepEqual(ranked(entries, 'sessionid'), [['Session-Id', EXACT]]);
+  assert.deepEqual(ranked(entries, 'User Auth'), [['User-Authorization-Type', PREFIX]]);
+  assert.deepEqual(ranked(entries, 'auth user'), [['User-Authorization-Type', ALL_WORDS]]);
+  assert.deepEqual(ranked(entries, 'id session'), [['Session-Id', ALL_WORDS]]);
+  assert.deepEqual(found(entries, 'a b'), ['A-Bort'], 'not Abort, the query breaks where the name does not');
+  assert.deepEqual(found(avps('Destination-Realm'), 'nr'), [], 'separators are not skipped from inside a word');
+});
+
+test('a query may be the initials or word prefixes of a name', () => {
+  const entries = avps('Vendor-Specific-Application-Id', 'Destination-Realm', 'Destination-Host', 'Other-Destination-Realm');
+  assert.deepEqual(ranked(entries, 'vsai'), [['Vendor-Specific-Application-Id', INITIALS]]);
+  assert.deepEqual(ranked(entries, 'vsa'), [['Vendor-Specific-Application-Id', INITIALS]]);
+  assert.deepEqual(ranked(entries, 'destrealm'), [['Destination-Realm', INITIALS], ['Other-Destination-Realm', INITIALS]]);
+  assert.deepEqual(found(entries, 'vendapp'), ['Vendor-Specific-Application-Id'], 'words may be skipped');
+  assert.deepEqual(found(entries, 'sai'), [], 'short initials start at the first word');
+  assert.deepEqual(found(entries, 'vs'), [], 'nothing approximate under three letters');
+  assert.deepEqual(found(entries, 'realmdest'), [], 'prefixes keep their order');
+});
+
+test('typos are within one from five letters and two from nine, separators ignored', () => {
+  const entries = avps('Result', 'Destination-Realm', 'Session-Id');
+  assert.deepEqual(ranked(entries, 'reslt'), [['Result', ONE_TYPO]], 'a letter missing');
+  assert.deepEqual(ranked(entries, 'resutl'), [['Result', ONE_TYPO]], 'letters swapped');
+  assert.deepEqual(ranked(entries, 'reesult'), [['Result', ONE_TYPO]], 'a letter added');
+  assert.deepEqual(ranked(entries, 'destinaton-relm'), [['Destination-Realm', TWO_TYPOS]]);
+  assert.deepEqual(ranked(entries, 'DESTINATON_REALM'), [['Destination-Realm', ONE_TYPO]]);
+  assert.deepEqual(found(entries, 'rslt'), [], 'no typo under five letters');
+  assert.deepEqual(found(entries, 'rezult2'), [], 'a digit is not a typo');
+  assert.deepEqual(found(avps('Abcdefgh'), 'abxdxfgh'), [], 'two typos under nine letters');
+  assert.deepEqual(found(avps('Abcdefghi'), 'abxdxfghi'), ['Abcdefghi']);
+  assert.deepEqual(found(avps('Abcdefghi'), 'axxdxfghi'), [], 'three typos');
+});
+
+test('a typo may be in one word of a name, ending on a word unless the query is long', () => {
+  const entries = avps('Session-Id', 'Mid-Session-Key', 'Status-Code', 'Authorization-Lifetime');
+  assert.deepEqual(ranked(entries, 'sesion'), [['Session-Id', TYPO_IN_WORD], ['Mid-Session-Key', TYPO_IN_WORD]]);
+  assert.deepEqual(ranked(entries, 'authorisat'), [['Authorization-Lifetime', TYPO_IN_WORD]]);
+  assert.deepEqual(found(entries, 'stat'), ['Status-Code'], 'its own prefix');
+  assert.deepEqual(found([...entries, ...avps('State')], 'state'), ['State'], 'Status is two off');
+  assert.deepEqual(found(avps('Request-Type', 'CC-Request'), 'cc request'), ['CC-Request'], 'a word two short is not two typos');
+});
+
+test('precise names rank above approximate ones, which are kept few and labelled by rank', () => {
+  const entries = avps('Sesion', 'Session-Id', 'Mid-Sesion-X', 'Obsesion');
+  const results = searchEntries(entries, 'sesion').avp;
+  assert.deepEqual(results.map(group => [group.name, group.rank]), [['Sesion', EXACT], ['Mid-Sesion-X', WORD], ['Obsesion', SUBSTRING], ['Session-Id', TYPO_IN_WORD]]);
+  assert.deepEqual(results.map(isApproximate), [false, false, false, true]);
+  const many = Array.from({ length: 80 }, (_, index) => avp(`Session-${'x'.repeat(index + 1)}`, 0, index));
+  assert.equal(searchEntries(many, 'sesion').avp.length, 30, 'approximate names are capped');
+  assert.equal(searchEntries([...many, ...avps('Sesion')], 'sesion').avp.length, 31, 'precise ones are not');
+  assert.equal(searchEntries(many, 'session').avp.length, 80);
+  const typos = avps('Abcdefghiz', 'Abcdefghij', 'Abcxefghij', 'Abxxefghij');
+  assert.deepEqual(ranked(typos, 'abcdefghij').map(([, rank]) => rank), [EXACT, ONE_TYPO, ONE_TYPO, TWO_TYPOS]);
+});
+
+test('letters merely in order are the last resort', () => {
+  const entries = avps('Destination-Realm', 'Client-Address', 'Class');
+  assert.deepEqual(ranked(entries, 'dstrlm'), [['Destination-Realm', SUBSEQUENCE]]);
+  assert.deepEqual(found(entries, 'class'), ['Class'], 'not Client-Address, with something better');
+  assert.deepEqual(found(entries, 'xdstrlm'), []);
+  assert.deepEqual(found(avps('Destination-Realm-And-So-On-And-So-Forth'), 'dstrlm'), [], 'too little of the name');
+});
+
+test('numbers and spec numbers are never approximate', () => {
+  const entries = [...avps('Code-29229', 'A26', 'Rel-16', 'Rel-15'), avp('Result-Code', 0, 268), avp('Other', 10415, 268)];
+  assert.deepEqual(found(entries, '29229'), [], 'a number is not part of a name');
+  assert.deepEqual(found(entries, '29.228'), [], 'and one off is not a spec number');
+  assert.deepEqual(found(entries, '267'), []);
+  assert.deepEqual(found(entries, '268'), ['Other', 'Result-Code']);
+  assert.deepEqual(found(entries, 'Rel-15'), ['Rel-15']);
+  assert.deepEqual(found(avps('Rel-16'), 'Rel-15'), [], 'digits are not typos');
+  assert.deepEqual(found(avps('Release-16'), 'relase16'), ['Release-16']);
+  assert.deepEqual(found(avps('Release-17'), 'relase16'), []);
+});
+
+test('an AVP\'s code brings the result codes of its table, and no other value', () => {
+  const value = (name, value_kind, value, avp) => ({ name, kind: 'value', document: 'd', target: null, defined_in: [], wireshark_name: null, abbreviation: null, identity: { kind: 'value', value_kind, value, avp, application: null, feature_list_id: null } });
+  const entries = [
+    avp('Result-Code', 0, 268), avp('Experimental-Result-Code', 0, 298), avp('Feature-List', 10415, 630),
+    value('DIAMETER_SUCCESS', 'result-codes', 2001, 'Result-Code'), value('DIAMETER_ERROR', 'result-codes', 5001, 'Experimental-Result-Code'),
+    value('Bit', 'bits', 268, 'Other'), value('Feature', 'features', 1, 'Feature-List'), value('Numbered', 'result-codes', 268, 'Other'),
+  ];
+  const code = searchEntries(entries, '268');
+  assert.deepEqual(names(code.avp), ['Result-Code']);
+  assert.deepEqual(code.value.map(group => [group.name, group.rank]), [['Numbered', EXACT], ['DIAMETER_SUCCESS', SUBSTRING]]);
+  assert.deepEqual(names(searchEntries(entries, '0:268').value), ['DIAMETER_SUCCESS']);
+  assert.deepEqual(names(searchEntries(entries, '10415:268').value), []);
+  assert.deepEqual(names(searchEntries(entries, '630').value), [], 'only result codes');
+  assert.deepEqual(names(searchEntries(entries, '2001').value), ['DIAMETER_SUCCESS']);
+});
+
+test('what to mark in a name says how it matched', () => {
+  const words = (name, query) => matchSpans(name, query).map(([start, end]) => name.slice(start, end));
+  assert.deepEqual(words('Vendor-Specific-Application-Id', 'vsai'), ['V', 'S', 'A', 'I']);
+  assert.deepEqual(words('Destination-Realm', 'destrealm'), ['Dest', 'Realm']);
+  assert.deepEqual(words('Session-Id', 'sesion'), ['Session']);
+  assert.deepEqual(words('Session-Id', 'session id'), ['Session-Id']);
+  assert.deepEqual(words('Session-Id', 'ion-i'), ['ion-I']);
+  assert.deepEqual(words('Session-Id', 'id session'), ['Session', 'Id']);
+  assert.deepEqual(words('Mission-Session', 'session'), ['Session'], 'a word over a substring');
+  assert.deepEqual(words('Destination-Realm', 'destinaton-realm'), ['Destination-Realm']);
+  assert.deepEqual(words('Destination-Realm', 'dstrlm'), ['D', 'st', 'R', 'lm']);
+  assert.deepEqual(words('Session-Id', 'zzz'), []);
+});
+
+test('a mention marks the query, or its words, and any AVP found by it', () => {
+  const mention = (text, avps = []) => foldMentions([{ text, avps, document: 'd', section: null, line: 0 }])[0];
+  const marks = (item, query, names = []) => mentionSpans(item, query, new Set(names)).map(([start, end]) => item.text.slice(start, end));
+  assert.deepEqual(marks(mention('Session Id and SESSION ID'), 'session id'), ['Session Id', 'SESSION ID']);
+  assert.deepEqual(marks(mention('id of a session'), 'session id'), ['id', 'session']);
+  assert.deepEqual(marks(mention('names Result-Code here', ['Result-Code']), '268', ['Result-Code']), ['Result-Code']);
+  assert.deepEqual(marks(mention('a session only'), 'session id'), [], 'not every word, so no word');
+  assert.deepEqual(marks(mention('aaa'), 'aa'), ['aaa'], 'overlaps merge');
 });
 
 test('aliases find all occurrences without merging different wire identities', () => {
@@ -126,7 +254,7 @@ test('more shows every remaining entry of its group, and only of that group', as
   const { entries } = await readFixture('search.json');
   const base = entries.find(entry => entry.kind === 'avp' && entry.identity && entry.target);
   const extra = Array.from({ length: 47 }, (_, index) => ({ ...base, name: `Zzexpand-${index}`, abbreviation: null, wireshark_name: null, identity: { ...base.identity, code: 900000 + index } }));
-  const mentions = Array.from({ length: 47 }, (_, index) => ({ document: base.document, section: null, line: index + 1, text: `zzexpand ${index}` }));
+  const mentions = Array.from({ length: 47 }, (_, index) => ({ document: base.document, section: null, line: index + 1, text: `zzexpand ${index}`, avps: [] }));
   const page = await boot({ hash: '#search?q=zzexpand', transform: (path, data) => path === 'data/search.json' ? { ...data, entries: [...data.entries, ...extra], mentions: [...data.mentions, ...mentions] } : data });
   try {
     const { document } = page;
@@ -205,4 +333,75 @@ test('bits and features get their own groups', async () => {
       assert.ok(page.document.querySelector(`.search-${kind} summary`).textContent.includes(named(kind).name));
     } finally { await page.close(); }
   }
+});
+
+const manyMentions = (document, count, more = {}) => Array.from({ length: count }, (_, index) => ({ document, section: `5.${index}`, line: index, text: `Zzgroup line ${index} and zzgroup`, avps: [], ...more }));
+const withMentions = (mentions, entries = []) => (path, data) => path === 'data/search.json' ? { ...data, entries: [...data.entries, ...entries], mentions } : data;
+const documentHeadings = document => [...document.querySelectorAll('.mention-document h3 a')].map(node => [node.textContent, node.getAttribute('href')]);
+
+test('mentions group under one heading per document, newest release first', async () => {
+  const mentions = [...manyMentions('29061-6f0', 2), ...manyMentions('29153-j00', 2), { document: '29061-6f0', section: null, line: 7, text: 'zzgroup late', avps: [] }];
+  const page = await boot({ hash: '#search?q=zzgroup', transform: withMentions(mentions) });
+  try {
+    const { document } = page;
+    assert.deepEqual(documentHeadings(document), [['3GPP TS 29.153 V19.0.0', '#29153-j00'], ['3GPP TS 29.061 V6.15.0', '#29061-6f0']]);
+    const groups = [...document.querySelectorAll('.mention-document')];
+    assert.deepEqual(groups.map(group => group.querySelectorAll('li').length), [2, 3], 'a document\'s mentions stay together');
+    const anchor = groups[0].querySelector('li .mention-link');
+    assert.equal(anchor.textContent, '· 5.0');
+    assert.equal(anchor.getAttribute('href'), '#29153-j00/5.0?line=0');
+    assert.ok(!groups[0].querySelector('li').textContent.includes('29.153'), 'the label is only in the heading');
+    assert.deepEqual([...groups[0].querySelector('li code').querySelectorAll('mark')].map(mark => mark.textContent), ['Zzgroup', 'zzgroup']);
+    assert.equal(groups[0].querySelector('li code').textContent, 'Zzgroup line 0 and zzgroup');
+    const bare = groups[1].querySelectorAll('li')[2].querySelector('.mention-link');
+    assert.equal(bare.textContent, '· line 8');
+    assert.equal(bare.getAttribute('href'), '#29061-6f0?line=7');
+  } finally { await page.close(); }
+});
+
+test('the limit counts mentions, and more continues a group it cut', async () => {
+  const mentions = [...manyMentions('29153-j00', 15), ...manyMentions('29061-6f0', 15), ...manyMentions('29109-j00', 5)].map((mention, line) => ({ ...mention, line }));
+  // Two documents of one release keep their file order, so the newest come first whichever they are.
+  const page = await boot({ hash: '#search?q=zzgroup', transform: withMentions(mentions) });
+  try {
+    const { document } = page;
+    assert.equal(document.querySelector('.search-mentions h2').textContent, 'Mentions 35');
+    const counts = () => [...document.querySelectorAll('.mention-document')].map(group => [group.querySelector('h3 a').getAttribute('href'), group.querySelectorAll('li').length]);
+    assert.deepEqual(counts(), [['#29153-j00', 15], ['#29109-j00', 5]], 'whole groups fit');
+    document.querySelector('.search-mentions > button').click();
+    assert.deepEqual(counts(), [['#29153-j00', 15], ['#29109-j00', 5], ['#29061-6f0', 15]]);
+    assert.equal(document.querySelector('.search-mentions > button'), null);
+  } finally { await page.close(); }
+  const cut = await boot({ hash: '#search?q=zzgroup', transform: withMentions([...manyMentions('29153-j00', 25), ...manyMentions('29061-6f0', 3)]) });
+  try {
+    const { document } = cut;
+    const counts = () => [...document.querySelectorAll('.mention-document')].map(group => group.querySelectorAll('li').length);
+    assert.deepEqual(counts(), [20], 'a group is shown in part');
+    document.querySelector('.search-mentions > button').click();
+    assert.deepEqual(counts(), [25, 3], 'and finished in place');
+    assert.equal(document.querySelectorAll('.mention-document h3').length, 2);
+  } finally { await cut.close(); }
+});
+
+test('approximate hits are labelled, counted apart, marked, and bring no mentions', async () => {
+  const { entries } = await readFixture('search.json');
+  const base = entries.find(entry => entry.kind === 'avp' && entry.identity && entry.target);
+  const named = (name, code) => ({ ...base, name, abbreviation: null, wireshark_name: null, identity: { ...base.identity, code: 910000 + code } });
+  const added = [named('Zzsesion', 0), named('Zzsesion-Extra', 1), named('Zzsession-Other', 2)];
+  const mentions = [{ document: base.document, section: '1', line: 0, text: 'names the other one', avps: ['Zzsession-Other'] }, { document: base.document, section: '2', line: 1, text: 'has zzsesion', avps: ['Zzsesion'] }];
+  const page = await boot({ hash: '#search?q=zzsesion', transform: withMentions(mentions, added) });
+  try {
+    const { document } = page;
+    const rows = [...document.querySelectorAll('.search-avp details')];
+    assert.deepEqual(rows.map(row => [row.querySelector('strong').textContent, row.classList.contains('approximate')]), [['Zzsesion', false], ['Zzsesion-Extra', false], ['Zzsession-Other', true]]);
+    assert.equal(rows[2].querySelector('em').textContent, 'approximate');
+    assert.equal(rows[0].querySelector('em'), null);
+    assert.equal(rows[2].querySelector('strong mark').textContent, 'Zzsession');
+    assert.equal(document.querySelector('.search-avp h2').textContent, 'AVPs 2+1 approximate');
+    assert.deepEqual([...document.querySelectorAll('.search-mentions li code')].map(node => node.textContent), ['has zzsesion']);
+  } finally { await page.close(); }
+  const alone = await boot({ hash: '#search?q=zzsesion', transform: withMentions([], added.slice(2)) });
+  try {
+    assert.equal(alone.document.querySelector('.search-avp h2').textContent, 'AVPs 1approximate');
+  } finally { await alone.close(); }
 });

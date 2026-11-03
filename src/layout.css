@@ -125,8 +125,14 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 .search-section details[open] > summary { border-bottom: 1px solid var(--ui-border); }
 .search-section summary strong { font: 600 var(--text-sm)/1.4 var(--mono); overflow-wrap: anywhere; }
 .search-section summary span { margin-left: auto; color: var(--ui-muted); font-size: var(--text-xs); }
+.search-section summary em { color: var(--ui-muted); font-size: var(--text-xs); }
+.search-section .approximate summary strong { font-weight: 400; }
+.mention-document + .mention-document { margin-top: var(--space-3); }
+.mention-document h3 { margin: 0; font: 600 var(--text-sm)/1.5 var(--mono); }
+.search-mentions li { display: flex; align-items: baseline; gap: var(--space-2); }
 .search-mentions li + li { border-top: 1px solid var(--ui-divider); }
-.search-mentions code { display: block; padding-top: var(--space-1); color: var(--ui-muted); font: var(--text-xs)/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mention-link { flex: none; min-width: 8ch; font: var(--text-xs)/1.5 var(--mono); }
+.search-mentions code { flex: 1; min-width: 0; color: var(--ui-muted); font: var(--text-xs)/1.5 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
 mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 
 /* Popup */
