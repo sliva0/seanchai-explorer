@@ -13,10 +13,10 @@ const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = path.join(root, '.smoke-viewer-dist');
 const executablePath = process.env.CHROMIUM ?? '/usr/bin/chromium';
 const specifications = process.env.SEANCHAI_SPECIFICATIONS ?? path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
-const pdf = path.join(specifications, '3gpp/Rel-18/PDF/ts_129061v180100p.pdf');
-const reused = path.join(specifications, '3gpp/Rel-18/PDF/ts_129128v180000p.pdf');
-const values = path.join(specifications, '3gpp/Rel-18/PDF/ts_129272v180700p.pdf');
-const repeating = path.join(specifications, '3gpp/Rel-18/PDF/ts_129468v180000p.pdf');
+const pdf = path.join(specifications, '3gpp/Rel-19/PDF/ts_129061v190100p.pdf');
+const reused = path.join(specifications, '3gpp/Rel-19/PDF/ts_129128v190200p.pdf');
+const values = path.join(specifications, '3gpp/Rel-19/PDF/ts_129272v190600p.pdf');
+const repeating = path.join(specifications, '3gpp/Rel-19/PDF/ts_129468v190000p.pdf');
 const rfc = path.join(specifications, 'rfc/rfc5580.txt');
 const skip = !existsSync(executablePath) ? `no browser at ${executablePath}` : !existsSync(pdf) || !existsSync(rfc) ? `no held PDF and RFC in ${specifications}` : false;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.pdf': 'application/pdf', '.wasm': 'application/wasm' };
@@ -32,7 +32,7 @@ before(async () => {
   server = http.createServer(async (request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
     const name = decodeURIComponent(pathname);
-    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : name === '/29272-i70.pdf' ? values : name === '/29468-i00.pdf' ? repeating : /^\/rfc\d+\.txt$/.test(name) ? path.join(specifications, 'rfc', name.slice(1))
+    const file = name === '/29061-j10.pdf' ? pdf : name === '/29128-j20.pdf' ? reused : name === '/29272-j60.pdf' ? values : name === '/29468-j00.pdf' ? repeating : /^\/rfc\d+\.txt$/.test(name) ? path.join(specifications, 'rfc', name.slice(1))
       : name.startsWith('/pdfjs/') ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
       : path.join(dist, name);
     try {
@@ -79,7 +79,7 @@ test('table 9a of TS 29.061: a row link shows the row, wrapped or not, and selec
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
   try {
-    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-i10.pdf`)}${rowHash('3GPP-Selection-Mode')}`);
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}${rowHash('3GPP-Selection-Mode')}`);
     await settled(page, '3GPP-Selection-Mode');
     const first = await viewerState(page);
     assert.equal(first.page, 131, 'the page after the printed 16a.5 heading and table title');
@@ -102,16 +102,16 @@ test('a row selects its own match, not a mention earlier on the page', { skip: s
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   try {
-    // TS 29.128 table 6.4.1.1, page 42: a row with a match below it, and one with the match of Feature-List-ID above it.
-    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-i00.pdf`)}#page=39&search=6.4.1&name=SCEF-Reference-ID&row=1`);
+    // TS 29.128 table 6.4.1.1, page 43: a row with a match below it, and one with the match of Feature-List-ID above it.
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-j20.pdf`)}#page=39&search=6.4.1&name=SCEF-Reference-ID&row=1`);
     for (const [name, matchIndex] of [['SCEF-Reference-ID', 0], ['Feature-List', 1]]) {
       await page.evaluate(hash => { location.hash = hash; }, `#page=39&search=6.4.1&name=${name}&row=1`);
       await settled(page, name);
       await page.waitForFunction(index => window.PDFViewerApplication.findController.selected.matchIdx === index, matchIndex);
       await page.waitForFunction(text => document.querySelector('.highlight.selected')?.textContent === text, name);
       const state = await viewerState(page);
-      assert.equal(state.page, 42, name);
-      assert.equal(state.selectedPage, 42, name);
+      assert.equal(state.page, 43, name);
+      assert.equal(state.selectedPage, 43, name);
       assert.ok(state.selectedTop >= 0 && state.selectedTop < 30, `${name}: ${JSON.stringify(state)}`);
     }
   } finally { await context.close(); }
@@ -121,12 +121,12 @@ test('a renamed row shows and selects what the source prints', { skip: skip || !
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   try {
-    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-i00.pdf`)}#page=39&search=6.4.1&name=Bearer-Identifier&printed=Bearer-Identity&row=1`);
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-j20.pdf`)}#page=39&search=6.4.1&name=Bearer-Identifier&printed=Bearer-Identity&row=1`);
     await settled(page, 'Bearer-Identity');
     await page.waitForFunction(() => document.querySelector('.highlight.selected')?.textContent === 'Bearer-Identity');
     const state = await viewerState(page);
-    assert.equal(state.page, 42);
-    assert.equal(state.selectedPage, 42);
+    assert.equal(state.page, 43);
+    assert.equal(state.selectedPage, 43);
     assert.ok(state.selectedTop >= 0 && state.selectedTop < 60, JSON.stringify(state));
     assert.equal(await page.inputValue('#find'), 'Bearer-Identity');
   } finally { await context.close(); }
@@ -136,7 +136,7 @@ test('a name no table holds goes to where the source names it, and one it never 
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   try {
-    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-i10.pdf`)}${rowHash('3GPP-Session-Stop-Indicator')}`);
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}${rowHash('3GPP-Session-Stop-Indicator')}`);
     await settled(page, '3GPP-Session-Stop-Indicator');
     const listed = await viewerState(page);
     assert.equal(listed.page, 98);
@@ -156,11 +156,11 @@ test('value rows: bits and features beside their numbers, repeated names, wrappe
   page.on('pageerror', error => errors.push(String(error)));
   try {
     for (const [file, hash, expected] of [
-      ['29272-i70', 'page=124&search=7.3.31&name=GERAN+Not+Allowed&row=1&value=1', { page: 125, text: 'GERAN Not Allowed', query: 'GERAN Not Allowed' }],
-      ['29272-i70', 'page=102&search=7.3.8&name=Separation+Indication&row=1&value=0', { page: 102, text: 'Separation', query: 'Separation Indication' }],
-      ['29272-i70', 'page=102&search=7.3.10.1&name=ODB-HPLMN-APN&row=1&value=1', { page: 104, text: 'ODB-', query: 'ODB-HPLMN-APN' }],
-      ['29272-i70', 'page=176&search=7.4.3.1&name=DIAMETER_ERROR_USER_UNKNOWN&row=1&titled=1', { page: 176, text: 'DIAMETER_ERROR_USER_UNKNOWN', query: 'DIAMETER_ERROR_USER_UNKNOWN' }],
-      ['29468-i00', 'page=27&search=6.4.33&name=System+error&row=1&value=6', { page: 27, text: 'System error', query: 'System error', match: 2 }],
+      ['29272-j60', 'page=126&search=7.3.31&name=GERAN+Not+Allowed&row=1&value=1', { page: 127, text: 'GERAN Not Allowed', query: 'GERAN Not Allowed' }],
+      ['29272-j60', 'page=103&search=7.3.8&name=Separation+Indication&row=1&value=0', { page: 103, text: 'Separation', query: 'Separation Indication' }],
+      ['29272-j60', 'page=103&search=7.3.10.1&name=ODB-HPLMN-APN&row=1&value=1', { page: 106, text: 'ODB-', query: 'ODB-HPLMN-APN' }],
+      ['29272-j60', 'page=180&search=7.4.3.1&name=DIAMETER_ERROR_USER_UNKNOWN&row=1&titled=1', { page: 180, text: 'DIAMETER_ERROR_USER_UNKNOWN', query: 'DIAMETER_ERROR_USER_UNKNOWN' }],
+      ['29468-j00', 'page=27&search=6.4.33&name=System+error&row=1&value=6', { page: 27, text: 'System error', query: 'System error', match: 2 }],
     ]) {
       await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}${file}.pdf`)}#${hash}`);
       await settled(page, expected.query);
