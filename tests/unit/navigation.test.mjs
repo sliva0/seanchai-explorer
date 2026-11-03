@@ -23,6 +23,13 @@ test('a route keeps the pane, raw mode and line it was shared with', () => {
   assert.equal(route.paneHidden, true);
 });
 
+test('a source position survives the route whole', () => {
+  const source = { document: '29061-i10', position: { section: '16.4.7', page: 120, name: 'Ns', exact: true, occurrence: true, row: true } };
+  assert.deepEqual(parseRoute(routeFor({ document: '29061-i10' }, { source })).source, source);
+  const plain = { document: '29061-i10', position: { section: '16.4.7', page: null } };
+  assert.deepEqual(parseRoute(routeFor({ document: '29061-i10' }, { source: plain })).source, plain);
+});
+
 test('a malformed route falls back rather than failing', () => {
   assert.equal(parseRoute('#doc?source=other&page=-2&line=-1').source.position.page, null);
   assert.equal(parseRoute('#doc?source=other&page=-2&line=-1').line, undefined);

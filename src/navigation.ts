@@ -24,6 +24,7 @@ export function routeFor(target: Target, options: RouteOptions = {}): string {
     if (position.page) params.set('page', String(position.page));
     if (position.name) params.set('sourceName', position.name);
     if (position.exact) params.set('exact', '1');
+    if (position.occurrence) params.set('occurrence', '1');
     if (position.row) params.set('row', '1');
   }
   if (options.paneHidden) params.set('pane', '0');
@@ -43,6 +44,7 @@ function parseSource(params: URLSearchParams): PaneState | undefined {
       page: Number.isInteger(page) && page > 0 ? page : null,
       ...(params.has('sourceName') ? { name: params.get('sourceName') } : {}),
       ...(params.get('exact') === '1' ? { exact: true } : {}),
+      ...(params.get('occurrence') === '1' ? { occurrence: true } : {}),
       ...(params.get('row') === '1' ? { row: true } : {}),
     },
   };

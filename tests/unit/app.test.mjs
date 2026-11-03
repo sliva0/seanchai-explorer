@@ -337,6 +337,13 @@ test('the pane is kept in the URL without new history entries, and restored from
   } finally { await opened.close(); }
 });
 
+test('a restored PDF view goes on to the same occurrence', async () => {
+  const page = await boot({ hash: '#29153-i00/5.1?source=29153-i00&sourceSection=5.1&sourceName=Ns&exact=1&occurrence=1', mode: 'self-hosted' });
+  try {
+    assert.equal(new URLSearchParams(new URL(frameSrc(page.document)).hash.slice(1)).get('match'), '1');
+  } finally { await page.close(); }
+});
+
 test('a search typed in the PDF viewer reaches the URL once, and its own find does not', async () => {
   const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted' });
   try {
