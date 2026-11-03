@@ -1,11 +1,9 @@
 export type Theme = 'light' | 'dark';
 
 const KEY = 'seanchai-theme';
-const systemDark = () => matchMedia('(prefers-color-scheme: dark)');
 
-export function resolveTheme(stored: unknown, prefersDark: boolean): Theme {
-  if (stored === 'light' || stored === 'dark') return stored;
-  return prefersDark ? 'dark' : 'light';
+export function resolveTheme(stored: unknown): Theme {
+  return stored === 'dark' ? 'dark' : 'light';
 }
 
 function readStored(): string | null {
@@ -13,13 +11,10 @@ function readStored(): string | null {
 }
 
 function writeStored(theme: Theme) {
-  try {
-    if (theme === resolveTheme(null, systemDark().matches)) localStorage.removeItem(KEY);
-    else localStorage.setItem(KEY, theme);
-  } catch {}
+  try { localStorage.setItem(KEY, theme); } catch {}
 }
 
-/** Applies the stored or OS theme and follows changes from the OS, other tabs and the parent page. */
+/** Applies the stored theme, light by default, and follows changes from other tabs and the parent page. */
 export function initTheme(onChange?: (theme: Theme) => void) {
   let current: Theme;
   const apply = (theme: Theme) => {
@@ -27,15 +22,12 @@ export function initTheme(onChange?: (theme: Theme) => void) {
     document.documentElement.dataset.theme = theme;
     onChange?.(theme);
   };
-  apply(resolveTheme(readStored(), systemDark().matches));
-  systemDark().addEventListener('change', event => {
-    if (readStored() === null) apply(resolveTheme(null, event.matches));
-  });
+  apply(resolveTheme(readStored()));
   window.addEventListener('storage', event => {
-    if (event.key === KEY || event.key === null) apply(resolveTheme(event.newValue, systemDark().matches));
+    if (event.key === KEY || event.key === null) apply(resolveTheme(event.newValue));
   });
   window.addEventListener('message', event => {
-    if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme') apply(resolveTheme(event.data.theme, systemDark().matches));
+    if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme') apply(resolveTheme(event.data.theme));
   });
   return {
     get current() { return current; },

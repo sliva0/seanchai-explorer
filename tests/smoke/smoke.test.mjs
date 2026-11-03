@@ -158,15 +158,18 @@ test('an RFC shows in the pane from shipped text or rfc-editor.org, and the page
   await fetchedRfc.done();
 });
 
-test('the OS theme applies before paint and the reader in the pane follows the toggle', { skip }, async () => {
+test('light applies under a dark OS, the reader in the pane follows the toggle, and the choice survives a reload', { skip }, async () => {
   const { page, done } = await open('#rfc7944', { colorScheme: 'dark' });
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
   const inner = page.frames().find(frame => frame.url().includes('rfc.html'));
   await inner.waitForSelector('.rfc-line', { state: 'attached' });
-  assert.equal(await inner.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  assert.equal(await inner.evaluate(() => document.documentElement.dataset.theme), 'light');
   await page.locator('.theme-toggle').click();
-  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'light');
-  await inner.waitForFunction(() => document.documentElement.dataset.theme === 'light');
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  await inner.waitForFunction(() => document.documentElement.dataset.theme === 'dark');
+  await page.reload();
+  await page.waitForSelector('main #document');
+  assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
   await done();
 });
 
