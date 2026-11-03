@@ -1,4 +1,4 @@
-import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherHome } from './data.ts';
+import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherHome, publisherURL } from './data.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
@@ -55,14 +55,16 @@ function createPaneHeader(source: boolean): HTMLElement {
 
 function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: SourcePosition, site: Site) {
   header.querySelector('h1, h2')!.textContent = docTitle(doc);
+  const kind = paneKind(doc, site.mode);
+  // The PDF viewer shows its own page; the indicator is for panes without one.
   const page = header.querySelector('.source-page');
-  if (page) page.textContent = position.page ? `p. ${position.page}` : '';
+  if (page) page.textContent = position.page && kind !== 'pdf' ? `p. ${position.page}` : '';
   const publisher = header.querySelector<HTMLAnchorElement>('.publisher-link')!;
-  const url = publisherHome(doc);
+  // An RFC's info page lists its renderings; a PDF opens at the page.
+  const url = doc.source.kind === 'rfc-text' ? publisherHome(doc) : publisherURL(doc, position);
   publisher.hidden = !url;
   if (url) decorateFileLink(publisher, url, url.hostname.replace(/^www\./, ''), doc.source.kind === 'etsi-pdf' || url.pathname.toLowerCase().endsWith('.pdf'));
   const local = header.querySelector<HTMLAnchorElement>('.local-link')!;
-  const kind = paneKind(doc, site.mode);
   local.hidden = !doc.source.text && kind !== 'pdf';
   if (kind === 'pdf') {
     const file = dataURL(doc.source.local!);
