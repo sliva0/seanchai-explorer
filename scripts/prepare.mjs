@@ -25,6 +25,7 @@ function runExport(output) {
   if (existsSync(path.join(specifications, 'wireshark'))) args.push('--dictionary', path.join(specifications, 'wireshark'));
   const [command, commandArgs] = root ? ['uv', ['run', '--project', root, 'seanchai', ...args]] : ['seanchai', args];
   const result = spawnSync(command, commandArgs, { cwd: root ?? project, stdio: 'inherit' });
+  if (result.error?.code === 'ENOENT') throw new Error(`${command} not found: install seanchai, or set SEANCHAI_ROOT or SEANCHAI_EXPORT`);
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
