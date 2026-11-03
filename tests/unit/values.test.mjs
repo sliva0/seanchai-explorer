@@ -26,7 +26,7 @@ test('result codes: the row, its number, its clause and where the source prints 
 });
 
 test('bits and features: unquoted names, a mark, the list and the number the source prints', async () => {
-  const { lines } = await fresh('29217-i00');
+  const { lines } = await fresh('29217-j00');
   const tables = valueTables(lines);
   assert.deepEqual([...new Set(tables.map(table => table.kind))].sort(), ['bits', 'features', 'result-codes']);
   const features = tables.find(table => table.kind === 'features');
@@ -89,10 +89,10 @@ test('the exported grammar colours a row\'s name, number and clause or mark, and
   assert.ok(row.tokens.some(token => token.text === '17.8.2' && token.source), 'the clause stays a link of its own');
   const kind = results.find(line => line.tokens.map(token => token.text).join('') === '; Kind: result-codes\n');
   assert.equal(scopeOf(kind, 'result-codes'), 'constant.language.value-kind.dad');
-  const features = (await scoped('29217-i00')).find(line => /= \d+\s+; [MO]\n$/.test(line.tokens.map(token => token.text).join('')));
+  const features = (await scoped('29217-j00')).find(line => /= \d+\s+; [MO]\n$/.test(line.tokens.map(token => token.text).join('')));
   assert.equal(features.tokens[0].scope, 'variable.other.enum.dad');
   assert.equal(scopeOf(features, 'M') ?? scopeOf(features, 'O'), 'string.unquoted.enum-note.dad');
-  const reprint = await scoped('29109-i10');
+  const reprint = await scoped('29109-j00');
   const from = reprint.find(line => line.tokens.map(token => token.text).join('') === '; From: RFC6733\n');
   assert.equal(scopeOf(from, 'From'), 'keyword.other.directive.dad');
   assert.equal(scopeOf(from, 'RFC6733'), 'entity.name.tag.spec-ref.dad');

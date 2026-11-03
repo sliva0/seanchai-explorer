@@ -85,7 +85,7 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
 });
 
 test('public, desktop: ; From: links to the document a reprint comes from', { skip }, async () => {
-  const { page, context, done } = await open('#29109-i10');
+  const { page, context, done } = await open('#29109-j00');
   const pages = [];
   context.on('page', opened => pages.push(opened));
   const from = page.locator('.dad-line', { hasText: /^; From: RFC6733/ }).first().locator('a');
@@ -97,7 +97,7 @@ test('public, desktop: ; From: links to the document a reprint comes from', { sk
 });
 
 test('public, desktop: a name opens the target page in the same tab', { skip }, async () => {
-  const { page, context, done } = await open('#29153-i00');
+  const { page, context, done } = await open('#29153-j00');
   const pages = [];
   context.on('page', opened => pages.push(opened));
   assert.equal(await page.locator('iframe').count(), 0);
@@ -136,7 +136,7 @@ test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { sk
 });
 
 test('lines are blocks reaching the pane edge, at the spacing of one text line', { skip }, async () => {
-  const { page, done } = await open('#29153-i00', { viewport: { width: 1280, height: 800 } });
+  const { page, done } = await open('#29153-j00', { viewport: { width: 1280, height: 800 } });
   const sizes = await page.evaluate(() => {
     const pane = document.querySelector('#document');
     const row = pane.querySelector('.dad-line.striped');
@@ -153,7 +153,7 @@ test('lines are blocks reaching the pane edge, at the spacing of one text line',
     };
   });
   assert.equal(sizes.display, 'block');
-  await page.goto(`${base}#29153-i00?raw=1`);
+  await page.goto(`${base}#29153-j00?raw=1`);
   await page.waitForSelector('.raw-warning');
   assert.equal(await page.locator('.raw-warning').first().evaluate(row => getComputedStyle(row).backgroundColor), 'rgb(255, 240, 210)');
   assert.equal(sizes.rowWidth, sizes.preWidth);

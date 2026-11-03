@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { clauseOnPage, formatOnPage, headingOnPage, looseRowOnPage, matchOnRow, mentionOnPage, rowOnPage, valueRowOnPage } from '../../src/pdf-navigation.ts';
 
-// Text items captured from the ETSI PDFs: [str, x, y, width, height], in content order.
+// Text items captured from the ETSI PDFs, of Release 18 for most: [str, x, y, width, height], in content order. Layouts, kept as captured.
 const pages = JSON.parse(await readFile(new URL('../fixtures/pdf-rows.json', import.meta.url), 'utf8'));
 const items = (doc, page) => pages.find(entry => entry.doc === doc && entry.page === page).items
   .map(([str, x, y, width, height]) => ({ str, transform: [1, 0, 0, 1, x, y], width, height, hasEOL: false }));

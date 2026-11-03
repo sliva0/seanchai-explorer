@@ -6,7 +6,7 @@ const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-a
 const frameSrc = document => document.querySelector('iframe')?.getAttribute('src');
 
 test('public: a name and ; Bases: go to the target page and nothing opens a window', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
     let opened = 0;
@@ -20,7 +20,7 @@ test('public: a name and ; Bases: go to the target page and nothing opens a wind
     await settle();
     assert.equal(window.location.hash, href);
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
-    await page.go('#29153-i00');
+    await page.go('#29153-j00');
     const base = [...document.querySelectorAll('pre a')].find(a => a.getAttribute('href') === '#rfc6733');
     click(page, base);
     await settle();
@@ -30,7 +30,7 @@ test('public: a name and ; Bases: go to the target page and nothing opens a wind
 });
 
 test('public: ; Section: links open the publisher in a new tab', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const section = page.document.querySelector('pre a[target="_blank"][data-token]');
     assert.ok(section.href.startsWith('https://www.etsi.org/'));
@@ -110,12 +110,12 @@ test('switched off: the source is not loaded, names navigate, and a section link
 });
 
 test('self-hosted: PDFs go to the viewer pane at the clause and table row', async () => {
-  const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29153-j00/5.1', mode: 'self-hosted' });
   try {
     const { document } = page;
     const source = new URL(frameSrc(document));
     assert.equal(source.pathname, '/viewer.html');
-    assert.ok(source.searchParams.get('file').endsWith('/data/sources/29153-i00.pdf'));
+    assert.ok(source.searchParams.get('file').endsWith('/data/sources/29153-j00.pdf'));
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('search'), '5.1');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('3GPP TS 29.153'));
     assert.equal(document.querySelector('.source-header .publisher-link span').textContent, 'etsi.org');
@@ -130,7 +130,7 @@ test('self-hosted: PDFs go to the viewer pane at the clause and table row', asyn
 
 // TS 29.153's first table row, as the export would give it if the corpus had renamed or inserted it.
 const withRow = (path, data, kind) => {
-  if (path !== 'data/documents/29153-i00.json') return data;
+  if (path !== 'data/documents/29153-j00.json') return data;
   const corrections = { ...data.corrections, 'TS29.153.py#row': { kind, reason: 'the table misprints it' } };
   let done = false;
   const lines = data.lines.map(line => {
@@ -145,8 +145,8 @@ const withRow = (path, data, kind) => {
 const rowLink = document => [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'Corrected-Name');
 
 test('a renamed row goes to the pane with the spelling the raw mirror holds, which the route leaves out', async () => {
-  const printed = (await readFixture('documents/29153-i00.raw.json')).lines.flatMap(line => line.tokens).find(token => token.source?.row).source.name;
-  const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'correction') });
+  const printed = (await readFixture('documents/29153-j00.raw.json')).lines.flatMap(line => line.tokens).find(token => token.source?.row).source.name;
+  const page = await boot({ hash: '#29153-j00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'correction') });
   try {
     const { document } = page;
     click(page, rowLink(document));
@@ -154,20 +154,20 @@ test('a renamed row goes to the pane with the spelling the raw mirror holds, whi
     const params = new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
     assert.equal(params.get('name'), 'Corrected-Name');
     assert.equal(params.get('printed'), printed);
-    assert.ok(page.fetched.includes('data/documents/29153-i00.raw.json'));
+    assert.ok(page.fetched.includes('data/documents/29153-j00.raw.json'));
     assert.ok(!page.window.location.hash.includes('printed'), page.window.location.hash);
   } finally { await page.close(); }
 });
 
 test('an inserted row has no raw spelling, and a plain row does not load the raw mirror', async () => {
-  const inserted = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'insert') });
+  const inserted = await boot({ hash: '#29153-j00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'insert') });
   try {
     click(inserted, rowLink(inserted.document));
     await settle();
     const params = new URLSearchParams(new URL(frameSrc(inserted.document)).hash.slice(1));
     assert.equal(params.get('name'), 'Corrected-Name');
     assert.equal(params.get('printed'), null);
-    assert.ok(!inserted.fetched.includes('data/documents/29153-i00.raw.json'));
+    assert.ok(!inserted.fetched.includes('data/documents/29153-j00.raw.json'));
   } finally { await inserted.close(); }
 });
 
@@ -195,7 +195,7 @@ test('the page indicator follows the reader, with shipped text and without', asy
 });
 
 test('notes expand, comments are styled by kind and raw lines are marked', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const { document } = page;
     const note = document.querySelector('pre .correction-toggle');
@@ -208,7 +208,7 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
     assert.equal(note.getAttribute('aria-expanded'), 'true');
     click(page, note);
     assert.equal(detail.hidden, true);
-    await page.go('#29153-i00?raw=1');
+    await page.go('#29153-j00?raw=1');
     assert.ok([...document.querySelectorAll('#controls a')].some(a => a.textContent === 'Corrected'));
     assert.ok(document.querySelector('pre .raw-warning'));
     assert.equal(document.querySelector('pre .correction-toggle'), null);
@@ -234,7 +234,7 @@ test('search data is fetched on the search page only', async () => {
   const page = await boot();
   try {
     assert.ok(!page.fetched.includes('data/search.json'));
-    await page.go('#29153-i00');
+    await page.go('#29153-j00');
     assert.ok(!page.fetched.includes('data/search.json'));
     await page.go('#search?q=Sd');
     assert.ok(page.fetched.includes('data/search.json'));
@@ -274,11 +274,11 @@ test('the versions an export leaves out are left out', async () => {
 });
 
 test('the raw link is worked out when clicked, from the top visible section', async () => {
-  const page = await boot({ hash: '#29153-i00/5.1?name=Ns' });
+  const page = await boot({ hash: '#29153-j00/5.1?name=Ns' });
   try {
     const { document, window } = page;
     const toggle = [...document.querySelectorAll('#controls a')].find(a => a.textContent === 'Raw');
-    assert.equal(toggle.getAttribute('href'), '#29153-i00/5.1?raw=1&name=Ns');
+    assert.equal(toggle.getAttribute('href'), '#29153-j00/5.1?raw=1&name=Ns');
     const pane = document.querySelector('#document');
     const rows = [...pane.querySelectorAll('.dad-line[data-section]')];
     const visible = rows.findIndex(row => row.dataset.section !== rows[0].dataset.section);
@@ -291,13 +291,13 @@ test('the raw link is worked out when clicked, from the top visible section', as
     };
     toggle.addEventListener('click', event => event.preventDefault());
     click(page, toggle);
-    assert.equal(toggle.getAttribute('href'), `#29153-i00/${rows[visible].dataset.section}?raw=1`);
+    assert.equal(toggle.getAttribute('href'), `#29153-j00/${rows[visible].dataset.section}?raw=1`);
     window.HTMLElement.prototype.getBoundingClientRect = rect;
   } finally { await page.close(); }
 });
 
 test('the occurrences control lists a name on a plain tap, and Esc returns focus to it', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
     const control = document.querySelector('.occurrences-toggle');
@@ -333,7 +333,7 @@ test('the occurrences control lists a name on a plain tap, and Esc returns focus
 });
 
 test('alt-click and the context-menu key still list occurrences', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
     const name = document.querySelector('pre a[data-avp]');
@@ -377,14 +377,14 @@ test('the pane is kept in the URL without new history entries, and restored from
 });
 
 test('a restored PDF view goes on to the same occurrence', async () => {
-  const page = await boot({ hash: '#29153-i00/5.1?source=29153-i00&sourceSection=5.1&sourceName=Ns&exact=1&occurrence=1', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29153-j00/5.1?source=29153-j00&sourceSection=5.1&sourceName=Ns&exact=1&occurrence=1', mode: 'self-hosted' });
   try {
     assert.equal(new URLSearchParams(new URL(frameSrc(page.document)).hash.slice(1)).get('match'), '1');
   } finally { await page.close(); }
 });
 
 test('a search typed in the PDF viewer reaches the URL once, and its own find does not', async () => {
-  const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29153-j00/5.1', mode: 'self-hosted' });
   try {
     const { document, window } = page;
     const frame = document.querySelector('iframe');
@@ -395,7 +395,7 @@ test('a search typed in the PDF viewer reaches the URL once, and its own find do
     window.history.replaceState = (...args) => { replaced++; replaceState(...args); };
     const send = query => window.dispatchEvent(new window.MessageEvent('message', { origin: window.location.origin, source: frame.contentWindow, data: { type: 'seanchai-pdf-matches', file, query, current: 1, total: 2 } }));
     send('5.1');
-    assert.equal(window.location.hash, '#29153-i00/5.1');
+    assert.equal(window.location.hash, '#29153-j00/5.1');
     assert.equal(replaced, 0);
     send('Rx-Request-Type');
     send('Rx-Request-Type');
@@ -420,16 +420,16 @@ test('a switched-off pane is kept in the URL, and following a name leaves its po
     toggle.dispatchEvent(new window.Event('change'));
     assert.match(window.location.hash, /pane=0/);
   } finally { await page.close(); }
-  const left = await boot({ hash: '#29153-i00' });
+  const left = await boot({ hash: '#29153-j00' });
   try {
     const { window, document } = left;
     let replaced;
     const replaceState = window.history.replaceState.bind(window.history);
     window.history.replaceState = (state, title, url) => { replaced = url; replaceState(state, title, url); };
     click(left, document.querySelector('pre a[data-avp]'));
-    assert.match(replaced, /^#29153-i00\?top=\d+$/);
+    assert.match(replaced, /^#29153-j00\?top=\d+$/);
     await settle();
-    assert.ok(!window.location.hash.startsWith('#29153-i00'));
+    assert.ok(!window.location.hash.startsWith('#29153-j00'));
   } finally { await left.close(); }
 });
 
@@ -465,12 +465,12 @@ test('each route sets its title and heading, and navigation moves focus', async 
     const { document, window } = page;
     assert.equal(document.title, 'Seanchaí');
     assert.notEqual(document.activeElement, document.querySelector('main'), 'not on first load');
-    await page.go('#29153-i00');
-    assert.equal(document.title, '3GPP TS 29.153 V18.0.0 — Seanchaí');
+    await page.go('#29153-j00');
+    assert.equal(document.title, '3GPP TS 29.153 V19.0.0 — Seanchaí');
     const heading = document.querySelector('main h1');
-    assert.match(heading.textContent, /^3GPP TS 29\.153 V18\.0\.0 — /);
+    assert.match(heading.textContent, /^3GPP TS 29\.153 V19\.0\.0 — /);
     assert.equal(document.activeElement, heading);
-    await page.go('#29153-i00/5.1');
+    await page.go('#29153-j00/5.1');
     assert.equal(document.activeElement, document.getElementById('section-5.1'));
     await page.go('#search');
     assert.equal(document.title, 'Search — Seanchaí');
@@ -480,7 +480,7 @@ test('each route sets its title and heading, and navigation moves focus', async 
     assert.equal(document.activeElement, document.querySelector('main'));
     const skip = document.querySelector('.skip-link');
     assert.equal(document.querySelector('#app').firstElementChild, skip);
-    await page.go('#29153-i00');
+    await page.go('#29153-j00');
     const before = window.location.hash;
     click(page, skip);
     assert.equal(document.activeElement, document.querySelector('#document'));
@@ -511,12 +511,12 @@ test('sections, findings and holes link to their clause in the current view', as
 });
 
 test('a mention link marks its line, a later route clears it, and loading says so', async () => {
-  const page = await boot({ hash: '#29153-i00/5.1?line=12' });
+  const page = await boot({ hash: '#29153-j00/5.1?line=12' });
   try {
     const { document } = page;
     const line = document.querySelector('.target-line');
     assert.equal(line.dataset.line, '12');
-    await page.go('#29153-i00/5.1');
+    await page.go('#29153-j00/5.1');
     assert.equal(document.querySelector('.target-line'), null);
     page.window.location.hash = '#29061-6f0';
     await new Promise(resolve => setTimeout(resolve, 0));
@@ -528,7 +528,7 @@ test('a mention link marks its line, a later route clears it, and loading says s
 });
 
 test('a shared pane state the build cannot show falls back to the document itself', async () => {
-  const page = await boot({ hash: '#rfc7944?source=29153-i00&sourceSection=5.1' });
+  const page = await boot({ hash: '#rfc7944?source=29153-j00&sourceSection=5.1' });
   try {
     const source = new URL(page.document.querySelector('iframe').getAttribute('src'));
     assert.equal(source.pathname, '/rfc.html');
@@ -570,11 +570,11 @@ test('public: a value name shows its table, with its AVP and source, and walks t
 });
 
 test('self-hosted: a value name and its clause drive the pane to the row, and the table to its number', async () => {
-  const page = await boot({ hash: '#29217-i00', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29217-j00', mode: 'self-hosted' });
   try {
     const { document } = page;
     const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
-    const doc = await readFixture('documents/29217-i00.json');
+    const doc = await readFixture('documents/29217-j00.json');
     const { valueTables } = await import('../../src/values.ts');
     const bits = valueTables(doc.lines).find(table => table.kind === 'bits');
     const row = bits.rows[0];
@@ -607,7 +607,7 @@ test('self-hosted: a link to a row opens the pane there and survives a reload of
 });
 
 test('; From: links to the document a reprint comes from, and the block\'s names to theirs', async () => {
-  const page = await boot({ hash: '#29109-i10' });
+  const page = await boot({ hash: '#29109-j00' });
   try {
     const { document, window } = page;
     const lines = [...document.querySelectorAll('.dad-line')];
@@ -624,7 +624,7 @@ test('; From: links to the document a reprint comes from, and the block\'s names
 });
 
 test('the section list says what a clause\'s value tables hold', async () => {
-  const page = await boot({ hash: '#29217-i00' });
+  const page = await boot({ hash: '#29217-j00' });
   try {
     const items = [...page.document.querySelectorAll('.section-list li')].map(item => item.textContent);
     assert.ok(items.some(item => /Value Table \S+ · Bits \(\d+\)/.test(item)), items.join('\n'));

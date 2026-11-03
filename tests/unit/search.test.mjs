@@ -153,7 +153,7 @@ test('a search matching nothing has no headings', async () => {
 });
 
 test('the header links to the index and search, and / is left to the browser', async () => {
-  const page = await boot({ hash: '#29153-i00' });
+  const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
     assert.deepEqual([...document.querySelectorAll('header nav a')].map(node => [node.textContent, node.getAttribute('href')]), [['Index', '#'], ['Search', '#search']]);
