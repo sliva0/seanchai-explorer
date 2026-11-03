@@ -7,6 +7,9 @@ header { padding: 0.45rem 0.9rem; border-bottom: 1px solid var(--ui-border); bac
 nav { gap: 0.6rem; font-size: 0.9rem; }
 nav a { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); font-weight: 600; text-decoration: none; }
 nav a:hover { background: var(--ui-hover); border-color: var(--ui-muted); }
+.header-search { flex: 0 1 18rem; min-width: 8rem; }
+.header-search[hidden] { display: none; }
+.header-search input { width: 100%; height: 28px; padding: 0 0.5rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-fg); background: var(--ui-bg); font-size: 0.85rem; }
 .header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
 .header-actions [hidden], .pane-actions [hidden] { display: none; }
 .theme-toggle { display: inline-flex; align-items: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-link); background: var(--ui-bg); font: 600 0.9rem system-ui, sans-serif; cursor: pointer; text-decoration: none; }
@@ -68,6 +71,8 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 .correction-toggle { display: inline; padding: 0; border: 0; border-bottom: 1px dotted var(--ui-muted); background: none; color: inherit; font: inherit; font-style: inherit; line-height: inherit; vertical-align: baseline; cursor: pointer; text-align: left; }
 .correction-detail { white-space: normal; }
 #search-results details { margin-block: 0.75rem; }
+h1 { margin-block: 0.5rem; font-size: 1.4rem; }
+h1:focus { outline: none; }
 .index-view li { padding-block: 0.35rem; line-height: 1.6; }
 .index-view section { margin-bottom: 2rem; }
 .index-view li p { margin: 0.2rem 0 0.5rem; max-width: 80ch; font-size: 0.85rem; color: var(--ui-muted); }

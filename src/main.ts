@@ -20,11 +20,23 @@ indexLink.href = '#';
 const searchLink = element('a', 'Search');
 searchLink.href = '#search';
 nav.append(indexLink, searchLink);
+const searchForm = element('form', undefined, 'header-search');
+searchForm.setAttribute('role', 'search');
+const searchInput = element('input');
+searchInput.type = 'search';
+searchInput.placeholder = 'Search ( / )';
+searchInput.setAttribute('aria-label', 'Search');
+searchForm.append(searchInput);
+searchForm.onsubmit = event => {
+  event.preventDefault();
+  location.hash = `#search?q=${encodeURIComponent(searchInput.value.trim())}`;
+  searchInput.value = '';
+};
 const themeButton = element('button', undefined, 'theme-toggle');
 themeButton.type = 'button';
 const headerActions = element('div', undefined, 'header-actions');
 headerActions.append(themeButton);
-header.append(nav, headerActions);
+header.append(nav, searchForm, headerActions);
 const content = element('main');
 content.id = 'content';
 document.querySelector('#app')!.replaceChildren(header, content);
@@ -36,6 +48,12 @@ const theme = initTheme(value => {
   pane?.postTheme();
 });
 themeButton.onclick = () => theme.toggle();
+document.addEventListener('keydown', event => {
+  const typing = (event.target as Element).closest?.('input, textarea, select, [contenteditable]');
+  if (event.key !== '/' || typing || event.ctrlKey || event.metaKey || event.altKey) return;
+  event.preventDefault();
+  (content.querySelector<HTMLInputElement>('.search-form input') ?? searchInput).focus();
+});
 
 function showError(error: unknown) {
   content.className = '';
@@ -75,6 +93,7 @@ try {
     popup.close();
     const generation = ++request;
     const parsed = parseRoute(location.hash);
+    searchForm.hidden = parsed.document === 'search';
     if (!parsed.document) { leaveDocument('index-view'); renderIndex(content, site); return; }
     if (parsed.document === 'search') {
       leaveDocument('');
