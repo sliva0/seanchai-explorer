@@ -6,5 +6,5 @@ dist/
 public/data/
 public/pdfjs/
 .data-tmp/
-export/
+/export/
 .smoke-dist/

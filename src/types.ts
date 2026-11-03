@@ -1,5 +1,5 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export type SeanchaiExport = Index | Search | Document | RawDocument;
 /**
@@ -211,7 +211,7 @@ export interface Document {
   reference: string;
   release: number | null;
   schema_version: number;
-  sections: Citation[];
+  sections: Section[];
   source: Source;
   specification: string;
   title: string;
@@ -311,6 +311,16 @@ export interface Citation {
   page?: number | null;
   row?: boolean;
   section: string;
+}
+/**
+ * A clause of the file, for its table of contents. `title` is what the file
+ * places there: "Message User-Data-Request", "AVP Table", "Grouped AVP
+ * Server-Capabilities", or "AVP PCSCF-FQDN" for a clause only a table row names.
+ */
+export interface Section {
+  page: number | null;
+  section: string;
+  title: string;
 }
 /**
  * `documents/<id>.raw.json`: the raw mirror of a file, for the raw view.

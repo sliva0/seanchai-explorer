@@ -17,6 +17,13 @@ test('every fixture file satisfies the schema the export ships', async () => {
   assert.equal(validate({ schema_version: SCHEMA_VERSION + 1, id: 'x', lines: [] }), false);
 });
 
+test('the committed grammar is the one the fixture export carries', async () => {
+  assert.deepEqual(
+    await readFile(new URL('../../public/syntax/dad.tmLanguage.json', import.meta.url)),
+    await readFile(new URL('syntax/dad.tmLanguage.json', fixture)),
+  );
+});
+
 test('src/types.ts is what the schema generates', async () => {
   assert.equal(await readFile(new URL('../../src/types.ts', import.meta.url), 'utf8'), await generateTypes(schema));
   assert.equal((await readFixture('index.json')).schema_version, SCHEMA_VERSION);
