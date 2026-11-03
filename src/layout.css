@@ -32,7 +32,8 @@ button, input, select { font: inherit; }
 #diagnostics ul { margin: 0.5rem 0; padding-left: 1.4rem; }
 #diagnostics li { max-width: 100ch; line-height: 1.6; overflow-wrap: anywhere; white-space: normal; }
 #diagnostics li + li { margin-top: 0.65rem; }
-.section-list { columns: 9rem; padding-left: 0 !important; list-style: none; }
+.section-list { columns: 22rem; padding-left: 0 !important; list-style: none; }
+.section-list li { break-inside: avoid; }
 .occurrences-toggle { padding: 0.1rem 0.45rem; border: 1px solid var(--ui-border); border-radius: 3px; background: var(--ui-bg); color: var(--ui-link); cursor: pointer; }
 .occurrences-toggle[aria-pressed="true"] { border-color: var(--ui-link); background: var(--ui-hover); font-weight: 600; }
 summary { cursor: pointer; }

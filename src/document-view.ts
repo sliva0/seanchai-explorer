@@ -85,9 +85,9 @@ function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
   const sections = element('details');
   sections.append(element('summary', `Sections (${doc.sections.length})`));
   const list = element('ul', undefined, 'section-list');
-  for (const { section, page } of doc.sections) {
+  for (const { section, page, title } of doc.sections) {
     const item = element('li');
-    item.append(sectionLink(section));
+    item.append(sectionLink(section), ` ${title}`);
     if (page) item.append(` · p. ${page}`);
     list.append(item);
   }

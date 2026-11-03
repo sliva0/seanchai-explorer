@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { boot, click, settle } from './helpers.mjs';
+import { boot, click, readFixture, settle } from './helpers.mjs';
 
 const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
 const frameSrc = document => document.querySelector('iframe')?.getAttribute('src');
@@ -405,7 +405,8 @@ test('sections, findings and holes link to their clause in the current view', as
     const [sections, findings, holes] = document.querySelectorAll('#diagnostics > details');
     assert.match(sections.querySelector('summary').textContent, /^Sections \(\d+\)$/);
     const first = sections.querySelector('li');
-    assert.match(first.textContent, /^[\d.]+ · p\. \d+$/);
+    const { sections: listed } = await readFixture('documents/29061-6f0.json');
+    assert.equal(first.textContent, `${listed[0].section} ${listed[0].title} · p. ${listed[0].page}`);
     assert.match(first.querySelector('a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
     assert.equal(findings.querySelector('li a').getAttribute('href'), '#29061-6f0/5.1');
     assert.ok(holes.querySelector('li a'), 'a hole links to its clause');
