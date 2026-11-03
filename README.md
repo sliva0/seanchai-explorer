@@ -69,7 +69,7 @@ tests hold it to the exported one.
 
 `src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
 `schema.json`, and the site refuses another schema version before fetching anything
-else. `tests/fixtures/export` is three real documents cut from a real public export.
+else. `tests/fixtures/export` is five real documents cut from a real public export.
 After the export changes:
 
 ```sh

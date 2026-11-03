@@ -66,7 +66,7 @@ function rankText(entry: SearchEntry, needle: string): number | null {
  * is matched against what it identifies for each kind, never as part of a name.
  */
 export function searchEntries(entries: SearchEntry[], query: string, summary: (id: string) => Releases = () => undefined): EntryResults {
-  const results: EntryResults = { avp: [], command: [], application: [], registry: [] };
+  const results: EntryResults = { avp: [], command: [], application: [], registry: [], value: [] };
   const needle = query.trim().toLocaleLowerCase();
   if (!needle) return results;
   const pair = needle.match(/^(\d+)\s*[:/]\s*(\d+)$/);

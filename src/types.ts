@@ -1,5 +1,5 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 4;
+export const SCHEMA_VERSION = 5;
 
 export type SeanchaiExport = Index | Search | Document | RawDocument;
 /**
@@ -44,6 +44,10 @@ export type DataType =
  * result codes (8.1.2-8.1.4).
  */
 export type RegistryKind = 'Application IDs' | 'Command Codes' | 'AVP Codes' | 'Result Codes';
+/**
+ * What the numbers of a `ValueTable` are, as `; Kind:` writes it.
+ */
+export type ValueKind = 'result-codes' | 'bits' | 'features';
 export type Severity = 'error' | 'note' | 'accepted';
 /**
  * AVP header bits an AVP table's flag-rule columns can name.
@@ -120,8 +124,8 @@ export interface SearchEntry {
   data_type: DataType | null;
   defined_in: string[];
   document: string;
-  identity: AvpIdentity | CommandIdentity | ApplicationIdentity | RegistryIdentity | null;
-  kind: 'avp' | 'command' | 'application' | 'registry';
+  identity: AvpIdentity | CommandIdentity | ApplicationIdentity | RegistryIdentity | ValueIdentity | null;
+  kind: 'avp' | 'command' | 'application' | 'registry' | 'value';
   name: string;
   target: Target | null;
   wireshark_name: string | null;
@@ -174,6 +178,19 @@ export interface RegistryIdentity {
   code: number;
   kind: 'registry';
   registry: RegistryKind;
+}
+/**
+ * A name a value table gives a number: `value_kind` says of which sort, and
+ * `avp` of which AVP; a feature's `application` and `feature_list_id` say which
+ * list, as the table's caption does.
+ */
+export interface ValueIdentity {
+  application: string | null;
+  avp: string;
+  feature_list_id: number | null;
+  kind: 'value';
+  value: number;
+  value_kind: ValueKind;
 }
 /**
  * Where a link goes: a document's page, at a clause when `section` is set.
