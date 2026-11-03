@@ -60,9 +60,10 @@ npm run test:build          # one real build per mode, overwrites public/data an
 npm run test:smoke          # headless Chromium over a fixture build; CHROMIUM=path to choose the browser
 ```
 
-`public/syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for
-an export that lacks one; a build copies the export's over it, so a change shows up
-in `git diff`, and the tests hold the committed copy to the exported one.
+`syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
+that lacks one. A build copies the export's grammar, or else this one, to the generated
+`public/syntax/` and never changes this one. `npm run fixture` refreshes it, and the
+tests hold it to the exported one.
 
 ## The export contract
 

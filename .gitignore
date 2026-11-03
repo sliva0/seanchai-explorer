@@ -4,6 +4,7 @@ dist/
 *.local
 .DS_Store
 public/data/
+public/syntax/
 public/pdfjs/
 .data-tmp/
 /export/

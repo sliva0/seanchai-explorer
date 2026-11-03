@@ -3,7 +3,7 @@ import { Window } from 'happy-dom';
 
 export const fixture = new URL('../fixtures/export/', import.meta.url);
 export const readFixture = async file => JSON.parse(await readFile(new URL(file, fixture), 'utf8'));
-const grammar = new URL('../../public/syntax/dad.tmLanguage.json', import.meta.url);
+const grammar = new URL('../../syntax/dad.tmLanguage.json', import.meta.url);
 
 /** A self-hosted variant of the fixture: every ETSI document has a local PDF. */
 function asSelfHosted(data) {

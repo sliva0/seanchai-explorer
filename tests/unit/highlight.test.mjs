@@ -4,7 +4,7 @@ import test from 'node:test';
 import { createHighlighter } from '../../src/highlight.ts';
 import { fixture } from './helpers.mjs';
 
-const grammar = JSON.parse(await readFile(new URL('../../public/syntax/dad.tmLanguage.json', import.meta.url), 'utf8'));
+const grammar = JSON.parse(await readFile(new URL('../../syntax/dad.tmLanguage.json', import.meta.url), 'utf8'));
 const highlight = createHighlighter(grammar);
 const line = text => ({ tokens: [{ text: `${text}\n` }] });
 const scopeFor = (line, text) => line.tokens.find(token => token.text === text)?.scope;

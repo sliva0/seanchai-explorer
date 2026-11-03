@@ -48,12 +48,10 @@ await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });
 await rename(temporary, data);
 
-// The export's grammar is the one to use; the committed copy is for an export without one.
+// The export's grammar is the one to use; the committed fallback is for an export without one.
 const grammar = path.join(data, 'syntax/dad.tmLanguage.json');
-if (existsSync(grammar)) {
-  await mkdir(path.join(project, 'public/syntax'), { recursive: true });
-  await cp(grammar, path.join(project, 'public/syntax/dad.tmLanguage.json'));
-}
+await mkdir(path.join(project, 'public/syntax'), { recursive: true });
+await cp(existsSync(grammar) ? grammar : path.join(project, 'syntax/dad.tmLanguage.json'), path.join(project, 'public/syntax/dad.tmLanguage.json'));
 
 await rm(pdfjsOut, { recursive: true, force: true });
 if (selfHosted) {

@@ -1,4 +1,4 @@
-// Regenerates tests/fixtures/export from a real export: node scripts/make-fixture.mjs [export-dir]
+// Regenerates tests/fixtures/export and the fallback grammar from a real export: node scripts/make-fixture.mjs [export-dir]
 import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -24,6 +24,7 @@ await write('search.json', {
 });
 await cp(path.join(from, 'schema.json'), path.join(to, 'schema.json'));
 await cp(path.join(from, 'syntax'), path.join(to, 'syntax'), { recursive: true });
+await cp(path.join(from, 'syntax/dad.tmLanguage.json'), fileURLToPath(new URL('../syntax/dad.tmLanguage.json', import.meta.url)));
 for (const doc of index.documents.filter(doc => wanted.has(doc.id))) {
   await cp(path.join(from, doc.path), path.join(to, doc.path));
   await cp(path.join(from, doc.raw), path.join(to, doc.raw));

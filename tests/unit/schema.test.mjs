@@ -19,7 +19,7 @@ test('every fixture file satisfies the schema the export ships', async () => {
 
 test('the committed grammar is the one the fixture export carries', async () => {
   assert.deepEqual(
-    await readFile(new URL('../../public/syntax/dad.tmLanguage.json', import.meta.url)),
+    await readFile(new URL('../../syntax/dad.tmLanguage.json', import.meta.url)),
     await readFile(new URL('syntax/dad.tmLanguage.json', fixture)),
   );
 });
