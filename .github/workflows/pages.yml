@@ -1,0 +1,74 @@
+name: Deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      seanchai_git_ref:
+        description: Install seanchai from this ref of its repository instead of PyPI
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  # Set the repository variable, or the input above, to use a ref of the repository.
+  SEANCHAI_GIT_REF: ${{ inputs.seanchai_git_ref || vars.SEANCHAI_GIT_REF }}
+  SEANCHAI_REPOSITORY: https://github.com/sliva0/senchai
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+      - uses: astral-sh/setup-uv@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # From PyPI, or from the repository's two workspace packages for a given ref
+      # or while no release is published.
+      - name: Install seanchai
+        run: |
+          uv venv --python 3.14 "$RUNNER_TEMP/seanchai"
+          export VIRTUAL_ENV="$RUNNER_TEMP/seanchai"
+          if [ -n "$SEANCHAI_GIT_REF" ] || ! uv pip install 'seanchai[corpus]'; then
+            ref="${SEANCHAI_GIT_REF:-main}"
+            uv pip install "seanchai @ git+$SEANCHAI_REPOSITORY@$ref" \
+              "seanchai-corpus @ git+$SEANCHAI_REPOSITORY@$ref#subdirectory=packages/seanchai-corpus"
+          fi
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
+      - name: Export the corpus
+        run: seanchai export -o export
+      - run: npm ci
+      - name: Build the public site
+        run: npm run build
+        env:
+          SEANCHAI_EXPORT: export
+      - name: Check no PDF is published
+        run: |
+          if find dist -iname '*.pdf' | grep .; then exit 1; fi
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
