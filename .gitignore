@@ -7,3 +7,4 @@ public/data/
 public/pdfjs/
 .data-tmp/
 export/
+.smoke-dist/

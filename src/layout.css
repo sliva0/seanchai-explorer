@@ -15,7 +15,7 @@ nav a.site-name { padding-inline: 0.25rem; border-color: transparent; background
 .header-actions [hidden], .pane-actions [hidden] { display: none; }
 .theme-toggle { display: inline-flex; align-items: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-link); background: var(--ui-bg); font: 600 0.9rem system-ui, sans-serif; cursor: pointer; text-decoration: none; }
 .theme-toggle:hover { background: var(--ui-hover); }
-:root[data-theme="dark"] .skip-link { position: absolute; z-index: 200; top: -4rem; left: 0.5rem; padding: 0.4rem 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); }
+.skip-link { position: absolute; z-index: 200; top: -4rem; left: 0.5rem; padding: 0.4rem 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); }
 .skip-link:focus { top: 0.5rem; }
 a { color: var(--ui-link); text-underline-offset: 2px; }
 a:hover { color: var(--ui-link-hover); }
