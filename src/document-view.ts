@@ -101,6 +101,20 @@ function renderHoles(doc: Document): HTMLElement {
   return holes;
 }
 
+/** The first line at or below the pane's top edge that `filter` selects. */
+function topRow(documentPane: HTMLElement, filter: string): HTMLElement | undefined {
+  const rows = documentPane.querySelectorAll<HTMLElement>(`.dad-line${filter}`);
+  const top = documentPane.getBoundingClientRect().top;
+  let first = 0;
+  let last = rows.length;
+  while (first < last) {
+    const middle = Math.floor((first + last) / 2);
+    if (rows[middle].getBoundingClientRect().bottom <= top) first = middle + 1;
+    else last = middle;
+  }
+  return rows[first] ?? rows[rows.length - 1];
+}
+
 export interface DocumentView {
   doc: Document;
   raw: boolean;
@@ -114,18 +128,33 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   const lines = services.highlight(raw ? raw.lines : doc.lines);
   const controls = element('section');
   controls.id = 'controls';
+  const documentPane = element('section');
+  documentPane.id = 'document';
   if (doc.raw) {
-    const route = parseRoute(location.hash);
     const toggle = element('a', raw ? 'Corrected' : 'Raw');
-    toggle.href = routeFor({ document: doc.id, section: route.section || null, name: route.name }, { raw: !raw });
+    const refresh = () => {
+      const route = parseRoute(location.hash);
+      const section = topRow(documentPane, '[data-section]')?.dataset.section ?? route.section;
+      toggle.href = routeFor({ document: doc.id, section: section || null, name: section === route.section ? route.name : undefined }, { raw: !raw, source: route.source, paneHidden: route.paneHidden });
+    };
+    refresh();
+    for (const type of ['click', 'auxclick', 'contextmenu']) toggle.addEventListener(type, refresh);
     controls.append(toggle);
   }
+  let occurrences = false;
+  const occurrencesToggle = element('button', 'Occurrences', 'occurrences-toggle');
+  occurrencesToggle.type = 'button';
+  occurrencesToggle.title = 'Tap a name to list where this document uses it';
+  occurrencesToggle.setAttribute('aria-pressed', 'false');
+  occurrencesToggle.onclick = () => {
+    occurrences = !occurrences;
+    occurrencesToggle.setAttribute('aria-pressed', String(occurrences));
+  };
+  controls.append(occurrencesToggle);
   const workspace = element('div');
   workspace.id = 'workspace';
   pane.mount(workspace, doc);
   if (pane.toggle) controls.append(pane.toggle);
-  const documentPane = element('section');
-  documentPane.id = 'document';
   const pre = renderLines(lines, doc, site);
   documentPane.append(pre);
   workspace.insertBefore(documentPane, workspace.children[1] ?? null);
@@ -160,7 +189,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       paneOpen: pane.isOpen(),
       sourceInPane: pane.canShow(),
       paneAvailable: document => pane.paneAvailable(site.summary(document)),
-      occurrences: false,
+      occurrences,
     });
     if (action.type === 'browser') return;
     event.preventDefault();

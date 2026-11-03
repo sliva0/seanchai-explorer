@@ -231,3 +231,75 @@ test('the versions an export leaves out are left out', async () => {
     assert.ok(!page.document.querySelector('.versions').textContent.includes('Corpus'));
   } finally { await page.close(); }
 });
+
+test('the raw link is worked out when clicked, from the top visible section', async () => {
+  const page = await boot({ hash: '#29153-i00/5.1?name=Ns' });
+  try {
+    const { document, window } = page;
+    const toggle = [...document.querySelectorAll('#controls a')].find(a => a.textContent === 'Raw');
+    assert.equal(toggle.getAttribute('href'), '#29153-i00/5.1?raw=1&name=Ns');
+    const pane = document.querySelector('#document');
+    const rows = [...pane.querySelectorAll('.dad-line[data-section]')];
+    const visible = rows.findIndex(row => row.dataset.section !== rows[0].dataset.section);
+    assert.ok(visible > 0);
+    const position = new Map(rows.map((row, index) => [row, (index - visible) * 18]));
+    const rect = window.HTMLElement.prototype.getBoundingClientRect;
+    window.HTMLElement.prototype.getBoundingClientRect = function () {
+      if (position.has(this)) return { top: position.get(this) + 1, bottom: position.get(this) + 18 };
+      return this === pane ? { top: 0, bottom: 500 } : rect.call(this);
+    };
+    toggle.addEventListener('click', event => event.preventDefault());
+    click(page, toggle);
+    assert.equal(toggle.getAttribute('href'), `#29153-i00/${rows[visible].dataset.section}?raw=1`);
+    window.HTMLElement.prototype.getBoundingClientRect = rect;
+  } finally { await page.close(); }
+});
+
+test('the occurrences control lists a name on a plain tap, and Esc returns focus to it', async () => {
+  const page = await boot({ hash: '#29153-i00' });
+  try {
+    const { document, window } = page;
+    const control = document.querySelector('.occurrences-toggle');
+    assert.equal(control.getAttribute('aria-pressed'), 'false');
+    const name = document.querySelector('pre a[data-avp]');
+    const before = window.location.hash;
+    control.click();
+    assert.equal(control.getAttribute('aria-pressed'), 'true');
+    name.focus();
+    click(page, name);
+    await settle();
+    assert.equal(window.location.hash, before, 'not followed');
+    const popup = document.querySelector('.avp-popup');
+    assert.equal(popup.dataset.avp, name.dataset.avp);
+    assert.ok(popup.querySelectorAll('.usage-link').length >= 1);
+    assert.equal(document.activeElement, popup.querySelector('.popup-title button'));
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(document.querySelector('.avp-popup'), null);
+    assert.equal(document.activeElement, name);
+    click(page, name);
+    document.querySelector('.avp-popup .popup-title button').click();
+    assert.equal(document.activeElement, name);
+    click(page, name);
+    document.querySelector('.avp-popup .usage-link').click();
+    assert.equal(document.querySelectorAll('.avp-current').length, 1);
+    document.body.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true }));
+    assert.equal(document.querySelector('.avp-popup'), null);
+    control.click();
+    click(page, name);
+    await settle();
+    assert.notEqual(window.location.hash, before, 'followed again');
+  } finally { await page.close(); }
+});
+
+test('alt-click and the context-menu key still list occurrences', async () => {
+  const page = await boot({ hash: '#29153-i00' });
+  try {
+    const { document, window } = page;
+    const name = document.querySelector('pre a[data-avp]');
+    click(page, name, { altKey: true });
+    assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ContextMenu', bubbles: true, cancelable: true }));
+    assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
+  } finally { await page.close(); }
+});
