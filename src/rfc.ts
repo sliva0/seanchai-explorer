@@ -10,6 +10,7 @@ const sections = new Map<string, HTMLElement>();
 const pages: HTMLElement[] = [];
 const lines: RfcLine[] = [];
 const spans: HTMLElement[] = [];
+let marked: number[] = [];
 const rawFile = new URLSearchParams(location.search).get('file');
 let lastPage = 0;
 let pending = 0;
@@ -37,12 +38,34 @@ function navigate() {
   const row = params.get('row') === '1' && name ? locateRow(lines, name, params.get('section') ?? '', Number(params.get('page')) || 1, params.get('printed') ?? undefined, params.get('titled') === '1')?.lines : null;
   goTo(params.get('exact') === '1' ? page : (row && spans[row[0]]) ?? section ?? page ?? pages[0]);
   // A name as a whole word: "Load" marks neither "Load-Type" nor "loaded".
-  const query = name ? namePattern(name, 'iu', '\\p{L}\\p{N}_-') : null;
-  for (const node of container.querySelectorAll('.rfc-match')) node.classList.remove('rfc-match');
-  if (query) for (const line of spans) {
-    if (query.test(line.textContent ?? '')) line.classList.add('rfc-match');
+  const query = name ? namePattern(name, 'giu', '\\p{L}\\p{N}_-') : null;
+  for (const index of marked) {
+    spans[index].textContent = lines[index].text;
+    spans[index].classList.remove('rfc-match-line');
   }
-  if (row) for (const line of spans.slice(row[0], row[1] + 1)) line.classList.add('rfc-match');
+  marked = [];
+  if (query) for (const index of spans.keys()) markName(index, query);
+  // The row prints the name wrapped or misspelt: show the line landed on instead.
+  if (row && !marked.some(index => index >= row[0] && index <= row[1])) {
+    spans[row[0]].classList.add('rfc-match-line');
+    marked.push(row[0]);
+  }
+}
+function markName(index: number, query: RegExp) {
+  const text = lines[index].text;
+  const parts: (string | HTMLElement)[] = [];
+  let end = 0;
+  for (const match of text.matchAll(query)) {
+    if (!match[0]) continue;
+    const mark = document.createElement('mark');
+    mark.className = 'rfc-match';
+    mark.textContent = match[0];
+    parts.push(text.slice(end, match.index), mark);
+    end = match.index + match[0].length;
+  }
+  if (!parts.length) return;
+  spans[index].replaceChildren(...parts, text.slice(end));
+  marked.push(index);
 }
 window.addEventListener('hashchange', navigate);
 

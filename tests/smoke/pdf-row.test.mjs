@@ -237,7 +237,7 @@ test('the RFC reader shows a result code on its line, as a bullet, and at its ow
     ]) {
       await page.goto(`${base}rfc.html?file=${encodeURIComponent(`${base}${file}.txt`)}${hash}`);
       await page.waitForSelector('.rfc-line', { state: 'attached' });
-      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match')].some(node => node.textContent.trim().startsWith(text)), line);
+      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match, .rfc-match-line')].some(node => node.closest('.rfc-line').textContent.trim().startsWith(text)), line);
       const first = await page.evaluate(() => {
         const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
         return [...document.querySelectorAll('.rfc-line')].find(node => node.getBoundingClientRect().bottom > top).textContent.trim();
@@ -260,11 +260,11 @@ test('the RFC reader shows a row whose name the ASCII table wraps', { skip }, as
     assert.match(await firstLine(), /^6\.\s+Diameter RADIUS Interoperability/);
     for (const [name, line] of [['Basic-Location-Policy-Rules', '|Basic-Location-'], ['Extended-Location-Policy-Rules', '|Extended-Location-'], ['Requested-Location-Info', '|Requested-']]) {
       await page.evaluate(hash => { location.hash = hash; }, `#page=30&section=6&query=${name}&row=1`);
-      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match')].some(node => node.textContent.trim().startsWith(text)), line);
+      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match, .rfc-match-line')].some(node => node.closest('.rfc-line').textContent.trim().startsWith(text)), line);
       assert.ok((await firstLine()).startsWith(line), name);
     }
     await page.evaluate(hash => { location.hash = hash; }, '#page=30&section=6&query=Not-In-Table&row=1');
-    await page.waitForFunction(() => document.querySelectorAll('.rfc-match').length === 0);
+    await page.waitForFunction(() => document.querySelectorAll('.rfc-match, .rfc-match-line').length === 0);
     assert.match(await firstLine(), /^6\.\s+Diameter RADIUS Interoperability/);
   } finally { await context.close(); }
 });
@@ -280,7 +280,7 @@ test('the RFC reader shows a misprinted row, the table holding a row, and the cl
     ]) {
       await page.goto(`${base}rfc.html?file=${encodeURIComponent(`${base}${file}.txt`)}${hash}`);
       await page.waitForSelector('.rfc-line', { state: 'attached' });
-      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match')].some(node => node.textContent.trim().startsWith(text)), line.trim());
+      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match, .rfc-match-line')].some(node => node.closest('.rfc-line').textContent.trim().startsWith(text)), line.trim());
       const first = await page.evaluate(() => {
         const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
         return [...document.querySelectorAll('.rfc-line')].find(node => node.getBoundingClientRect().bottom > top).textContent.trim();

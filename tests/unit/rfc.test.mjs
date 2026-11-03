@@ -28,7 +28,7 @@ test('the reader navigates clause and page fragments and marks the name', async 
     assert.deepEqual(page.fetched, ['data/sources/rfc7944.txt']);
     assert.equal(doc.documentElement.dataset.theme, 'dark');
     assert.ok(doc.getElementById('section-9.1'));
-    assert.match(doc.querySelector('.rfc-match').textContent, /DRMP/);
+    assert.equal(doc.querySelector('mark.rfc-match').textContent, 'DRMP');
   } finally { await page.close(); }
 });
 
@@ -210,26 +210,45 @@ test('a format naming an inserted row, and nothing when the source never names i
   assert.equal(locateRow(lines, 'Elsewhere', '4', 1), null);
 });
 
-test('the reader goes to the row and marks its lines, and to the heading when there is none', async () => {
+test('the reader goes to the row, marking the name in it or else the line it landed on', async () => {
   const pad = Array.from({ length: 60 }, (_, index) => `   filler line ${index}\n`).join('');
   const body = `${pad}${table}`;
   const file = 'http://localhost/data/sources/rfc5580.txt';
   // happy-dom lays nothing out, so the reader's place shows only in what it marks.
-  const page = await start(file, 'section=6&query=Basic-Location-Policy-Rules&row=1&page=1', { text: body });
+  const page = await start(file, 'section=6&query=Location-Data&row=1&page=1', { text: body });
+  const doc = page.document;
+  const fallback = () => [...doc.querySelectorAll('.rfc-match-line')].map(line => line.textContent.trim());
   try {
-    const marked = [...page.document.querySelectorAll('.rfc-match')].map(line => line.textContent.trim());
-    assert.deepEqual(marked.slice(-2), ['|Basic-Location-                  |    |     |      |     |    |', '|   Policy-Rules       OctetString|    |  P  |      | V,M | Y  |']);
+    assert.deepEqual([...doc.querySelectorAll('.rfc-match')].map(mark => mark.textContent), ['Location-Data']);
+    assert.match(doc.querySelector('.rfc-match').closest('.rfc-line').textContent, /^ {3}\|Location-Data {9}OctetString/);
+    assert.deepEqual(fallback(), []);
+    // Wrapped in the table, whole in the prose above it: the row still shows.
+    await page.go('#section=6&query=Basic-Location-Policy-Rules&row=1&page=1');
+    assert.deepEqual([...doc.querySelectorAll('.rfc-match')].map(mark => mark.closest('.rfc-line').textContent.trim()), ['Basic-Location-Policy-Rules Attribute is described below.']);
+    assert.deepEqual(fallback(), ['|Basic-Location-                  |    |     |      |     |    |']);
     await page.go('#section=6&query=Not-In-Table&row=1&page=1');
-    assert.equal(page.document.querySelectorAll('.rfc-match').length, 0);
+    assert.equal(doc.querySelectorAll('.rfc-match').length, 0);
+    assert.deepEqual(fallback(), []);
   } finally { await page.close(); }
 });
 
 test('a query marks the name as a whole word, not inside a longer name or word', async () => {
   const body = '   Load information is sent in the Load AVP.\n   The Load-Type AVP is loaded first.\n   Also LOAD here.\n';
   const page = await start('http://localhost/data/sources/rfc8583.txt', 'query=Load&page=1', { text: body });
+  const doc = page.document;
+  const marks = () => [...doc.querySelectorAll('.rfc-line > mark.rfc-match')].map(mark => mark.textContent);
   try {
-    const marked = [...page.document.querySelectorAll('.rfc-match')].map(line => line.textContent.trim());
-    assert.deepEqual(marked, ['Load information is sent in the Load AVP.', 'Also LOAD here.']);
+    assert.deepEqual(marks(), ['Load', 'Load', 'LOAD']);
+    assert.equal(doc.querySelectorAll('.rfc-line')[0].innerHTML, '   <mark class="rfc-match">Load</mark> information is sent in the <mark class="rfc-match">Load</mark> AVP.\n');
+    // Marks of an earlier fragment neither stay nor nest.
+    await page.go('#query=Load&page=1');
+    assert.deepEqual(marks(), ['Load', 'Load', 'LOAD']);
+    await page.go('#query=Load-Type&page=1');
+    assert.deepEqual(marks(), ['Load-Type']);
+    assert.equal(doc.querySelectorAll('.rfc-line')[0].innerHTML, '   Load information is sent in the Load AVP.\n');
+    assert.equal([...doc.querySelectorAll('.rfc-line')].map(line => line.textContent).join(''), body);
+    await page.go('#page=1');
+    assert.deepEqual(marks(), []);
   } finally { await page.close(); }
 });
 
