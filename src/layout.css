@@ -113,6 +113,8 @@ mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 .usage-link:hover, .usage-link[aria-current] { background: var(--ui-hover); }
 .dad-line.target-line { background: var(--syntax-number-bg); box-shadow: inset 3px 0 var(--syntax-number); }
 .dad-line:focus { outline: none; }
+.dad-line.corrected-line { background: #fff8e6; box-shadow: inset 3px 0 #e0b45a; }
+:root[data-theme="dark"] .dad-line.corrected-line { background: rgb(228 185 106 / 7%); box-shadow: inset 3px 0 #a8873f; }
 .dad-line.raw-warning { background: #fff0d2; box-shadow: inset 3px 0 #ba7b18; }
 :root[data-theme="dark"] .dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }
 @media (max-width: 760px) {

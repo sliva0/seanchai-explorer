@@ -64,6 +64,7 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLP
     if (line.section) row.dataset.section = line.section;
     if (line.warning) { row.classList.add('raw-warning'); row.title = 'Modified in corrected view'; }
     if (line.anchor) row.id = `section-${line.anchor}`;
+    if (line.tokens.some(token => token.correction)) row.classList.add('corrected-line');
     line.tokens.forEach((token, index) => {
       const reason = token.correction && doc.corrections[token.correction]?.reason;
       if (reason) {
