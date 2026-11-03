@@ -5,6 +5,4 @@ dist/
 .DS_Store
 public/data/
 public/pdfjs/
-public/syntax/
 .data-tmp/
-.uv-cache/
