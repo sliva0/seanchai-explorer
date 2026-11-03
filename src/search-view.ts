@@ -182,6 +182,19 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     if (!results.childElementCount) results.append(element('p', 'No matches.'));
   }
 
+  /** Arrows walk the input and what is on screen; Enter is then the browser's, opening a link or a summary. */
+  function walk(event: KeyboardEvent) {
+    if ((event.key !== 'ArrowDown' && event.key !== 'ArrowUp') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const stops = [...results.querySelectorAll<HTMLElement>('summary, a[href], button')].filter(node => node.tagName === 'SUMMARY' || !node.closest('details:not([open])'));
+    const route = [input, ...stops];
+    const next = route[route.indexOf(document.activeElement as HTMLElement) + (event.key === 'ArrowDown' ? 1 : -1)];
+    if (!next) return;
+    event.preventDefault();
+    next.focus();
+  }
+  input.onkeydown = walk;
+  results.onkeydown = walk;
+
   let timer: ReturnType<typeof setTimeout> | undefined;
   input.oninput = () => {
     history.replaceState(null, '', `#search?q=${encodeURIComponent(input.value)}`);

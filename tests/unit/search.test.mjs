@@ -405,3 +405,40 @@ test('approximate hits are labelled, counted apart, marked, and bring no mention
     assert.equal(alone.document.querySelector('.search-avp h2').textContent, 'AVPs 1approximate');
   } finally { await alone.close(); }
 });
+
+test('arrow keys walk the input and what is on screen', async () => {
+  const page = await boot({ hash: '#search?q=zzgroup', transform: withMentions(manyMentions('29153-j00', 2)) });
+  try {
+    const { document, window } = page;
+    const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const input = document.querySelector('.search-form input');
+    assert.equal(document.activeElement, input);
+    assert.equal(press('ArrowUp'), true, 'nothing above the input');
+    assert.equal(document.activeElement, input);
+    assert.equal(press('ArrowDown'), false);
+    assert.equal(document.activeElement, document.querySelector('.mention-document h3 a'));
+    press('ArrowDown');
+    assert.equal(document.activeElement, document.querySelector('.mention-link'));
+    press('ArrowUp');
+    press('ArrowUp');
+    assert.equal(document.activeElement, input);
+    assert.equal(press('a'), true, 'other keys are left alone');
+  } finally { await page.close(); }
+});
+
+test('arrow keys skip the links of a closed result', async () => {
+  const page = await boot({ hash: `#search?q=${encodeURIComponent('DIAMETER_ERROR_SERVICE_AREA')}` });
+  try {
+    const { document, window } = page;
+    const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const summary = document.querySelector('.search-result-codes summary');
+    press('ArrowDown');
+    assert.equal(document.activeElement, summary);
+    press('ArrowDown');
+    assert.notEqual(document.activeElement, summary.parentElement.querySelector('li a'), 'closed');
+    press('ArrowUp');
+    summary.parentElement.open = true;
+    press('ArrowDown');
+    assert.equal(document.activeElement, summary.parentElement.querySelector('li a'), 'open');
+  } finally { await page.close(); }
+});

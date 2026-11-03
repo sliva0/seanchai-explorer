@@ -376,7 +376,7 @@ test('light applies under a dark OS, the reader in the pane follows the toggle, 
   await done();
 });
 
-test('search: a typo finds a labelled name, and mentions group by document', { skip }, async () => {
+test('search: a typo finds a labelled name, mentions group by document, and the keyboard opens a result', { skip }, async () => {
   const { page, done } = await open('#search?q=DRMPP');
   await page.waitForSelector('.search-avp details.approximate summary:has-text("DRMP")');
   assert.equal(await page.locator('.search-avp details.approximate em').first().textContent(), 'approximate');
@@ -387,6 +387,14 @@ test('search: a typo finds a labelled name, and mentions group by document', { s
   assert.equal(new Set(headings).size, headings.length, 'one heading per document');
   assert.ok(await page.locator('.mention-document li .mention-link').first().textContent().then(text => text.startsWith('· ')));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll');
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'SUMMARY');
+  await page.keyboard.press('Enter');
+  await page.waitForSelector('.search-avp details[open]');
+  await page.keyboard.press('ArrowDown');
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'A');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => !location.hash.startsWith('#search'));
   await done();
 });
 
