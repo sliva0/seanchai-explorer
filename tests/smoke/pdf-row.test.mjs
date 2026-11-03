@@ -73,6 +73,57 @@ const viewerState = page => page.evaluate(() => {
   };
 });
 
+test('zoom steps through its list by control and key and wheel, and stays through page moves and a reload', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  const zoom = () => page.locator('#zoom').inputValue();
+  const scale = () => page.evaluate(() => window.PDFViewerApplication.pdfViewer.currentScale);
+  try {
+    const url = `${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}#page=10`;
+    await page.goto(url);
+    await page.waitForFunction(() => document.querySelector('.pdfViewer .page canvas'));
+    assert.equal(await zoom(), 'page-width');
+    assert.deepEqual(await page.locator('#zoom option').allTextContents(), ['Width', 'Page', '50%', '75%', '90%', '100%', '110%', '125%', '150%', '175%', '200%', '250%', '300%']);
+    await page.locator('#zoom').selectOption('1.25');
+    assert.equal(await scale(), 1.25);
+    await page.keyboard.press('Control+=');
+    assert.equal(await zoom(), '1.5');
+    await page.keyboard.press('Control+-');
+    await page.keyboard.press('Control+-');
+    assert.equal(await zoom(), '1.1');
+    await page.mouse.move(600, 500);
+    await page.keyboard.down('Control');
+    await page.mouse.wheel(0, -120);
+    await page.waitForFunction(() => document.querySelector('#zoom').value === '1.25');
+    await page.mouse.wheel(0, 120);
+    await page.waitForFunction(() => document.querySelector('#zoom').value === '1.1');
+    await page.keyboard.up('Control');
+    assert.equal(await page.evaluate(() => devicePixelRatio), 1, 'the browser did not zoom');
+    await page.locator('#page').fill('40');
+    await page.keyboard.press('Enter');
+    await page.locator('#outline a').nth(3).click();
+    await page.evaluate(() => { location.hash = '#page=70&search=5.1'; });
+    await page.waitForFunction(() => document.querySelector('#page').value === '70' || Number(document.querySelector('#page').value) > 1);
+    assert.equal(await zoom(), '1.1', 'page moves keep it');
+    assert.equal(await scale(), 1.1);
+    await page.reload();
+    await page.waitForFunction(() => document.querySelector('.pdfViewer .page canvas'));
+    assert.equal(await zoom(), '1.1', 'a new load keeps it');
+    assert.equal(await scale(), 1.1);
+    await page.locator('#zoom').selectOption('3');
+    await page.keyboard.press('Control+=');
+    assert.equal(await zoom(), '3', 'nothing past the last step');
+    await page.locator('#zoom').selectOption('page-width');
+    const width = await scale();
+    await page.keyboard.press('Control+=');
+    assert.ok(await scale() > width, 'a preset steps from the scale it came to');
+    assert.notEqual(await zoom(), 'page-width');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
 test('table 9a of TS 29.061: a row link shows the row, wrapped or not, and selects its match', { skip }, async () => {
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();

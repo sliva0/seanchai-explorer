@@ -3,6 +3,7 @@ import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } fro
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { createSectionNavigator, matchOnRow } from './pdf-navigation.ts';
 import { initTheme } from './theme.ts';
+import { zoomStep } from './zoom.ts';
 import type { Outline } from './pdf-navigation.ts';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import './theme.css';
@@ -13,7 +14,8 @@ initTheme();
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
 const container = document.querySelector<HTMLDivElement>('#viewerContainer')!;
 const eventBus = new EventBus();
-const linkService = new PDFLinkService({ eventBus });
+// A destination's own zoom would undo the chosen one.
+const linkService = new PDFLinkService({ eventBus, ignoreDestinationZoom: true });
 let automaticFind = false;
 // A row's name, found as a whole word.
 let wholeWord = false;
@@ -201,7 +203,7 @@ async function navigate() {
 
 eventBus.on('pagesinit', () => {
   ready = true;
-  viewer.currentScaleValue = 'page-width';
+  viewer.currentScaleValue = zoom.value;
   void navigate().then(() => {
     if (pendingFind) { const query = pendingFind; pendingFind = undefined; runFind(query); }
   }).catch(error => { container.textContent = String(error); });
@@ -261,7 +263,40 @@ document.querySelector<HTMLButtonElement>('#find-previous')!.onclick = () => run
 document.querySelector<HTMLButtonElement>('#find-next')!.onclick = () => runFind({ query: find.value, previous: false });
 function goToPageInput() { manual(); if (ready) viewer.scrollPageIntoView({ pageNumber: Math.max(1, Math.min(viewer.pagesCount, Number(page.value) || 1)) }); }
 page.onchange = goToPageInput;
-zoom.onchange = () => { viewer.currentScaleValue = zoom.value; };
+function rememberZoom() {
+  try { localStorage.setItem('seanchai-zoom', zoom.value); } catch {}
+}
+try {
+  const stored = localStorage.getItem('seanchai-zoom');
+  if ([...zoom.options].some(option => option.value === stored)) zoom.value = stored!;
+} catch {}
+zoom.onchange = () => { viewer.currentScaleValue = zoom.value; rememberZoom(); };
+const zoomSteps = [...zoom.options].map(option => Number(option.value)).filter(Boolean);
+function stepZoom(direction: 1 | -1, origin?: [number, number]) {
+  if (!ready) return;
+  const next = zoomStep(zoomSteps, viewer.currentScale, direction);
+  if (next === undefined) return;
+  viewer.updateScale({ scaleFactor: next / viewer.currentScale, drawingDelay: 150, ...(origin ? { origin } : {}) });
+  rememberZoom();
+}
+// A wheel's notch is one step; a touchpad's pinch, many small deltas, has to add up to one.
+let wheelDelta = 0;
+window.addEventListener('wheel', event => {
+  if (!event.ctrlKey) return;
+  event.preventDefault();
+  const delta = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? event.deltaY : event.deltaY * 40;
+  wheelDelta = wheelDelta * delta < 0 ? delta : wheelDelta + delta;
+  if (Math.abs(wheelDelta) < 40) return;
+  stepZoom(wheelDelta < 0 ? 1 : -1, container.contains(event.target as Node) ? [event.clientX, event.clientY] : undefined);
+  wheelDelta = 0;
+}, { passive: false });
+window.addEventListener('keydown', event => {
+  if (!event.ctrlKey && !event.metaKey) return;
+  const direction = event.key === '+' || event.key === '=' ? 1 : event.key === '-' || event.key === '_' ? -1 : 0;
+  if (!direction) return;
+  event.preventDefault();
+  stepZoom(direction);
+});
 document.querySelector<HTMLFormElement>('#toolbar')!.onsubmit = event => {
   event.preventDefault();
   if (document.activeElement === page) { goToPageInput(); return; }
