@@ -46,6 +46,11 @@ test('the PDF viewer gets the page, clause, name and row', () => {
   assert.deepEqual(Object.fromEntries(hash), { page: '83', search: '6.4', name: 'Y', row: '1' });
 });
 
+test('the RFC reader gets the row too', () => {
+  const hash = new URLSearchParams(paneURL(rfc, { ...position, name: 'Y', row: true }, 'public').hash.slice(1));
+  assert.deepEqual(Object.fromEntries(hash), { page: '83', section: '6.4', query: 'Y', row: '1' });
+});
+
 test('source links open the publisher at the position, or the viewer of a self-hosted PDF', () => {
   assert.equal(publisherURL(etsi, position).href, 'https://www.etsi.org/a.pdf#page=83');
   assert.equal(publisherURL(rfc, position).href, 'https://www.rfc-editor.org/rfc/rfc6733.html#section-6.4');

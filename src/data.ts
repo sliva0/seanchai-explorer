@@ -56,11 +56,11 @@ export function paneURL(doc: Pick<DocumentSummary, 'source'>, position: SourcePo
     hash.set('search', position.section);
     if (position.name != null) hash.set('name', position.name);
     if (position.occurrence) hash.set('match', '1');
-    if (position.row) hash.set('row', '1');
   } else {
     hash.set('section', position.section);
     hash.set('query', position.name ?? '');
   }
+  if (position.row) hash.set('row', '1');
   if (position.exact) hash.set('exact', '1');
   url.hash = hash.toString();
   return url;

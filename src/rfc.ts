@@ -1,4 +1,5 @@
-import { rfcPages } from './rfc-text.ts';
+import { rfcPages, rowLines } from './rfc-text.ts';
+import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
 
 initTheme();
@@ -6,6 +7,8 @@ initTheme();
 const container = document.querySelector<HTMLElement>('#rfc')!;
 const sections = new Map<string, HTMLElement>();
 const pages: HTMLElement[] = [];
+const lines: RfcLine[] = [];
+const spans: HTMLElement[] = [];
 const rawFile = new URLSearchParams(location.search).get('file');
 let lastPage = 0;
 let pending = 0;
@@ -29,12 +32,15 @@ function navigate() {
   const params = new URLSearchParams(location.hash.slice(1));
   const section = sections.get(params.get('section') ?? '');
   const page = pages.find(page => page.dataset.page === params.get('page'));
-  goTo(params.get('exact') === '1' ? page : section ?? page ?? pages[0]);
-  const query = params.get('query')?.trim().toLowerCase();
+  const name = params.get('query')?.trim();
+  const row = params.get('row') === '1' && name ? rowLines(lines, name, params.get('section') ?? '', Number(params.get('page')) || 1) : null;
+  goTo(params.get('exact') === '1' ? page : (row && spans[row[0]]) ?? section ?? page ?? pages[0]);
+  const query = name?.toLowerCase();
   for (const node of container.querySelectorAll('.rfc-match')) node.classList.remove('rfc-match');
-  if (query) for (const line of container.querySelectorAll('.rfc-line')) {
+  if (query) for (const line of spans) {
     if (line.textContent?.toLowerCase().includes(query)) line.classList.add('rfc-match');
   }
+  if (row) for (const line of spans.slice(row[0], row[1] + 1)) line.classList.add('rfc-match');
 }
 window.addEventListener('hashchange', navigate);
 
@@ -57,6 +63,8 @@ try {
         span.id = `section-${line.section}`;
         sections.set(line.section, span);
       }
+      lines.push({ ...line, page: page.page });
+      spans.push(span);
       pre.append(span);
     }
     block.append(pre);

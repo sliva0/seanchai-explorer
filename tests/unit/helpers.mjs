@@ -17,9 +17,9 @@ const globals = ['window', 'document', 'location', 'history', 'localStorage', 'm
 
 /**
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
- * `width` is the viewport, `transform` changes a data file before the page reads it.
+ * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source.
  */
-export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, transform = (_path, data) => data } = {}) {
+export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, text, transform = (_path, data) => data } = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
     width,
@@ -45,7 +45,7 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     if (path === 'syntax/dad.tmLanguage.json') return { ok: true, json: async () => JSON.parse(await readFile(grammar, 'utf8')) };
     const file = new URL(path.replace(/^data\//, ''), fixture);
     try {
-      if (path.endsWith('.txt')) return { ok: true, text: async () => readFile(file, 'utf8') };
+      if (path.endsWith('.txt')) return { ok: true, text: async () => text ?? readFile(file, 'utf8') };
       const data = JSON.parse(await readFile(file, 'utf8'));
       const shaped = mode === 'self-hosted' ? asSelfHosted(data) : data;
       return { ok: true, json: async () => transform(path, shaped) };
