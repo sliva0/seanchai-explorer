@@ -57,9 +57,9 @@ export function takeName(text: string, match: NameMatch, column = '') {
 }
 
 /** A name as a whole word in running text, written with any of hyphens, underscores or spaces between its parts. */
-export function namePattern(name: string, flags = 'iu') {
+export function namePattern(name: string, flags = 'iu', boundary = '\\p{L}\\p{N}') {
   const parts = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
-  return new RegExp(`(?<![\\p{L}\\p{N}])${parts.join('[\\s_-]*')}(?![\\p{L}\\p{N}])`, flags);
+  return new RegExp(`(?<![${boundary}])${parts.join('[\\s_-]*')}(?![${boundary}])`, flags);
 }
 
 /** A clause's title naming `name`: "EAP-Payload AVP", "Digest-Realm attribute", "Event-Report-Indication AVP (All access types)". */

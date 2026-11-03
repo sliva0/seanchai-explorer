@@ -1,4 +1,5 @@
 import { locateRow, rfcPages } from './rfc-text.ts';
+import { namePattern } from './table-row.ts';
 import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
 
@@ -35,10 +36,11 @@ function navigate() {
   const name = params.get('query')?.trim();
   const row = params.get('row') === '1' && name ? locateRow(lines, name, params.get('section') ?? '', Number(params.get('page')) || 1, params.get('printed') ?? undefined, params.get('titled') === '1')?.lines : null;
   goTo(params.get('exact') === '1' ? page : (row && spans[row[0]]) ?? section ?? page ?? pages[0]);
-  const query = name?.toLowerCase();
+  // A name as a whole word: "Load" marks neither "Load-Type" nor "loaded".
+  const query = name ? namePattern(name, 'iu', '\\p{L}\\p{N}_-') : null;
   for (const node of container.querySelectorAll('.rfc-match')) node.classList.remove('rfc-match');
   if (query) for (const line of spans) {
-    if (line.textContent?.toLowerCase().includes(query)) line.classList.add('rfc-match');
+    if (query.test(line.textContent ?? '')) line.classList.add('rfc-match');
   }
   if (row) for (const line of spans.slice(row[0], row[1] + 1)) line.classList.add('rfc-match');
 }

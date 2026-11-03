@@ -224,6 +224,15 @@ test('the reader goes to the row and marks its lines, and to the heading when th
   } finally { await page.close(); }
 });
 
+test('a query marks the name as a whole word, not inside a longer name or word', async () => {
+  const body = '   Load information is sent in the Load AVP.\n   The Load-Type AVP is loaded first.\n   Also LOAD here.\n';
+  const page = await start('http://localhost/data/sources/rfc8583.txt', 'query=Load&page=1', { text: body });
+  try {
+    const marked = [...page.document.querySelectorAll('.rfc-match')].map(line => line.textContent.trim());
+    assert.deepEqual(marked, ['Load information is sent in the Load AVP.', 'Also LOAD here.']);
+  } finally { await page.close(); }
+});
+
 test('result codes: on a line of their own, as a list\'s bullet, or with the code in brackets', () => {
   const lines = rfcLines(`7.1.2.  Success
 
