@@ -55,3 +55,18 @@ test('modified clicks are the browser\'s, and alt or the occurrences control lis
   assert.deepEqual(clickAction(base, { ...plain, altKey: true }, '1', pane()), { type: 'browser' });
   assert.equal(clickAction(base, plain, '1', noPane({ occurrences: true })).type, 'navigate');
 });
+
+test('a value table\'s name shows its table, whatever the pane; a modified click is the browser\'s', () => {
+  const row = { name: 'Y' };
+  const name = { text: 'Y', target, source: { section: '6.3', page: 17, name: 'Y', row: true }, valueRow: row };
+  assert.deepEqual(clickAction(name, plain, '6.3', pane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, { ...plain, altKey: true }, '6.3', noPane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, { ...plain, ctrlKey: true }, '6.3', pane()), { type: 'browser' });
+});
+
+test('a value row\'s clause goes to the source as any source link does, naming the row', () => {
+  const clause = { text: '17.8.2', source: { section: '17.8.2', page: 92, name: 'Y', row: true, titled: true } };
+  assert.deepEqual(clickAction(clause, plain, '17.8', pane()), { type: 'source', position: clause.source });
+  assert.deepEqual(clickAction(clause, plain, '17.8', noPane()), { type: 'browser' });
+});

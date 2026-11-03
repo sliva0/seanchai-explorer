@@ -1,4 +1,5 @@
-import type { Line, Token } from './types.ts';
+import type { Line } from './types.ts';
+import type { ValueToken } from './values.ts';
 
 interface Pattern {
   include?: string;
@@ -9,7 +10,7 @@ interface Pattern {
 }
 export interface Grammar extends Pattern { repository: Record<string, Pattern> }
 
-export interface HighlightedToken extends Token { scope: string }
+export interface HighlightedToken extends ValueToken { scope: string }
 export interface HighlightedLine extends Line { decoration: string; tokens: HighlightedToken[] }
 
 const supportedKeys = new Set(['include', 'name', 'match', 'patterns', 'captures', 'comment']);

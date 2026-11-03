@@ -1,4 +1,5 @@
 import type { DocumentSummary, Mention, SearchEntry } from './types.ts';
+import { valueRowLabel } from './values.ts';
 
 type Kind = SearchEntry['kind'];
 export const EXACT = 0;
@@ -40,6 +41,8 @@ function rankNumber(entry: SearchEntry, code: number): number | null {
     case 'avp': return identity.code === code ? EXACT : null;
     case 'application': return identity.application_id === code ? EXACT : null;
     case 'registry': return identity.code === code ? EXACT : null;
+    // A bit's number means nothing without its table.
+    case 'value': return identity.value_kind === 'result-codes' && identity.value === code ? EXACT : null;
     case 'command':
       if (identity.command_code === code) return EXACT;
       return identity.application_id === code || identity.header_application_id === code ? PREFIX : null;
@@ -100,6 +103,11 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
     case 'avp': return `${identity.vendor_id}:${identity.code}`;
     case 'application': return `Application ${identity.application_id}`;
     case 'registry': return `${identity.registry} ${identity.code}`;
+    case 'value': {
+      const list = identity.feature_list_id === null ? '' : ` list ${identity.feature_list_id}`;
+      const application = identity.application ? ` (${identity.application})` : '';
+      return `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}${list}${application}`;
+    }
     case 'command': {
       const application = identity.application_id === null ? '' : ` · application ${identity.application_id}${identity.application ? ` (${identity.application})` : ''}`;
       const header = identity.header_application_id !== identity.application_id ? ` · header ${identity.header_application_id ?? 'none'}` : '';

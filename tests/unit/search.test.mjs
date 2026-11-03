@@ -165,3 +165,44 @@ test('the header links to the index and search, and / is left to the browser', a
     assert.equal(document.activeElement, document.querySelector('.search-form input'));
   } finally { await page.close(); }
 });
+
+test('a value is found by name, a result code by number too, and read with its AVP', () => {
+  const value = (name, value_kind, value, more = {}) => ({ name, kind: 'value', document: 'd', target: { document: 'd', section: '1' }, defined_in: ['D'], identity: { kind: 'value', value_kind, value, avp: 'A', application: null, feature_list_id: null, ...more } });
+  const entries = [value('DIAMETER_SUCCESS', 'result-codes', 2001), value('Flag', 'bits', 3), value('Rel8', 'features', 2001, { application: 'Rx', feature_list_id: 1 })];
+  assert.deepEqual(searchEntries(entries, 'success').value.map(group => group.name), ['DIAMETER_SUCCESS']);
+  assert.deepEqual(searchEntries(entries, '2001').value.map(group => group.name), ['DIAMETER_SUCCESS'], 'a bit\'s number is no search');
+  assert.deepEqual(searchEntries(entries, '3').value, []);
+  assert.equal(identityLabel(entries[0]), 'Result code 2001 of A');
+  assert.equal(identityLabel(entries[1]), 'Bit 3 of A');
+  assert.equal(identityLabel(entries[2]), 'Feature bit 2001 of A list 1 (Rx)');
+});
+
+test('the search page groups values per kind, and a row\'s link opens its table at the row', async () => {
+  const page = await boot({ hash: `#search?q=${encodeURIComponent('DIAMETER_ERROR_SERVICE_AREA')}` });
+  try {
+    const { document } = page;
+    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent)[0], 'Result codes (1)');
+    const summary = document.querySelector('.search-result-codes summary').textContent;
+    assert.match(summary, /DIAMETER_ERROR_SERVICE_AREA/);
+    assert.match(summary, /Result code 5123 of Experimental-Result-Code/);
+    const anchor = document.querySelector('.search-result-codes li a');
+    assert.equal(anchor.textContent, '3GPP TS 29.061 V6.15.0 · 17.8.2');
+    assert.equal(anchor.getAttribute('href'), '#29061-6f0/17.8.2?name=DIAMETER_ERROR_SERVICE_AREA');
+    await page.go(anchor.getAttribute('href'));
+    const marked = document.querySelector('.target-line');
+    assert.ok(marked.textContent.startsWith('DIAMETER_ERROR_SERVICE_AREA'));
+    assert.equal(document.querySelectorAll('.target-line').length, 1);
+  } finally { await page.close(); }
+});
+
+test('bits and features get their own groups', async () => {
+  const { entries } = await readFixture('search.json');
+  const named = kind => entries.find(entry => entry.kind === 'value' && entry.identity.value_kind === kind);
+  for (const [kind, heading] of [['bits', 'Bits ('], ['features', 'Features (']]) {
+    const page = await boot({ hash: `#search?q=${encodeURIComponent(named(kind).name)}` });
+    try {
+      assert.ok([...page.document.querySelectorAll('#search-results h2')].some(node => node.textContent.startsWith(heading)), kind);
+      assert.ok(page.document.querySelector(`.search-${kind} summary`).textContent.includes(named(kind).name));
+    } finally { await page.close(); }
+  }
+});

@@ -9,6 +9,8 @@ import { parseRoute, routeFor } from './navigation.ts';
 import type { AvpPopup } from './avp-popup.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line, RawDocument } from './types.ts';
+import { valueKindTitle, valueRowAt, valueTables } from './values.ts';
+import type { ValueRow } from './values.ts';
 
 export interface ViewServices {
   site: Site;
@@ -53,6 +55,10 @@ function tokenNode(token: HighlightedToken, index: number, doc: Document, site: 
     node.dataset.avp = token.avp;
     node.title = 'Alt-click for occurrences';
   }
+  if (token.valueRow) {
+    node.classList.add('value-name');
+    node.title = 'Show its table';
+  }
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
@@ -82,6 +88,14 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLP
 
 type SectionLink = (section: string) => HTMLAnchorElement;
 
+/** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
+function tablesNote(lines: Line[], section: string): string {
+  return valueTables(lines).filter(table => table.section === section).map(table => {
+    const list = table.featureListId === null ? '' : ` list ${table.featureListId}`;
+    return `${valueKindTitle(table.kind)}${list}${table.application ? ` (${table.application})` : ''} (${table.rows.length})`;
+  }).join(', ');
+}
+
 function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
   const sections = element('details');
   sections.append(element('summary', `Sections (${doc.sections.length})`));
@@ -89,6 +103,8 @@ function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
   for (const { section, page, title } of doc.sections) {
     const item = element('li');
     item.append(sectionLink(section), ` ${title}`);
+    const tables = tablesNote(doc.lines, section);
+    if (tables) item.append(` · ${tables}`);
     if (page) item.append(` · p. ${page}`);
     list.append(item);
   }
@@ -146,6 +162,8 @@ export interface DocumentView {
   pointAtLine(line: number | undefined): void;
   focusPosition(): void;
   topLine(): number | undefined;
+  /** The value table's row a link to `section` under `name` means, if it means one. */
+  valueRow(section: string, name: string): ValueRow | undefined;
 }
 
 export function renderDocument(container: HTMLElement, services: ViewServices, doc: Document, raw: RawDocument | undefined): DocumentView {
@@ -228,7 +246,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     perform(action, node);
   });
   pre.addEventListener('keydown', event => {
-    const node = (event.target as Element).closest<HTMLElement>('[data-avp]');
+    const node = (event.target as Element).closest<HTMLElement>('[data-avp], .value-name');
     if (node && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
       event.preventDefault();
       showOccurrences(node);
@@ -271,5 +289,6 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       const row = topRow(documentPane, '');
       return row && Number(row.dataset.line);
     },
+    valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),
   };
 }

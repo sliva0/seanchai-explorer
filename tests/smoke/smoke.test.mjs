@@ -62,6 +62,40 @@ async function open(hash, options = {}, prepare = async () => {}) {
   return { page, context, errors, done: async () => { await context.close(); assert.deepEqual(errors, []); } };
 }
 
+test('public, desktop: a value row: search groups it, its link marks the row, its name keeps a popup with its table', { skip }, async () => {
+  const { page, done } = await open('#search?q=DIAMETER_ERROR_SERVICE_AREA');
+  await page.locator('.search-result-codes summary').click();
+  await page.locator('.search-result-codes li a').click();
+  await page.waitForSelector('.target-line');
+  assert.match(await page.locator('.target-line').textContent(), /^DIAMETER_ERROR_SERVICE_AREA\s+= 5123 ; 17\.8\.2/);
+  const inView = await page.locator('.target-line').evaluate(line => {
+    const pane = document.querySelector('#document').getBoundingClientRect();
+    const box = line.getBoundingClientRect();
+    return box.top >= pane.top && box.bottom <= pane.bottom;
+  });
+  assert.ok(inView);
+  assert.equal(await page.locator('.target-line .variable\\.other\\.enum\\.dad').count(), 1, 'its name is coloured as an enum value');
+  await page.locator('.target-line .value-name').click();
+  assert.match(await page.locator('.avp-popup').textContent(), /Result code 5123 of Experimental-Result-Code/);
+  await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
+  assert.match(await page.locator('.avp-popup .usage-link[aria-current]').textContent(), /DIAMETER_ERROR_OUT_OF_RESOURCES/);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('.avp-popup').count(), 0);
+  await done();
+});
+
+test('public, desktop: ; From: links to the document a reprint comes from', { skip }, async () => {
+  const { page, context, done } = await open('#29109-i10');
+  const pages = [];
+  context.on('page', opened => pages.push(opened));
+  const from = page.locator('.dad-line', { hasText: /^; From: RFC6733/ }).first().locator('a');
+  assert.equal(await from.getAttribute('href'), '#rfc6733');
+  await from.click();
+  await page.waitForFunction(() => location.hash === '#rfc6733');
+  assert.deepEqual(pages, []);
+  await done();
+});
+
 test('public, desktop: a name opens the target page in the same tab', { skip }, async () => {
   const { page, context, done } = await open('#29153-i00');
   const pages = [];

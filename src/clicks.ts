@@ -1,5 +1,6 @@
 import type { SourcePosition } from './navigation.ts';
-import type { Target, Token } from './types.ts';
+import type { Target } from './types.ts';
+import type { ValueToken } from './values.ts';
 
 export interface ClickModifiers { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }
 
@@ -29,8 +30,10 @@ function follow(target: Target, context: ClickContext): ClickAction {
  * What a click on a token does. Followed names and `; Bases:` stay in this tab,
  * in the pane or on the target's page; only `; Section:` and `; Page:` links
  * with no pane to go to are left to the browser, whose new tab their markup asks for.
+ * A value table's name links to its own table, so there it shows the table instead.
  */
-export function clickAction(token: Token, event: ClickModifiers, section: string | undefined, context: ClickContext): ClickAction {
+export function clickAction(token: ValueToken, event: ClickModifiers, section: string | undefined, context: ClickContext): ClickAction {
+  if (token.valueRow && !(event.ctrlKey || event.metaKey || event.shiftKey)) return { type: 'occurrences' };
   if (token.avp && (event.altKey || context.occurrences)) return { type: 'occurrences' };
   if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return { type: 'browser' };
   if (token.avp) {

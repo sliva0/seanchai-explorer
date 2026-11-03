@@ -1,6 +1,7 @@
 import { SCHEMA_VERSION } from './types.ts';
-import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
+import type { Document, DocumentSummary, Index, Line, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
+import { valueTables } from './values.ts';
 
 export type Mode = Index['mode'];
 export type PaneKind = 'pdf' | 'rfc';
@@ -97,6 +98,12 @@ export interface Site {
   loadSearch(): Promise<Search>;
 }
 
+/** A value table's rows link as other table rows do from the moment a file is read. */
+function marked<T extends { lines: Line[] }>(file: T): T {
+  valueTables(file.lines);
+  return file;
+}
+
 export function createSite(index: Index): Site {
   const summaries = new Map(index.documents.map(doc => [doc.id, doc]));
   const cache = new Map<string, Promise<unknown>>();
@@ -118,8 +125,8 @@ export function createSite(index: Index): Site {
     index,
     mode: index.mode,
     summary: id => summaries.get(id),
-    loadDocument: id => cached<Document>(known(id).path),
-    loadRaw: id => cached<RawDocument>(known(id).raw!),
+    loadDocument: id => cached<Document>(known(id).path).then(marked),
+    loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
     loadSearch: () => cached<Search>('search.json'),
   };
 }

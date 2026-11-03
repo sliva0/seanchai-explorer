@@ -127,7 +127,9 @@ function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: 
       }
       if (!match.whole(column)) continue;
       const left = (line: typeof lines[number]) => line.cells[0] !== first && line.cells[0].end <= first.x + 3 && valueNumber.test(line.cells[0].text) && (value === undefined || Number(line.cells[0].text.replace(/\D/g, '')) === value);
-      if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left)) return { top: lines[i].top, text };
+      // A description beside a wrapped name comes between its lines in the page's text: a find can only match the first.
+      const found = last !== i && lines[i].cells.at(-1) !== first ? first.text : text;
+      if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left)) return { top: lines[i].top, text: found };
     }
   }
   return null;
@@ -264,8 +266,8 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     const { titled, value } = clue;
     const steps: [number[], RowFound, Look][] = [
       ...(value === undefined ? [] : [
-        [inSection, 'row', place(items => valueRowOnPage(items, name, value))],
-        [inSection, 'row', place(items => valueRowOnPage(items, name))],
+        [inSection, 'row', items => findValueRow(items, exactName(name), value)],
+        [inSection, 'row', items => findValueRow(items, exactName(name))],
         [inSection, 'loose', items => findValueRow(items, looseName(name))],
       ] as [number[], RowFound, Look][]),
       [inSection, 'row', row(name)],

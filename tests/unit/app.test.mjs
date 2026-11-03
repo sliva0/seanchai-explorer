@@ -535,3 +535,100 @@ test('a shared pane state the build cannot show falls back to the document itsel
     assert.ok(source.searchParams.get('file').endsWith('rfc7944.txt'));
   } finally { await page.close(); }
 });
+
+const rowOf = (document, name) => [...document.querySelectorAll('pre a.value-name')].find(node => node.textContent.replace(/^"|"$/g, '') === name);
+
+test('public: a value name shows its table, with its AVP and source, and walks the rows', async () => {
+  const page = await boot({ hash: '#29061-6f0' });
+  try {
+    const { document, window } = page;
+    const before = window.location.hash;
+    const name = rowOf(document, 'DIAMETER_ERROR_SERVICE_AREA');
+    assert.equal(name.getAttribute('href'), '#29061-6f0/17.8.2');
+    click(page, name);
+    await settle();
+    assert.equal(window.location.hash, before, 'stays where it is');
+    const popup = document.querySelector('.avp-popup');
+    assert.equal(popup.dataset.value, 'DIAMETER_ERROR_SERVICE_AREA');
+    assert.match(popup.textContent, /Result code 5123 of Experimental-Result-Code/);
+    assert.equal(popup.querySelector('p a').getAttribute('href').split('?')[0], '#rfc6733/7.7');
+    assert.match(popup.querySelector('a[target="_blank"]').href, /etsi\.org.*#page=92$/);
+    assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '5123 · DIAMETER_ERROR_SERVICE_AREA');
+    assert.ok(name.classList.contains('avp-current'));
+    assert.match(popup.querySelector('.popup-actions span').textContent, /^Row 4\/\d+$/);
+    [...popup.querySelectorAll('.popup-actions button')].at(-1).click();
+    assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '4121 · DIAMETER_ERROR_OUT_OF_RESOURCES');
+    assert.ok(rowOf(document, 'DIAMETER_ERROR_OUT_OF_RESOURCES').classList.contains('avp-current'));
+    assert.ok(!name.classList.contains('avp-current'));
+    popup.querySelector('.popup-title button').click();
+    assert.equal(document.querySelector('.avp-popup'), null);
+    const ctrl = new window.MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
+    name.dispatchEvent(ctrl);
+    assert.equal(ctrl.defaultPrevented, false, 'a new tab is the browser\'s');
+    assert.equal(document.querySelector('.avp-popup'), null);
+  } finally { await page.close(); }
+});
+
+test('self-hosted: a value name and its clause drive the pane to the row, and the table to its number', async () => {
+  const page = await boot({ hash: '#29217-i00', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+    const doc = await readFixture('documents/29217-i00.json');
+    const { valueTables } = await import('../../src/values.ts');
+    const bits = valueTables(doc.lines).find(table => table.kind === 'bits');
+    const row = bits.rows[0];
+    click(page, rowOf(document, row.name));
+    await settle();
+    assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'value'].map(key => [key, pane().get(key)])), { search: row.position.section, name: row.name, row: '1', value: String(row.value) });
+    assert.match(page.window.location.hash, /sourceName=/);
+    // Keeping the pane's place in the route fires happy-dom's hashchange, not a browser's: the popup can be gone here.
+    document.querySelector('.avp-popup .popup-title button')?.click();
+    const codes = valueTables(doc.lines).find(table => table.kind === 'result-codes');
+    const code = codes.rows[0];
+    const clause = [...document.querySelectorAll(`[data-line="${code.line}"] [data-token]`)].find(node => node.textContent === code.position.section);
+    click(page, clause);
+    await settle();
+    assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'titled'].map(key => [key, pane().get(key)])), { search: code.position.section, name: code.name, row: '1', titled: '1' });
+    assert.equal(document.querySelector('.avp-popup'), null);
+  } finally { await page.close(); }
+});
+
+test('self-hosted: a link to a row opens the pane there and survives a reload of its route', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.8.2?name=DIAMETER_ERROR_SERVICE_AREA', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    assert.ok(document.querySelector('.target-line').textContent.startsWith('DIAMETER_ERROR_SERVICE_AREA'));
+    const pane = new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+    assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'titled', 'page'].map(key => [key, pane.get(key)])), { search: '17.8.2', name: 'DIAMETER_ERROR_SERVICE_AREA', row: '1', titled: '1', page: '92' });
+    await page.go('#29061-6f0/17.8.2');
+    assert.equal(document.querySelector('.target-line'), null, 'a link to the clause marks no row');
+  } finally { await page.close(); }
+});
+
+test('; From: links to the document a reprint comes from, and the block\'s names to theirs', async () => {
+  const page = await boot({ hash: '#29109-i10' });
+  try {
+    const { document, window } = page;
+    const lines = [...document.querySelectorAll('.dad-line')];
+    const type = lines.findIndex(line => line.textContent === '; Type: Reprinted AVP\n');
+    const from = lines.slice(type).find(line => line.textContent.startsWith('; From:'));
+    const anchor = from.querySelector('a');
+    assert.equal(anchor.textContent, 'RFC6733');
+    assert.equal(anchor.getAttribute('href'), '#rfc6733');
+    assert.equal(anchor.dataset.token !== undefined, true);
+    click(page, anchor);
+    await settle();
+    assert.equal(window.location.hash, '#rfc6733');
+  } finally { await page.close(); }
+});
+
+test('the section list says what a clause\'s value tables hold', async () => {
+  const page = await boot({ hash: '#29217-i00' });
+  try {
+    const items = [...page.document.querySelectorAll('.section-list li')].map(item => item.textContent);
+    assert.ok(items.some(item => /Value Table \S+ · Bits \(\d+\)/.test(item)), items.join('\n'));
+    assert.ok(items.some(item => /Value Table Feature-List · Features list \d+ \([^)]+\) \(\d+\)/.test(item)), items.join('\n'));
+    assert.ok(items.some(item => /Value Table \S+ · Result codes \(\d+\)/.test(item)), items.join('\n'));
+  } finally { await page.close(); }
+});

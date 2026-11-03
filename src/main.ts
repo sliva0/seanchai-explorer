@@ -157,18 +157,20 @@ try {
       }
       const current = view!;
       sourcePane.setVisible(!parsed.paneHidden);
+      const value = parsed.name === undefined ? undefined : current.valueRow(parsed.section, parsed.name);
       const target = parsed.source && site.summary(parsed.source.document);
       if (parsed.source && target && paneKind(target, site.mode)) {
         const doc = await site.loadDocument(target.id);
         if (generation !== request) return;
         const known = doc.sections.find(section => section.section === parsed.source!.position.section);
         sourcePane.show({ ...known, ...parsed.source.position, page: parsed.source.position.page ?? known?.page }, doc);
-      } else {
+      } else if (value) sourcePane.show(value.position, current.doc);
+      else {
         const position = current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];
         if (position) sourcePane.show({ ...position, name: parsed.name }, current.doc);
       }
       if (parsed.section) current.scrollToSection(parsed.section);
-      current.pointAtLine(parsed.line);
+      current.pointAtLine(parsed.line ?? value?.line);
       if (parsed.top !== undefined) current.scrollToLine(parsed.top);
       if (arrived) {
         if (fresh) focusHeading();

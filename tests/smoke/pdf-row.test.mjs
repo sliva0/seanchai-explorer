@@ -15,6 +15,8 @@ const executablePath = process.env.CHROMIUM ?? '/usr/bin/chromium';
 const specifications = process.env.SEANCHAI_SPECIFICATIONS ?? path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
 const pdf = path.join(specifications, '3gpp/Rel-18/PDF/ts_129061v180100p.pdf');
 const reused = path.join(specifications, '3gpp/Rel-18/PDF/ts_129128v180000p.pdf');
+const values = path.join(specifications, '3gpp/Rel-18/PDF/ts_129272v180700p.pdf');
+const repeating = path.join(specifications, '3gpp/Rel-18/PDF/ts_129468v180000p.pdf');
 const rfc = path.join(specifications, 'rfc/rfc5580.txt');
 const skip = !existsSync(executablePath) ? `no browser at ${executablePath}` : !existsSync(pdf) || !existsSync(rfc) ? `no held PDF and RFC in ${specifications}` : false;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.pdf': 'application/pdf', '.wasm': 'application/wasm' };
@@ -30,7 +32,7 @@ before(async () => {
   server = http.createServer(async (request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
     const name = decodeURIComponent(pathname);
-    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : /^\/rfc\d+\.txt$/.test(name) ? path.join(specifications, 'rfc', name.slice(1))
+    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : name === '/29272-i70.pdf' ? values : name === '/29468-i00.pdf' ? repeating : /^\/rfc\d+\.txt$/.test(name) ? path.join(specifications, 'rfc', name.slice(1))
       : name.startsWith('/pdfjs/') ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
       : path.join(dist, name);
     try {
@@ -142,6 +144,55 @@ test('a name no table holds goes to where the source names it, and one it never 
     await page.evaluate(hash => { location.hash = hash; }, rowHash('Not-In-This-Document'));
     await page.waitForFunction(() => document.querySelector('#page').value === '129', undefined, { timeout: 60000 });
     assert.equal((await viewerState(page)).page, 129);
+  } finally { await context.close(); }
+});
+
+const noValues = skip || (!existsSync(values) || !existsSync(repeating)) && `no held PDFs ${values}, ${repeating}`;
+
+test('value rows: bits and features beside their numbers, repeated names, wrapped names, and a result code at its clause', { skip: noValues }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  try {
+    for (const [file, hash, expected] of [
+      ['29272-i70', 'page=124&search=7.3.31&name=GERAN+Not+Allowed&row=1&value=1', { page: 125, text: 'GERAN Not Allowed', query: 'GERAN Not Allowed' }],
+      ['29272-i70', 'page=102&search=7.3.8&name=Separation+Indication&row=1&value=0', { page: 102, text: 'Separation', query: 'Separation' }],
+      ['29272-i70', 'page=102&search=7.3.10.1&name=ODB-HPLMN-APN&row=1&value=1', { page: 104, text: 'ODB-', query: 'ODB-' }],
+      ['29272-i70', 'page=176&search=7.4.3.1&name=DIAMETER_ERROR_USER_UNKNOWN&row=1&titled=1', { page: 176, text: 'DIAMETER_ERROR_USER_UNKNOWN', query: 'DIAMETER_ERROR_USER_UNKNOWN' }],
+      ['29468-i00', 'page=27&search=6.4.33&name=System+error&row=1&value=6', { page: 27, text: 'System error', query: 'System error', match: 1 }],
+    ]) {
+      await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}${file}.pdf`)}#${hash}`);
+      await settled(page, expected.query);
+      await page.waitForFunction(text => document.querySelector('.highlight.selected')?.textContent === text, expected.text, { timeout: 15000 });
+      if (expected.match !== undefined) await page.waitForFunction(index => window.PDFViewerApplication.findController.selected.matchIdx === index, expected.match);
+      const state = await viewerState(page);
+      assert.equal(state.page, expected.page, hash);
+      assert.equal(state.selectedPage, expected.page, hash);
+      assert.ok(state.selectedTop >= 0 && state.selectedTop < 70, `${hash}: ${JSON.stringify(state)}`);
+    }
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('the RFC reader shows a result code on its line, as a bullet, and at its own clause', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+  const page = await context.newPage();
+  try {
+    for (const [file, hash, line] of [
+      ['rfc6733', '#page=89&section=7.1.2&query=DIAMETER_SUCCESS&row=1&titled=1', 'DIAMETER_SUCCESS 2001'],
+      ['rfc4740', '#page=59&section=10.1.1&query=DIAMETER_SERVER_SELECTION&row=1&titled=1', 'o  DIAMETER_SERVER_SELECTION 2007'],
+      ['rfc7075', '#page=7&section=3.4&query=DIAMETER_REALM_REDIRECT_INDICATION&row=1&titled=1', '3.4.  DIAMETER_REALM_REDIRECT_INDICATION Protocol Error Code'],
+    ]) {
+      await page.goto(`${base}rfc.html?file=${encodeURIComponent(`${base}${file}.txt`)}${hash}`);
+      await page.waitForSelector('.rfc-line', { state: 'attached' });
+      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match')].some(node => node.textContent.trim().startsWith(text)), line);
+      const first = await page.evaluate(() => {
+        const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
+        return [...document.querySelectorAll('.rfc-line')].find(node => node.getBoundingClientRect().bottom > top).textContent.trim();
+      });
+      assert.ok(first.startsWith(line), `${file}: ${first}`);
+    }
   } finally { await context.close(); }
 });
 

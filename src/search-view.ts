@@ -5,6 +5,7 @@ import { routeFor } from './navigation.ts';
 import { filterMentions, identityLabel, searchEntries, searchSpecifications, sortMentions } from './search.ts';
 import type { NameGroup } from './search.ts';
 import type { Mention, SearchEntry } from './types.ts';
+import { valueKinds } from './values.ts';
 
 const pageSize = 20;
 const sections: { kind: SearchEntry['kind']; title: string }[] = [
@@ -31,7 +32,10 @@ function renderGroup(group: NameGroup, site: Site): HTMLElement {
     const item = element('li');
     const doc = site.summary(entry.document);
     const label = doc ? docLabel(doc) : entry.document;
-    if (entry.target?.document === entry.document) {
+    if (entry.kind === 'value' && entry.target) {
+      // The name is a row of the document's table: the link says which, and the page marks it.
+      item.append(link(`${label} · ${entry.target.section}`, { ...entry.target, name: entry.name }));
+    } else if (entry.target?.document === entry.document) {
       // Mentioned and defined in one document: one link, to the definition.
       item.append(link(label, entry.target));
     } else {
@@ -70,7 +74,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
   const input = element('input');
   input.type = 'search';
   input.value = query;
-  input.placeholder = '29.214, Callee-Information, CCR, or 505';
+  input.placeholder = '29.214, Callee-Information, CCR, DIAMETER_SUCCESS, or 505';
   label.append(input);
   form.append(label, element('button', 'Search'));
   const results = element('section');
@@ -78,7 +82,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
   results.setAttribute('aria-live', 'polite');
   const heading = element('h1', 'Search');
   heading.tabIndex = -1;
-  container.replaceChildren(heading, element('p', 'Find specifications by title or number; AVPs, commands, applications and registry rows by name or code; and mentions in document text.'), form, results);
+  container.replaceChildren(heading, element('p', 'Find specifications by title or number; AVPs, commands, applications, registry rows and result codes by name or code; bits and features by name; and mentions in document text.'), form, results);
 
   const expanded = new Set<string>();
   let data: { entries: SearchEntry[]; mentions: Mention[] } | undefined;
@@ -120,7 +124,11 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
       return;
     }
     const found = searchEntries(data.entries, text, site.summary);
-    for (const { kind, title } of sections) section(kind, title, found[kind], group => renderGroup(group, site));
+    const render = (group: NameGroup) => renderGroup(group, site);
+    for (const { kind, title } of sections) section(kind, title, found[kind], render);
+    for (const { kind, title } of valueKinds) {
+      section(kind, title, found.value.filter(group => group.entries[0].identity?.kind === 'value' && group.entries[0].identity.value_kind === kind), render);
+    }
     const names = new Set(found.avp.map(group => group.name));
     const needle = text.trim();
     section('mentions', 'Mentions', filterMentions(data.mentions, text, names), mention => renderMention(mention, needle, site), true);
