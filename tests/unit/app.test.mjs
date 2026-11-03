@@ -119,7 +119,7 @@ test('self-hosted: PDFs go to the viewer pane at the clause and table row', asyn
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('search'), '5.1');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('3GPP TS 29.153'));
     assert.equal(document.querySelector('.source-header .publisher-link span').textContent, 'etsi.org');
-    assert.equal(document.querySelector('.source-header .local-link span').textContent, 'Local PDF');
+    assert.equal(document.querySelector('.source-header .local-link span').textContent, 'localhost');
     const row = [...document.querySelectorAll('.table-row a[data-avp]')][0];
     click(page, row);
     const params = new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));

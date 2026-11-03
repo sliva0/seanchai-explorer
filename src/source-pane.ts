@@ -67,8 +67,11 @@ function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: S
   if (kind === 'pdf') {
     const file = dataURL(doc.source.local!);
     if (position.page) file.hash = `page=${position.page}`;
-    decorateFileLink(local, file, 'Local PDF', true);
-  } else if (doc.source.text) decorateFileLink(local, paneURL(doc, position, site.mode)!, 'Local text', false);
+    decorateFileLink(local, file, file.hostname.replace(/^www\./, ''), true);
+  } else if (doc.source.text) {
+    const text = paneURL(doc, position, site.mode)!;
+    decorateFileLink(local, text, text.hostname.replace(/^www\./, ''), false);
+  }
 }
 
 function createSplitter(workspace: HTMLElement): HTMLElement {
