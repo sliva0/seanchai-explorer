@@ -125,6 +125,9 @@ test('value rows: the table in the section, by number where names repeat, and a 
     assert.deepEqual(await at(navigator, '7.3.8', 102, 'Separation Indication', { value: 0 }), [102, 'row']);
     assert.deepEqual(await at(navigator, '7.4.3.1', 176, 'DIAMETER_ERROR_USER_UNKNOWN', { titled: true }), [176, 'clause']);
   });
+  await withNavigator('32299-i00.pdf', async navigator => {
+    assert.deepEqual(await at(navigator, '7.1.11', 99, 'DIAMETER_RATING_FAILED', { titled: true, value: 5031 }), [99, 'row']);
+  });
   await withNavigator('29468-i00.pdf', async navigator => {
     const repeated = await navigator.locate('6.4.33', 27, () => true, 'System error', true, undefined, { value: 6 });
     assert.equal(repeated.pageNumber, 27);

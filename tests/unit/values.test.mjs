@@ -18,7 +18,7 @@ test('result codes: the row, its number, its clause and where the source prints 
   const row = table.rows.find(row => row.name === 'DIAMETER_ERROR_SERVICE_AREA');
   assert.equal(row.value, 5123);
   assert.equal(row.mark, null, 'a clause is no mark');
-  assert.deepEqual(row.position, { section: '17.8.2', page: 92, name: row.name, row: true, titled: true });
+  assert.deepEqual(row.position, { section: '17.8.2', page: 92, name: row.name, row: true, value: 5123, titled: true });
   const tokens = lines[row.line].tokens;
   assert.equal(tokens.find(token => token.text === '17.8.2').source, row.position, 'its clause links to the row');
   assert.equal(tokens.find(token => token.target).valueRow, row);

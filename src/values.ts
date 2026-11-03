@@ -65,8 +65,7 @@ function readTables(lines: Line[]): ValueTable[] {
     const name = row[2].replace(/\\(["\\])/g, '$1');
     const clause = line.tokens.find(token => token.source) as ValueToken | undefined;
     const value = Number(row[3]);
-    const clue = table.kind === 'result-codes' ? { titled: true } : { value };
-    const position: SourcePosition = { section: clause?.source?.section ?? table.section, page: clause?.source?.page ?? table.page, name, row: true, ...clue };
+    const position: SourcePosition = { section: clause?.source?.section ?? table.section, page: clause?.source?.page ?? table.page, name, row: true, value, ...(table.kind === 'result-codes' ? { titled: true } : {}) };
     const nameToken = line.tokens.find(token => token.target && !token.avp) as ValueToken | undefined;
     const current: ValueRow = { name, value, mark: row[4] && !clause ? row[4] : null, line: index, target: nameToken?.target ?? null, position, table };
     table.rows.push(current);

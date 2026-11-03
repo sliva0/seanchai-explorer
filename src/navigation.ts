@@ -4,7 +4,7 @@ import type { Citation, Target } from './types.ts';
  * A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for;
  * `printed` the source's spelling of a row the corpus renamed, which the raw mirror holds and so the route does not;
  * `titled` a row whose section is its own clause, as a result code's is, so the clause is where to go when no row reads as it;
- * `value` the number a bit or feature row prints beside its name, which tells apart a page's tables repeating names.
+ * `value` the number a value table's row can print beside its name, which tells apart a page's tables repeating names.
  */
 export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean; printed?: string; titled?: boolean; value?: number }
 export interface PaneState { document: string; position: SourcePosition }
