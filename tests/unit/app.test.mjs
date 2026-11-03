@@ -337,6 +337,29 @@ test('the pane is kept in the URL without new history entries, and restored from
   } finally { await opened.close(); }
 });
 
+test('a search typed in the PDF viewer reaches the URL once, and its own find does not', async () => {
+  const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted' });
+  try {
+    const { document, window } = page;
+    const frame = document.querySelector('iframe');
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: { postMessage() {} } });
+    const file = new URL(frameSrc(document)).searchParams.get('file');
+    let replaced = 0;
+    const replaceState = window.history.replaceState.bind(window.history);
+    window.history.replaceState = (...args) => { replaced++; replaceState(...args); };
+    const send = query => window.dispatchEvent(new window.MessageEvent('message', { origin: window.location.origin, source: frame.contentWindow, data: { type: 'seanchai-pdf-matches', file, query, current: 1, total: 2 } }));
+    send('5.1');
+    assert.equal(window.location.hash, '#29153-i00/5.1');
+    assert.equal(replaced, 0);
+    send('Rx-Request-Type');
+    send('Rx-Request-Type');
+    assert.equal(replaced, 1);
+    const route = new URLSearchParams(window.location.hash.split('?')[1]);
+    assert.equal(route.get('sourceName'), 'Rx-Request-Type');
+    assert.equal(route.get('exact'), '1');
+  } finally { await page.close(); }
+});
+
 test('a switched-off pane is kept in the URL, and following a name leaves its position to go back to', async () => {
   const page = await boot({ hash: '#rfc7944?pane=0' });
   try {

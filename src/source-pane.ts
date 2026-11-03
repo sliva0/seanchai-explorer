@@ -156,8 +156,10 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       refreshHeaders();
       onChange();
     }
-    if (event.data.type === 'seanchai-pdf-matches' && typeof event.data.query === 'string') {
+    // The viewer reports its own find for the position too, and every count of a search.
+    if (event.data.type === 'seanchai-pdf-matches' && typeof event.data.query === 'string' && event.data.query !== (selected.position.name ?? selected.position.section)) {
       selected.position = { ...selected.position, name: event.data.query, exact: true };
+      onChange();
     }
   });
 
