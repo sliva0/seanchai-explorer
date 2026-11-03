@@ -7,11 +7,11 @@ import type { NameGroup } from './search.ts';
 import type { Mention, SearchEntry } from './types.ts';
 
 const pageSize = 20;
-const sections: { kind: SearchEntry['kind']; title: string; empty: string }[] = [
-  { kind: 'avp', title: 'AVPs', empty: 'AVPs' },
-  { kind: 'command', title: 'Commands', empty: 'commands' },
-  { kind: 'application', title: 'Applications', empty: 'applications' },
-  { kind: 'registry', title: 'Registry rows', empty: 'registry rows' },
+const sections: { kind: SearchEntry['kind']; title: string }[] = [
+  { kind: 'avp', title: 'AVPs' },
+  { kind: 'command', title: 'Commands' },
+  { kind: 'application', title: 'Applications' },
+  { kind: 'registry', title: 'Registry rows' },
 ];
 
 function renderGroup(group: NameGroup, site: Site): HTMLElement {
@@ -71,8 +71,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
   heading.tabIndex = -1;
   container.replaceChildren(heading, element('p', 'Find specifications by title or number; AVPs, commands, applications and registry rows by name or code; and mentions in document text.'), form, results);
 
-  const limits = new Map<string, number>();
-  const limitOf = (key: string) => limits.get(key) ?? pageSize;
+  const expanded = new Set<string>();
   let data: { entries: SearchEntry[]; mentions: Mention[] } | undefined;
   let failed: string | undefined;
 
@@ -80,21 +79,26 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     results.replaceChildren();
     const text = input.value;
     if (!text.trim()) return;
-    function section<T>(key: string, title: string, empty: string, items: T[], render: (item: T) => HTMLElement, wrap = false) {
+    function section<T>(key: string, title: string, items: T[], render: (item: T) => HTMLElement, wrap = false) {
+      if (!items.length) return;
       const node = element('section', undefined, `search-section search-${key}`);
       node.append(element('h2', `${title} (${items.length})`));
       results.append(node);
-      if (!items.length) node.append(element('p', `No matching ${empty}.`));
       const parent = wrap ? element('ul') : node;
       if (wrap) node.append(parent);
-      for (const item of items.slice(0, limitOf(key))) parent.append(render(item));
-      if (items.length > limitOf(key)) {
+      const shown = expanded.has(key) ? items.length : pageSize;
+      for (const item of items.slice(0, shown)) parent.append(render(item));
+      if (items.length > shown) {
         const button = element('button', 'More');
-        button.onclick = () => { limits.set(key, limitOf(key) + pageSize); update(); };
+        button.onclick = () => {
+          expanded.add(key);
+          button.remove();
+          for (const item of items.slice(shown)) parent.append(render(item));
+        };
         node.append(button);
       }
     }
-    section('specifications', 'Specifications', 'specifications', searchSpecifications(site.index.documents, text), doc => {
+    section('specifications', 'Specifications', searchSpecifications(site.index.documents, text), doc => {
       const item = element('li');
       item.append(link(docTitle(doc), { document: doc.id }));
       return item;
@@ -107,16 +111,17 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
       return;
     }
     const found = searchEntries(data.entries, text, site.summary);
-    for (const { kind, title, empty } of sections) section(kind, title, empty, found[kind], group => renderGroup(group, site));
+    for (const { kind, title } of sections) section(kind, title, found[kind], group => renderGroup(group, site));
     const names = new Set(found.avp.map(group => group.name));
     const needle = text.trim();
-    section('mentions', 'Mentions', 'mentions', filterMentions(data.mentions, text, names), mention => renderMention(mention, needle, site), true);
+    section('mentions', 'Mentions', filterMentions(data.mentions, text, names), mention => renderMention(mention, needle, site), true);
+    if (!results.childElementCount) results.append(element('p', 'No matches.'));
   }
 
   let timer: ReturnType<typeof setTimeout> | undefined;
   input.oninput = () => {
     history.replaceState(null, '', `#search?q=${encodeURIComponent(input.value)}`);
-    limits.clear();
+    expanded.clear();
     clearTimeout(timer);
     timer = setTimeout(update, 120);
   };

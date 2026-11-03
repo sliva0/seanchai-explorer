@@ -100,13 +100,15 @@ test('mentions match on every word or a found AVP, newest release first', () => 
   assert.deepEqual(filterMentions(sorted, '', new Set(['Session-Id'])), []);
 });
 
-test('the search page shows a section per kind over the fixture, and focuses its input', async () => {
+test('the search page shows a section per kind with matches over the fixture, and focuses its input', async () => {
   const { entries } = await readFixture('search.json');
   const named = kind => entries.find(entry => entry.kind === kind && entry.identity && entry.target);
   const page = await boot({ hash: `#search?q=${encodeURIComponent(named('command').name)}` });
   try {
     const { document, window } = page;
-    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent.split(' (')[0]), ['Specifications', 'AVPs', 'Commands', 'Applications', 'Registry rows', 'Mentions']);
+    const headings = [...document.querySelectorAll('#search-results h2')].map(node => node.textContent);
+    assert.ok(headings.some(heading => heading.startsWith('Commands (')));
+    assert.ok(!headings.some(heading => heading.endsWith('(0)')), 'groups without matches are left out');
     assert.ok(document.querySelector('.search-command summary').textContent.includes(named('command').name));
     const input = document.querySelector('.search-form input');
     assert.equal(document.activeElement, input);
@@ -118,6 +120,36 @@ test('the search page shows a section per kind over the fixture, and focuses its
     assert.ok(document.querySelector('.search-application summary').textContent.includes(named('application').name));
     const mention = document.querySelector('.search-mentions .mention-link');
     assert.match(mention.getAttribute('href'), /line=\d+/);
+  } finally { await page.close(); }
+});
+
+test('more shows every remaining entry of its group, and only of that group', async () => {
+  const { entries } = await readFixture('search.json');
+  const base = entries.find(entry => entry.kind === 'avp' && entry.identity && entry.target);
+  const extra = Array.from({ length: 47 }, (_, index) => ({ ...base, name: `Zzexpand-${index}`, abbreviation: null, wireshark_name: null, identity: { ...base.identity, code: 900000 + index } }));
+  const mentions = Array.from({ length: 47 }, (_, index) => ({ document: base.document, section: null, line: index + 1, text: `zzexpand ${index}` }));
+  const page = await boot({ hash: '#search?q=zzexpand', transform: (path, data) => path === 'data/search.json' ? { ...data, entries: [...data.entries, ...extra], mentions: [...data.mentions, ...mentions] } : data });
+  try {
+    const { document } = page;
+    assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent), ['AVPs (47)', 'Mentions (47)']);
+    assert.equal(document.querySelectorAll('.search-avp details').length, 20);
+    assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
+    document.querySelector('.search-avp details').open = true;
+    document.querySelector('.search-avp > button').click();
+    assert.equal(document.querySelectorAll('.search-avp details').length, 47);
+    assert.equal(document.querySelector('.search-avp > button'), null);
+    assert.equal(document.querySelector('.search-avp details').open, true, 'what is open stays open');
+    assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
+    assert.ok(document.querySelector('.search-mentions > button'));
+  } finally { await page.close(); }
+});
+
+test('a search matching nothing has no headings', async () => {
+  const page = await boot({ hash: '#search?q=zzznothing' });
+  try {
+    const results = page.document.querySelector('#search-results');
+    assert.equal(results.querySelector('h2'), null);
+    assert.equal(results.textContent, 'No matches.');
   } finally { await page.close(); }
 });
 
