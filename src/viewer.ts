@@ -1,7 +1,7 @@
 import * as pdfjs from 'pdfjs-dist';
-import { EventBus, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
+import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { createSectionNavigator } from './pdf-navigation.ts';
+import { createSectionNavigator, matchOnRow } from './pdf-navigation.ts';
 import { initTheme } from './theme.ts';
 import type { Outline } from './pdf-navigation.ts';
 import 'pdfjs-dist/web/pdf_viewer.css';
@@ -15,14 +15,26 @@ const container = document.querySelector<HTMLDivElement>('#viewerContainer')!;
 const eventBus = new EventBus();
 const linkService = new PDFLinkService({ eventBus });
 let automaticFind = false;
+// A row's name, found as a whole word.
+let wholeWord = false;
+// Where a navigation's find starts, whatever the pane has scrolled to by the time it runs.
+let findStart: number | undefined;
 class FindLinkService extends PDFLinkService {
-  override get page() { return firstVisiblePage(); }
+  override get page() { return findStart ?? firstVisiblePage(); }
   override set page(value: number) { if (!automaticFind) super.page = value; }
 }
 const findLinkService = new FindLinkService({ eventBus });
 class FindController extends PDFFindController {
   override scrollMatchIntoView(options: Parameters<PDFFindController['scrollMatchIntoView']>[0]) {
     if (!automaticFind) super.scrollMatchIntoView(options);
+  }
+  // pdf.js joins a name a table wraps as "3GPP-SGSN-" over "Address" into 3GPP-SGSNAddress, which its own match misses.
+  override match(query: string | string[], pageContent: string, pageIndex: number) {
+    if (typeof query !== 'string' || !query.includes('-')) return super.match(query, pageContent, pageIndex);
+    const parts = query.split('-').map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+    const body = parts.join('\\s*-?\\s*');
+    const pattern = new RegExp(wholeWord ? `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])` : body, 'giu');
+    return [...pageContent.matchAll(pattern)].filter(found => found[0]).map(found => ({ index: found.index, length: found[0].length }));
   }
 }
 const findController = new FindController({ eventBus, linkService: findLinkService });
@@ -52,6 +64,9 @@ let ready = false;
 let navigation = 0;
 let displayedPage = 1;
 let counterFrame = 0;
+let pdfDocument: pdfjs.PDFDocumentProxy | undefined;
+// The row a navigation's find is still to settle on.
+let rowTarget: { page: number; top: number } | undefined;
 function firstVisiblePage(): number {
   if (!ready || !container.clientHeight || !container.clientWidth) return displayedPage;
   const top = container.getBoundingClientRect().top + 1;
@@ -89,7 +104,7 @@ new ResizeObserver(() => {
 function search(query: string, again = false, previous = false) {
   eventBus.dispatch('find', {
     source: window, type: again ? 'again' : '', query,
-    caseSensitive: false, entireWord: false, highlightAll: true,
+    caseSensitive: false, entireWord: wholeWord, highlightAll: true,
     findPrevious: previous, matchDiacritics: false,
   });
 }
@@ -121,6 +136,9 @@ function renderOutline(items: Outline): HTMLUListElement {
         event.preventDefault();
         navigation++;
         automaticFind = true;
+        findStart = undefined;
+        wholeWord = false;
+        rowTarget = undefined;
         find.value = '';
         search('');
         selectOutline(title);
@@ -154,11 +172,15 @@ async function navigate() {
   const name = params.get('name') ?? undefined;
   const row = params.get('row') === '1';
   find.value = name ?? section;
+  rowTarget = undefined;
+  wholeWord = row;
   const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row) : null;
   if (generation !== navigation) return;
   if (destination) viewer.scrollPageIntoView({ ...destination, ignoreDestinationZoom: true });
   else viewer.scrollPageIntoView({ pageNumber: hint });
   automaticFind = params.get('match') !== '1';
+  findStart = destination?.pageNumber ?? hint;
+  if (row && destination?.destArray[0] === null) rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
   search(name ?? section, params.get('match') === '1');
   selectOutline([...outlinePane.querySelectorAll('a')].find(anchor => {
     const title = anchor.textContent?.replace(/\s+/g, ' ').trim();
@@ -193,14 +215,34 @@ function updateMatches({ matchesCount }: { matchesCount?: { current: number; tot
   matches.textContent = `${matchesCount.current} / ${matchesCount.total}`;
   report('seanchai-pdf-matches', { query: find.value, ...matchesCount });
 }
+/** The find selects a page's first match, which may be a mention above the row: moves on to the row's own. */
+async function settleOnRow(generation: number) {
+  const target = rowTarget;
+  const selected = findController.selected;
+  if (!target || !pdfDocument || !selected || selected.pageIdx === -1) return;
+  rowTarget = undefined;
+  const { pageIdx, matchIdx } = selected;
+  if (pageIdx !== target.page - 1) return;
+  const offsets = findController.pageMatches?.[pageIdx];
+  if (!offsets || offsets.length < 2) return;
+  const page = await pdfDocument.getPage(target.page);
+  const { items } = await page.getTextContent({ disableNormalization: true });
+  if (generation !== navigation) return;
+  const steps = matchOnRow(items, offsets, target.top) - matchIdx;
+  for (let step = 0; step < steps; step++) search(find.value, true);
+}
 eventBus.on('updatefindmatchescount', updateMatches);
-eventBus.on('updatefindcontrolstate', updateMatches);
-function manual() { navigation++; }
+eventBus.on('updatefindcontrolstate', (event: Parameters<typeof updateMatches>[0] & { state: number }) => {
+  updateMatches(event);
+  if (event.state !== FindState.PENDING) void settleOnRow(navigation).catch(console.error);
+});
+function manual() { navigation++; findStart = undefined; rowTarget = undefined; }
 let pendingFind: { query: string; previous: boolean } | undefined;
 function runFind(data: { query: string; previous: boolean }) {
   if (!ready) { pendingFind = data; return; }
   manual();
   automaticFind = false;
+  if (data.query !== find.value) wholeWord = false;
   find.value = data.query;
   search(data.query, true, data.previous);
 }
@@ -214,7 +256,7 @@ document.querySelector<HTMLFormElement>('#toolbar')!.onsubmit = event => {
   if (document.activeElement === page) { goToPageInput(); return; }
   runFind({ query: find.value, previous: false });
 };
-find.oninput = () => { manual(); automaticFind = false; search(find.value); };
+find.oninput = () => { manual(); automaticFind = false; wholeWord = false; search(find.value); };
 window.addEventListener('hashchange', () => { void navigate().catch(console.error); });
 const toolbar = document.querySelector<HTMLFormElement>('#toolbar')!;
 new ResizeObserver(() => { document.documentElement.style.setProperty('--toolbar-height', `${toolbar.getBoundingClientRect().height}px`); }).observe(toolbar);
@@ -240,6 +282,7 @@ try {
   }).promise;
   page.max = String(pdf.numPages);
   document.querySelector('#pages')!.textContent = `/ ${pdf.numPages}`;
+  pdfDocument = pdf;
   navigator = createSectionNavigator(pdf);
   const outline = await navigator.outline;
   outlinePane.replaceChildren(renderOutline(outline));
