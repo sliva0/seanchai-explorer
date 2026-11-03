@@ -48,10 +48,11 @@ await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });
 await rename(temporary, data);
 
-// The grammar is committed for builds with no checkout; a checkout's copy is the source of it.
-if (root) {
+// The export's grammar is the one to use; the committed copy is for an export without one.
+const grammar = path.join(data, 'syntax/dad.tmLanguage.json');
+if (existsSync(grammar)) {
   await mkdir(path.join(project, 'public/syntax'), { recursive: true });
-  await cp(path.join(root, 'editors/vscode/syntaxes/dad.tmLanguage.json'), path.join(project, 'public/syntax/dad.tmLanguage.json'));
+  await cp(grammar, path.join(project, 'public/syntax/dad.tmLanguage.json'));
 }
 
 await rm(pdfjsOut, { recursive: true, force: true });

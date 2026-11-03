@@ -52,6 +52,10 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   assert.ok(!existsSync(path.join(dist, 'pdfjs')));
   for (const file of await readdir(path.join(dist, 'assets'))) assert.ok(!/viewer|pdf/i.test(file), file);
   await checkRfcAnchors(index);
+  const grammar = await readFile(path.join(dist, 'data/syntax/dad.tmLanguage.json'));
+  assert.deepEqual(await readFile(path.join(dist, 'syntax/dad.tmLanguage.json')), grammar);
+  const committed = spawnSync('git', ['show', 'HEAD:public/syntax/dad.tmLanguage.json'], { cwd: root });
+  if (committed.status === 0) assert.ok(committed.stdout.equals(grammar), 'public/syntax/dad.tmLanguage.json is behind the export: commit it');
   const check = spawnSync('node', ['scripts/check-public.mjs', fileURLToPath(new URL('fixtures/with-pdf/', import.meta.url))], { cwd: root, encoding: 'utf8' });
   assert.equal(check.status, 1);
   assert.match(check.stderr, /sources\/a\.pdf/);

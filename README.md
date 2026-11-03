@@ -41,7 +41,7 @@ Node 24 or newer and npm. An export comes from one of:
 
 | Variable | Meaning |
 |---|---|
-| `SEANCHAI_ROOT` | The Seanchaí checkout to run and copy the grammar from. Default: `../..` if that is one, otherwise `seanchai` from `PATH` and the committed grammar. |
+| `SEANCHAI_ROOT` | The Seanchaí checkout to run. Default: `../..` if that is one, otherwise `seanchai` from `PATH`. |
 | `SEANCHAI_SPECIFICATIONS` | A `seanchai download` directory. Default: `specifications/` in the checkout. Optional for a public build, in which `--specifications` and `--dictionary` are passed only if the directories exist. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running Python. Its mode must match the build's. |
 
@@ -61,8 +61,8 @@ npm run test:smoke          # headless Chromium over a fixture build; CHROMIUM=p
 ```
 
 `public/syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for
-builds with no checkout; a build with a checkout refreshes it, so a change shows up
-in `git diff`.
+an export that lacks one; a build copies the export's over it, so a change shows up
+in `git diff`, and the tests hold the committed copy to the exported one.
 
 ## The export contract
 
