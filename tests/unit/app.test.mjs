@@ -195,3 +195,39 @@ test('search data is fetched on the search page only', async () => {
     assert.ok(page.fetched.includes('data/search.json'));
   } finally { await page.close(); }
 });
+
+test('the index says what the site is and lists releases newest first with pinned ones folded', async () => {
+  const documents = [
+    ['a-18', '3GPP', 18, null], ['a-6', '3GPP', 6, 'Held for TS 29.210.'], ['a-11', '3GPP', 11, 'Held for TS 32.299.'], ['a-11b', '3GPP', 11, null], ['rfc1', 'IETF', null, null],
+  ].map(([id, publisher, release, pinned]) => ({ id, publisher, release, pinned, path: `documents/${id}.json`, raw: null, reference: id, specification: id, title: `Title ${id}`, version: null, source: { kind: 'other', url: null, local: null, text: null } }));
+  const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
+  try {
+    const { document } = page;
+    assert.equal(document.querySelector('main h1').textContent, 'Seanchaí');
+    const about = document.querySelector('.about').textContent;
+    assert.match(about, /unofficial/);
+    assert.match(about, /publishers' terms/);
+    assert.match(about, /does not redistribute/);
+    assert.match(about, /Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build/);
+    assert.equal(document.querySelector('.about a').href, 'https://github.com/sliva0/senchai');
+    assert.equal(document.querySelector('.demo-badge'), null);
+    assert.deepEqual([...document.querySelectorAll('main section > h2, .pinned-release > summary')].map(node => node.textContent), [
+      '3GPP · Release 18',
+      '3GPP · Release 11',
+      '3GPP · Release 11: 1 held for later citations',
+      '3GPP · Release 6: 1 held for later citations',
+      'IETF',
+    ]);
+    const folded = document.querySelectorAll('.pinned-release');
+    assert.equal(folded[0].open, false);
+    assert.equal(folded[1].querySelector('li p').textContent, 'Held for TS 29.210.');
+    assert.equal(document.querySelectorAll('main li > a').length, documents.length);
+  } finally { await page.close(); }
+});
+
+test('the versions an export leaves out are left out', async () => {
+  const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, corpus_version: null } : data });
+  try {
+    assert.ok(!page.document.querySelector('.versions').textContent.includes('Corpus'));
+  } finally { await page.close(); }
+});

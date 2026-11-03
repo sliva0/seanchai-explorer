@@ -15,11 +15,12 @@ import type { Line } from './types.ts';
 
 const header = element('header');
 const nav = element('nav');
-const indexLink = element('a', 'Index');
-indexLink.href = '#';
+const siteName = element('a', 'Seanchaí', 'site-name');
+siteName.href = '#';
+siteName.setAttribute('aria-label', 'Seanchaí, index');
 const searchLink = element('a', 'Search');
 searchLink.href = '#search';
-nav.append(indexLink, searchLink);
+nav.append(siteName, searchLink);
 const searchForm = element('form', undefined, 'header-search');
 searchForm.setAttribute('role', 'search');
 const searchInput = element('input');

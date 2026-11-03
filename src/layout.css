@@ -7,6 +7,7 @@ header { padding: 0.45rem 0.9rem; border-bottom: 1px solid var(--ui-border); bac
 nav { gap: 0.6rem; font-size: 0.9rem; }
 nav a { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); font-weight: 600; text-decoration: none; }
 nav a:hover { background: var(--ui-hover); border-color: var(--ui-muted); }
+nav a.site-name { padding-inline: 0.25rem; border-color: transparent; background: none; color: var(--ui-fg); font-size: 1rem; font-weight: 700; }
 .header-search { flex: 0 1 18rem; min-width: 8rem; }
 .header-search[hidden] { display: none; }
 .header-search input { width: 100%; height: 28px; padding: 0 0.5rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-fg); background: var(--ui-bg); font-size: 0.85rem; }
@@ -14,10 +15,7 @@ nav a:hover { background: var(--ui-hover); border-color: var(--ui-muted); }
 .header-actions [hidden], .pane-actions [hidden] { display: none; }
 .theme-toggle { display: inline-flex; align-items: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-link); background: var(--ui-bg); font: 600 0.9rem system-ui, sans-serif; cursor: pointer; text-decoration: none; }
 .theme-toggle:hover { background: var(--ui-hover); }
-.demo-badge { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.15rem 0.35rem; border: 1px solid #d6b76a; border-radius: 3px; background: #fff4da; color: #805300; font-size: 0.75rem; line-height: 1.2; white-space: nowrap; }
-.demo-badge::before { content: '⚠'; }
-:root[data-theme="dark"] .demo-badge { border-color: #826530; background: #352b1d; color: #f1d08a; }
-a { color: var(--ui-link); text-underline-offset: 2px; }
+:root[data-theme="dark"] a { color: var(--ui-link); text-underline-offset: 2px; }
 a:hover { color: var(--ui-link-hover); }
 button, input, select { font: inherit; }
 #content { min-height: 0; overflow: auto; padding: 0.75rem 1rem; }
@@ -73,6 +71,11 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 #search-results details { margin-block: 0.75rem; }
 h1 { margin-block: 0.5rem; font-size: 1.4rem; }
 h1:focus { outline: none; }
+.about { max-width: 80ch; margin-bottom: 2rem; line-height: 1.5; }
+.about p { margin-block: 0.5rem; }
+.about .versions { color: var(--ui-muted); font-size: 0.85rem; }
+.pinned-release { margin-block: 0.75rem; }
+.pinned-release summary { font-weight: 600; }
 .index-view li { padding-block: 0.35rem; line-height: 1.6; }
 .index-view section { margin-bottom: 2rem; }
 .index-view li p { margin: 0.2rem 0 0.5rem; max-width: 80ch; font-size: 0.85rem; color: var(--ui-muted); }
