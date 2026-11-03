@@ -58,7 +58,11 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const bounds = opener.getBoundingClientRect();
     const size = panel.getBoundingClientRect();
     panel.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - size.width - 12))}px`;
-    panel.style.top = `${Math.max(12, Math.min(bounds.bottom + 8, innerHeight - size.height - 12))}px`;
+    // Below the name, or above it where it would otherwise be covered.
+    const below = bounds.bottom + 8;
+    const above = bounds.top - size.height - 8;
+    const top = below + size.height <= innerHeight - 12 ? below : above >= 12 ? above : innerHeight - size.height - 12;
+    panel.style.top = `${Math.max(12, top)}px`;
     closeButton.focus({ preventScroll: true });
   }
 
@@ -93,6 +97,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     panel.append(source);
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span');
+    count.style.minWidth = `${`Row ${table.rows.length}/${table.rows.length}`.length}ch`;
     const previous = element('button', 'Previous', 'control');
     const next = element('button', 'Next', 'control');
     actions.append(count, previous, next);
@@ -108,6 +113,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       nameNode(active)?.classList.add('avp-current');
       for (const button of buttons) button.removeAttribute('aria-current');
       buttons[active].setAttribute('aria-current', 'location');
+      buttons[active].scrollIntoView?.({ block: 'nearest' });
       if (pane.isOpen()) pane.show(table.rows[active].position, doc, true);
     };
     const select = (index: number) => {
@@ -157,6 +163,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     }
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span', `.dad ${active + 1}/${occurrences.length}`);
+    count.style.minWidth = `${`.dad ${occurrences.length}/${occurrences.length}`.length}ch`;
     const previous = element('button', 'Previous', 'control');
     const next = element('button', 'Next', 'control');
     actions.append(count, previous, next);
@@ -172,6 +179,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       const node = occurrences[active];
       node.classList.add('avp-current');
       buttons[active].setAttribute('aria-current', 'location');
+      buttons[active].scrollIntoView?.({ block: 'nearest' });
       scrollToNode(documentPane, node, 24);
       const line = lineOf(node);
       const position = doc.sections.find(section => section.section === line.dataset.section);
@@ -196,6 +204,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     usages.append(usagesTitle, list);
     panel.append(usages);
     place(panel, closeButton, opener);
+    buttons[active]?.scrollIntoView?.({ block: 'nearest' });
   }
 
   return { show, close };
