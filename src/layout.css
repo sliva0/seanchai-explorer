@@ -15,9 +15,12 @@ nav a.site-name { padding-inline: 0.25rem; border-color: transparent; background
 .header-actions [hidden], .pane-actions [hidden] { display: none; }
 .theme-toggle { display: inline-flex; align-items: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-link); background: var(--ui-bg); font: 600 0.9rem system-ui, sans-serif; cursor: pointer; text-decoration: none; }
 .theme-toggle:hover { background: var(--ui-hover); }
-:root[data-theme="dark"] a { color: var(--ui-link); text-underline-offset: 2px; }
+:root[data-theme="dark"] .skip-link { position: absolute; z-index: 200; top: -4rem; left: 0.5rem; padding: 0.4rem 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); }
+.skip-link:focus { top: 0.5rem; }
+a { color: var(--ui-link); text-underline-offset: 2px; }
 a:hover { color: var(--ui-link-hover); }
 button, input, select { font: inherit; }
+#content:focus { outline: none; }
 #content { min-height: 0; overflow: auto; padding: 0.75rem 1rem; }
 #content.document-view { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
 #document-tools { display: flex; flex: none; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; border-bottom: 1px solid var(--ui-border); }
@@ -29,6 +32,9 @@ button, input, select { font: inherit; }
 #diagnostics ul { margin: 0.5rem 0; padding-left: 1.4rem; }
 #diagnostics li { max-width: 100ch; line-height: 1.6; overflow-wrap: anywhere; white-space: normal; }
 #diagnostics li + li { margin-top: 0.65rem; }
+.section-list { columns: 9rem; padding-left: 0 !important; list-style: none; }
+.occurrences-toggle { padding: 0.1rem 0.45rem; border: 1px solid var(--ui-border); border-radius: 3px; background: var(--ui-bg); color: var(--ui-link); cursor: pointer; }
+.occurrences-toggle[aria-pressed="true"] { border-color: var(--ui-link); background: var(--ui-hover); font-weight: 600; }
 summary { cursor: pointer; }
 #workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); overflow: hidden; }
 #workspace.with-source { grid-template-columns: minmax(0, 1fr) 7px minmax(0, 1fr); }
@@ -37,7 +43,7 @@ summary { cursor: pointer; }
 #document { grid-column: 1; grid-row: 2; min-width: 0; min-height: 0; overflow: auto; padding: 0.75rem; overscroll-behavior: contain; }
 #source-pane { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
 .pane-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0.5rem; min-width: 0; padding: 0.45rem 0.6rem; border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); font-size: 0.8rem; font-weight: 600; overflow-wrap: anywhere; }
-.pane-header h2 { flex: 1 1 14rem; margin: 0; font: inherit; }
+.pane-header h1, .pane-header h2 { flex: 1 1 14rem; margin: 0; font: inherit; }
 .pane-actions { display: flex; flex: none; flex-wrap: wrap; gap: 0.35rem; margin-left: auto; }
 .pane-actions a { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.4rem; border: 1px solid var(--ui-border); border-radius: 3px; text-decoration: none; font-size: 0.75rem; font-weight: 400; background: var(--ui-bg); white-space: nowrap; }
 .pane-actions svg { flex: none; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.1; stroke-linecap: round; stroke-linejoin: round; }
@@ -110,5 +116,9 @@ mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 .usage-list { max-height: 22vh; overflow: auto; margin-top: 0.3rem; }
 .usage-link { display: block; width: 100%; border: 0; border-radius: 2px; padding: 0.2rem; text-align: left; color: var(--ui-link); background: none; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
 .usage-link:hover, .usage-link[aria-current] { background: var(--ui-hover); }
+.dad-line.target-line { background: var(--syntax-number-bg); box-shadow: inset 3px 0 var(--syntax-number); }
+.dad-line:focus { outline: none; }
 .dad-line.raw-warning { background: #fff0d2; box-shadow: inset 3px 0 #ba7b18; }
-:root[data-theme="dark"] .dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }
+:root[data-theme="dark"] .dad-line.target-line { background: var(--syntax-number-bg); box-shadow: inset 3px 0 var(--syntax-number); }
+.dad-line:focus { outline: none; }
+.dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }

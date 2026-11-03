@@ -19,7 +19,7 @@ test('public: a name and ; Bases: go to the target page and nothing opens a wind
     click(page, name);
     await settle();
     assert.equal(window.location.hash, href);
-    assert.ok(document.querySelector('.document-header h2').textContent.startsWith('RFC 7944'));
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
     await page.go('#29153-i00');
     const base = [...document.querySelectorAll('pre a')].find(a => a.getAttribute('href') === '#rfc6733');
     click(page, base);
@@ -177,7 +177,8 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
 test('an unknown document and an unsupported export say so, the second before any other fetch', async () => {
   const page = await boot({ hash: '#does-not-exist' });
   try {
-    assert.equal(page.document.querySelector('main').textContent, 'Document not found');
+    assert.equal(page.document.querySelector('main h1').textContent, 'Document not found');
+    assert.equal(page.document.title, 'Document not found — Seanchaí');
   } finally { await page.close(); }
   const old = await boot({ transform: (_path, data) => ({ ...data, schema_version: 1 }) });
   try {
@@ -361,4 +362,72 @@ test('a switched-off pane is kept in the URL, and following a name leaves its po
     await settle();
     assert.ok(!window.location.hash.startsWith('#29153-i00'));
   } finally { await left.close(); }
+});
+
+test('each route sets its title and heading, and navigation moves focus', async () => {
+  const page = await boot();
+  try {
+    const { document, window } = page;
+    assert.equal(document.title, 'Seanchaí');
+    assert.equal(document.querySelector('main h1').textContent, 'Seanchaí');
+    assert.notEqual(document.activeElement, document.querySelector('main h1'), 'not on first load');
+    await page.go('#29153-i00');
+    assert.equal(document.title, '3GPP TS 29.153 V18.0.0 — Seanchaí');
+    const heading = document.querySelector('main h1');
+    assert.match(heading.textContent, /^3GPP TS 29\.153 V18\.0\.0 — /);
+    assert.equal(document.activeElement, heading);
+    await page.go('#29153-i00/5.1');
+    assert.equal(document.activeElement, document.getElementById('section-5.1'));
+    await page.go('#search');
+    assert.equal(document.title, 'Search — Seanchaí');
+    assert.equal(document.querySelector('main h1').textContent, 'Search');
+    assert.equal(document.activeElement, document.querySelector('.search-form input'));
+    await page.go('');
+    assert.equal(document.activeElement, document.querySelector('main h1'));
+    const skip = document.querySelector('.skip-link');
+    assert.equal(document.querySelector('#app').firstElementChild, skip);
+    await page.go('#29153-i00');
+    const before = window.location.hash;
+    click(page, skip);
+    assert.equal(document.activeElement, document.querySelector('#document'));
+    assert.equal(window.location.hash, before);
+  } finally { await page.close(); }
+});
+
+test('sections, findings and holes link to their clause in the current view', async () => {
+  const finding = { severity: 'note', rule: 'a-rule', message: 'Said.', section: '5.1', origin: null, accepted_by: null };
+  const page = await boot({
+    hash: '#29061-6f0',
+    transform: (path, data) => path === 'data/documents/29061-6f0.json' ? { ...data, findings: [finding] } : data,
+  });
+  try {
+    const { document } = page;
+    const [sections, findings, holes] = document.querySelectorAll('#diagnostics > details');
+    assert.match(sections.querySelector('summary').textContent, /^Sections \(\d+\)$/);
+    const first = sections.querySelector('li');
+    assert.match(first.textContent, /^[\d.]+ · p\. \d+$/);
+    assert.match(first.querySelector('a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
+    assert.equal(findings.querySelector('li a').getAttribute('href'), '#29061-6f0/5.1');
+    assert.ok(holes.querySelector('li a'), 'a hole links to its clause');
+    assert.match(holes.querySelector('li a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
+    await page.go('#29061-6f0?raw=1');
+    assert.match(document.querySelector('#diagnostics li a').getAttribute('href'), /\?raw=1$/);
+  } finally { await page.close(); }
+});
+
+test('a mention link marks its line, a later route clears it, and loading says so', async () => {
+  const page = await boot({ hash: '#29153-i00/5.1?line=12' });
+  try {
+    const { document } = page;
+    const line = document.querySelector('.target-line');
+    assert.equal(line.dataset.line, '12');
+    await page.go('#29153-i00/5.1');
+    assert.equal(document.querySelector('.target-line'), null);
+    page.window.location.hash = '#29061-6f0';
+    await new Promise(resolve => setTimeout(resolve, 0));
+    const status = document.querySelector('main [role="status"]');
+    if (status) assert.match(status.textContent, /^Loading 3GPP TS 29\.061/);
+    await settle();
+    assert.equal(document.querySelector('main [role="status"]'), null);
+  } finally { await page.close(); }
 });

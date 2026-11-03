@@ -40,7 +40,6 @@ try { showChapters = localStorage.getItem('seanchai-outline') !== 'hidden'; } ca
 function setChapters(visible: boolean) {
   showChapters = visible;
   outlinePane.hidden = !visible;
-  chapters.setAttribute('aria-expanded', String(visible));
   chapters.checked = visible;
   chapters.title = visible ? 'Hide chapters' : 'Show chapters';
 }

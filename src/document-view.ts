@@ -79,24 +79,44 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLP
   return pre;
 }
 
-function renderFindings(doc: Document): HTMLElement {
+type SectionLink = (section: string) => HTMLAnchorElement;
+
+function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
+  const sections = element('details');
+  sections.append(element('summary', `Sections (${doc.sections.length})`));
+  const list = element('ul', undefined, 'section-list');
+  for (const { section, page } of doc.sections) {
+    const item = element('li');
+    item.append(sectionLink(section));
+    if (page) item.append(` · p. ${page}`);
+    list.append(item);
+  }
+  sections.append(list);
+  return sections;
+}
+
+function renderFindings(doc: Document, sectionLink: SectionLink): HTMLElement {
   const findings = element('details');
   findings.append(element('summary', `Findings (${doc.findings.length})`));
   const list = element('ul');
   for (const finding of doc.findings) {
     const item = element('li', `${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `);
-    if (finding.section) item.append(link(finding.section, { document: doc.id, section: finding.section }));
+    if (finding.section) item.append(sectionLink(finding.section));
     list.append(item);
   }
   findings.append(list);
   return findings;
 }
 
-function renderHoles(doc: Document): HTMLElement {
+function renderHoles(doc: Document, sectionLink: SectionLink): HTMLElement {
   const holes = element('details');
   holes.append(element('summary', `Holes (${doc.holes.length})`));
   const list = element('ul');
-  for (const hole of doc.holes) list.append(element('li', `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''}`));
+  for (const hole of doc.holes) {
+    const item = element('li', `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `);
+    if (hole.section) item.append(sectionLink(hole.section));
+    list.append(item);
+  }
   holes.append(list);
   return holes;
 }
@@ -121,6 +141,9 @@ export interface DocumentView {
   documentPane: HTMLElement;
   scrollToSection(section: string): void;
   scrollToLine(line: number): void;
+  /** Marks and scrolls to the line a link points at; no line clears the mark. */
+  pointAtLine(line: number | undefined): void;
+  focusPosition(): void;
   topLine(): number | undefined;
 }
 
@@ -131,6 +154,8 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   controls.id = 'controls';
   const documentPane = element('section');
   documentPane.id = 'document';
+  documentPane.tabIndex = 0;
+  documentPane.setAttribute('aria-label', 'Document text');
   if (doc.raw) {
     const toggle = element('a', raw ? 'Corrected' : 'Raw');
     const refresh = () => {
@@ -161,7 +186,12 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   workspace.insertBefore(documentPane, workspace.children[1] ?? null);
   const diagnostics = element('div');
   diagnostics.id = 'diagnostics';
-  diagnostics.append(renderFindings(doc), renderHoles(doc));
+  const sectionLink: SectionLink = section => {
+    const anchor = element('a', section);
+    anchor.href = routeFor({ document: doc.id, section }, { raw: Boolean(raw) });
+    return anchor;
+  };
+  diagnostics.append(renderSections(doc, sectionLink), renderFindings(doc, sectionLink), renderHoles(doc, sectionLink));
   const tools = element('div');
   tools.id = 'document-tools';
   tools.append(diagnostics, controls);
@@ -204,17 +234,37 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     }
   });
 
+  let focusable: HTMLElement | undefined;
+  const focusLater = (node: HTMLElement) => {
+    node.tabIndex = -1;
+    focusable = node;
+  };
+
   return {
     doc,
     raw: Boolean(raw),
     documentPane,
     scrollToSection(section) {
       const anchor = document.getElementById(`section-${section}`);
-      if (anchor) scrollToNode(documentPane, anchor);
+      if (anchor) {
+        scrollToNode(documentPane, anchor);
+        focusLater(anchor);
+      }
     },
     scrollToLine(line) {
       const row = documentPane.querySelector(`[data-line="${line}"]`);
       if (row) scrollToNode(documentPane, row);
+    },
+    pointAtLine(line) {
+      for (const node of documentPane.querySelectorAll('.target-line')) node.classList.remove('target-line');
+      const row = line === undefined ? null : documentPane.querySelector<HTMLElement>(`[data-line="${line}"]`);
+      if (!row) return;
+      row.classList.add('target-line');
+      scrollToNode(documentPane, row);
+      focusLater(row);
+    },
+    focusPosition() {
+      focusable?.focus({ preventScroll: true });
     },
     topLine() {
       const row = topRow(documentPane, '');

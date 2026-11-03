@@ -1,5 +1,5 @@
 import { createAvpPopup } from './avp-popup.ts';
-import { openSite, siteURL } from './data.ts';
+import { docLabel, openSite, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
 import type { DocumentView } from './document-view.ts';
@@ -41,7 +41,15 @@ headerActions.append(themeButton);
 header.append(nav, searchForm, headerActions);
 const content = element('main');
 content.id = 'content';
-document.querySelector('#app')!.replaceChildren(header, content);
+content.tabIndex = -1;
+// A link's own fragment would be taken for a route.
+const skipLink = element('a', 'Skip to content', 'skip-link');
+skipLink.href = '#';
+skipLink.onclick = event => {
+  event.preventDefault();
+  (content.querySelector<HTMLElement>('#document') ?? content).focus();
+};
+document.querySelector('#app')!.replaceChildren(skipLink, header, content);
 
 let pane: SourcePane | undefined;
 const theme = initTheme(value => {
@@ -57,9 +65,25 @@ document.addEventListener('keydown', event => {
   (content.querySelector<HTMLInputElement>('.search-form input') ?? searchInput).focus();
 });
 
-function showError(error: unknown) {
+function setTitle(page?: string) {
+  document.title = page ? `${page} — Seanchaí` : 'Seanchaí';
+}
+
+function focusHeading() {
+  content.querySelector('h1')?.focus({ preventScroll: true });
+}
+
+function showMessage(heading: string, detail?: string) {
   content.className = '';
-  content.replaceChildren(element('p', String(error)));
+  setTitle(heading);
+  const title = element('h1', heading);
+  title.tabIndex = -1;
+  content.replaceChildren(title);
+  if (detail) content.append(element('p', detail));
+}
+
+function showError(error: unknown) {
+  showMessage('Something went wrong', String(error));
 }
 
 try {
@@ -70,6 +94,8 @@ try {
   const highlighted = new WeakMap<Line[], HighlightedLine[]>();
   let view: DocumentView | undefined;
   let request = 0;
+  // Focus moves on navigation, not when the site is first opened.
+  let arrived = false;
 
   /** Keeps a view shareable: the pane's state goes into this history entry, so Back returns to it too. */
   function updateRoute(options: RouteOptions) {
@@ -107,22 +133,41 @@ try {
     const generation = ++request;
     const parsed = parseRoute(location.hash);
     searchForm.hidden = parsed.document === 'search';
-    if (!parsed.document) { leaveDocument('index-view'); renderIndex(content, site); return; }
+    if (!parsed.document) {
+      leaveDocument('index-view');
+      setTitle();
+      renderIndex(content, site);
+      if (arrived) focusHeading();
+      return;
+    }
     if (parsed.document === 'search') {
       leaveDocument('');
+      setTitle('Search');
       renderSearch(content, site, parsed.query, () => generation === request);
       return;
     }
     if (parsed.paneHidden) sourcePane.setVisible(false);
     const meta = site.summary(parsed.document);
-    if (!meta) { leaveDocument(''); content.replaceChildren(element('p', 'Document not found')); return; }
+    if (!meta) {
+      leaveDocument('');
+      showMessage('Document not found');
+      if (arrived) focusHeading();
+      return;
+    }
     try {
-      if (view?.doc.id !== meta.id || view.raw !== parsed.raw) {
+      const fresh = view?.doc.id !== meta.id || view.raw !== parsed.raw;
+      if (fresh) {
+        leaveDocument('');
+        setTitle(docLabel(meta));
+        const loading = element('p', `Loading ${docLabel(meta)}…`);
+        loading.setAttribute('role', 'status');
+        content.replaceChildren(loading);
         const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined]);
         if (generation !== request) return;
         content.className = 'document-view';
         view = renderDocument(content, services, doc, raw);
       }
+      const current = view!;
       const target = parsed.source && site.summary(parsed.source.document);
       if (parsed.source && target) {
         const doc = await site.loadDocument(target.id);
@@ -130,19 +175,27 @@ try {
         const known = doc.sections.find(section => section.section === parsed.source!.position.section);
         sourcePane.show({ ...known, ...parsed.source.position, page: parsed.source.position.page ?? known?.page }, doc);
       } else {
-        const position = view.doc.sections.find(section => section.section === parsed.section) ?? view.doc.sections[0];
-        if (position) sourcePane.show({ ...position, name: parsed.name }, view.doc);
+        const position = current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];
+        if (position) sourcePane.show({ ...position, name: parsed.name }, current.doc);
       }
-      if (parsed.section) view.scrollToSection(parsed.section);
-      if (parsed.line !== undefined) view.scrollToLine(parsed.line);
-      if (parsed.top !== undefined) view.scrollToLine(parsed.top);
+      if (parsed.section) current.scrollToSection(parsed.section);
+      current.pointAtLine(parsed.line);
+      if (parsed.top !== undefined) current.scrollToLine(parsed.top);
+      if (arrived) {
+        if (fresh) focusHeading();
+        else current.focusPosition();
+      }
     } catch (error) {
       if (generation !== request) return;
       leaveDocument('');
       showError(error);
+      if (arrived) focusHeading();
     }
   }
 
-  window.addEventListener('hashchange', () => { void route(); });
+  window.addEventListener('hashchange', () => {
+    arrived = true;
+    void route();
+  });
   await route();
 } catch (error) { showError(error); }

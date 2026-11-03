@@ -38,7 +38,8 @@ function decorateFileLink(anchor: HTMLAnchorElement, url: URL, label: string, pd
 /** The bar over a pane: the document's name and links to its copies. */
 function createPaneHeader(source: boolean): HTMLElement {
   const header = element('div', undefined, `pane-header ${source ? 'source-header' : 'document-header'}`);
-  const title = element('h2', undefined, source ? 'source-document' : 'dad-document');
+  const title = element(source ? 'h2' : 'h1', undefined, source ? 'source-document' : 'dad-document');
+  title.tabIndex = -1;
   const actions = element('div', undefined, 'pane-actions');
   for (const className of ['publisher-link', 'local-link']) {
     const anchor = element('a', undefined, className);
@@ -53,7 +54,7 @@ function createPaneHeader(source: boolean): HTMLElement {
 }
 
 function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: SourcePosition, site: Site) {
-  header.querySelector('h2')!.textContent = docTitle(doc);
+  header.querySelector('h1, h2')!.textContent = docTitle(doc);
   const page = header.querySelector('.source-page');
   if (page) page.textContent = position.page ? `p. ${position.page}` : '';
   const publisher = header.querySelector<HTMLAnchorElement>('.publisher-link')!;
