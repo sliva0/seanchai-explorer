@@ -201,6 +201,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       mounted.frame = frame;
       mounted.toggle = createToggle();
       workspace.append(createSplitter(workspace), mounted.sourceHeader, aside);
+      render();
     },
     unmount() {
       request++;

@@ -1,1 +1,96 @@
-# Seanchaí
+# Seanchaí explorer
+
+A static site over the [Seanchaí](https://github.com/sliva0/senchai) corpus: every
+Diameter dictionary read from 3GPP specifications and RFCs as one page, highlighted
+with the corpus's own TextMate grammar. AVP names link to their definitions,
+section and page numbers to the source document, and search covers specifications,
+AVPs, commands, applications, registry rows and every line of text.
+
+It is unofficial and not affiliated with or endorsed by any of the specifications'
+publishers. The site holds no Python and reads only what `seanchai export` writes.
+
+## Two build modes
+
+ETSI's PDF responses forbid framing from another origin (`X-Frame-Options`,
+`Content-Security-Policy: frame-ancestors 'self'`) and their CORS header allows only
+its own portal, so a page can show ETSI's copy in a side pane only by serving it
+from its own origin. Redistributing those PDFs publicly needs ETSI's written
+permission. So there are two builds, and the plain one is the safe one:
+
+| | `npm run build` (public) | `npm run build:self-hosted` |
+|---|---|---|
+| ETSI documents | open at ETSI's URL, at the page, in a new tab | side pane with a PDF.js viewer |
+| RFCs | side pane, from shipped text or rfc-editor.org | side pane |
+| Ships PDFs, PDF.js, `viewer.html` | never; the build fails if a PDF is in `dist/` | yes |
+
+Self-hosted output is for an organisation's own use behind its own access control.
+
+## Prerequisites
+
+Node 24 or newer and npm. An export comes from one of:
+
+- a Seanchaí checkout, used through `uv` with Python 3.14: this repository at
+  `.local/seanchai-explorer` inside it, or anywhere with `SEANCHAI_ROOT` set;
+- a `seanchai` command on `PATH` (`uv pip install "seanchai[corpus]"`). That export
+  is complete except for what needs `seanchai download`: Wireshark's AVP names from
+  `specifications/wireshark`, and the RFC texts from `specifications/rfc`, without
+  which RFCs are fetched from rfc-editor.org in the browser;
+- a directory exported earlier, named by `SEANCHAI_EXPORT`.
+
+## Environment
+
+| Variable | Meaning |
+|---|---|
+| `SEANCHAI_ROOT` | The Seanchaí checkout to run and copy the grammar from. Default: `../..` if that is one, otherwise `seanchai` from `PATH` and the committed grammar. |
+| `SEANCHAI_SPECIFICATIONS` | A `seanchai download` directory. Default: `specifications/` in the checkout. Optional for a public build, in which `--specifications` and `--dictionary` are passed only if the directories exist. |
+| `SEANCHAI_EXPORT` | A prebuilt export to use instead of running Python. Its mode must match the build's. |
+
+## Commands
+
+```sh
+npm run dev                 # public mode on 127.0.0.1
+npm run dev:self-hosted     # with the PDFs and viewer
+npm run build               # public build in dist/
+npm run build:self-hosted   # self-hosted build in dist/
+npm run preview             # serve dist/
+npm run check               # type check
+
+npm test                    # unit tests over tests/fixtures/export; no build, no export
+npm run test:build          # one real build per mode, overwrites public/data and dist/
+npm run test:smoke          # headless Chromium over a fixture build; CHROMIUM=path to choose the browser
+```
+
+`public/syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for
+builds with no checkout; a build with a checkout refreshes it, so a change shows up
+in `git diff`.
+
+## The export contract
+
+`src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
+`schema.json`, and the site refuses another schema version before fetching anything
+else. `tests/fixtures/export` is three real documents cut from a real public export.
+After the export changes:
+
+```sh
+npm run build               # or any public export, passed below
+npm run fixture             # node scripts/make-fixture.mjs [export-dir], default public/data
+npm run types               # node scripts/generate-types.mjs [schema.json], default the fixture's
+npm test
+```
+
+## Deployment
+
+`.github/workflows/pages.yml` deploys to GitHub Pages on a push to `main`: it installs
+`seanchai[corpus]`, exports, builds in public mode, checks no PDF is in `dist/`, and
+publishes with the Pages actions. Pages must be set to deploy from GitHub Actions.
+
+The PyPI install works once the packages are published. Until then the workflow falls
+back to installing both workspace packages from
+`git+https://github.com/sliva0/senchai` at `main`. Set the repository variable
+`SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of a manual run, to build from a
+given ref instead of PyPI.
+
+## License
+
+[MIT](LICENSE) for this site's code. The specifications remain under their publishers'
+terms.

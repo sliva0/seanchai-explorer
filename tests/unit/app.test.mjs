@@ -431,3 +431,12 @@ test('a mention link marks its line, a later route clears it, and loading says s
     assert.equal(document.querySelector('main [role="status"]'), null);
   } finally { await page.close(); }
 });
+
+test('a shared pane state the build cannot show falls back to the document itself', async () => {
+  const page = await boot({ hash: '#rfc7944?source=29153-i00&sourceSection=5.1' });
+  try {
+    const source = new URL(page.document.querySelector('iframe').getAttribute('src'));
+    assert.equal(source.pathname, '/rfc.html');
+    assert.ok(source.searchParams.get('file').endsWith('rfc7944.txt'));
+  } finally { await page.close(); }
+});

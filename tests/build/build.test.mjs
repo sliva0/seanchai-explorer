@@ -57,7 +57,9 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   assert.match(check.stderr, /sources\/a\.pdf/);
 });
 
-test('self-hosted build ships the PDFs, viewer and PDF.js', { skip: !existsSync(specifications) && 'no specifications directory' }, async () => {
+const skip = !existsSync(specifications) && 'no specifications directory';
+
+test('self-hosted build ships the PDFs, viewer and PDF.js', { skip }, async () => {
   npm('build:self-hosted');
   const index = await checkExport();
   assert.equal(index.mode, 'self-hosted');
@@ -72,12 +74,10 @@ test('self-hosted build ships the PDFs, viewer and PDF.js', { skip: !existsSync(
   assert.ok(await checkRfcAnchors(index) > 0);
 });
 
-test('a self-hosted export is refused for a public build', async () => {
+test('a self-hosted export is refused for a public build', { skip }, async () => {
   const result = spawnSync('node', ['scripts/prepare.mjs'], {
     cwd: root, encoding: 'utf8', env: { ...process.env, SEANCHAI_EXPORT: path.join(dist, 'data') },
   });
-  if (existsSync(specifications)) {
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /public build cannot use a self-hosted export/);
-  }
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /public build cannot use a self-hosted export/);
 });

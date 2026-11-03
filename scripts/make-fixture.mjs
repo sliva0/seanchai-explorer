@@ -12,6 +12,7 @@ const wanted = new Set(documents);
 
 const index = await read('index.json');
 const search = await read('search.json');
+if (index.mode !== 'public') throw new Error('The fixture is made from a public export');
 await rm(to, { recursive: true, force: true });
 await mkdir(path.join(to, 'documents'), { recursive: true });
 await mkdir(path.join(to, 'sources'), { recursive: true });

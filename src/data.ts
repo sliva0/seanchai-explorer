@@ -116,7 +116,7 @@ export function createSite(index: Index): Site {
     mode: index.mode,
     summary: id => summaries.get(id),
     loadDocument: id => cached<Document>(known(id).path),
-    loadRaw: id => cached<RawDocument>(known(id).raw ?? `documents/${id}.raw.json`),
+    loadRaw: id => cached<RawDocument>(known(id).raw!),
     loadSearch: () => cached<Search>('search.json'),
   };
 }

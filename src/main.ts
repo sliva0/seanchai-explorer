@@ -1,5 +1,5 @@
 import { createAvpPopup } from './avp-popup.ts';
-import { docLabel, openSite, siteURL } from './data.ts';
+import { docLabel, openSite, paneKind, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
 import type { DocumentView } from './document-view.ts';
@@ -169,7 +169,7 @@ try {
       }
       const current = view!;
       const target = parsed.source && site.summary(parsed.source.document);
-      if (parsed.source && target) {
+      if (parsed.source && target && paneKind(target, site.mode)) {
         const doc = await site.loadDocument(target.id);
         if (generation !== request) return;
         const known = doc.sections.find(section => section.section === parsed.source!.position.section);
