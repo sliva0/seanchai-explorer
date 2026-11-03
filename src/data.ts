@@ -4,7 +4,7 @@ import type { SourcePosition } from './navigation.ts';
 import { valueTables } from './values.ts';
 
 export type Mode = Index['mode'];
-export type PaneKind = 'pdf' | 'rfc';
+export type PaneKind = 'pdf' | 'rfc' | 'placeholder';
 
 export const siteURL = (path: string) => new URL(path, new URL('.', location.href));
 export const dataURL = (path: string) => siteURL(`data/${path}`);
@@ -31,10 +31,20 @@ export function docTitle(doc: Pick<DocumentSummary, 'specification' | 'version' 
   return `${label} — ${doc.title}`;
 }
 
-/** What the side pane can show of a document, null when only its publisher's copy can be opened. */
+/** Whether a URL is a publisher's PDF, which a source kind may not say. */
+export function isPdfURL(url: URL): boolean {
+  return url.pathname.toLowerCase().endsWith('.pdf');
+}
+
+/**
+ * What the side pane can show of a document. A public build holds no PDFs, so
+ * it shows a `placeholder` for them; null is a document with no pane at all.
+ */
 export function paneKind(doc: Pick<DocumentSummary, 'source'>, mode: Mode): PaneKind | null {
-  if (doc.source.kind === 'rfc-text') return 'rfc';
-  return mode === 'self-hosted' && doc.source.local ? 'pdf' : null;
+  const { kind, local, url } = doc.source;
+  if (kind === 'rfc-text') return 'rfc';
+  if (mode === 'self-hosted') return local ? 'pdf' : null;
+  return local || (url && (kind === 'etsi-pdf' || isPdfURL(new URL(url)))) ? 'placeholder' : null;
 }
 
 /** The file the pane's reader loads and names in its messages. */

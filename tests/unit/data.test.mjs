@@ -20,12 +20,22 @@ test('labels name the version and leave out a title repeating the name', () => {
 });
 
 test('the pane kind comes from the source kind and the mode', () => {
-  assert.equal(paneKind(etsi, 'public'), null);
-  assert.equal(paneKind(hosted, 'public'), null);
+  assert.equal(paneKind(etsi, 'public'), 'placeholder');
+  assert.equal(paneKind(hosted, 'public'), 'placeholder');
   assert.equal(paneKind(hosted, 'self-hosted'), 'pdf');
   assert.equal(paneKind(rfc, 'public'), 'rfc');
+  assert.equal(paneKind(other, 'public'), 'placeholder');
   assert.equal(paneKind(other, 'self-hosted'), null);
   assert.equal(paneKind({ source: { ...other.source, local: 'sources/b.pdf' } }, 'self-hosted'), 'pdf');
+});
+
+test('a public build has a placeholder only for a PDF, and it has no file to read', () => {
+  assert.equal(paneKind({ source: { ...other.source, url: 'https://member.onem2m.org/Application/documentapp/downloadLatest.aspx?docID=1' } }, 'public'), null);
+  assert.equal(paneKind({ source: { ...other.source, url: null } }, 'public'), null);
+  assert.equal(paneKind({ source: { ...etsi.source, url: null } }, 'public'), null);
+  assert.equal(paneFile(etsi, 'public'), null);
+  assert.equal(paneURL(hosted, position, 'public'), null);
+  assert.equal(sourceHref(hosted, position, 'public').href, 'https://www.etsi.org/a.pdf#page=83');
 });
 
 test('an RFC is read from the shipped text, or from rfc-editor.org without one', () => {

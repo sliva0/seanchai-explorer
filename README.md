@@ -20,7 +20,7 @@ permission. So there are two builds, and the plain one is the safe one:
 
 | | `npm run build` (public) | `npm run build:self-hosted` |
 |---|---|---|
-| ETSI documents | open at ETSI's URL, at the page, in a new tab | side pane with a PDF.js viewer |
+| ETSI documents | side pane with a note and a link to ETSI's URL at the page; section links open that URL in a new tab | side pane with a PDF.js viewer |
 | RFCs | side pane, from shipped text or rfc-editor.org | side pane |
 | Ships PDFs, PDF.js, `viewer.html` | never; the build fails if a PDF is in `dist/` | yes |
 

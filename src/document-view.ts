@@ -259,7 +259,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
     const action = clickAction(tokenOf(node), event, node.closest<HTMLElement>('.dad-line')!.dataset.section, {
-      paneOpen: pane.isOpen(),
+      paneOpen: pane.readsDocument(),
       sourceInPane: pane.canShow(),
       paneAvailable: document => pane.paneAvailable(site.summary(document)),
       occurrences: occurrencesInput.checked,

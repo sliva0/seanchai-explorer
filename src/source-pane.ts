@@ -1,11 +1,13 @@
-import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
+import { docLabel, docTitle, dataURL, isPdfURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
 import type { Site } from './data.ts';
-import { element } from './dom.ts';
+import { element, externalLink } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
 import { correctedRow, printedRow } from './printed-row.ts';
 import type { Document, DocumentSummary, Target } from './types.ts';
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
+const selfHostingGuide = 'https://github.com/sliva0/seanchai-explorer#two-build-modes';
+const hostName = (url: URL) => url.hostname.replace(/^www\./, '');
 
 function icon(className: string, path: string, label?: string): SVGSVGElement {
   const svg = document.createElementNS(svgNamespace, 'svg');
@@ -64,17 +66,28 @@ function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: S
   // A PDF opens at the page, an RFC's HTML rendering at the section.
   const url = publisherURL(doc, position);
   publisher.hidden = !url;
-  if (url) decorateFileLink(publisher, url, url.hostname.replace(/^www\./, ''), doc.source.kind === 'etsi-pdf' || url.pathname.toLowerCase().endsWith('.pdf'));
+  if (url) decorateFileLink(publisher, url, hostName(url), doc.source.kind === 'etsi-pdf' || isPdfURL(url));
   const local = header.querySelector<HTMLAnchorElement>('.local-link')!;
   local.hidden = !doc.source.text && kind !== 'pdf';
   if (kind === 'pdf') {
     const file = dataURL(doc.source.local!);
     if (position.page) file.hash = `page=${position.page}`;
-    decorateFileLink(local, file, file.hostname.replace(/^www\./, ''), true);
+    decorateFileLink(local, file, hostName(file), true);
   } else if (doc.source.text) {
     const text = paneURL(doc, position, site.mode)!;
-    decorateFileLink(local, text, text.hostname.replace(/^www\./, ''), false);
+    decorateFileLink(local, text, hostName(text), false);
   }
+}
+
+/** What the pane says of a PDF this build does not hold: why, and where to read it instead. */
+function fillPlaceholder(panel: HTMLElement, doc: DocumentSummary, position: SourcePosition) {
+  const reason = element('p', `The PDF of ${docLabel(doc)} cannot be shown here for licensing reasons.`);
+  const url = publisherURL(doc, position);
+  const publisher = element('p');
+  if (url) publisher.append(externalLink(`Open at ${hostName(url)}${position.page ? `, p. ${position.page}` : ''}`, url.href));
+  const selfHost = element('p');
+  selfHost.append(externalLink('Self-host Seanchaí Explorer to read PDFs beside the corpus', selfHostingGuide));
+  panel.replaceChildren(reason, publisher, selfHost);
 }
 
 function createSplitter(workspace: HTMLElement): HTMLElement {
@@ -128,7 +141,9 @@ interface Mounted {
   workspace: HTMLElement;
   documentHeader: HTMLElement;
   sourceHeader?: HTMLElement;
+  aside?: HTMLElement;
   frame?: HTMLIFrameElement;
+  placeholder?: HTMLElement;
   toggle?: HTMLLabelElement;
 }
 
@@ -142,6 +157,8 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   let request = 0;
 
   const isOpen = () => Boolean(wide.matches && switchedOn && mounted?.frame);
+  /** A position in the mounted document has somewhere to go, which a placeholder is not. */
+  const readsMounted = () => Boolean(mounted && paneKind(mounted.doc, site.mode) !== 'placeholder');
 
   function refreshHeaders() {
     if (!mounted) return;
@@ -159,9 +176,16 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     mounted.workspace.classList.toggle('with-source', isOpen());
     mounted.toggle!.hidden = !wide.matches;
     if (!isOpen() || !selected) return;
-    const url = paneURL(selected.doc, selected.position, site.mode)!;
+    const url = paneURL(selected.doc, selected.position, site.mode);
+    if (!url) {
+      fillPlaceholder(mounted.placeholder!, selected.doc, selected.position);
+      // Out of the page the reader unloads, and back in it loads and goes to its position afresh.
+      mounted.aside!.replaceChildren(mounted.placeholder!);
+      return;
+    }
     mounted.frame.title = docLabel(selected.doc);
     if (mounted.frame.src !== url.href) mounted.frame.src = url.href;
+    if (!mounted.frame.isConnected) mounted.aside!.replaceChildren(mounted.frame);
   }
 
   wide.addEventListener('change', render);
@@ -204,7 +228,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   }
 
   return {
-    /** Fills a document's workspace. A document the pane cannot show gets no pane at all. */
+    /** Fills a document's workspace. A document with neither a reader nor a placeholder gets no pane at all. */
     mount(workspace: HTMLElement, doc: Document) {
       const documentHeader = createPaneHeader(false);
       const position = doc.sections[0] ?? { section: '', page: null };
@@ -219,7 +243,9 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       frame.onload = () => postTheme(frame);
       aside.append(frame);
       mounted.sourceHeader = createPaneHeader(true);
+      mounted.aside = aside;
       mounted.frame = frame;
+      mounted.placeholder = element('div', undefined, 'source-placeholder');
       mounted.toggle = createToggle();
       workspace.append(createSplitter(workspace), mounted.sourceHeader, aside);
       render();
@@ -231,8 +257,10 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     },
     get toggle() { return mounted?.toggle; },
     get switchedOn() { return switchedOn; },
-    isOpen,
-    canShow: () => Boolean(wide.matches && mounted?.frame),
+    /** The pane is showing, and a position in the mounted document can go to it. */
+    readsDocument: () => isOpen() && readsMounted(),
+    /** As `readsDocument`, whether or not the pane is switched on. */
+    canShow: () => Boolean(wide.matches && mounted?.frame && readsMounted()),
     /** A followed name goes to the pane only if this holds; otherwise to the target's page. */
     paneAvailable(target: DocumentSummary | undefined): boolean {
       return isOpen() && Boolean(target && paneKind(target, site.mode));

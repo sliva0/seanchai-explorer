@@ -114,7 +114,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       for (const button of buttons) button.removeAttribute('aria-current');
       buttons[active].setAttribute('aria-current', 'location');
       buttons[active].scrollIntoView?.({ block: 'nearest' });
-      if (pane.isOpen()) pane.show(table.rows[active].position, doc, true);
+      if (pane.readsDocument()) pane.show(table.rows[active].position, doc, true);
     };
     const select = (index: number) => {
       mark((index + table.rows.length) % table.rows.length);
@@ -184,7 +184,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       const line = lineOf(node);
       const position = doc.sections.find(section => section.section === line.dataset.section);
       const row = lines[Number(line.dataset.line)].tokens.find(token => token.avp === name && token.source?.row)?.source;
-      if (position && pane.isOpen()) pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
+      if (position && pane.readsDocument()) pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);

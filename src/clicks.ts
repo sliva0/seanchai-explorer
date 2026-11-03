@@ -5,11 +5,11 @@ import type { ValueToken } from './values.ts';
 export interface ClickModifiers { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean; altKey: boolean }
 
 export interface ClickContext {
-  /** The source pane is showing, so a position in this document can go to it. */
+  /** The source pane is showing and can read this document, so a position in it can go there. */
   paneOpen: boolean;
-  /** The pane is or could be switched on, and this document can be shown in it. */
+  /** The pane is or could be switched on, and can read this document. */
   sourceInPane: boolean;
-  /** The one check for a followed name: wide viewport, pane switched on, target showable in a pane. */
+  /** The one check for a followed name: wide viewport, pane switched on, target showable in a pane, if only as a placeholder. */
   paneAvailable(document: string): boolean;
   /** Names list their occurrences instead of being followed. */
   occurrences: boolean;

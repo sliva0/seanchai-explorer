@@ -14,6 +14,15 @@ test('a name goes to its page when no pane can show it, never to a new tab', () 
   assert.deepEqual(clickAction(name, plain, '1', pane({ paneAvailable: id => id !== 'rfc6733' })).type, 'navigate');
 });
 
+test('beside a placeholder, a name is followed in the pane and its own positions stay out of it', () => {
+  const placeholder = pane({ paneOpen: false, sourceInPane: false });
+  const name = { text: 'Origin-Host', avp: 'Origin-Host', target };
+  assert.deepEqual(clickAction(name, plain, '1', placeholder), { type: 'pane-target', target: { ...target, name: 'Origin-Host' } });
+  const row = { ...name, source: { section: '5.1', page: 9, row: true } };
+  assert.deepEqual(clickAction(row, plain, '5.1', placeholder), { type: 'pane-target', target: { ...target, name: 'Origin-Host' } });
+  assert.equal(clickAction({ text: '7.2', source: { section: '7.2', page: 73 } }, plain, '7.2', placeholder).type, 'browser');
+});
+
 test('a re-used row keeps the name its origin cell links to', () => {
   const name = { text: 'X', avp: 'X', target: { ...target, name: 'Y' } };
   assert.equal(clickAction(name, plain, '1', noPane()).target.name, 'Y');

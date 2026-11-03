@@ -115,14 +115,42 @@ test('public, desktop: ; From: links to the document a reprint comes from', { sk
   await done();
 });
 
-test('public, desktop: a name opens the target page in the same tab', { skip }, async () => {
+test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for their RFC or theirs', { skip }, async () => {
   const { page, context, done } = await open('#29153-j00');
   const pages = [];
   context.on('page', opened => pages.push(opened));
+  const placeholder = page.locator('#source-pane .source-placeholder');
+  await placeholder.waitFor();
   assert.equal(await page.locator('iframe').count(), 0);
-  await page.locator('pre a', { hasText: /^RFC6733$/ }).first().evaluate(a => a.getAttribute('href'));
-  const name = page.locator('pre a[data-avp][href^="#rfc7944"]').first();
-  await name.click();
+  assert.equal(await page.locator('.source-toggle').isVisible(), true);
+  assert.match(await placeholder.textContent(), /The PDF of 3GPP TS 29\.153 V19\.0\.0 cannot be shown here/);
+  const fit = await placeholder.evaluate(node => {
+    const pane = node.parentElement.getBoundingClientRect();
+    const box = node.getBoundingClientRect();
+    const text = node.querySelector('p').getBoundingClientRect();
+    return { filled: box.width === pane.width && box.height === pane.height, centred: Math.abs(text.left + text.right - pane.left - pane.right) < 2, overflows: node.scrollHeight > node.clientHeight };
+  });
+  assert.deepEqual(fit, { filled: true, centred: true, overflows: false });
+  await page.locator('pre a[data-avp][href^="#rfc7944"]').first().click();
+  await page.frameLocator('iframe').locator('.rfc-line', { hasText: 'DRMP AVP' }).last().waitFor();
+  await page.waitForSelector('.source-header h2:has-text("RFC 7944")');
+  assert.equal(await placeholder.count(), 0);
+  assert.equal(await page.title(), '3GPP TS 29.153 V19.0.0 — Seanchaí');
+  assert.ok(await page.evaluate(() => location.hash.startsWith('#29153-j00?') && location.hash.includes('source=rfc7944')));
+  await page.locator('pre a[data-avp][href^="#29217-j00"]').first().click();
+  await placeholder.waitFor();
+  assert.match(await placeholder.textContent(), /3GPP TS 29\.217/);
+  assert.match(await placeholder.locator('a').first().getAttribute('href'), /ts_129217v190000p\.pdf#page=\d+$/);
+  assert.equal(await page.locator('iframe').count(), 0);
+  assert.equal(pages.length, 0);
+  await done();
+});
+
+test('public, desktop: with the pane off a name opens the target page in the same tab', { skip }, async () => {
+  const { page, context, done } = await open('#29153-j00?pane=0');
+  const pages = [];
+  context.on('page', opened => pages.push(opened));
+  await page.locator('pre a[data-avp][href^="#rfc7944"]').first().click();
   await page.waitForFunction(() => location.hash.startsWith('#rfc7944'));
   await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
   assert.equal(pages.length, 0);
