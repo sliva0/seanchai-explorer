@@ -200,7 +200,7 @@ test('search data is fetched on the search page only', async () => {
 
 test('the index lists releases newest first with pinned ones folded, and versions below', async () => {
   const documents = [
-    ['a-18', '3GPP', 18, null], ['a-6', '3GPP', 6, 'Held for TS 29.210.'], ['a-11', '3GPP', 11, 'Held for TS 32.299.'], ['a-11b', '3GPP', 11, null], ['rfc1', 'IETF', null, null],
+    ['a-18', '3GPP', 18, null], ['a-6', '3GPP', 6, 'Held for TS 29.210.'], ['a-11', '3GPP', 11, 'Held for TS 32.299.'], ['a-11b', '3GPP', 11, null], ['es1', 'ETSI', null, null], ['rfc1', 'IETF', null, null],
   ].map(([id, publisher, release, pinned]) => ({ id, publisher, release, pinned, path: `documents/${id}.json`, raw: null, reference: id, specification: id, title: `Title ${id}`, version: null, source: { kind: 'other', url: null, local: null, text: null } }));
   const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
   try {
@@ -214,6 +214,7 @@ test('the index lists releases newest first with pinned ones folded, and version
       '3GPP · Release 11: 1 held for later citations',
       '3GPP · Release 6: 1 held for later citations',
       'IETF',
+      'ETSI',
     ]);
     const folded = document.querySelectorAll('.pinned-release');
     assert.equal(folded[0].open, false);

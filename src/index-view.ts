@@ -24,6 +24,12 @@ function foldPinned(docs: DocumentSummary[], name: string): HTMLDetailsElement {
   return fold;
 }
 
+const PUBLISHER_ORDER = ['3GPP', 'IETF', 'ETSI', '3GPP2', 'oneM2M'];
+function publisherRank(publisher: string): number {
+  const rank = PUBLISHER_ORDER.indexOf(publisher);
+  return rank === -1 ? PUBLISHER_ORDER.length : rank;
+}
+
 /** Documents by publisher, newest release first, with the pinned older ones folded with their reasons. */
 function renderRelease(name: string, docs: DocumentSummary[]): HTMLElement {
   const section = element('section');
@@ -42,7 +48,7 @@ export function renderIndex(container: HTMLElement, site: Site) {
     releases.set(doc.release, [...releases.get(doc.release) ?? [], doc]);
     publishers.set(doc.publisher, releases);
   }
-  for (const [publisher, releases] of [...publishers].sort(([a], [b]) => a.localeCompare(b))) {
+  for (const [publisher, releases] of [...publishers].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     for (const [release, docs] of [...releases].sort(([a], [b]) => (b ?? -1) - (a ?? -1))) {
       container.append(renderRelease(`${publisher}${release ? ` · Release ${release}` : ''}`, docs));
     }
