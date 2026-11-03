@@ -83,12 +83,14 @@ test('wrapped rows resolve on their own table, not on another table holding the 
   });
 });
 
-test('a row the section does not hold falls back to the heading, whatever other sections hold', { skip }, async () => {
+test('rows of odd layouts are found on their own table', { skip }, async () => {
   await withNavigator('29212-i20.pdf', async navigator => {
-    const found = await navigator.locate('5c.4.1', 235, () => true, 'ADC-Rule-Name', true);
-    assert.equal(found.pageNumber, 235);
-    assert.notEqual(found.destArray[0], null, 'the bookmark, not a row');
+    assert.equal(await rowPage(navigator, '5c.4.1', 235, 'ADC-Rule-Name'), 237);
+    assert.equal(await rowPage(navigator, '5.3.0', 121, 'Conditional-APN-Aggregate-Max-Bitrate'), 123);
   });
+});
+
+test('a row the section does not hold falls back to the heading, whatever other sections hold', { skip }, async () => {
   await withNavigator('29061-i10.pdf', async navigator => {
     const found = await navigator.locate('16a.5', 129, () => true, '3GPP-Session-Stop-Indicator', true);
     assert.equal(found.pageNumber, 129);

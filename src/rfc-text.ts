@@ -1,4 +1,5 @@
-import { normalizeName, rowEvidence } from './table-row.ts';
+import { exactName, normalizeName, rowEvidence, takeName } from './table-row.ts';
+import type { NameMatch } from './table-row.ts';
 
 export function rfcPages(text: string) {
   return text.split('\f').map((text, index) => ({
@@ -13,21 +14,33 @@ export function rfcPages(text: string) {
 export interface RfcLine { text: string; section: string | null; page: number }
 
 /** Reads the name cell at the start of a table line, on from `column`; null if the line does not carry on the name. */
-function nameCell(line: string, wanted: string, column: string) {
-  let rest = line.replace(/^[\s|]+/, '');
+function nameCell(line: string, match: NameMatch, column: string) {
+  const text = line.replace(/^[\s|]+/, '');
   // Diagrams' "+ Name" and message formats' "[ Name ]" are not rows; a wrapped name may carry on from its hyphen.
-  if (!(column ? /^-?[\p{L}\p{N}]/u : /^[\p{L}\p{N}]/u).test(rest)) return null;
-  const before = column;
-  for (let token = rest.match(/^[^\s|]+/); token; token = rest.match(/^[^\s|]+/)) {
-    const text = normalizeName(token[0]);
-    if (!text || !wanted.startsWith(column + text)) break;
-    column += text;
-    rest = rest.slice(token[0].length).trimStart();
-    // "Basic-Location-" goes on below it: that is not Basic-Location.
-    if (column === wanted && token[0].endsWith('-')) return null;
-    if (column === wanted) break;
+  if (!(column ? /^-?[\p{L}\p{N}]/u : /^[\p{L}\p{N}]/u).test(text)) return null;
+  const cell = takeName(text, match, column);
+  // "Basic-Location-" goes on below it: that is not Basic-Location.
+  if (!cell || (match.whole(cell.column) && cell.open)) return null;
+  return { column: cell.column, evidence: cell.rest.startsWith('|') || rowEvidence.test(cell.rest) };
+}
+
+/** The first row between two lines. */
+function rowBetween(lines: RfcLine[], match: NameMatch, start: number, end: number): [number, number] | null {
+  for (let first = start; first < end; first++) {
+    let column = '';
+    let evidence = false;
+    for (let last = first; last < end; last++) {
+      const cell = nameCell(lines[last].text, match, column);
+      if (!cell) break;
+      column = cell.column;
+      evidence ||= cell.evidence;
+      if (match.whole(column)) {
+        if (evidence) return [first, last];
+        break;
+      }
+    }
   }
-  return column === before ? null : { column, evidence: rest.startsWith('|') || rowEvidence.test(rest) };
+  return null;
 }
 
 /**
@@ -35,8 +48,7 @@ function nameCell(line: string, wanted: string, column: string) {
  * Only the section is searched: the same name in another table is not its row.
  */
 export function rowLines(lines: RfcLine[], name: string, section: string, page: number): [number, number] | null {
-  const wanted = normalizeName(name);
-  if (!wanted) return null;
+  if (!normalizeName(name)) return null;
   let start = lines.findIndex(line => line.section === section && line.page >= page);
   if (start < 0) start = lines.findIndex(line => line.section === section);
   let end = lines.length;
@@ -45,19 +57,5 @@ export function rowLines(lines: RfcLine[], name: string, section: string, page: 
     const after = lines.findIndex((line, index) => index > start && line.section && line.section !== section && !line.section.startsWith(`${section}.`));
     if (after >= 0) end = after;
   }
-  for (let first = start; first < end; first++) {
-    let column = '';
-    let evidence = false;
-    for (let last = first; last < end; last++) {
-      const cell = nameCell(lines[last].text, wanted, column);
-      if (!cell) break;
-      column = cell.column;
-      evidence ||= cell.evidence;
-      if (column === wanted) {
-        if (evidence) return [first, last];
-        break;
-      }
-    }
-  }
-  return null;
+  return rowBetween(lines, exactName(name), start, end);
 }

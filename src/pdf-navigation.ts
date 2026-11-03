@@ -1,5 +1,6 @@
 import type { PDFDocumentProxy, TextContent } from 'pdfjs-dist/types/src/display/api';
-import { normalizeName, rowEvidence } from './table-row.ts';
+import { exactName, normalizeName, rowEvidence, takeName } from './table-row.ts';
+import type { NameMatch } from './table-row.ts';
 
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
 export interface Destination { pageNumber: number; destArray: unknown[] }
@@ -39,51 +40,59 @@ export function headingOnPage(items: TextContent['items'], section: string, widt
   return null;
 }
 
-/** What follows `wanted` in text holding a name and the next column as one run, or null if it holds no more than a part of the name. */
-function joinedRow(text: string, wanted: string): string | null {
-  let seen = 0;
-  for (let i = 0; i < text.length && seen < wanted.length; i++) {
-    const letter = normalizeName(text[i]);
-    if (letter && letter !== wanted[seen++]) return null;
-    if (seen === wanted.length) return /^\s/.test(text.slice(i + 1)) ? text.slice(i + 1).trim() : null;
-  }
-  return null;
-}
+/** A cell's text without what tables add after a name: "Name AVP", "Name (NOTE 3)". */
+const nameText = (text: string) => text.replace(/\s*\(NOTE[^)]*\)/gi, '').replace(/\s+AVP$/, '');
 
-/** The top of the table row whose first cell is `name`, however the cell wraps: the column is found from the name, not from the page. */
-export function rowOnPage(items: TextContent['items'], name: string): number | null {
+/** How far a tall row's cells can sit from the line its name is centred on: a row of six lines, as the descriptions of TS 29.219 make it. */
+const tallRow = 6;
+
+/** The row whose first cell reads as `match`, however the cell wraps: the column is found from the name, not from the page. */
+function findRow(items: TextContent['items'], match: NameMatch) {
   const lines = textLines(items).map(line => ({ ...line, cells: lineCells(line.items) }));
-  const wanted = normalizeName(name);
   for (let i = 0; i < lines.length; i++) {
     const first = lines[i].cells[0];
     // A message format's "[ Name ]" is not a row.
     if (/^[^\p{L}\p{N}]/u.test(first.text)) continue;
-    // Some tables write the name as "Name AVP".
-    const whole = joinedRow(first.text.replace(/\s+AVP$/, ''), wanted);
-    if (whole !== null) { if (rowEvidence.test(whole)) return lines[i].top; continue; }
-    let column = normalizeName(first.text.replace(/\s+AVP$/, ''));
-    if (!column || !wanted.startsWith(column)) continue;
+    const head = takeName(nameText(first.text), match);
+    // A name carrying on with anything but the next column is a sentence. The next column can be one run with it.
+    if (!head || (head.rest && !rowEvidence.test(head.rest))) continue;
     const height = lines[i].items[0].height;
+    let { column, open, text } = head;
+    let evidence = Boolean(head.rest);
     let cell = first;
     let right = first.end;
     let last = i;
-    for (let j = i + 1; column !== wanted && j < lines.length && lines[last].y - lines[j].y < 2 * height; j++) {
+    for (let j = i + 1; !match.whole(column) && j < lines.length && lines[last].y - lines[j].y < 2 * height; j++) {
       const next = lines[j].cells.find(next => next.x < cell.end && next.end > cell.x);
-      const text = next && normalizeName(next.text);
       // Other columns' cells, centred in a tall row, can sit on lines between the name's.
-      if (!text) continue;
-      if (!wanted.startsWith(column + text)) break;
-      column += text;
+      if (!next || !normalizeName(next.text)) continue;
+      const part = takeName(nameText(next.text), match, column);
+      if (!part || (part.rest && !rowEvidence.test(part.rest))) break;
+      ({ column, open } = part);
+      text = text.endsWith('-') ? `${text}${part.text}` : `${text} ${part.text}`;
+      evidence ||= Boolean(part.rest);
       cell = next;
       right = Math.max(right, next.end);
       last = j;
     }
     // "3GPP-SGSN-" goes on below it: that is 3GPP-SGSN-Address, not 3GPP-SGSN.
-    if (column !== wanted || cell.text.endsWith('-')) continue;
-    const beside = lines.filter(line => line.y < lines[i].y + 2 * height && line.y > lines[last].y - 2 * height);
-    if (beside.some(line => rowEvidence.test(line.cells.find(other => other.x >= right)?.text ?? ''))) return lines[i].top;
+    if (!match.whole(column) || open) continue;
+    const inColumn = (line: typeof lines[number]) => line.cells.some(other => other.x < first.end && other.end > first.x);
+    const beside = lines.filter((line, index) => {
+      if (line.y < lines[i].y + 2 * height && line.y > lines[last].y - 2 * height) return true;
+      // A tall row's other cells can start well above or end well below the name, up to the next cell in its column.
+      const between = index < i ? lines.slice(index, i) : lines.slice(last + 1, index + 1);
+      return (index < i || index > last) && between.length <= tallRow && !between.some(inColumn);
+    });
+    // Cells touch where a name fills its column.
+    if (evidence || beside.some(line => rowEvidence.test(line.cells.find(other => other.x > right - 3)?.text ?? ''))) return { top: lines[i].top, text };
   }
   return null;
+}
+
+/** The top of the table row whose first cell is `name`. */
+export function rowOnPage(items: TextContent['items'], name: string): number | null {
+  return findRow(items, exactName(name))?.top ?? null;
 }
 
 /**
