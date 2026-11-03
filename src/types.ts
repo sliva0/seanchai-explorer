@@ -1,5 +1,5 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export type SeanchaiExport = Index | Search | Document | RawDocument;
 /**
@@ -60,12 +60,14 @@ export type Severity = 'error' | 'note' | 'accepted';
 export type AvpFlag = 'M' | 'V' | 'P';
 
 /**
- * `index.json`: what the export is and which documents it holds.
+ * `index.json`: what the export is and which documents it holds. `generator`
+ * marks the directory as an export, which a later export may replace.
  * `corpus_version` is null for a corpus other than the installed one.
  */
 export interface Index {
   corpus_version: string | null;
   documents: DocumentSummary[];
+  generator: 'seanchai';
   mode: 'public' | 'self-hosted';
   schema_version: number;
   seanchai_version: string | null;
