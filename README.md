@@ -1,6 +1,6 @@
 # Seanchaí explorer
 
-A static site over the [Seanchaí](https://github.com/sliva0/senchai) corpus: every
+A static site over the [Seanchaí](https://github.com/sliva0/seanchai) corpus: every
 Diameter dictionary read from 3GPP specifications and RFCs as one page, highlighted
 with the corpus's own TextMate grammar. AVP names link to their definitions,
 section and page numbers to the source document, and search covers specifications,
@@ -90,7 +90,7 @@ publishes with the Pages actions. Pages must be set to deploy from GitHub Action
 
 The PyPI install works once the packages are published. Until then the workflow falls
 back to installing both workspace packages from
-`git+https://github.com/sliva0/senchai` at `main`. Set the repository variable
+`git+https://github.com/sliva0/seanchai` at `main`. Set the repository variable
 `SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of a manual run, to build from a
 given ref instead of PyPI.
 

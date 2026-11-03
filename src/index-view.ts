@@ -3,7 +3,7 @@ import type { Site } from './data.ts';
 import { element, externalLink, link } from './dom.ts';
 import type { DocumentSummary } from './types.ts';
 
-export const REPOSITORY = 'https://github.com/sliva0/senchai';
+export const REPOSITORY = 'https://github.com/sliva0/seanchai';
 
 function renderAbout(site: Site): HTMLElement {
   const about = element('section', undefined, 'about');

@@ -19,7 +19,7 @@ concurrency:
 env:
   # Set the repository variable, or the input above, to use a ref of the repository.
   SEANCHAI_GIT_REF: ${{ inputs.seanchai_git_ref || vars.SEANCHAI_GIT_REF }}
-  SEANCHAI_REPOSITORY: https://github.com/sliva0/senchai
+  SEANCHAI_REPOSITORY: https://github.com/sliva0/seanchai
 
 jobs:
   build:
