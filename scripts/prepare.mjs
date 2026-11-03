@@ -1,31 +1,62 @@
+// Fills public/ for a build: node scripts/prepare.mjs [--self-hosted]. See README.md.
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rename, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { SCHEMA_VERSION } from '../src/types.ts';
 
 const project = fileURLToPath(new URL('../', import.meta.url));
-const root = path.resolve(process.env.SEANCHAI_ROOT ?? path.join(project, '../..'));
-const specifications = path.resolve(process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root, 'specifications'));
+const selfHosted = process.argv.includes('--self-hosted');
+const mode = selfHosted ? 'self-hosted' : 'public';
+const data = path.join(project, 'public/data');
+const pdfjsOut = path.join(project, 'public/pdfjs');
+
+const checkout = path.resolve(project, '../..');
+const root = process.env.SEANCHAI_ROOT ? path.resolve(process.env.SEANCHAI_ROOT)
+  : existsSync(path.join(checkout, 'editors/vscode/syntaxes/dad.tmLanguage.json')) ? checkout : null;
+
+function runExport(output) {
+  const specifications = path.resolve(process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root ?? project, 'specifications'));
+  const args = ['export', '-o', output];
+  if (existsSync(specifications)) args.push('--specifications', specifications);
+  else if (selfHosted) throw new Error(`A self-hosted build needs the source PDFs, and ${specifications} does not exist`);
+  if (selfHosted) args.push('--include-pdfs');
+  if (existsSync(path.join(specifications, 'wireshark'))) args.push('--dictionary', path.join(specifications, 'wireshark'));
+  const [command, commandArgs] = root ? ['uv', ['run', '--project', root, 'seanchai', ...args]] : ['seanchai', args];
+  const result = spawnSync(command, commandArgs, { cwd: root ?? project, stdio: 'inherit' });
+  if (result.error) throw result.error;
+  if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
 const temporary = path.join(project, '.data-tmp');
 await rm(temporary, { recursive: true, force: true });
-const args = ['run', '--no-sync', '--project', root, 'seanchai', 'export', '-o', temporary,
- ];
-args.push('--specifications', specifications);
-if (!process.argv.includes('--public')) args.push('--include-pdfs');
-args.push('--dictionary', path.join(specifications, 'wireshark'));
-const result = spawnSync('uv', args, { cwd: root, stdio: 'inherit',
-  env: { ...process.env, UV_CACHE_DIR: process.env.UV_CACHE_DIR ?? path.join(project, '.uv-cache') } });
-if (result.error) throw result.error;
-if (result.status !== 0) process.exit(result.status ?? 1);
+if (process.env.SEANCHAI_EXPORT) await cp(path.resolve(process.env.SEANCHAI_EXPORT), temporary, { recursive: true });
+else runExport(temporary);
+
 const index = JSON.parse(await readFile(path.join(temporary, 'index.json'), 'utf8'));
-if (index.schema_version !== 2) throw new Error('Unsupported export schema');
-await mkdir(path.join(project, 'public'), { recursive: true });
-await rm(path.join(project, 'public/data'), { recursive: true, force: true });
-await rename(temporary, path.join(project, 'public/data'));
-await mkdir(path.join(project, 'public/syntax'), { recursive: true });
-await cp(path.join(root, 'editors/vscode/syntaxes/dad.tmLanguage.json'), path.join(project, 'public/syntax/dad.tmLanguage.json'));
-const pdfjs = path.join(project, 'node_modules/pdfjs-dist');
-for (const directory of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
-  await cp(path.join(pdfjs, directory), path.join(project, 'public/pdfjs', directory), { recursive: true });
+const problem = index.schema_version !== SCHEMA_VERSION ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
+  : index.mode !== mode ? `A ${mode} build cannot use a ${index.mode} export` : null;
+if (problem) {
+  await rm(temporary, { recursive: true, force: true });
+  throw new Error(problem);
 }
-await cp(path.join(pdfjs, 'LICENSE'), path.join(project, 'public/pdfjs/LICENSE'));
+
+await mkdir(path.join(project, 'public'), { recursive: true });
+await rm(data, { recursive: true, force: true });
+await rename(temporary, data);
+
+// The grammar is committed for builds with no checkout; a checkout's copy is the source of it.
+if (root) {
+  await mkdir(path.join(project, 'public/syntax'), { recursive: true });
+  await cp(path.join(root, 'editors/vscode/syntaxes/dad.tmLanguage.json'), path.join(project, 'public/syntax/dad.tmLanguage.json'));
+}
+
+await rm(pdfjsOut, { recursive: true, force: true });
+if (selfHosted) {
+  const pdfjs = path.join(project, 'node_modules/pdfjs-dist');
+  for (const directory of ['cmaps', 'standard_fonts', 'wasm', 'iccs']) {
+    await cp(path.join(pdfjs, directory), path.join(pdfjsOut, directory), { recursive: true });
+  }
+  await cp(path.join(pdfjs, 'LICENSE'), path.join(pdfjsOut, 'LICENSE'));
+}

@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   base: './',
   build: {
     rolldownOptions: {
-      input: { main: 'index.html', viewer: 'viewer.html', rfc: 'rfc.html' },
+      input: { main: 'index.html', rfc: 'rfc.html', ...(mode === 'self-hosted' ? { viewer: 'viewer.html' } : {}) },
     },
   },
-});
+}));

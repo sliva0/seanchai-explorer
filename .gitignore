@@ -6,3 +6,4 @@ dist/
 public/data/
 public/pdfjs/
 .data-tmp/
+export/

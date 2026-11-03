@@ -10,10 +10,13 @@
   "scripts": {
     "prepare:data": "node scripts/prepare.mjs",
     "dev": "node scripts/prepare.mjs && vite --host 127.0.0.1",
+    "dev:self-hosted": "node scripts/prepare.mjs --self-hosted && vite --host 127.0.0.1 --mode self-hosted",
     "check": "tsc --noEmit",
-    "build": "node scripts/prepare.mjs && tsc --noEmit && vite build",
-    "build:public": "node scripts/prepare.mjs --public && tsc --noEmit && vite build",
+    "build": "node scripts/prepare.mjs && tsc --noEmit && vite build && node scripts/check-public.mjs",
+    "build:self-hosted": "node scripts/prepare.mjs --self-hosted && tsc --noEmit && vite build --mode self-hosted",
     "test": "node --test tests/unit/*.test.mjs",
+    "test:build": "node --test --test-concurrency=1 tests/build/*.test.mjs",
+    "test:smoke": "node --test tests/smoke/*.test.mjs",
     "types": "node scripts/generate-types.mjs",
     "fixture": "node scripts/make-fixture.mjs",
     "preview": "vite preview"
@@ -22,6 +25,7 @@
     "ajv": "^8.20.0",
     "happy-dom": "^21.0.4",
     "json-schema-to-typescript": "^16.0.0",
+    "playwright-core": "^1.64.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
   },
