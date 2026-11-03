@@ -81,13 +81,6 @@ export function publisherURL(doc: Pick<DocumentSummary, 'source'>, position: Pic
 }
 
 /** Where a `; Section:` or `; Page:` link goes without a pane: always a new tab. */
-/** The publisher's page for the document itself: an RFC's info page, which links every rendering, else the source URL. */
-export function publisherHome(doc: Pick<DocumentSummary, 'source'>): URL | null {
-  if (!doc.source.url) return null;
-  const rfc = doc.source.kind === 'rfc-text' && /\/rfc(\d+)\.txt$/.exec(doc.source.url);
-  return rfc ? new URL(`https://www.rfc-editor.org/info/rfc${rfc[1]}/`) : new URL(doc.source.url);
-}
-
 export function sourceHref(doc: Pick<DocumentSummary, 'source'>, position: SourcePosition, mode: Mode): URL | null {
   return paneKind(doc, mode) === 'pdf' ? paneURL(doc, position, mode) : publisherURL(doc, position);
 }

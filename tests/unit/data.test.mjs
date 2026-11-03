@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { docLabel, docTitle, paneFile, paneKind, paneURL, publisherHome, publisherURL, sourceHref } from '../../src/data.ts';
+import { docLabel, docTitle, paneFile, paneKind, paneURL, publisherURL, sourceHref } from '../../src/data.ts';
 
 globalThis.location = new URL('http://localhost/site/index.html#doc');
 
@@ -51,8 +51,6 @@ test('source links open the publisher at the position, or the viewer of a self-h
   assert.equal(publisherURL(rfc, position).href, 'https://www.rfc-editor.org/rfc/rfc6733.html#section-6.4');
   assert.equal(publisherURL(rfc, { ...position, exact: true }).href, 'https://www.rfc-editor.org/rfc/rfc6733.html#page-83');
   assert.equal(publisherURL({ source: { ...etsi.source, url: null } }, position), null);
-  assert.equal(publisherHome(rfc).href, 'https://www.rfc-editor.org/info/rfc6733/');
-  assert.equal(publisherHome(etsi).href, 'https://www.etsi.org/a.pdf');
   assert.equal(sourceHref(etsi, position, 'public').hostname, 'www.etsi.org');
   assert.equal(sourceHref(rfc, position, 'public').hostname, 'www.rfc-editor.org');
   assert.equal(sourceHref(hosted, position, 'self-hosted').pathname, '/site/viewer.html');

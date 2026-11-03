@@ -1,4 +1,4 @@
-import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherHome, publisherURL } from './data.ts';
+import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
@@ -60,8 +60,8 @@ function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: S
   const page = header.querySelector('.source-page');
   if (page) page.textContent = position.page && kind !== 'pdf' ? `p. ${position.page}` : '';
   const publisher = header.querySelector<HTMLAnchorElement>('.publisher-link')!;
-  // An RFC's info page lists its renderings; a PDF opens at the page.
-  const url = doc.source.kind === 'rfc-text' ? publisherHome(doc) : publisherURL(doc, position);
+  // A PDF opens at the page, an RFC's HTML rendering at the section.
+  const url = publisherURL(doc, position);
   publisher.hidden = !url;
   if (url) decorateFileLink(publisher, url, url.hostname.replace(/^www\./, ''), doc.source.kind === 'etsi-pdf' || url.pathname.toLowerCase().endsWith('.pdf'));
   const local = header.querySelector<HTMLAnchorElement>('.local-link')!;

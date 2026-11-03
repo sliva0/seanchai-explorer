@@ -143,7 +143,7 @@ test('the page indicator follows the reader, with shipped text and without', asy
       const send = data => window.dispatchEvent(new window.MessageEvent('message', { origin: window.location.origin, source: frame.contentWindow, data }));
       send({ type: 'seanchai-source-page', file, page: 7 });
       assert.equal(document.querySelector('.source-header .source-page').textContent, 'p. 7');
-      assert.equal(document.querySelector('.source-header .publisher-link').href, 'https://www.rfc-editor.org/info/rfc7944/');
+      assert.ok(document.querySelector('.source-header .publisher-link').href.endsWith('#page-7'));
       send({ type: 'seanchai-source-page', file: 'http://other/file.txt', page: 9 });
       assert.equal(document.querySelector('.source-header .source-page').textContent, 'p. 7');
       assert.equal(Boolean(document.querySelector('.source-header .local-link:not([hidden])')), shipped);
