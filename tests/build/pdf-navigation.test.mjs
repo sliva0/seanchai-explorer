@@ -113,6 +113,13 @@ test('a row the section does not hold: the nearest table, the clause or format n
     assert.equal(none.pageNumber, 129);
     assert.notEqual(none.destArray[0], null, 'the bookmark, not a row');
   });
+  await withNavigator('ts183020-010101.pdf', async navigator => {
+    const named = await navigator.locate('5.5', 13, () => true, 'Initial-Gate-Setting-Description', true, 'Initiate-Gate-Setting');
+    assert.deepEqual([named.pageNumber, named.found, named.query], [13, 'mention', 'Initiate-Gate-Setting']);
+    assert.ok(Math.abs(named.destArray[3] - 283) < 1);
+    const over = await navigator.locate('5.5', 13, () => true, 'QoS-Profile-Description', true, 'QoS-Profile');
+    assert.deepEqual([over.pageNumber, over.found, over.query], [14, 'mention', 'QoS-Profile']);
+  });
 });
 
 test('value rows: the table in the section, by number where names repeat, and a result code\'s own clause', { skip }, async () => {

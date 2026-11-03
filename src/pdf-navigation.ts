@@ -281,6 +281,11 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       [everywhere, 'clause', place((items, width) => clauseOnPage(items, name, width))],
       [everywhere, 'format', place(items => formatOnPage(items, name))],
       [everywhere, 'mention', place(items => mentionOnPage(items, name))],
+      // A table naming the attribute in a later column: the spelling it prints is only ever a mention.
+      ...(printed ? [[everywhere, 'mention', items => {
+        const top = mentionOnPage(items, printed);
+        return top === null ? null : { top, text: printed };
+      }] as [number[], RowFound, Look]] : []),
     ];
     for (const [order, found, look] of steps) {
       for (const pageNumber of order) {
