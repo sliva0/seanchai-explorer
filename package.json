@@ -13,11 +13,15 @@
     "check": "tsc --noEmit",
     "build": "node scripts/prepare.mjs && tsc --noEmit && vite build",
     "build:public": "node scripts/prepare.mjs --public && tsc --noEmit && vite build",
-    "test": "npm run build && node --test tests/*.test.mjs",
+    "test": "node --test tests/unit/*.test.mjs",
+    "types": "node scripts/generate-types.mjs",
+    "fixture": "node scripts/make-fixture.mjs",
     "preview": "vite preview"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "happy-dom": "^21.0.4",
+    "json-schema-to-typescript": "^16.0.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"
   },

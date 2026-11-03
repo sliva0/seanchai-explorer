@@ -1,7 +1,5 @@
-import { rfcPages } from './rfc-text';
-import { initTheme } from './theme';
-import './theme.css';
-import './rfc.css';
+import { rfcPages } from './rfc-text.ts';
+import { initTheme } from './theme.ts';
 
 initTheme();
 

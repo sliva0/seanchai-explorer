@@ -1,0 +1,30 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { parseRoute, routeFor } from '../../src/navigation.ts';
+
+test('section and raw links survive encoding and parsing', () => {
+  const hash = routeFor({ document: '29272-i70', section: '7.3.138' }, { raw: true });
+  assert.equal(hash, '#29272-i70/7.3.138?raw=1');
+  assert.deepEqual(parseRoute(hash), { document: '29272-i70', section: '7.3.138', raw: true, query: '' });
+  assert.equal(routeFor({ document: 'rfc6733' }), '#rfc6733');
+  assert.equal(routeFor({ document: 'a b', section: null, name: 'X/Y' }), '#a%20b?name=X%2FY');
+  assert.equal(parseRoute('#search?q=call%20barring').query, 'call barring');
+  assert.equal(parseRoute('#%ZZ').document, '');
+  assert.equal(parseRoute('').document, '');
+});
+
+test('a route keeps the pane, raw mode and line it was shared with', () => {
+  const source = { document: '29061-i10', position: { section: '16.4.7', page: 120, name: '3GPP-MS-TimeZone', exact: true, row: true } };
+  const route = parseRoute(routeFor({ document: '29214-i40', section: '5.4.0' }, { raw: true, source, line: 125, paneHidden: true }));
+  assert.equal(route.raw, true);
+  assert.deepEqual(route.source, source);
+  assert.equal(route.line, 125);
+  assert.equal(route.paneHidden, true);
+});
+
+test('a malformed route falls back rather than failing', () => {
+  assert.equal(parseRoute('#doc?source=other&page=-2&line=-1').source.position.page, null);
+  assert.equal(parseRoute('#doc?source=other&page=-2&line=-1').line, undefined);
+  assert.equal(parseRoute('#doc?line=bad').line, undefined);
+  assert.equal(parseRoute('#doc').source, undefined);
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactComment } from '../src/comments.ts';
+import { compactComment } from '../../src/comments.ts';
 
 test('compact comments remove only citation and occurrence markers', () => {
   assert.equal(compactComment(";; deleted: AVP rule 'Session-Id' (occurrence 2) (TS29.229.py#rta-session-id-repeated)"), ";; deleted: AVP rule 'Session-Id'");

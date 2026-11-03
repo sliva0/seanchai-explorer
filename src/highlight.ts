@@ -1,4 +1,4 @@
-import type { Line, Token } from './types';
+import type { Line, Token } from './types.ts';
 
 interface Pattern {
   include?: string;
@@ -8,6 +8,9 @@ interface Pattern {
   captures?: Record<string, Pattern>;
 }
 export interface Grammar extends Pattern { repository: Record<string, Pattern> }
+
+export interface HighlightedToken extends Token { scope: string }
+export interface HighlightedLine extends Line { decoration: string; tokens: HighlightedToken[] }
 
 export function createHighlighter(grammar: Grammar) {
   const cache = new Map<string, RegExp>();
@@ -42,7 +45,7 @@ export function createHighlighter(grammar: Grammar) {
       position = Math.max(position + 1, stop);
     }
   }
-  return (lines: Line[]): Line[] => {
+  return (lines: Line[]): HighlightedLine[] => {
     let inTable = false;
     let row = 0;
     return lines.map(line => {
@@ -63,22 +66,22 @@ export function createHighlighter(grammar: Grammar) {
       if (/; bold(\s*; strikethrough)?\s*$/.test(rule)) decoration.push('bold-rule');
       if (/; strikethrough\s*$/.test(rule)) decoration.push('struck-rule');
       let offset = 0;
-      const tokens: Token[] = [];
+      const tokens: HighlightedToken[] = [];
       for (const token of line.tokens) {
-        if (token.correction || token.class.startsWith('comment.')) tokens.push({ ...token });
+        if (token.correction || token.kind) tokens.push({ ...token, scope: token.kind ?? '' });
         else {
           let start = 0;
           while (start < token.text.length) {
             const scope = scopes[offset + start];
             let end = start + 1;
             while (end < token.text.length && scopes[offset + end] === scope) end++;
-            tokens.push({ ...token, text: token.text.slice(start, end), class: scope });
+            tokens.push({ ...token, text: token.text.slice(start, end), scope });
             start = end;
           }
         }
         offset += token.text.length;
       }
-      return { ...line, class: decoration.join(' '), tokens };
+      return { ...line, decoration: decoration.join(' '), tokens };
     });
   };
 }

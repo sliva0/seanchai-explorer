@@ -9,7 +9,7 @@ const specifications = path.resolve(process.env.SEANCHAI_SPECIFICATIONS ?? path.
 const temporary = path.join(project, '.data-tmp');
 await rm(temporary, { recursive: true, force: true });
 const args = ['run', '--no-sync', '--project', root, 'seanchai', 'export', '-o', temporary,
-  '--corrections', path.join(root, 'edits/corrections')];
+ ];
 args.push('--specifications', specifications);
 if (!process.argv.includes('--public')) args.push('--include-pdfs');
 args.push('--dictionary', path.join(specifications, 'wireshark'));
@@ -18,7 +18,7 @@ const result = spawnSync('uv', args, { cwd: root, stdio: 'inherit',
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 const index = JSON.parse(await readFile(path.join(temporary, 'index.json'), 'utf8'));
-if (index.schema_version !== 1) throw new Error('Unsupported export schema');
+if (index.schema_version !== 2) throw new Error('Unsupported export schema');
 await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(path.join(project, 'public/data'), { recursive: true, force: true });
 await rename(temporary, path.join(project, 'public/data'));

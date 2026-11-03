@@ -1,9 +1,9 @@
 import * as pdfjs from 'pdfjs-dist';
 import { EventBus, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
-import { createSectionNavigator } from './pdf-navigation';
-import { initTheme } from './theme';
-import type { Outline } from './pdf-navigation';
+import { createSectionNavigator } from './pdf-navigation.ts';
+import { initTheme } from './theme.ts';
+import type { Outline } from './pdf-navigation.ts';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import './theme.css';
 import './viewer.css';

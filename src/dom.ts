@@ -1,0 +1,27 @@
+import { routeFor } from './navigation.ts';
+import type { Target } from './types.ts';
+
+export function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string, className?: string): HTMLElementTagNameMap[K] {
+  const node = document.createElement(tag);
+  if (text !== undefined) node.textContent = text;
+  if (className) node.className = className;
+  return node;
+}
+
+export function link(text: string, target: Target): HTMLAnchorElement {
+  const node = element('a', text);
+  node.href = routeFor(target);
+  return node;
+}
+
+export function externalLink(text: string, href: string): HTMLAnchorElement {
+  const node = element('a', text);
+  node.href = href;
+  node.target = '_blank';
+  node.rel = 'noopener';
+  return node;
+}
+
+export function scrollToNode(pane: HTMLElement, node: Element, margin = 12) {
+  pane.scrollTop += node.getBoundingClientRect().top - pane.getBoundingClientRect().top - margin;
+}
