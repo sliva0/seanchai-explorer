@@ -119,6 +119,10 @@ mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 .dad-line.target-line { background: var(--syntax-number-bg); box-shadow: inset 3px 0 var(--syntax-number); }
 .dad-line:focus { outline: none; }
 .dad-line.raw-warning { background: #fff0d2; box-shadow: inset 3px 0 #ba7b18; }
-:root[data-theme="dark"] .dad-line.target-line { background: var(--syntax-number-bg); box-shadow: inset 3px 0 var(--syntax-number); }
-.dad-line:focus { outline: none; }
-.dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }
+:root[data-theme="dark"] .dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }
+@media (max-width: 760px) {
+  header { flex-wrap: nowrap; gap: 0.5rem; }
+  nav a:not(.site-name) { display: none; }
+  .header-search { flex: 1 1 6rem; min-width: 0; }
+  .header-actions { margin-left: auto; }
+}
