@@ -24,7 +24,7 @@ test('real PDF bookmarks and heading fallback skip tables and contents', { skip 
     assert.equal((await navigator.locate('17.7.17', 92)).pageNumber, 92);
     const table = await pdf.getPage(88);
     assert.equal(headingOnPage((await table.getTextContent()).items, '17.7.12', table.view[2]), null);
-    assert.ok(rowOnPage((await table.getTextContent()).items, 'RAI', table.view[2]) > 0);
+    assert.ok(rowOnPage((await table.getTextContent()).items, 'RAI') > 0);
     assert.equal((await navigator.locate('17.7', 87, () => true, 'RAI')).pageNumber, 88);
     assert.equal((await navigator.locate('17.7.12', 87, () => true, 'RAI')).pageNumber, 91);
     const contents = await pdf.getPage(6);
@@ -49,4 +49,49 @@ test('table-name links locate the row while section links locate the definition'
     assert.equal((await navigator.locate('6.3', 17, () => true, 'Supported-Features', true)).pageNumber, 17);
     assert.equal((await navigator.locate('6.3.11', 17, () => true, 'Supported-Features')).pageNumber, 20);
   } finally { await task.destroy(); }
+});
+
+async function withNavigator(file, check) {
+  const task = getDocument({
+    data: new Uint8Array(await readFile(new URL(file, sources))),
+    standardFontDataUrl: fileURLToPath(new URL('../../node_modules/pdfjs-dist/standard_fonts/', import.meta.url)),
+  });
+  try { await check(createSectionNavigator(await task.promise)); } finally { await task.destroy(); }
+}
+const rowPage = async (navigator, section, hint, name) => {
+  const found = await navigator.locate(section, hint, () => true, name, true);
+  return found?.destArray[0] === null ? found.pageNumber : null;
+};
+
+test('wrapped rows resolve on their own table, not on another table holding the name', { skip }, async () => {
+  await withNavigator('29061-i10.pdf', async navigator => {
+    for (const name of ['3GPP-IMSI', '3GPP-Selection-Mode', '3GPP-GGSN-Address', '3GPP-SGSN-Address', '3GPP-User-Location-Info', '3GPP-GPRS-Negotiated-QoS-Profile', '3GPP-UE-Source-Port']) {
+      assert.equal(await rowPage(navigator, '16a.5', 129, name), 131, name);
+    }
+  });
+  await withNavigator('29229-i10.pdf', async navigator => {
+    assert.equal(await rowPage(navigator, '6.3.0', 21, 'Load'), 24);
+    assert.equal(await rowPage(navigator, '6.3.0', 21, 'RTR-Flags'), 24);
+  });
+  await withNavigator('29272-i70.pdf', async navigator => {
+    assert.equal(await rowPage(navigator, '7.3.1', 86, 'Visited-PLMN-Id'), 88);
+    assert.equal(await rowPage(navigator, '7.3.1', 86, 'Requested-EUTRAN-Authentication-Info'), 88);
+  });
+  await withNavigator('32299-i00.pdf', async navigator => {
+    assert.equal(await rowPage(navigator, '7.2.0', 102, 'RAN-Secondary-RAT-Usage-Report'), 110);
+    assert.equal(await rowPage(navigator, '7.2.0', 102, 'Carrier-Select-Routing-Information'), 105);
+  });
+});
+
+test('a row the section does not hold falls back to the heading, whatever other sections hold', { skip }, async () => {
+  await withNavigator('29212-i20.pdf', async navigator => {
+    const found = await navigator.locate('5c.4.1', 235, () => true, 'ADC-Rule-Name', true);
+    assert.equal(found.pageNumber, 235);
+    assert.notEqual(found.destArray[0], null, 'the bookmark, not a row');
+  });
+  await withNavigator('29061-i10.pdf', async navigator => {
+    const found = await navigator.locate('16a.5', 129, () => true, '3GPP-Session-Stop-Indicator', true);
+    assert.equal(found.pageNumber, 129);
+    assert.notEqual(found.destArray[0], null);
+  });
 });
