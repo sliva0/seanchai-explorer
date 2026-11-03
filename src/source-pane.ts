@@ -2,6 +2,7 @@ import { docLabel, docTitle, dataURL, paneFile, paneKind, paneURL, publisherURL 
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
+import { correctedRow, printedRow } from './printed-row.ts';
 import type { Document, DocumentSummary, Target } from './types.ts';
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
@@ -226,13 +227,20 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     setVisible,
     /** Moves the pane to a position, and remembers it for when the pane is next shown. `moved` is a move to keep in the URL. */
     show(position: SourcePosition, doc: Document, moved = false) {
-      request++;
+      const generation = ++request;
       if (!mounted) return;
-      if (doc.id === mounted.doc.id) mounted.position = position;
-      if (mounted.frame && paneKind(doc, site.mode)) selected = { doc, position };
-      refreshHeaders();
-      render();
-      if (moved) onChange();
+      const place = (position: SourcePosition) => {
+        if (generation !== request || !mounted) return;
+        if (doc.id === mounted.doc.id) mounted.position = position;
+        if (mounted.frame && paneKind(doc, site.mode)) selected = { doc, position };
+        refreshHeaders();
+        render();
+        if (moved) onChange();
+      };
+      // The source prints a renamed row under its raw name.
+      if (!position.row || !doc.raw || position.exact || !correctedRow(doc, position)) { place(position); return; }
+      void site.loadRaw(doc.id).then(raw => printedRow(doc, raw, position), () => null)
+        .then(printed => place(printed ? { ...position, printed } : position));
     },
     /** Shows a followed name's definition in the pane. */
     async showTarget(target: Target) {

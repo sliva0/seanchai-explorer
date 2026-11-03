@@ -1,7 +1,10 @@
 import type { Citation, Target } from './types.ts';
 
-/** A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for. */
-export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean }
+/**
+ * A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for;
+ * `printed` the source's spelling of a row the corpus renamed, which the raw mirror holds and so the route does not.
+ */
+export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean; printed?: string }
 export interface PaneState { document: string; position: SourcePosition }
 /** `line` is a line to point at, `top` the line a view was left scrolled to. */
 export interface RouteOptions { raw?: boolean; source?: PaneState; line?: number; top?: number; paneHidden?: boolean }

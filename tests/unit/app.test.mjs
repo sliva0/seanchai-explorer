@@ -128,6 +128,49 @@ test('self-hosted: PDFs go to the viewer pane at the clause and table row', asyn
   } finally { await page.close(); }
 });
 
+// TS 29.153's first table row, as the export would give it if the corpus had renamed or inserted it.
+const withRow = (path, data, kind) => {
+  if (path !== 'data/documents/29153-i00.json') return data;
+  const corrections = { ...data.corrections, 'TS29.153.py#row': { kind, reason: 'the table misprints it' } };
+  let done = false;
+  const lines = data.lines.map(line => {
+    const token = !done && line.tokens.find(token => token.source?.row);
+    if (!token) return line;
+    done = true;
+    const renamed = { ...token, avp: 'Corrected-Name', text: 'Corrected-Name', source: { ...token.source, name: 'Corrected-Name' } };
+    return { ...line, tokens: [...line.tokens.map(other => other === token ? renamed : other), { correction: 'TS29.153.py#row', kind: 'correction-note', text: ';; corrected: (TS29.153.py#row)' }] };
+  });
+  return { ...data, corrections, lines };
+};
+const rowLink = document => [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'Corrected-Name');
+
+test('a renamed row goes to the pane with the spelling the raw mirror holds, which the route leaves out', async () => {
+  const printed = (await readFixture('documents/29153-i00.raw.json')).lines.flatMap(line => line.tokens).find(token => token.source?.row).source.name;
+  const page = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'correction') });
+  try {
+    const { document } = page;
+    click(page, rowLink(document));
+    await settle();
+    const params = new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+    assert.equal(params.get('name'), 'Corrected-Name');
+    assert.equal(params.get('printed'), printed);
+    assert.ok(page.fetched.includes('data/documents/29153-i00.raw.json'));
+    assert.ok(!page.window.location.hash.includes('printed'), page.window.location.hash);
+  } finally { await page.close(); }
+});
+
+test('an inserted row has no raw spelling, and a plain row does not load the raw mirror', async () => {
+  const inserted = await boot({ hash: '#29153-i00/5.1', mode: 'self-hosted', transform: (path, data) => withRow(path, data, 'insert') });
+  try {
+    click(inserted, rowLink(inserted.document));
+    await settle();
+    const params = new URLSearchParams(new URL(frameSrc(inserted.document)).hash.slice(1));
+    assert.equal(params.get('name'), 'Corrected-Name');
+    assert.equal(params.get('printed'), null);
+    assert.ok(!inserted.fetched.includes('data/documents/29153-i00.raw.json'));
+  } finally { await inserted.close(); }
+});
+
 test('the page indicator follows the reader, with shipped text and without', async () => {
   for (const shipped of [true, false]) {
     const page = await boot({
