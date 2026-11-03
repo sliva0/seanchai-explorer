@@ -34,6 +34,14 @@ test('viewer uses the editor grammar for directives, presence, enums, types, fla
   assert.equal(scopeFor(lines[10], 'https://example.org/a.pdf'), 'markup.underline.link.dad');
 });
 
+test('a grammar rule the scanner cannot run is refused rather than ignored', () => {
+  const empty = { patterns: [], repository: {} };
+  assert.doesNotThrow(() => createHighlighter({ ...empty, patterns: [{ comment: 'note', match: 'x', name: 'y', captures: { 1: { name: 'z' } } }] }));
+  assert.throws(() => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b' }] }), /"begin" at patterns\[0\]/);
+  assert.throws(() => createHighlighter({ ...empty, repository: { block: { patterns: [{ match: 'x', while: 'y' }] } } }), /"while" at repository\.block\.patterns\[0\]/);
+  assert.throws(() => createHighlighter({ ...empty, patterns: [{ match: 'x', captures: { 1: { contentName: 'y' } } }] }), /"contentName" at patterns\[0\]\.captures\[1\]/);
+});
+
 test('comment and correction-note tokens keep their kind and are not split by the grammar', () => {
   const [row] = highlight([{ tokens: [
     { text: 'Mode ' },

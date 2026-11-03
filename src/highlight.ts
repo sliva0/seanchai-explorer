@@ -12,7 +12,20 @@ export interface Grammar extends Pattern { repository: Record<string, Pattern> }
 export interface HighlightedToken extends Token { scope: string }
 export interface HighlightedLine extends Line { decoration: string; tokens: HighlightedToken[] }
 
+const supportedKeys = new Set(['include', 'name', 'match', 'patterns', 'captures', 'comment']);
+
+/** The scanner has no rule stack: a begin/end rule in the grammar would silently match nothing. */
+function checkPattern(pattern: Pattern, where: string) {
+  for (const key of Object.keys(pattern)) {
+    if (!supportedKeys.has(key)) throw new Error(`Unsupported grammar key "${key}" at ${where}`);
+  }
+  pattern.patterns?.forEach((child, index) => checkPattern(child, `${where}.patterns[${index}]`));
+  for (const [group, capture] of Object.entries(pattern.captures ?? {})) checkPattern(capture, `${where}.captures[${group}]`);
+}
+
 export function createHighlighter(grammar: Grammar) {
+  (grammar.patterns ?? []).forEach((pattern, index) => checkPattern(pattern, `patterns[${index}]`));
+  for (const [name, pattern] of Object.entries(grammar.repository ?? {})) checkPattern(pattern, `repository.${name}`);
   const cache = new Map<string, RegExp>();
   function rules(patterns: Pattern[]): Pattern[] {
     return patterns.flatMap(pattern => pattern.include
