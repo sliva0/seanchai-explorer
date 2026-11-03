@@ -4,6 +4,8 @@ import { parseRoute, routeFor, searchGroups, searchSpecifications, sharedRoute, 
 import { compactComment } from './comments';
 import { createHighlighter } from './highlight';
 import type { Grammar } from './highlight';
+import { initTheme } from './theme';
+import type { Theme } from './theme';
 import './theme.css';
 
 function element<K extends keyof HTMLElementTagNameMap>(tag: K, text?: string): HTMLElementTagNameMap[K] {
@@ -36,18 +38,7 @@ nav.append(indexLink, searchLink);
 const themeButton = element('button');
 themeButton.className = 'theme-toggle';
 themeButton.type = 'button';
-let theme: 'light' | 'dark' = 'light';
-try { if (localStorage.getItem('seanchai-theme') === 'dark') theme = 'dark'; } catch {}
-function applyTheme(next: 'light' | 'dark', persist = true) {
-  theme = next;
-  document.documentElement.dataset.theme = theme;
-  themeButton.textContent = theme === 'light' ? 'Dark' : 'Light';
-  themeButton.setAttribute('aria-label', `${themeButton.textContent} theme`);
-  if (persist) { try { localStorage.setItem('seanchai-theme', theme); } catch {} }
-  const frame = content.querySelector<HTMLIFrameElement>('iframe');
-  if (frame && new URL(frame.src, location.href).origin === location.origin) frame.contentWindow?.postMessage({ type: 'seanchai-theme', theme }, location.origin);
-}
-themeButton.onclick = () => applyTheme(theme === 'light' ? 'dark' : 'light');
+themeButton.onclick = () => theme.toggle();
 const headerActions = element('div');
 headerActions.className = 'header-actions';
 headerActions.append(themeButton);
@@ -59,9 +50,14 @@ header.append(nav, demo, headerActions);
 const content = element('main');
 content.id = 'content';
 app.replaceChildren(header, content);
-applyTheme(theme, false);
-window.addEventListener('storage', event => {
-  if (event.key === 'seanchai-theme' || event.key === null) applyTheme(event.newValue === 'dark' ? 'dark' : 'light', false);
+function postTheme(frame: HTMLIFrameElement, value: Theme) {
+  if (frame.src && new URL(frame.src, location.href).origin === location.origin) frame.contentWindow?.postMessage({ type: 'seanchai-theme', theme: value }, location.origin);
+}
+const theme = initTheme(value => {
+  themeButton.textContent = value === 'light' ? 'Dark' : 'Light';
+  themeButton.setAttribute('aria-label', `${themeButton.textContent} theme`);
+  const frame = content.querySelector<HTMLIFrameElement>('iframe');
+  if (frame) postTheme(frame, value);
 });
 
 let index: IndexData;
@@ -656,9 +652,7 @@ function renderDocument(doc: DocumentData, raw: boolean) {
     const sourceHeader = paneHeader(doc, true);
     const frame = element('iframe');
     frame.title = doc.specification;
-    frame.onload = () => {
-      if (new URL(frame.src, location.href).origin === location.origin) frame.contentWindow?.postMessage({ type: 'seanchai-theme', theme }, location.origin);
-    };
+    frame.onload = () => postTheme(frame, theme.current);
     pane.append(frame);
     workspace.append(divider, sourceHeader, pane);
   }

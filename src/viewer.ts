@@ -2,21 +2,13 @@ import * as pdfjs from 'pdfjs-dist';
 import { EventBus, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { createSectionNavigator } from './pdf-navigation';
+import { initTheme } from './theme';
 import type { Outline } from './pdf-navigation';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import './theme.css';
 import './viewer.css';
 
-function applyTheme(theme: unknown) {
-  document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light';
-}
-try { applyTheme(localStorage.getItem('seanchai-theme')); } catch { applyTheme('light'); }
-window.addEventListener('message', event => {
-  if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme') applyTheme(event.data.theme);
-});
-window.addEventListener('storage', event => {
-  if (event.key === 'seanchai-theme' || event.key === null) applyTheme(event.newValue);
-});
+initTheme();
 
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
 const container = document.querySelector<HTMLDivElement>('#viewerContainer')!;

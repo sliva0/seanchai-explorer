@@ -1,13 +1,9 @@
 import { rfcPages } from './rfc-text';
+import { initTheme } from './theme';
 import './theme.css';
 import './rfc.css';
 
-function applyTheme(theme: unknown) { document.documentElement.dataset.theme = theme === 'dark' ? 'dark' : 'light'; }
-try { applyTheme(localStorage.getItem('seanchai-theme')); } catch { applyTheme('light'); }
-window.addEventListener('storage', event => { if (event.key === 'seanchai-theme' || event.key === null) applyTheme(event.newValue); });
-window.addEventListener('message', event => {
-  if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme') applyTheme(event.data.theme);
-});
+initTheme();
 
 const container = document.querySelector<HTMLElement>('#rfc')!;
 const sections = new Map<string, HTMLElement>();
