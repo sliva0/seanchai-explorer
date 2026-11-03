@@ -143,12 +143,18 @@ try {
     try {
       const fresh = view?.doc.id !== meta.id || view.raw !== parsed.raw;
       if (fresh) {
-        leaveDocument('');
+        view = undefined;
+        sourcePane.unmount();
         setTitle(docLabel(meta));
-        const loading = element('p', `Loading ${docLabel(meta)}…`);
-        loading.setAttribute('role', 'status');
-        content.replaceChildren(loading);
-        const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined]);
+        // A quick load goes straight from the old page to the new; only a slow one says so.
+        const loading = setTimeout(() => {
+          if (generation !== request) return;
+          content.className = '';
+          const status = element('p', `Loading ${docLabel(meta)}…`);
+          status.setAttribute('role', 'status');
+          content.replaceChildren(status);
+        }, 150);
+        const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         content.className = 'document-view';
         view = renderDocument(content, services, doc, raw);
