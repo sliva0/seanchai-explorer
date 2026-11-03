@@ -211,7 +211,7 @@ test('the index says what the site is and lists releases newest first with pinne
     assert.match(about, /publishers' terms/);
     assert.match(about, /does not redistribute/);
     assert.match(about, /Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build/);
-    assert.equal(document.querySelector('.about a').href, 'https://github.com/sliva0/senchai');
+    assert.equal(document.querySelector('.about a').href, 'https://github.com/sliva0/seanchai');
     assert.equal(document.querySelector('.demo-badge'), null);
     assert.deepEqual([...document.querySelectorAll('main section > h2, .pinned-release > summary')].map(node => node.textContent), [
       '3GPP · Release 18',
