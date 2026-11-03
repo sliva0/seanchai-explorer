@@ -79,9 +79,7 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 #search-results details { margin-block: 0.75rem; }
 h1 { margin-block: 0.5rem; font-size: 1.4rem; }
 h1:focus { outline: none; }
-.about { max-width: 80ch; margin-bottom: 2rem; line-height: 1.5; }
-.about p { margin-block: 0.5rem; }
-.about .versions { color: var(--ui-muted); font-size: 0.85rem; }
+.versions { color: var(--ui-muted); font-size: 0.85rem; }
 .pinned-release { margin-block: 0.75rem; }
 .pinned-release summary { font-weight: 600; }
 .index-view li { padding-block: 0.35rem; line-height: 1.6; }

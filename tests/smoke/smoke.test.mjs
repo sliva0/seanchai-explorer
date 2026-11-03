@@ -57,7 +57,7 @@ async function open(hash, options = {}, prepare = async () => {}) {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await prepare(page);
   await page.goto(base + hash);
-  await page.waitForSelector('main h1, main #document');
+  await page.waitForSelector('main h1, main #document, main.index-view');
   return { page, context, errors, done: async () => { await context.close(); assert.deepEqual(errors, []); } };
 }
 

@@ -51,7 +51,7 @@ function setTitle(page?: string) {
 }
 
 function focusHeading() {
-  content.querySelector('h1')?.focus({ preventScroll: true });
+  (content.querySelector('h1') ?? content).focus({ preventScroll: true });
 }
 
 function showMessage(heading: string, detail?: string) {

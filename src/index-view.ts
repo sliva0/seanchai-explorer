@@ -1,24 +1,7 @@
 import { docTitle } from './data.ts';
 import type { Site } from './data.ts';
-import { element, externalLink, link } from './dom.ts';
+import { element, link } from './dom.ts';
 import type { DocumentSummary } from './types.ts';
-
-export const REPOSITORY = 'https://github.com/sliva0/seanchai';
-
-function renderAbout(site: Site): HTMLElement {
-  const about = element('section', undefined, 'about');
-  const heading = element('h1', 'Seanchaí');
-  heading.tabIndex = -1;
-  const what = element('p', 'Diameter dictionaries read from 3GPP specifications, RFCs and a few other documents, one page per document. Every AVP name links to its definition, and every section and page number to the source.');
-  const terms = element('p', 'An unofficial, independent project, not affiliated with or endorsed by 3GPP, ETSI, oneM2M, 3GPP2 or the IETF. The specifications are their publishers\' work and remain under their publishers\' terms');
-  terms.append(site.mode === 'public' ? '; this site links to the publishers\' copies and does not redistribute their PDFs.' : '.');
-  const project = element('p', 'Source, corrections and tools: ');
-  project.append(externalLink('the Seanchaí repository', REPOSITORY), '.');
-  const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
-  const versions = element('p', [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`].filter(Boolean).join(' · '), 'versions');
-  about.append(heading, what, terms, project, versions);
-  return about;
-}
 
 function byName(a: DocumentSummary, b: DocumentSummary) {
   return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
@@ -52,7 +35,7 @@ function renderRelease(name: string, docs: DocumentSummary[]): HTMLElement {
 }
 
 export function renderIndex(container: HTMLElement, site: Site) {
-  container.replaceChildren(renderAbout(site));
+  container.replaceChildren();
   const publishers = new Map<string, Map<number | null, DocumentSummary[]>>();
   for (const doc of site.index.documents) {
     const releases = publishers.get(doc.publisher) ?? new Map<number | null, DocumentSummary[]>();
@@ -64,4 +47,6 @@ export function renderIndex(container: HTMLElement, site: Site) {
       container.append(renderRelease(`${publisher}${release ? ` · Release ${release}` : ''}`, docs));
     }
   }
+  const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
+  container.append(element('footer', [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`].filter(Boolean).join(' · '), 'versions'));
 }

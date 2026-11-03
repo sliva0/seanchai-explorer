@@ -198,20 +198,15 @@ test('search data is fetched on the search page only', async () => {
   } finally { await page.close(); }
 });
 
-test('the index says what the site is and lists releases newest first with pinned ones folded', async () => {
+test('the index lists releases newest first with pinned ones folded, and versions below', async () => {
   const documents = [
     ['a-18', '3GPP', 18, null], ['a-6', '3GPP', 6, 'Held for TS 29.210.'], ['a-11', '3GPP', 11, 'Held for TS 32.299.'], ['a-11b', '3GPP', 11, null], ['rfc1', 'IETF', null, null],
   ].map(([id, publisher, release, pinned]) => ({ id, publisher, release, pinned, path: `documents/${id}.json`, raw: null, reference: id, specification: id, title: `Title ${id}`, version: null, source: { kind: 'other', url: null, local: null, text: null } }));
   const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
   try {
     const { document } = page;
-    assert.equal(document.querySelector('main h1').textContent, 'Seanchaí');
-    const about = document.querySelector('.about').textContent;
-    assert.match(about, /unofficial/);
-    assert.match(about, /publishers' terms/);
-    assert.match(about, /does not redistribute/);
-    assert.match(about, /Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build/);
-    assert.equal(document.querySelector('.about a').href, 'https://github.com/sliva0/seanchai');
+    assert.equal(document.querySelector('main h1'), null);
+    assert.match(document.querySelector('main').lastElementChild.textContent, /^Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build$/);
     assert.equal(document.querySelector('.demo-badge'), null);
     assert.deepEqual([...document.querySelectorAll('main section > h2, .pinned-release > summary')].map(node => node.textContent), [
       '3GPP · Release 18',
@@ -425,8 +420,7 @@ test('each route sets its title and heading, and navigation moves focus', async 
   try {
     const { document, window } = page;
     assert.equal(document.title, 'Seanchaí');
-    assert.equal(document.querySelector('main h1').textContent, 'Seanchaí');
-    assert.notEqual(document.activeElement, document.querySelector('main h1'), 'not on first load');
+    assert.notEqual(document.activeElement, document.querySelector('main'), 'not on first load');
     await page.go('#29153-i00');
     assert.equal(document.title, '3GPP TS 29.153 V18.0.0 — Seanchaí');
     const heading = document.querySelector('main h1');
@@ -439,7 +433,7 @@ test('each route sets its title and heading, and navigation moves focus', async 
     assert.equal(document.querySelector('main h1').textContent, 'Search');
     assert.equal(document.activeElement, document.querySelector('.search-form input'));
     await page.go('');
-    assert.equal(document.activeElement, document.querySelector('main h1'));
+    assert.equal(document.activeElement, document.querySelector('main'));
     const skip = document.querySelector('.skip-link');
     assert.equal(document.querySelector('#app').firstElementChild, skip);
     await page.go('#29153-i00');
