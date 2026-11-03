@@ -2,6 +2,7 @@ import { clickAction } from './clicks.ts';
 import type { ClickAction } from './clicks.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
+import { compactComment } from './comments.ts';
 import { element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
@@ -19,7 +20,7 @@ export interface ViewServices {
 
 function correctionNode(token: HighlightedToken, reason: string, id: string): HTMLElement {
   const comment = element('span', undefined, 'correction correction-note');
-  const toggle = element('button', token.text.trimEnd(), 'correction-toggle');
+  const toggle = element('button', compactComment(token.text), 'correction-toggle');
   toggle.type = 'button';
   toggle.title = `${token.text}\n${reason}`;
   toggle.setAttribute('aria-expanded', 'false');
@@ -31,9 +32,10 @@ function correctionNode(token: HighlightedToken, reason: string, id: string): HT
   return comment;
 }
 
-function toggleCorrection(toggle: HTMLButtonElement) {
+function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
   const full = toggle.nextElementSibling as HTMLElement;
   full.hidden = !full.hidden;
+  toggle.textContent = full.hidden ? compactComment(token.text) : token.text.trimEnd();
   toggle.setAttribute('aria-expanded', String(!full.hidden));
 }
 
@@ -212,7 +214,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   pre.addEventListener('click', event => {
     const target = event.target as Element;
     const correction = target.closest<HTMLButtonElement>('.correction-toggle');
-    if (correction) { toggleCorrection(correction); return; }
+    if (correction) { toggleCorrection(correction, tokenOf(correction.parentElement!)); return; }
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
     const action = clickAction(tokenOf(node), event, node.closest<HTMLElement>('.dad-line')!.dataset.section, {
