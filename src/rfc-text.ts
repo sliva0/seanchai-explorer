@@ -1,5 +1,5 @@
-import { exactName, normalizeName, rowEvidence, takeName } from './table-row.ts';
-import type { NameMatch } from './table-row.ts';
+import { exactName, looseName, namePattern, normalizeName, rowEvidence, takeName, titleNames } from './table-row.ts';
+import type { NameMatch, RowFound } from './table-row.ts';
 
 export function rfcPages(text: string) {
   return text.split('\f').map((text, index) => ({
@@ -47,7 +47,7 @@ function rowBetween(lines: RfcLine[], match: NameMatch, start: number, end: numb
  * The lines of the table row named `name` in a section, as first and last index, however the ASCII table wraps the name.
  * Only the section is searched: the same name in another table is not its row.
  */
-export function rowLines(lines: RfcLine[], name: string, section: string, page: number): [number, number] | null {
+export function rowLines(lines: RfcLine[], name: string, section: string, page: number, match = exactName(name)): [number, number] | null {
   if (!normalizeName(name)) return null;
   let start = lines.findIndex(line => line.section === section && line.page >= page);
   if (start < 0) start = lines.findIndex(line => line.section === section);
@@ -57,5 +57,46 @@ export function rowLines(lines: RfcLine[], name: string, section: string, page: 
     const after = lines.findIndex((line, index) => index > start && line.section && line.section !== section && !line.section.startsWith(`${section}.`));
     if (after >= 0) end = after;
   }
-  return rowBetween(lines, exactName(name), start, end);
+  return rowBetween(lines, match, start, end);
+}
+
+/** Of every place `at` finds in the document, the one nearest `page`. */
+function nearest(lines: RfcLine[], page: number, at: (index: number) => [number, number] | null): [number, number] | null {
+  let best: [number, number] | null = null;
+  let distance = Infinity;
+  for (let index = 0; index < lines.length; index++) {
+    const found = at(index);
+    if (!found) continue;
+    const away = Math.abs(lines[index].page - page);
+    if (away < distance) { distance = away; best = found; }
+    index = found[1];
+  }
+  return best;
+}
+
+/**
+ * Where a row link goes when it is followed: the row in its section's table, under the name or the spelling
+ * the source prints, misprinted, else the nearest table holding it, the clause named after it, or a format naming it.
+ */
+export function locateRow(lines: RfcLine[], name: string, section: string, page: number, printed?: string): { lines: [number, number]; found: RowFound } | null {
+  if (!normalizeName(name)) return null;
+  const inSection = rowLines(lines, name, section, page);
+  if (inSection) return { lines: inSection, found: 'row' };
+  const asPrinted = printed ? rowLines(lines, printed, section, page) : null;
+  if (asPrinted) return { lines: asPrinted, found: 'printed' };
+  const loose = rowLines(lines, name, section, page, looseName(name));
+  if (loose) return { lines: loose, found: 'loose' };
+  for (const key of printed ? [name, printed] : [name]) {
+    const match = exactName(key);
+    const other = nearest(lines, page, index => {
+      const row = rowBetween(lines, match, index, Math.min(index + 6, lines.length));
+      return row?.[0] === index ? row : null;
+    });
+    if (other) return { lines: other, found: 'other-table' };
+  }
+  const clause = nearest(lines, page, index => lines[index].section && titleNames(lines[index].text.replace(/^\S+\s+/, ''), name) ? [index, index] : null);
+  if (clause) return { lines: clause, found: 'clause' };
+  const pattern = namePattern(name);
+  const format = nearest(lines, page, index => /^\s*[\d*]*\s*[[<{]/.test(lines[index].text) && pattern.test(lines[index].text) ? [index, index] : null);
+  return format && { lines: format, found: 'format' };
 }

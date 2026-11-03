@@ -15,6 +15,30 @@ export function exactName(name: string): NameMatch {
   return { starts: column => wanted.startsWith(column), whole: column => column === wanted };
 }
 
+/** Whether `column` reads as the start of `wanted` with at most one letter dropped from either. */
+function startsDroppingLetter(column: string, wanted: string, drops = 1): boolean {
+  for (let i = 0; i < column.length; i++) {
+    if (column[i] === wanted[i]) continue;
+    return drops > 0 && (startsDroppingLetter(column.slice(i + 1), wanted.slice(i), 0) || startsDroppingLetter(column.slice(i), wanted.slice(i + 1), 0));
+  }
+  return true;
+}
+
+/**
+ * A cell that misprints the name: its last word cut short (Additional-Context-ID), or one letter
+ * dropped (Acounting-Auth-Method). Never a changed letter or a missing word: 3GPP-GGSN-Address is
+ * not 3GPP-SGSN-Address, and Subscription-Id is not Subscription-Id-Type.
+ */
+export function looseName(name: string): NameMatch {
+  const wanted = normalizeName(name);
+  const stem = wanted.length - normalizeName(name.split(/[^A-Za-z0-9]+/).filter(Boolean).at(-1) ?? '').length + 2;
+  const dropped = (column: string) => wanted.length >= 8 && startsDroppingLetter(column, wanted);
+  return {
+    starts: column => wanted.startsWith(column) || dropped(column),
+    whole: column => column === wanted || (column.length >= stem && wanted.startsWith(column)) || (Math.abs(column.length - wanted.length) === 1 && dropped(column)),
+  };
+}
+
 /** Reads a name off the start of a cell, on from `column`: what it reads so far, what the cell holds after it, and whether it goes on from a hyphen. */
 export function takeName(text: string, match: NameMatch, column = '') {
   let rest = text;
@@ -31,3 +55,17 @@ export function takeName(text: string, match: NameMatch, column = '') {
   }
   return taken === column ? null : { column: taken, rest, open, text: text.slice(0, text.length - rest.length).trim() };
 }
+
+/** A name as a whole word in running text, written with any of hyphens, underscores or spaces between its parts. */
+export function namePattern(name: string, flags = 'iu') {
+  const parts = name.split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+  return new RegExp(`(?<![\\p{L}\\p{N}])${parts.join('[\\s_-]*')}(?![\\p{L}\\p{N}])`, flags);
+}
+
+/** A clause's title naming `name`: "EAP-Payload AVP", "Digest-Realm attribute", "Event-Report-Indication AVP (All access types)". */
+export function titleNames(title: string, name: string) {
+  return normalizeName(title.replace(/\s*\([^)]*\)\s*$/, '').replace(/\s+(?:AVP|attribute)\s*$/i, '')) === normalizeName(name);
+}
+
+/** How a row link found its place: the row in its own section's table, misprinted there, in another table, the clause named after it, a message or AVP format naming it, or any mention. */
+export type RowFound = 'row' | 'printed' | 'loose' | 'other-table' | 'clause' | 'format' | 'mention';

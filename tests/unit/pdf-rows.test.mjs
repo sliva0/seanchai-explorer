@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { matchOnRow, rowOnPage } from '../../src/pdf-navigation.ts';
+import { clauseOnPage, formatOnPage, looseRowOnPage, matchOnRow, mentionOnPage, rowOnPage } from '../../src/pdf-navigation.ts';
 
 // Text items captured from the ETSI PDFs: [str, x, y, width, height], in content order.
 const pages = JSON.parse(await readFile(new URL('../fixtures/pdf-rows.json', import.meta.url), 'utf8'));
@@ -88,6 +88,45 @@ test('the next column touching the name, at its start or between its lines', () 
 test('a reference the table misprints, and a name printed with an en dash', () => {
   assert.equal(rowOnPage(items('29273-i60', 146), 'User-Name'), top(672.9));
   assert.equal(rowOnPage(items('32299-i00', 113), 'User-Session-Id'), top(714.2));
+});
+
+test('a name the table cuts short is found loosely, under what it prints, and only then', () => {
+  const page = items('29272-i70', 91);
+  assert.equal(rowOnPage(page, 'Additional-Context-Identifier'), null);
+  const { top: at, text } = looseRowOnPage(page, 'Additional-Context-Identifier');
+  assert.equal(rowOnPage(page, 'Additional-Context-ID'), at);
+  assert.equal(text, 'Additional-Context-ID');
+});
+
+test('loosely is not another name: a changed letter, or a word more or less', () => {
+  const page = items('29061-i10', 131);
+  assert.ok(rowOnPage(page, '3GPP-SGSN-Address'));
+  assert.equal(looseRowOnPage(page, '3GPP-XGSN-Address'), null);
+  assert.equal(looseRowOnPage(page, '3GPP-SGSN'), null);
+  assert.equal(looseRowOnPage(page, '3GPP-SGSN-Address-Extra'), null);
+  assert.equal(looseRowOnPage(items('32299-i00', 113), 'User-Session-Name'), null);
+  assert.equal(looseRowOnPage(items('32299-i00', 113), 'User-Session-Identity').text, 'User–Session-Id');
+});
+
+test('a row the source does not print: the clause named after it, not its contents line', () => {
+  const width = 595;
+  assert.equal(clauseOnPage(items('29229-i10', 32), 'Wildcarded-IMPU', width), top(287.6, 14));
+  assert.equal(clauseOnPage(items('29229-i10', 5), 'Wildcarded-IMPU', width), null);
+  assert.equal(clauseOnPage(items('29229-i10', 32), 'Wildcarded', width), null);
+});
+
+test('an inserted row: the AVP format naming it, as a whole word', () => {
+  const page = items('29128-i00', 49);
+  assert.equal(formatOnPage(page, 'IMEI'), top(612.3, 10));
+  assert.equal(formatOnPage(page, 'Software-Version'), top(591.8, 10));
+  assert.equal(formatOnPage(items('29128-i00', 48), 'IMEI'), null);
+  assert.equal(mentionOnPage(items('29128-i00', 48), 'IMEI'), null);
+});
+
+test('a mention however it writes the name, not in the contents', () => {
+  assert.equal(mentionOnPage(items('29061-i10', 98), '3GPP-Session-Stop-Indicator'), top(465.2, 12));
+  assert.equal(mentionOnPage(items('29234-b20', 40), 'SIP-Authentication-Scheme'), top(320.2));
+  assert.equal(mentionOnPage(items('29229-i10', 5), 'Wildcarded-IMPU'), null);
 });
 
 test('the find match on a row is told by its place on the page, not by coming first', () => {

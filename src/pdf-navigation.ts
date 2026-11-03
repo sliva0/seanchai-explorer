@@ -1,9 +1,10 @@
 import type { PDFDocumentProxy, TextContent } from 'pdfjs-dist/types/src/display/api';
-import { exactName, normalizeName, rowEvidence, takeName } from './table-row.ts';
-import type { NameMatch } from './table-row.ts';
+import { exactName, looseName, namePattern, normalizeName, rowEvidence, takeName, titleNames } from './table-row.ts';
+import type { NameMatch, RowFound } from './table-row.ts';
 
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
-export interface Destination { pageNumber: number; destArray: unknown[] }
+/** `query` is the text to find there when it is not the name asked for, `found` how a row link got there. */
+export interface Destination { pageNumber: number; destArray: unknown[]; query?: string; found?: RowFound }
 
 function textLines(items: TextContent['items']) {
   const lines: { y: number; items: { text: string; x: number; end: number; height: number }[] }[] = [];
@@ -95,6 +96,38 @@ export function rowOnPage(items: TextContent['items'], name: string): number | n
   return findRow(items, exactName(name))?.top ?? null;
 }
 
+/** The top of the row misprinting `name`, and the name as it is printed. */
+export function looseRowOnPage(items: TextContent['items'], name: string) {
+  return findRow(items, looseName(name));
+}
+
+/** The top of the clause heading named after `name`, wherever its number is. */
+export function clauseOnPage(items: TextContent['items'], name: string, width: number): number | null {
+  for (const line of textLines(items)) {
+    const title = line.text.match(/^[A-Z]?\d+[a-z]*(?:\.\d+[A-Za-z]*)*\.?\s+(.+)$/);
+    if (title && line.items[0].x < width / 4 && !/\.{3}|…/.test(line.text) && titleNames(title[1], name)) return line.top;
+  }
+  return null;
+}
+
+/** The top of a line of a message or AVP format naming `name`: "[ Name ]", "*2{ Name }". */
+export function formatOnPage(items: TextContent['items'], name: string): number | null {
+  const pattern = namePattern(name);
+  for (const line of textLines(items)) {
+    if (/^[\d*]*\s*[[<{]/.test(line.text) && pattern.test(line.text)) return line.top;
+  }
+  return null;
+}
+
+/** The top of a line of running text mentioning `name` as a whole word, written with whatever between its parts. */
+export function mentionOnPage(items: TextContent['items'], name: string): number | null {
+  const pattern = namePattern(name);
+  for (const line of textLines(items)) {
+    if (!/\.{3}|…/.test(line.text) && pattern.test(line.text)) return line.top;
+  }
+  return null;
+}
+
 /**
  * Which of a page's find matches lies on the row at `top`. `offsets` are the find controller's: into
  * the page's strings joined with nothing between them, read with `disableNormalization`.
@@ -146,37 +179,84 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     }
     return null;
   }
-  async function locate(section: string, hint: number, active = () => true, name?: string, row = false): Promise<Destination | null> {
-    const key = JSON.stringify([section, name, row, row ? hint : null]);
+  function textOf(pageNumber: number) {
+    let page = pages.get(pageNumber);
+    if (!page) {
+      page = pdf.getPage(pageNumber).then(async page => ({
+        items: (await page.getTextContent()).items,
+        width: page.view[2] - page.view[0],
+      }));
+      pages.set(pageNumber, page);
+    }
+    return page;
+  }
+  /**
+   * Where a row link goes: the row in its section's table, under the name or the spelling the source prints,
+   * misprinted, else the nearest table holding it, the clause named after it, a format naming it, or a mention.
+   */
+  async function locateRow(section: string, hint: number, active: () => boolean, name: string, printed?: string): Promise<Destination | null> {
+    const bookmark = find(await outline, section);
+    if (!active()) return null;
+    const fallback = bookmark?.dest ? await destination(bookmark.dest) : null;
+    if (fallback) hint = fallback.pageNumber;
+    const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
+    // A section's table starts at its heading and stays in the section: the same name in another table comes after it.
+    const end = fallback && bookmark ? await nextBookmarkPage(bookmark) ?? pdf.numPages : pdf.numPages;
+    const inSection = fallback ? pageNumbers.slice(hint - 1, end) : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).reverse()];
+    const everywhere = pageNumbers.toSorted((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b);
+    type Look = (items: TextContent['items'], width: number) => { top: number; text?: string } | null;
+    const row = (key: string): Look => items => {
+      const top = rowOnPage(items, key);
+      return top === null ? null : { top, text: key };
+    };
+    const place = (on: (items: TextContent['items'], width: number) => number | null): Look => (items, width) => {
+      const top = on(items, width);
+      return top === null ? null : { top };
+    };
+    const steps: [number[], RowFound, Look][] = [
+      [inSection, 'row', row(name)],
+      ...(printed ? [[inSection, 'printed', row(printed)] as [number[], RowFound, Look]] : []),
+      [inSection, 'loose', items => looseRowOnPage(items, name)],
+      [everywhere, 'other-table', row(name)],
+      ...(printed ? [[everywhere, 'other-table', row(printed)] as [number[], RowFound, Look]] : []),
+      [everywhere, 'clause', place((items, width) => clauseOnPage(items, name, width))],
+      [everywhere, 'format', place(items => formatOnPage(items, name))],
+      [everywhere, 'mention', place(items => mentionOnPage(items, name))],
+    ];
+    for (const [order, found, look] of steps) {
+      for (const pageNumber of order) {
+        if (!active()) return null;
+        const { items, width } = await textOf(pageNumber);
+        if (!active()) return null;
+        const hit = look(items, width);
+        if (hit) return { pageNumber, destArray: [null, { name: 'XYZ' }, null, hit.top, null], found, ...(hit.text ? { query: hit.text } : {}) };
+      }
+    }
+    return fallback;
+  }
+  async function locate(section: string, hint: number, active = () => true, name?: string, row = false, printed?: string): Promise<Destination | null> {
+    const key = JSON.stringify([section, name, row, row ? hint : null, printed]);
     if (destinations.has(key)) return destinations.get(key)!;
+    if (row && name) {
+      const result = await locateRow(section, hint, active, name, printed);
+      if (active()) destinations.set(key, result);
+      return result;
+    }
     const bookmark = find(await outline, section);
     if (!active()) return null;
     let fallback: Destination | null = null;
     if (bookmark?.dest) {
       const result = await destination(bookmark.dest);
-      if (result && !row && (!name || normalizeName(bookmark.title).includes(normalizeName(name)))) { destinations.set(key, result); return result; }
+      if (result && (!name || normalizeName(bookmark.title).includes(normalizeName(name)))) { destinations.set(key, result); return result; }
       fallback = result;
     }
     if (fallback) hint = fallback.pageNumber;
-    const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
-    // A section's table starts at its heading and stays in the section: the same name in another table is not its row.
-    const end = row && fallback && bookmark ? await nextBookmarkPage(bookmark) ?? pdf.numPages : pdf.numPages;
-    const order = !row ? pageNumbers.sort((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b)
-      : fallback ? pageNumbers.slice(hint - 1, end)
-      : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).reverse()];
+    const order = Array.from({ length: pdf.numPages }, (_, i) => i + 1).sort((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b);
     for (const pageNumber of order) {
       if (!active()) return null;
-      let page = pages.get(pageNumber);
-      if (!page) {
-        page = pdf.getPage(pageNumber).then(async page => ({
-          items: (await page.getTextContent()).items,
-          width: page.view[2] - page.view[0],
-        }));
-        pages.set(pageNumber, page);
-      }
-      const { items, width } = await page;
+      const { items, width } = await textOf(pageNumber);
       if (!active()) return null;
-      const y = row ? (name ? rowOnPage(items, name) : null) : headingOnPage(items, section, width, name) ?? (name ? rowOnPage(items, name) : null);
+      const y = headingOnPage(items, section, width, name) ?? (name ? rowOnPage(items, name) : null);
       if (y !== null) {
         const result = { pageNumber, destArray: [null, { name: 'XYZ' }, null, y, null] };
         destinations.set(key, result);

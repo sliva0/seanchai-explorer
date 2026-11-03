@@ -30,7 +30,7 @@ before(async () => {
   server = http.createServer(async (request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
     const name = decodeURIComponent(pathname);
-    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : name === '/rfc5580.txt' ? rfc
+    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : /^\/rfc\d+\.txt$/.test(name) ? path.join(specifications, 'rfc', name.slice(1))
       : name.startsWith('/pdfjs/') ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
       : path.join(dist, name);
     try {
@@ -115,12 +115,32 @@ test('a row selects its own match, not a mention earlier on the page', { skip: s
   } finally { await context.close(); }
 });
 
-test('a name the table does not hold goes to the section heading', { skip }, async () => {
+test('a renamed row shows and selects what the source prints', { skip: skip || !existsSync(reused) && `no held PDF ${reused}` }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-i00.pdf`)}#page=39&search=6.4.1&name=Bearer-Identifier&printed=Bearer-Identity&row=1`);
+    await settled(page, 'Bearer-Identity');
+    await page.waitForFunction(() => document.querySelector('.highlight.selected')?.textContent === 'Bearer-Identity');
+    const state = await viewerState(page);
+    assert.equal(state.page, 42);
+    assert.equal(state.selectedPage, 42);
+    assert.ok(state.selectedTop >= 0 && state.selectedTop < 60, JSON.stringify(state));
+    assert.equal(await page.inputValue('#find'), 'Bearer-Identity');
+  } finally { await context.close(); }
+});
+
+test('a name no table holds goes to where the source names it, and one it never names to the section heading', { skip }, async () => {
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   try {
     await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-i10.pdf`)}${rowHash('3GPP-Session-Stop-Indicator')}`);
-    await page.waitForFunction(() => window.PDFViewerApplication.pdfViewer.pagesCount > 0 && document.querySelector('#page').value === '129', undefined, { timeout: 60000 });
+    await settled(page, '3GPP-Session-Stop-Indicator');
+    const listed = await viewerState(page);
+    assert.equal(listed.page, 98);
+    assert.equal(listed.selectedPage, 98);
+    await page.evaluate(hash => { location.hash = hash; }, rowHash('Not-In-This-Document'));
+    await page.waitForFunction(() => document.querySelector('#page').value === '129', undefined, { timeout: 60000 });
     assert.equal((await viewerState(page)).page, 129);
   } finally { await context.close(); }
 });
@@ -144,5 +164,26 @@ test('the RFC reader shows a row whose name the ASCII table wraps', { skip }, as
     await page.evaluate(hash => { location.hash = hash; }, '#page=30&section=6&query=Not-In-Table&row=1');
     await page.waitForFunction(() => document.querySelectorAll('.rfc-match').length === 0);
     assert.match(await firstLine(), /^6\.\s+Diameter RADIUS Interoperability/);
+  } finally { await context.close(); }
+});
+
+test('the RFC reader shows a misprinted row, the table holding a row, and the clause named after one', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+  const page = await context.newPage();
+  try {
+    for (const [file, hash, line] of [
+      ['rfc4005', '#page=50&section=8&query=Accounting-Auth-Method&row=1', 'Acounting-Auth-'],
+      ['rfc4072', '#page=18&section=4.1.1&query=EAP-Payload&row=1', 'EAP-Payload   '],
+      ['rfc6734', '#page=3&section=3.1&query=Key-SPI&row=1', '3.1.5.  Key-SPI'],
+    ]) {
+      await page.goto(`${base}rfc.html?file=${encodeURIComponent(`${base}${file}.txt`)}${hash}`);
+      await page.waitForSelector('.rfc-line', { state: 'attached' });
+      await page.waitForFunction(text => [...document.querySelectorAll('.rfc-match')].some(node => node.textContent.trim().startsWith(text)), line.trim());
+      const first = await page.evaluate(() => {
+        const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
+        return [...document.querySelectorAll('.rfc-line')].find(node => node.getBoundingClientRect().bottom > top).textContent.trim();
+      });
+      assert.ok(first.startsWith(line.trim()), `${file}: ${first}`);
+    }
   } finally { await context.close(); }
 });

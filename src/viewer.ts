@@ -30,9 +30,9 @@ class FindController extends PDFFindController {
   }
   // pdf.js joins a name a table wraps as "3GPP-SGSN-" over "Address" into 3GPP-SGSNAddress, which its own match misses.
   override match(query: string | string[], pageContent: string, pageIndex: number) {
-    if (typeof query !== 'string' || !query.includes('-')) return super.match(query, pageContent, pageIndex);
-    const parts = query.split('-').map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
-    const body = parts.join('\\s*-?\\s*');
+    if (typeof query !== 'string' || !/[_-]/.test(query)) return super.match(query, pageContent, pageIndex);
+    const parts = query.split(/[\s_-]+/).map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+    const body = parts.join('[\\s_-]*');
     const pattern = new RegExp(wholeWord ? `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])` : body, 'giu');
     return [...pageContent.matchAll(pattern)].filter(found => found[0]).map(found => ({ index: found.index, length: found[0].length }));
   }
@@ -67,6 +67,8 @@ let counterFrame = 0;
 let pdfDocument: pdfjs.PDFDocumentProxy | undefined;
 // The row a navigation's find is still to settle on.
 let rowTarget: { page: number; top: number } | undefined;
+// A link's name, and what the source prints in its place: the pane knows the link by its name.
+let printedAs: { name: string; query: string } | undefined;
 function firstVisiblePage(): number {
   if (!ready || !container.clientHeight || !container.clientWidth) return displayedPage;
   const top = container.getBoundingClientRect().top + 1;
@@ -139,6 +141,7 @@ function renderOutline(items: Outline): HTMLUListElement {
         findStart = undefined;
         wholeWord = false;
         rowTarget = undefined;
+        printedAs = undefined;
         find.value = '';
         search('');
         selectOutline(title);
@@ -173,15 +176,20 @@ async function navigate() {
   const row = params.get('row') === '1';
   find.value = name ?? section;
   rowTarget = undefined;
+  printedAs = undefined;
   wholeWord = row;
-  const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row) : null;
+  const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row, params.get('printed') ?? undefined) : null;
   if (generation !== navigation) return;
+  if (destination?.query && destination.query !== name) {
+    printedAs = { name: name!, query: destination.query };
+    find.value = destination.query;
+  }
   if (destination) viewer.scrollPageIntoView({ ...destination, ignoreDestinationZoom: true });
   else viewer.scrollPageIntoView({ pageNumber: hint });
   automaticFind = params.get('match') !== '1';
   findStart = destination?.pageNumber ?? hint;
   if (row && destination?.destArray[0] === null) rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
-  search(name ?? section, params.get('match') === '1');
+  search(find.value, params.get('match') === '1');
   selectOutline([...outlinePane.querySelectorAll('a')].find(anchor => {
     const title = anchor.textContent?.replace(/\s+/g, ' ').trim();
     return title === section || title?.startsWith(`${section} `);
@@ -213,7 +221,7 @@ eventBus.on('scalechanging', () => {
 function updateMatches({ matchesCount }: { matchesCount?: { current: number; total: number } }) {
   if (!matchesCount) return;
   matches.textContent = `${matchesCount.current} / ${matchesCount.total}`;
-  report('seanchai-pdf-matches', { query: find.value, ...matchesCount });
+  report('seanchai-pdf-matches', { query: find.value === printedAs?.query ? printedAs.name : find.value, ...matchesCount });
 }
 /** The find selects a page's first match, which may be a mention above the row: moves on to the row's own. */
 async function settleOnRow(generation: number) {

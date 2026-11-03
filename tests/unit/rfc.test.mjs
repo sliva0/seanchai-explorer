@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { rfcPages, rowLines } from '../../src/rfc-text.ts';
+import { locateRow, rfcPages, rowLines } from '../../src/rfc-text.ts';
 import { boot, fixture, readFixture } from './helpers.mjs';
 
 const text = await readFile(new URL('sources/rfc7944.txt', fixture), 'utf8');
@@ -93,6 +93,121 @@ test('prose, a part of a name, and another section hold no row', () => {
 test('a table without borders, wrapped at a hyphen a line starts with', () => {
   const lines = rfcPages('8.  AVPs\n   Multiple-Services 456  8.16   Grouped    | M  |  P  |\n    -Credit-Control                         |    |     |\n').flatMap(page => page.lines.map(line => ({ ...line, page: page.page })));
   assert.deepEqual(rowLines(lines, 'Multiple-Services-Credit-Control', '8', 1), [1, 2]);
+});
+
+const rfcLines = text => rfcPages(text).flatMap(page => page.lines.map(line => ({ ...line, page: page.page })));
+const placed = (lines, found) => found && [lines.slice(found.lines[0], found.lines[1] + 1).map(line => line.text.trim()), found.found];
+
+test('RFC 4005 misprints its row: found loosely, wrap and all, and only after the name itself', () => {
+  const lines = rfcLines(`8.  NAS Session AVPs
+
+                                            +---------------------+
+                                            |    AVP Flag rules   |
+                                            |----+-----+----+-----|----+
+                   AVP  Section             |    |     |SHLD| MUST|    |
+   Attribute Name  Code Defined  Value Type |MUST| MAY | NOT|  NOT|Encr|
+   -----------------------------------------|----+-----+----+-----|----|
+   Acct-Link-Count  51  8.13    Unsigned32 | M  |  P  |    |  V  | Y  |
+   Acounting-Auth-  406  8.7     Enumerated | M  |  P  |    |  V  | Y  |
+     Method                                 |    |     |    |     |    |
+`);
+  assert.equal(rowLines(lines, 'Accounting-Auth-Method', '8', 1), null);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Accounting-Auth-Method', '8', 1)), [['Acounting-Auth-  406  8.7     Enumerated | M  |  P  |    |  V  | Y  |', 'Method                                 |    |     |    |     |    |'], 'loose']);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Acct-Link-Count', '8', 1))[1], 'row');
+  // Letters changed, or a word missing, are another AVP.
+  assert.equal(locateRow(lines, 'Acct-Link-Cost', '8', 1), null);
+  assert.equal(locateRow(lines, 'Acct-Link', '8', 1), null);
+});
+
+test('the spelling the source prints is looked for before anything loose', () => {
+  const lines = rfcLines(`8.  AVPs
+
+   Printed-Name     1  8.1  OctetString
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Corrected-Name', '8', 1, 'Printed-Name')), [['Printed-Name     1  8.1  OctetString'], 'printed']);
+});
+
+test('RFC 4072: a section with no table goes to the AVP occurrence table', () => {
+  const lines = rfcLines(`4.1.1.  EAP-Payload AVP
+
+   The EAP-Payload AVP (AVP Code 462) is of type OctetString and is used
+   to encapsulate the actual EAP packet.
+\f4.3.  AVP Occurrence Table
+
+   Attribute Name                       DER      DEA
+   ------------------------------------+-------+-------+
+   EAP-Master-Session-Key              |   0   |  0-1  |
+   EAP-Key-Name                        |  0-1  |  0-1  |
+   EAP-Payload                         |   1   |  0-1  |
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'EAP-Payload', '4.1.1', 1)), [['EAP-Payload                         |   1   |  0-1  |'], 'other-table']);
+});
+
+test('RFC 5447: an example\'s braces are no row, and the clause named after the AVP is the place', () => {
+  const lines = rfcLines(`4.2.4.  MIP6-Home-Link-Prefix AVP
+
+   The MIP6-Home-Link-Prefix AVP (AVP Code 125) is of type OctetString
+\f5.  Examples
+    |  Diameter-EAP-Request                                           |
+    |  MIP6-Feature-Vector=(LOCAL_HOME_AGENT_ASSIGNMENT               |
+    |  MIP6-Agent-Info{                                               |
+    |       MIP-Home-Agent-Address(2001:db8:1:c020::1)}               |
+    |  }                                                              |
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'MIP6-Home-Link-Prefix', '4.2.1', 1)), [['4.2.4.  MIP6-Home-Link-Prefix AVP'], 'clause']);
+  assert.equal(locateRow(lines, 'MIP6-Agent-Info', '4.2.1', 1), null);
+});
+
+test('RFC 6734 and RFC 6942: the clause named after the AVP, whichever the section cited', () => {
+  const lines = rfcLines(`3.1.  Key AVP
+
+             < Key-Type >
+             [ Key-SPI ]
+
+3.1.5.  Key-SPI
+
+   The Key-SPI AVP (AVP Code 585) is of type Unsigned32
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Key', '3.1', 1)), [['3.1.  Key AVP'], 'clause']);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Key-SPI', '3.1', 1)), [['3.1.5.  Key-SPI'], 'clause']);
+  const erp = rfcLines(`8.1.  ERP-RK-Request AVP
+
+         ERP-RK-Request ::= < AVP Header: 618 >
+                            { ERP-Realm }
+
+8.2.  ERP-Realm AVP
+
+   The ERP-Realm AVP (AVP Code 619) is of type DiameterIdentity.
+`);
+  assert.deepEqual(placed(erp, locateRow(erp, 'ERP-RK-Request', '8.1', 1)), [['8.1.  ERP-RK-Request AVP'], 'clause']);
+  assert.deepEqual(placed(erp, locateRow(erp, 'ERP-Realm', '8.1', 1)), [['8.2.  ERP-Realm AVP'], 'clause']);
+});
+
+test('RFC 4590: a RADIUS attribute with no table in its section goes to the IANA table, nearest first', () => {
+  const lines = rfcLines(`3.1. Digest-Response attribute
+
+   Description
+      If this attribute is present in an Access-Request message
+\f3.20. SIP-AOR Attribute
+\f7.  IANA Considerations
+
+      +-------------------------+------------------------+
+      | Digest-Response         | 103                    |
+      | Digest-Realm            | 104                    |
+      +-------------------------+------------------------+
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Digest-Response', '3.1', 1)), [['| Digest-Response         | 103                    |'], 'other-table']);
+  assert.deepEqual(placed(lines, locateRow(lines, 'SIP-AOR', '3.1', 1)), [['3.20. SIP-AOR Attribute'], 'clause']);
+});
+
+test('a format naming an inserted row, and nothing when the source never names it', () => {
+  const lines = rfcLines(`4.  AVPs
+
+      Some-AVP ::= < AVP Header: 1 >
+                 *2[ Member-Name ]
+`);
+  assert.deepEqual(placed(lines, locateRow(lines, 'Member-Name', '4', 1)), [['*2[ Member-Name ]'], 'format']);
+  assert.equal(locateRow(lines, 'Elsewhere', '4', 1), null);
 });
 
 test('the reader goes to the row and marks its lines, and to the heading when there is none', async () => {

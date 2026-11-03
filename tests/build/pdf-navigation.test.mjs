@@ -83,17 +83,34 @@ test('wrapped rows resolve on their own table, not on another table holding the 
   });
 });
 
-test('rows of odd layouts are found on their own table', { skip }, async () => {
+test('rows of odd layouts, and spellings the source prints in place of the corrected name', { skip }, async () => {
   await withNavigator('29212-i20.pdf', async navigator => {
     assert.equal(await rowPage(navigator, '5c.4.1', 235, 'ADC-Rule-Name'), 237);
     assert.equal(await rowPage(navigator, '5.3.0', 121, 'Conditional-APN-Aggregate-Max-Bitrate'), 123);
   });
+  await withNavigator('29272-i70.pdf', async navigator => {
+    const found = await navigator.locate('7.3.1', 86, () => true, 'Additional-Context-Identifier', true, 'Additional-Context-ID');
+    assert.deepEqual([found.pageNumber, found.found, found.query], [91, 'printed', 'Additional-Context-ID']);
+    const loose = await navigator.locate('7.3.1', 86, () => true, 'Additional-Context-Identifier', true);
+    assert.deepEqual([loose.pageNumber, loose.found, loose.query], [91, 'loose', 'Additional-Context-ID']);
+  });
 });
 
-test('a row the section does not hold falls back to the heading, whatever other sections hold', { skip }, async () => {
+test('a row the section does not hold: the nearest table, the clause or format naming it, then the heading', { skip }, async () => {
+  await withNavigator('29229-i10.pdf', async navigator => {
+    const clause = await navigator.locate('6.3.0', 21, () => true, 'Wildcarded-IMPU', true);
+    assert.deepEqual([clause.pageNumber, clause.found], [32, 'clause']);
+  });
+  await withNavigator('29128-i00.pdf', async navigator => {
+    const format = await navigator.locate('6.4.1', 39, () => true, 'IMEI', true);
+    assert.deepEqual([format.pageNumber, format.found], [49, 'format']);
+  });
   await withNavigator('29061-i10.pdf', async navigator => {
-    const found = await navigator.locate('16a.5', 129, () => true, '3GPP-Session-Stop-Indicator', true);
-    assert.equal(found.pageNumber, 129);
-    assert.notEqual(found.destArray[0], null);
+    const listed = await navigator.locate('16a.5', 129, () => true, '3GPP-Session-Stop-Indicator', true);
+    assert.equal(listed.pageNumber, 98);
+    assert.equal(listed.destArray[0], null);
+    const none = await navigator.locate('16a.5', 129, () => true, 'Not-In-This-Document', true);
+    assert.equal(none.pageNumber, 129);
+    assert.notEqual(none.destArray[0], null, 'the bookmark, not a row');
   });
 });
