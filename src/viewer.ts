@@ -3,7 +3,7 @@ import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } fro
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { createSectionNavigator, matchOnRow } from './pdf-navigation.ts';
 import { initTheme } from './theme.ts';
-import { zoomStep } from './zoom.ts';
+import { restoreZoom, showZoom, zoomStep, zoomSteps } from './zoom.ts';
 import type { Outline } from './pdf-navigation.ts';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import './theme.css';
@@ -229,8 +229,7 @@ eventBus.on('pagechanging', ({ pageNumber }: { pageNumber: number }) => {
 eventBus.on('pagesloaded', scheduleCounter);
 eventBus.on('pagerendered', scheduleCounter);
 eventBus.on('scalechanging', () => {
-  const scale = viewer.currentScaleValue;
-  if ([...zoom.options].some(option => option.value === scale)) zoom.value = scale;
+  showZoom(zoom, viewer.currentScaleValue);
   scheduleCounter();
 });
 function updateMatches({ matchesCount }: { matchesCount?: { current: number; total: number } }) {
@@ -276,12 +275,8 @@ page.onchange = goToPageInput;
 function rememberZoom() {
   try { localStorage.setItem('seanchai-zoom', zoom.value); } catch {}
 }
-try {
-  const stored = localStorage.getItem('seanchai-zoom');
-  if ([...zoom.options].some(option => option.value === stored)) zoom.value = stored!;
-} catch {}
+try { restoreZoom(zoom, localStorage.getItem('seanchai-zoom')); } catch {}
 zoom.onchange = () => { viewer.currentScaleValue = zoom.value; rememberZoom(); };
-const zoomSteps = [...zoom.options].map(option => Number(option.value)).filter(Boolean);
 function stepZoom(direction: 1 | -1, origin?: [number, number]) {
   if (!ready) return;
   const next = zoomStep(zoomSteps, viewer.currentScale, direction);
@@ -289,6 +284,8 @@ function stepZoom(direction: 1 | -1, origin?: [number, number]) {
   viewer.updateScale({ scaleFactor: next / viewer.currentScale, drawingDelay: 150, ...(origin ? { origin } : {}) });
   rememberZoom();
 }
+document.querySelector<HTMLButtonElement>('#zoom-out')!.onclick = () => stepZoom(-1);
+document.querySelector<HTMLButtonElement>('#zoom-in')!.onclick = () => stepZoom(1);
 // A wheel's notch is one step; a touchpad's pinch, many small deltas, has to add up to one.
 let wheelDelta = 0;
 window.addEventListener('wheel', event => {

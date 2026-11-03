@@ -73,7 +73,7 @@ const viewerState = page => page.evaluate(() => {
   };
 });
 
-test('zoom steps through its list by control and key and wheel, and stays through page moves and a reload', { skip }, async () => {
+test('zoom steps through its list by button and key and wheel, and stays through page moves and a reload', { skip }, async () => {
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   const errors = [];
@@ -85,9 +85,16 @@ test('zoom steps through its list by control and key and wheel, and stays throug
     await page.goto(url);
     await page.waitForFunction(() => document.querySelector('.pdfViewer .page canvas'));
     assert.equal(await zoom(), 'page-width');
-    assert.deepEqual(await page.locator('#zoom option').allTextContents(), ['Width', 'Page', '50%', '75%', '90%', '100%', '110%', '125%', '150%', '175%', '200%', '250%', '300%']);
-    await page.locator('#zoom').selectOption('1.25');
+    assert.deepEqual(await page.locator('#zoom option').allTextContents(), ['Width', 'Page', '50%', '75%', '100%', '150%', '200%', '300%']);
+    await page.locator('#zoom').selectOption('1.5');
+    assert.equal(await scale(), 1.5);
+    await page.locator('#zoom-out').click();
+    assert.equal(await zoom(), '1.25', 'a step need not be listed');
     assert.equal(await scale(), 1.25);
+    assert.equal(await page.locator('#zoom').evaluate(select => select.selectedOptions[0].textContent), '125%');
+    await page.locator('#zoom-in').click();
+    assert.equal(await zoom(), '1.5');
+    await page.locator('#zoom-out').click();
     await page.keyboard.press('Control+=');
     assert.equal(await zoom(), '1.5');
     await page.keyboard.press('Control+-');
@@ -115,12 +122,36 @@ test('zoom steps through its list by control and key and wheel, and stays throug
     await page.locator('#zoom').selectOption('3');
     await page.keyboard.press('Control+=');
     assert.equal(await zoom(), '3', 'nothing past the last step');
+    await page.locator('#zoom-in').click();
+    assert.equal(await zoom(), '3', 'nor by the button');
     await page.locator('#zoom').selectOption('page-width');
     const width = await scale();
     await page.keyboard.press('Control+=');
     assert.ok(await scale() > width, 'a preset steps from the scale it came to');
     assert.notEqual(await zoom(), 'page-width');
     assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('the find bar takes the free width of the toolbar, wide and narrow', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1200, height: 600 } });
+  const page = await context.newPage();
+  const box = selector => page.locator(selector).evaluate(element => { const { left, right, top, width } = element.getBoundingClientRect(); return { left, right, top, width }; });
+  try {
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}#page=10`);
+    await page.waitForFunction(() => document.querySelector('.pdfViewer .page canvas'));
+    for (const [width, least] of [[1200, 500], [400, 100]]) {
+      await page.setViewportSize({ width, height: 600 });
+      const toolbar = await page.locator('#toolbar').evaluate(element => ({ inner: element.clientWidth, content: element.scrollWidth }));
+      assert.ok(toolbar.content <= toolbar.inner, `${width}: toolbar overflows, ${JSON.stringify(toolbar)}`);
+      const [find, group, previous, next, matches] = await Promise.all(['#find', '#find-controls', '#find-previous', '#find-next', '#matches'].map(box));
+      assert.ok(find.width >= least, `${width}: find is ${find.width} wide`);
+      assert.ok(group.right >= width - 16 && group.right <= width, `${width}: find group ends at ${group.right}`);
+      assert.ok(find.right < previous.left && previous.right < next.left && next.right < matches.left, `${width}: controls follow the input`);
+      assert.ok(matches.right <= group.right + 0.5, `${width}: matches stay in the group`);
+      const [out, select, plus] = await Promise.all(['#zoom-out', '#zoom', '#zoom-in'].map(box));
+      assert.ok(out.right < select.left && select.right < plus.left && out.top === plus.top, `${width}: zoom buttons sit either side of the list`);
+    }
   } finally { await context.close(); }
 });
 
