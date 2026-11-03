@@ -13,7 +13,7 @@ body { display: flex; flex-direction: column; font: var(--text-xs)/1.4 var(--mon
 #find-previous, #find-next { width: var(--control-height); }
 #matches { min-width: 7ch; white-space: nowrap; }
 #pdf-workspace { flex: 1; display: flex; min-height: 0; overflow: hidden; }
-#outline { flex: none; width: 12rem; min-width: 5rem; max-width: 40%; resize: horizontal; padding: var(--space-2); overflow: auto; border-right: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--sans); overscroll-behavior: contain; }
+#outline { flex: none; width: 12rem; min-width: 5rem; max-width: 40%; resize: horizontal; padding: var(--space-2); overflow: auto; border-right: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--sans); overscroll-behavior: contain; scrollbar-width: thin; }
 #outline[hidden] { display: none; }
 #outline ul { margin: 0; padding-left: var(--space-3); list-style: none; }
 #outline > ul { padding-left: 0; }

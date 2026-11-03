@@ -83,7 +83,8 @@ function createSplitter(workspace: HTMLElement): HTMLElement {
   let ratio = 50;
   const set = (value: number) => {
     ratio = Math.min(80, Math.max(20, value));
-    workspace.style.gridTemplateColumns = `minmax(0, ${ratio}fr) 8px minmax(0, ${100 - ratio}fr)`;
+    workspace.style.setProperty('--source-left', `${ratio}fr`);
+    workspace.style.setProperty('--source-right', `${100 - ratio}fr`);
     divider.setAttribute('aria-valuenow', String(Math.round(ratio)));
   };
   divider.tabIndex = 0;
@@ -93,13 +94,25 @@ function createSplitter(workspace: HTMLElement): HTMLElement {
   divider.setAttribute('aria-valuemin', '20');
   divider.setAttribute('aria-valuemax', '80');
   divider.setAttribute('aria-valuenow', '50');
-  divider.onpointerdown = event => divider.setPointerCapture(event.pointerId);
+  let grabbedAt = 0;
+  let pointerX = 0;
+  let frame = 0;
+  divider.onpointerdown = event => {
+    divider.setPointerCapture(event.pointerId);
+    grabbedAt = event.clientX - divider.getBoundingClientRect().left;
+    workspace.classList.add('resizing');
+  };
   divider.onpointermove = event => {
     if (!divider.hasPointerCapture(event.pointerId)) return;
-    const rect = workspace.getBoundingClientRect();
-    set((event.clientX - rect.left) * 100 / rect.width);
+    pointerX = event.clientX;
+    frame ||= requestAnimationFrame(() => {
+      frame = 0;
+      const rect = workspace.getBoundingClientRect();
+      set((pointerX - grabbedAt - rect.left) * 100 / (rect.width - divider.offsetWidth));
+    });
   };
   divider.onpointerup = event => divider.releasePointerCapture(event.pointerId);
+  divider.onlostpointercapture = () => workspace.classList.remove('resizing');
   divider.onkeydown = event => {
     if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
       event.preventDefault();

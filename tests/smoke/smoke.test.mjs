@@ -172,6 +172,90 @@ test('the strip\'s section panel is bounded, one column, and moves the text belo
   }
 });
 
+test('the header stays put, and neither theme label nor text length moves what is beside it', { skip }, async () => {
+  const { page, done } = await open('#rfc7944/9.1');
+  const top = selector => page.locator(selector).evaluate(node => node.getBoundingClientRect().top);
+  await page.evaluate(() => {
+    for (const node of [document.scrollingElement, document.body, document.querySelector('#app'), document.querySelector('#content'), document.querySelector('#workspace')]) node.scrollTop = 200;
+    window.scrollTo(0, 200);
+  });
+  assert.equal(await top('header'), 0);
+  await page.locator('pre [data-avp]').last().evaluate(node => node.scrollIntoView());
+  assert.equal(await top('header'), 0);
+  const theme = page.locator('.theme-toggle');
+  const box = await theme.boundingBox();
+  await theme.click();
+  assert.equal(await theme.textContent(), 'Light');
+  assert.deepEqual(await theme.boundingBox(), box, 'the toggle keeps its size for either label');
+  const headerTop = await top('#workspace');
+  const header = await page.locator('.source-header').boundingBox();
+  await page.locator('.occurrences-toggle input').check();
+  assert.equal(await top('#workspace'), headerTop);
+  assert.deepEqual(await page.locator('.source-header').boundingBox(), header);
+  await done();
+});
+
+test('the splitter follows the pointer from where it was grabbed, without jumping', { skip }, async () => {
+  const { page, done } = await open('#rfc7944');
+  const divider = page.locator('#divider');
+  const start = await divider.boundingBox();
+  const rows = await page.locator('.document-header').boundingBox();
+  const grabbed = start.x + 2;
+  await page.mouse.move(grabbed, 400);
+  await page.mouse.down();
+  assert.ok(await page.locator('#workspace.resizing').count());
+  await page.mouse.move(grabbed, 400);
+  await page.waitForTimeout(50);
+  assert.ok(Math.abs((await divider.boundingBox()).x - start.x) <= 1, 'no jump on the first move');
+  await page.mouse.move(grabbed + 120, 300);
+  await page.waitForTimeout(50);
+  assert.ok(Math.abs((await divider.boundingBox()).x - (start.x + 120)) <= 1);
+  await page.mouse.up();
+  assert.equal(await page.locator('#workspace.resizing').count(), 0);
+  assert.equal((await page.locator('.document-header').boundingBox()).height, rows.height);
+  await page.locator('.source-toggle input').uncheck();
+  const widths = await page.locator('#document').boundingBox();
+  assert.equal(widths.width, 1280, 'with no source the text has the whole width');
+  await page.locator('.source-toggle input').check();
+  assert.ok(Math.abs((await divider.boundingBox()).x - (start.x + 120)) <= 1, 'the split is kept');
+  await done();
+});
+
+test('a quick document load keeps the old page until the new one, a slow one says it is loading', { skip }, async () => {
+  const { page, done } = await open('#rfc7944', {}, async opened => {
+    await opened.route('**/data/documents/29153-j00.json', async route => {
+      await new Promise(resolve => setTimeout(resolve, 600));
+      await route.continue();
+    });
+  });
+  await page.evaluate(() => { location.hash = '#29153-j00'; });
+  await page.waitForTimeout(60);
+  assert.ok(await page.locator('main #document').count(), 'the old page stays at first');
+  await page.waitForSelector('main [role="status"]');
+  await page.waitForSelector('.document-header h1:has-text("29.153")');
+  assert.equal(await page.locator('main [role="status"]').count(), 0);
+  await done();
+});
+
+test('the occurrence popup is compact, monospace, sized to content, and has one scrollbar', { skip }, async () => {
+  const { page, done } = await open('#29153-j00');
+  await page.locator('.occurrences-toggle input').check();
+  await page.locator('pre a[data-avp]').first().click();
+  const popup = await page.locator('.avp-popup').evaluate(node => {
+    const list = node.querySelector('.usage-list');
+    const style = getComputedStyle(node);
+    const box = node.getBoundingClientRect();
+    return { font: style.fontFamily, width: box.width, height: box.height, bottom: box.bottom, selfScrolls: node.scrollHeight > node.clientHeight, listOverflow: getComputedStyle(list).overflowY };
+  });
+  assert.match(popup.font, /monospace/);
+  assert.ok(popup.width <= 80 * 8, JSON.stringify(popup));
+  assert.ok(popup.height <= 22 * 16 + 1, JSON.stringify(popup));
+  assert.ok(popup.bottom <= 800);
+  assert.equal(popup.selfScrolls, false, 'only its list scrolls');
+  await page.keyboard.press('Escape');
+  await done();
+});
+
 test('lines are blocks reaching the pane edge, at the spacing of one text line', { skip }, async () => {
   const { page, done } = await open('#29153-j00', { viewport: { width: 1280, height: 800 } });
   const sizes = await page.evaluate(() => {
