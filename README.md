@@ -72,11 +72,14 @@ else. `tests/fixtures/export` is three real documents cut from a real public exp
 After the export changes:
 
 ```sh
-npm run build               # or any public export, passed below
+npm run prepare:data -- --any-schema   # or any public export, passed below
 npm run fixture             # node scripts/make-fixture.mjs [export-dir], default public/data
 npm run types               # node scripts/generate-types.mjs [schema.json], default the fixture's
 npm test
 ```
+
+`--any-schema` lets through an export of another schema version, which `npm run build`
+refuses until the types are regenerated.
 
 ## Deployment
 

@@ -1,4 +1,4 @@
-// Fills public/ for a build: node scripts/prepare.mjs [--self-hosted]. See README.md.
+// Fills public/ for a build: node scripts/prepare.mjs [--self-hosted] [--any-schema]. See README.md.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rename, rm } from 'node:fs/promises';
@@ -36,7 +36,8 @@ if (process.env.SEANCHAI_EXPORT) await cp(path.resolve(process.env.SEANCHAI_EXPO
 else runExport(temporary);
 
 const index = JSON.parse(await readFile(path.join(temporary, 'index.json'), 'utf8'));
-const problem = index.schema_version !== SCHEMA_VERSION ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
+const anySchema = process.argv.includes('--any-schema');
+const problem = !anySchema && index.schema_version !== SCHEMA_VERSION ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
   : index.mode !== mode ? `A ${mode} build cannot use a ${index.mode} export` : null;
 if (problem) {
   await rm(temporary, { recursive: true, force: true });
