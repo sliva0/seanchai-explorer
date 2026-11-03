@@ -30,8 +30,17 @@ function renderGroup(group: NameGroup, site: Site): HTMLElement {
     seen.add(key);
     const item = element('li');
     const doc = site.summary(entry.document);
-    item.append(link(doc ? docLabel(doc) : entry.document, { document: entry.document }));
-    if (entry.target) item.append(' → ', link(entry.defined_in.join(', ') || entry.name, entry.target));
+    const label = doc ? docLabel(doc) : entry.document;
+    if (entry.target?.document === entry.document) {
+      // Mentioned and defined in one document: one link, to the definition.
+      item.append(link(label, entry.target));
+    } else {
+      item.append(link(label, { document: entry.document }));
+      if (entry.target) {
+        const definer = site.summary(entry.target.document);
+        item.append(' → ', link(definer ? docLabel(definer) : entry.defined_in.join(', ') || entry.name, entry.target));
+      }
+    }
     if (entry.across_releases) {
       const crossing = entry.across_releases;
       item.append(` · ${crossing.cited} V${crossing.version} · ${crossing.rule}`);
