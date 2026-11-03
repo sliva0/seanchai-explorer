@@ -3,7 +3,8 @@ import type { Citation, Target } from './types.ts';
 /** A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for. */
 export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean }
 export interface PaneState { document: string; position: SourcePosition }
-export interface RouteOptions { raw?: boolean; source?: PaneState; line?: number; paneHidden?: boolean }
+/** `line` is a line to point at, `top` the line a view was left scrolled to. */
+export interface RouteOptions { raw?: boolean; source?: PaneState; line?: number; top?: number; paneHidden?: boolean }
 export interface Route extends RouteOptions {
   document: string;
   section: string;
@@ -27,6 +28,7 @@ export function routeFor(target: Target, options: RouteOptions = {}): string {
   }
   if (options.paneHidden) params.set('pane', '0');
   if (options.line !== undefined) params.set('line', String(options.line));
+  if (options.top !== undefined) params.set('top', String(options.top));
   return `#${encodeURIComponent(target.document)}${target.section ? `/${encodeURIComponent(target.section)}` : ''}${params.size ? `?${params}` : ''}`;
 }
 
@@ -51,12 +53,16 @@ export function parseRoute(hash: string): Route {
   const params = new URLSearchParams(query);
   try {
     const [document = '', section = ''] = path.split('/').map(decodeURIComponent);
-    const line = Number(params.get('line'));
+    const lineNumber = (name: string) => {
+      const value = Number(params.get(name));
+      return params.has(name) && Number.isInteger(value) && value >= 0 ? { [name]: value } : {};
+    };
     const source = parseSource(params);
     return {
       document, section, raw: params.get('raw') === '1', query: params.get('q') ?? '',
       ...(params.has('name') ? { name: params.get('name')! } : {}),
-      ...(params.has('line') && Number.isInteger(line) && line >= 0 ? { line } : {}),
+      ...lineNumber('line'),
+      ...lineNumber('top'),
       ...(source ? { source } : {}),
       ...(params.get('pane') === '0' ? { paneHidden: true } : {}),
     };

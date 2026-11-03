@@ -8,7 +8,7 @@ import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { AvpPopup } from './avp-popup.ts';
 import type { SourcePane } from './source-pane.ts';
-import type { Document, Line, RawDocument, Target } from './types.ts';
+import type { Document, Line, RawDocument } from './types.ts';
 
 export interface ViewServices {
   site: Site;
@@ -121,6 +121,7 @@ export interface DocumentView {
   documentPane: HTMLElement;
   scrollToSection(section: string): void;
   scrollToLine(line: number): void;
+  topLine(): number | undefined;
 }
 
 export function renderDocument(container: HTMLElement, services: ViewServices, doc: Document, raw: RawDocument | undefined): DocumentView {
@@ -174,9 +175,9 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     popup.close();
     if (action.type === 'source') {
       pane.setVisible(true);
-      pane.show({ ...doc.sections.find(section => section.section === action.position.section), ...action.position }, doc);
+      pane.show({ ...doc.sections.find(section => section.section === action.position.section), ...action.position }, doc, true);
     } else if (action.type === 'pane-target') void pane.showTarget(action.target).catch(console.error);
-    else if (action.type === 'navigate') services.navigate(routeFor(action.target as Target));
+    else if (action.type === 'navigate') services.navigate(routeFor(action.target, pane.switchedOn ? {} : { paneHidden: true }));
   }
 
   pre.addEventListener('click', event => {
@@ -214,6 +215,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     scrollToLine(line) {
       const row = documentPane.querySelector(`[data-line="${line}"]`);
       if (row) scrollToNode(documentPane, row);
+    },
+    topLine() {
+      const row = topRow(documentPane, '');
+      return row && Number(row.dataset.line);
     },
   };
 }

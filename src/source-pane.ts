@@ -114,7 +114,7 @@ interface Mounted {
 
 export type SourcePane = ReturnType<typeof createSourcePane>;
 
-export function createSourcePane(site: Site, currentTheme: () => string) {
+export function createSourcePane(site: Site, currentTheme: () => string, onChange: () => void) {
   const wide = matchMedia('(min-width: 761px)');
   let switchedOn = true;
   let selected: { doc: Document; position: SourcePosition } | undefined;
@@ -150,9 +150,10 @@ export function createSourcePane(site: Site, currentTheme: () => string) {
     const frame = mounted?.frame;
     if (event.origin !== location.origin || !frame?.contentWindow || event.source !== frame.contentWindow || !selected) return;
     if (event.data?.file !== paneFile(selected.doc, site.mode)) return;
-    if ((event.data.type === 'seanchai-pdf-page' || event.data.type === 'seanchai-source-page') && Number.isInteger(event.data.page) && event.data.page > 0) {
+    if ((event.data.type === 'seanchai-pdf-page' || event.data.type === 'seanchai-source-page') && Number.isInteger(event.data.page) && event.data.page > 0 && event.data.page !== selected.position.page) {
       selected.position = { ...selected.position, page: event.data.page, exact: true };
       refreshHeaders();
+      onChange();
     }
     if (event.data.type === 'seanchai-pdf-matches' && typeof event.data.query === 'string') {
       selected.position = { ...selected.position, name: event.data.query, exact: true };
@@ -172,7 +173,10 @@ export function createSourcePane(site: Site, currentTheme: () => string) {
     input.type = 'checkbox';
     input.checked = switchedOn;
     input.setAttribute('aria-controls', 'source-pane');
-    input.onchange = () => setVisible(input.checked);
+    input.onchange = () => {
+      setVisible(input.checked);
+      onChange();
+    };
     label.append(input);
     return label;
   }
@@ -203,6 +207,7 @@ export function createSourcePane(site: Site, currentTheme: () => string) {
       selected = undefined;
     },
     get toggle() { return mounted?.toggle; },
+    get switchedOn() { return switchedOn; },
     isOpen,
     canShow: () => Boolean(wide.matches && mounted?.frame),
     /** A followed name goes to the pane only if this holds; otherwise to the target's page. */
@@ -210,14 +215,15 @@ export function createSourcePane(site: Site, currentTheme: () => string) {
       return isOpen() && Boolean(target && paneKind(target, site.mode));
     },
     setVisible,
-    /** Moves the pane to a position, and remembers it for when the pane is next shown. */
-    show(position: SourcePosition, doc: Document) {
+    /** Moves the pane to a position, and remembers it for when the pane is next shown. `moved` is a move to keep in the URL. */
+    show(position: SourcePosition, doc: Document, moved = false) {
       request++;
       if (!mounted) return;
       if (doc.id === mounted.doc.id) mounted.position = position;
       if (mounted.frame && paneKind(doc, site.mode)) selected = { doc, position };
       refreshHeaders();
       render();
+      if (moved) onChange();
     },
     /** Shows a followed name's definition in the pane. */
     async showTarget(target: Target) {
@@ -225,7 +231,7 @@ export function createSourcePane(site: Site, currentTheme: () => string) {
       const doc = await site.loadDocument(target.document);
       if (generation !== request) return;
       const position = doc.sections.find(section => section.section === target.section) ?? doc.sections[0];
-      if (position) this.show({ ...position, name: target.name }, doc);
+      if (position) this.show({ ...position, name: target.name }, doc, true);
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };

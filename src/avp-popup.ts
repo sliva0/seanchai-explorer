@@ -86,7 +86,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       const line = lineOf(node);
       const position = doc.sections.find(section => section.section === line.dataset.section);
       const row = lines[Number(line.dataset.line)].tokens.find(token => token.avp === name && token.source?.row)?.source;
-      if (position && pane.isOpen()) pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc);
+      if (position && pane.isOpen()) pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);

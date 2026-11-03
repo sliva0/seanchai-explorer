@@ -15,10 +15,11 @@ test('section and raw links survive encoding and parsing', () => {
 
 test('a route keeps the pane, raw mode and line it was shared with', () => {
   const source = { document: '29061-i10', position: { section: '16.4.7', page: 120, name: '3GPP-MS-TimeZone', exact: true, row: true } };
-  const route = parseRoute(routeFor({ document: '29214-i40', section: '5.4.0' }, { raw: true, source, line: 125, paneHidden: true }));
+  const route = parseRoute(routeFor({ document: '29214-i40', section: '5.4.0' }, { raw: true, source, line: 125, top: 90, paneHidden: true }));
   assert.equal(route.raw, true);
   assert.deepEqual(route.source, source);
   assert.equal(route.line, 125);
+  assert.equal(route.top, 90);
   assert.equal(route.paneHidden, true);
 });
 

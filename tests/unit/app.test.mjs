@@ -53,7 +53,7 @@ test('public: an RFC page shows itself in the pane, and names go there when they
     const before = page.window.location.hash;
     click(page, local);
     await settle();
-    assert.equal(page.window.location.hash, before);
+    assert.equal(page.window.location.hash.split('?')[0], before, 'stays on the page');
     assert.equal(new URLSearchParams(new URL(frameSrc(document)).hash.slice(1)).get('query'), local.dataset.avp);
     const away = [...document.querySelectorAll('pre a')].find(a => a.getAttribute('href')?.startsWith('#rfc6733'));
     click(page, away);
@@ -99,7 +99,8 @@ test('switched off: the source is not loaded, names navigate, and a section link
     const href = local.getAttribute('href');
     click(page, local);
     await settle();
-    assert.equal(window.location.hash, href);
+    assert.ok(window.location.hash.startsWith(href));
+    assert.match(window.location.hash, /pane=0/);
     assert.equal(document.querySelector('#controls input').checked, false);
     const section = document.querySelector('pre a[target="_blank"][data-token]');
     click(page, section);
@@ -302,4 +303,62 @@ test('alt-click and the context-menu key still list occurrences', async () => {
     name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ContextMenu', bubbles: true, cancelable: true }));
     assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
   } finally { await page.close(); }
+});
+
+test('the pane is kept in the URL without new history entries, and restored from it', async () => {
+  const page = await boot({ hash: '#rfc7944' });
+  let shared;
+  try {
+    const { document, window } = page;
+    assert.equal(window.location.hash, '#rfc7944', 'nothing added until the pane moves');
+    const length = window.history.length;
+    const name = [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith('#rfc7944/'));
+    click(page, name);
+    await settle();
+    const route = new URLSearchParams(window.location.hash.split('?')[1]);
+    assert.equal(route.get('source'), 'rfc7944');
+    assert.equal(route.get('sourceName'), name.dataset.avp);
+    assert.equal(window.history.length, length);
+    const frame = document.querySelector('iframe');
+    Object.defineProperty(frame, 'contentWindow', { configurable: true, value: { postMessage() {} } });
+    const file = new URL(frame.getAttribute('src')).searchParams.get('file');
+    window.dispatchEvent(new window.MessageEvent('message', { origin: window.location.origin, source: frame.contentWindow, data: { type: 'seanchai-source-page', file, page: 5 } }));
+    assert.match(window.location.hash, /page=5/);
+    assert.match(window.location.hash, /exact=1/);
+    shared = window.location.hash;
+  } finally { await page.close(); }
+  const opened = await boot({ hash: shared });
+  try {
+    const params = new URLSearchParams(new URL(opened.document.querySelector('iframe').getAttribute('src')).hash.slice(1));
+    assert.equal(params.get('page'), '5');
+    assert.equal(params.get('exact'), '1');
+    assert.equal(opened.document.querySelector('.source-header .source-page').textContent, 'p. 5');
+  } finally { await opened.close(); }
+});
+
+test('a switched-off pane is kept in the URL, and following a name leaves its position to go back to', async () => {
+  const page = await boot({ hash: '#rfc7944?pane=0' });
+  try {
+    const { document, window } = page;
+    assert.equal(document.querySelector('#controls input').checked, false);
+    assert.equal(document.querySelector('iframe').getAttribute('src'), null);
+    const toggle = document.querySelector('#controls input');
+    toggle.checked = true;
+    toggle.dispatchEvent(new window.Event('change'));
+    assert.ok(!window.location.hash.includes('pane=0'));
+    toggle.checked = false;
+    toggle.dispatchEvent(new window.Event('change'));
+    assert.match(window.location.hash, /pane=0/);
+  } finally { await page.close(); }
+  const left = await boot({ hash: '#29153-i00' });
+  try {
+    const { window, document } = left;
+    let replaced;
+    const replaceState = window.history.replaceState.bind(window.history);
+    window.history.replaceState = (state, title, url) => { replaced = url; replaceState(state, title, url); };
+    click(left, document.querySelector('pre a[data-avp]'));
+    assert.match(replaced, /^#29153-i00\?top=\d+$/);
+    await settle();
+    assert.ok(!window.location.hash.startsWith('#29153-i00'));
+  } finally { await left.close(); }
 });

@@ -6,7 +6,8 @@ import type { DocumentView } from './document-view.ts';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
 import { renderIndex } from './index-view.ts';
-import { parseRoute } from './navigation.ts';
+import { parseRoute, routeFor } from './navigation.ts';
+import type { RouteOptions } from './navigation.ts';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -67,7 +68,20 @@ try {
   if (!grammar.ok) throw new Error(`${grammar.status}: syntax/dad.tmLanguage.json`);
   const highlighter = createHighlighter(await grammar.json() as Grammar);
   const highlighted = new WeakMap<Line[], HighlightedLine[]>();
-  const sourcePane = pane = createSourcePane(site, () => theme.current);
+  let view: DocumentView | undefined;
+  let request = 0;
+
+  /** Keeps a view shareable: the pane's state goes into this history entry, so Back returns to it too. */
+  function updateRoute(options: RouteOptions) {
+    const parsed = parseRoute(location.hash);
+    if (parsed.document !== view?.doc.id) return;
+    const next = routeFor({ document: parsed.document, section: parsed.section || null, name: parsed.name }, { ...parsed, ...options });
+    if (next !== location.hash) history.replaceState(history.state, '', next);
+  }
+
+  const sourcePane = pane = createSourcePane(site, () => theme.current, () => {
+    updateRoute({ source: sourcePane.state, paneHidden: !sourcePane.switchedOn });
+  });
   const popup = createAvpPopup(site, sourcePane);
   const services = {
     site, pane: sourcePane, popup,
@@ -77,13 +91,11 @@ try {
       return decorated;
     },
     navigate(hash: string) {
-      if (location.hash === hash) void route();
-      else location.hash = hash;
+      if (location.hash === hash) { void route(); return; }
+      updateRoute({ top: view?.topLine() });
+      location.hash = hash;
     },
   };
-  let view: DocumentView | undefined;
-  let request = 0;
-
   function leaveDocument(className: string) {
     view = undefined;
     sourcePane.unmount();
@@ -101,6 +113,7 @@ try {
       renderSearch(content, site, parsed.query, () => generation === request);
       return;
     }
+    if (parsed.paneHidden) sourcePane.setVisible(false);
     const meta = site.summary(parsed.document);
     if (!meta) { leaveDocument(''); content.replaceChildren(element('p', 'Document not found')); return; }
     try {
@@ -122,6 +135,7 @@ try {
       }
       if (parsed.section) view.scrollToSection(parsed.section);
       if (parsed.line !== undefined) view.scrollToLine(parsed.line);
+      if (parsed.top !== undefined) view.scrollToLine(parsed.top);
     } catch (error) {
       if (generation !== request) return;
       leaveDocument('');
