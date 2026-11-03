@@ -364,6 +364,32 @@ test('a switched-off pane is kept in the URL, and following a name leaves its po
   } finally { await left.close(); }
 });
 
+test('the route sets the pane\'s visibility both ways, and a link keeps it switched off', async () => {
+  const page = await boot({ hash: '#rfc7944?pane=0' });
+  try {
+    const { document, window } = page;
+    const toggle = () => document.querySelector('#controls input');
+    const shown = () => document.querySelector('#workspace').classList.contains('with-source');
+    assert.equal(frameSrc(document), null);
+    const link = document.querySelector('.section-list a');
+    click(page, link);
+    await settle();
+    assert.equal(window.location.hash, `${link.getAttribute('href')}?pane=0`);
+    assert.equal(toggle().checked, false);
+    assert.equal(frameSrc(document), null);
+    await page.go('#rfc7944/9.1');
+    assert.equal(toggle().checked, true);
+    assert.ok(shown());
+    assert.equal(new URLSearchParams(new URL(frameSrc(document)).hash.slice(1)).get('section'), '9.1');
+    await page.go('#rfc7944?pane=0');
+    assert.equal(toggle().checked, false);
+    assert.ok(!shown());
+    await page.go('#rfc7944/9.1');
+    assert.equal(toggle().checked, true);
+    assert.ok(shown());
+  } finally { await page.close(); }
+});
+
 test('each route sets its title and heading, and navigation moves focus', async () => {
   const page = await boot();
   try {

@@ -122,6 +122,15 @@ try {
       location.hash = hash;
     },
   };
+  // A link's route does not say the pane is off, and without that it would switch the pane on.
+  document.addEventListener('click', event => {
+    const anchor = (event.target as Element).closest?.<HTMLAnchorElement>('a[href^="#"]');
+    if (!anchor || event.defaultPrevented || sourcePane.switchedOn || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    const target = parseRoute(anchor.getAttribute('href')!);
+    if (!target.document || target.document === 'search' || target.paneHidden) return;
+    event.preventDefault();
+    services.navigate(routeFor({ document: target.document, section: target.section || null, name: target.name }, { ...target, paneHidden: true }));
+  });
   function leaveDocument(className: string) {
     view = undefined;
     sourcePane.unmount();
@@ -146,7 +155,6 @@ try {
       renderSearch(content, site, parsed.query, () => generation === request);
       return;
     }
-    if (parsed.paneHidden) sourcePane.setVisible(false);
     const meta = site.summary(parsed.document);
     if (!meta) {
       leaveDocument('');
@@ -168,6 +176,7 @@ try {
         view = renderDocument(content, services, doc, raw);
       }
       const current = view!;
+      sourcePane.setVisible(!parsed.paneHidden);
       const target = parsed.source && site.summary(parsed.source.document);
       if (parsed.source && target && paneKind(target, site.mode)) {
         const doc = await site.loadDocument(target.id);
