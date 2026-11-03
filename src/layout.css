@@ -7,10 +7,6 @@ header { padding: 0.45rem 0.9rem; border-bottom: 1px solid var(--ui-border); bac
 nav { gap: 0.6rem; font-size: 0.9rem; }
 nav a { display: inline-flex; align-items: center; justify-content: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; background: var(--ui-bg); font-weight: 600; text-decoration: none; }
 nav a:hover { background: var(--ui-hover); border-color: var(--ui-muted); }
-nav a.site-name { padding-inline: 0.25rem; border-color: transparent; background: none; color: var(--ui-fg); font-size: 1rem; font-weight: 700; }
-.header-search { flex: 0 1 18rem; min-width: 8rem; }
-.header-search[hidden] { display: none; }
-.header-search input { width: 100%; height: 28px; padding: 0 0.5rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-fg); background: var(--ui-bg); font-size: 0.85rem; }
 .header-actions { margin-left: auto; display: flex; gap: 0.5rem; align-items: center; }
 .header-actions [hidden], .pane-actions [hidden] { display: none; }
 .theme-toggle { display: inline-flex; align-items: center; height: 28px; padding: 0 0.75rem; border: 1px solid var(--ui-border); border-radius: 4px; color: var(--ui-link); background: var(--ui-bg); font: 600 0.9rem system-ui, sans-serif; cursor: pointer; text-decoration: none; }
@@ -123,7 +119,5 @@ mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 :root[data-theme="dark"] .dad-line.raw-warning { background: transparent; box-shadow: inset 3px 0 #e4b96a; outline: 1px dotted #8d713e; }
 @media (max-width: 760px) {
   header { flex-wrap: nowrap; gap: 0.5rem; }
-  nav a:not(.site-name) { display: none; }
-  .header-search { flex: 1 1 6rem; min-width: 0; }
   .header-actions { margin-left: auto; }
 }

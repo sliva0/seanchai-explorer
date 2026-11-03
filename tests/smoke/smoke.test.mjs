@@ -173,13 +173,14 @@ test('light applies under a dark OS, the reader in the pane follows the toggle, 
   await done();
 });
 
-test('/ focuses the header box, and search data loads only for the search page', { skip }, async () => {
+test('the header link opens search with its input focused, and search data loads only there', { skip }, async () => {
   const requests = [];
   const { page, done } = await open('', {}, async opened => {
     opened.on('request', request => requests.push(request.url()));
   });
   assert.ok(!requests.some(url => url.endsWith('/data/search.json')));
-  await page.keyboard.press('/');
+  await page.locator('header nav a', { hasText: 'Search' }).click();
+  await page.waitForSelector('.search-form input:focus');
   await page.keyboard.type('DRMP');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.search-avp summary:has-text("DRMP")');

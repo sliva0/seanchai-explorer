@@ -16,29 +16,16 @@ import type { Line } from './types.ts';
 
 const header = element('header');
 const nav = element('nav');
-const siteName = element('a', 'Seanchaí', 'site-name');
-siteName.href = '#';
-siteName.setAttribute('aria-label', 'Seanchaí, index');
+const indexLink = element('a', 'Index');
+indexLink.href = '#';
 const searchLink = element('a', 'Search');
 searchLink.href = '#search';
-nav.append(siteName, searchLink);
-const searchForm = element('form', undefined, 'header-search');
-searchForm.setAttribute('role', 'search');
-const searchInput = element('input');
-searchInput.type = 'search';
-searchInput.placeholder = 'Search ( / )';
-searchInput.setAttribute('aria-label', 'Search');
-searchForm.append(searchInput);
-searchForm.onsubmit = event => {
-  event.preventDefault();
-  location.hash = `#search?q=${encodeURIComponent(searchInput.value.trim())}`;
-  searchInput.value = '';
-};
+nav.append(indexLink, searchLink);
 const themeButton = element('button', undefined, 'theme-toggle');
 themeButton.type = 'button';
 const headerActions = element('div', undefined, 'header-actions');
 headerActions.append(themeButton);
-header.append(nav, searchForm, headerActions);
+header.append(nav, headerActions);
 const content = element('main');
 content.id = 'content';
 content.tabIndex = -1;
@@ -58,12 +45,6 @@ const theme = initTheme(value => {
   pane?.postTheme();
 });
 themeButton.onclick = () => theme.toggle();
-document.addEventListener('keydown', event => {
-  const typing = (event.target as Element).closest?.('input, textarea, select, [contenteditable]');
-  if (event.key !== '/' || typing || event.ctrlKey || event.metaKey || event.altKey) return;
-  event.preventDefault();
-  (content.querySelector<HTMLInputElement>('.search-form input') ?? searchInput).focus();
-});
 
 function setTitle(page?: string) {
   document.title = page ? `${page} — Seanchaí` : 'Seanchaí';
@@ -141,7 +122,6 @@ try {
     popup.close();
     const generation = ++request;
     const parsed = parseRoute(location.hash);
-    searchForm.hidden = parsed.document === 'search';
     if (!parsed.document) {
       leaveDocument('index-view');
       setTitle();

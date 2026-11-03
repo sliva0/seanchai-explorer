@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { filterMentions, identityLabel, searchEntries, searchSpecifications, sortMentions } from '../../src/search.ts';
-import { boot, readFixture, settle } from './helpers.mjs';
+import { boot, readFixture } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
 const command = (name, command_code, application_id, more = {}) => ({ name, kind: 'command', document: 'a', identity: { kind: 'command', command_code, application_id, header_application_id: application_id, application: null }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -112,7 +112,6 @@ test('the search page shows a section per kind with matches over the fixture, an
     assert.ok(document.querySelector('.search-command summary').textContent.includes(named('command').name));
     const input = document.querySelector('.search-form input');
     assert.equal(document.activeElement, input);
-    assert.equal(document.querySelector('.header-search').hidden, true);
     input.value = named('application').name;
     input.dispatchEvent(new window.Event('input'));
     assert.match(window.location.hash, /^#search\?q=/);
@@ -153,24 +152,16 @@ test('a search matching nothing has no headings', async () => {
   } finally { await page.close(); }
 });
 
-test('the header box searches from any page, and / focuses it unless typing', async () => {
+test('the header links to the index and search, and / is left to the browser', async () => {
   const page = await boot({ hash: '#29153-i00' });
   try {
     const { document, window } = page;
-    const input = document.querySelector('.header-search input');
-    const press = (target, init = {}) => target.dispatchEvent(new window.KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true, ...init }));
-    press(document.body);
-    assert.equal(document.activeElement, input);
-    input.blur();
-    press(document.body, { ctrlKey: true });
-    assert.notEqual(document.activeElement, input);
-    input.focus();
-    assert.equal(press(input), true, 'typing a slash in a field is left alone');
-    input.value = 'DRMP';
-    document.querySelector('.header-search').dispatchEvent(new window.Event('submit', { cancelable: true }));
-    await settle();
-    assert.equal(window.location.hash, '#search?q=DRMP');
-    assert.equal(document.querySelector('.search-form input').value, 'DRMP');
-    assert.ok(document.querySelector('.search-avp details'));
+    assert.deepEqual([...document.querySelectorAll('header nav a')].map(node => [node.textContent, node.getAttribute('href')]), [['Index', '#'], ['Search', '#search']]);
+    assert.ok(document.querySelector('header .theme-toggle'));
+    assert.equal(document.querySelector('header input'), null);
+    assert.equal(document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })), true);
+    assert.notEqual(document.activeElement?.tagName, 'INPUT');
+    await page.go('#search');
+    assert.equal(document.activeElement, document.querySelector('.search-form input'));
   } finally { await page.close(); }
 });
