@@ -63,11 +63,20 @@ test('the find match on a row is told by its place on the page, not by coming fi
     { str: '263', transform: [1, 0, 0, 1, 170, 600], height: 9, hasEOL: true },
     { str: 'and below: Session-Id', transform: [1, 0, 0, 1, 56, 500], height: 9, hasEOL: true },
   ];
-  // Offsets count each item's string and one character for each line end, as the find controller joins them.
+  // The find controller's offsets count the strings only, not the line ends between them.
   const first = 'A mention of '.length;
-  const second = 'A mention of Session-Id above\n'.length;
-  const third = 'A mention of Session-Id above\nSession-Id263\nand below: '.length;
+  const second = 'A mention of Session-Id above'.length;
+  const third = 'A mention of Session-Id aboveSession-Id263and below: '.length;
   assert.equal(matchOnRow(page, [first, second, third], 600 + 9 + 10), 1);
   assert.equal(matchOnRow(page, [first, second, third], 500 + 9 + 10), 2);
   assert.equal(matchOnRow(page, [second], 700 + 10 + 10), 0);
+});
+
+test('a mention beside the name, on its line, does not take the selection from it', () => {
+  // TS 29.153 table 5.4.1.1: "Load" and "The AVP used to convey load information", heights differing in the last bits.
+  const page = [
+    { str: 'Load', transform: [1, 0, 0, 1, 93.6, 654.9], height: 9, hasEOL: false },
+    { str: 'The AVP used to convey load information', transform: [1, 0, 0, 1, 253.4, 654.9], height: 9.00001, hasEOL: true },
+  ];
+  assert.equal(matchOnRow(page, [0, 'LoadThe AVP used to convey '.length], 654.9 + 9.00001 + 10), 0);
 });

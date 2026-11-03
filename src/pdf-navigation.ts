@@ -87,8 +87,8 @@ export function rowOnPage(items: TextContent['items'], name: string): number | n
 }
 
 /**
- * Which of a page's find matches lies on the row at `top`. `offsets` are the find controller's,
- * into the page's items as it joins them, read with `disableNormalization`.
+ * Which of a page's find matches lies on the row at `top`. `offsets` are the find controller's: into
+ * the page's strings joined with nothing between them, read with `disableNormalization`.
  */
 export function matchOnRow(items: TextContent['items'], offsets: number[], top: number): number {
   let position = 0;
@@ -100,9 +100,10 @@ export function matchOnRow(items: TextContent['items'], offsets: number[], top: 
     const end = position + item.str.length;
     for (; index < offsets.length && offsets[index] < end; index++) {
       const away = Math.abs(item.transform[5] + item.height + 10 - top);
-      if (away < distance) { distance = away; best = index; }
+      // Within a line of it is a tie, which the first on the line wins: the name, not a mention beside it.
+      if (away < distance - 1) { distance = away; best = index; }
     }
-    position = end + (item.hasEOL ? 1 : 0);
+    position = end;
   }
   return best;
 }

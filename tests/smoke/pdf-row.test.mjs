@@ -14,6 +14,7 @@ const dist = path.join(root, '.smoke-viewer-dist');
 const executablePath = process.env.CHROMIUM ?? '/usr/bin/chromium';
 const specifications = process.env.SEANCHAI_SPECIFICATIONS ?? path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
 const pdf = path.join(specifications, '3gpp/Rel-18/PDF/ts_129061v180100p.pdf');
+const reused = path.join(specifications, '3gpp/Rel-18/PDF/ts_129128v180000p.pdf');
 const rfc = path.join(specifications, 'rfc/rfc5580.txt');
 const skip = !existsSync(executablePath) ? `no browser at ${executablePath}` : !existsSync(pdf) || !existsSync(rfc) ? `no held PDF and RFC in ${specifications}` : false;
 const types = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.txt': 'text/plain', '.pdf': 'application/pdf', '.wasm': 'application/wasm' };
@@ -29,7 +30,7 @@ before(async () => {
   server = http.createServer(async (request, response) => {
     const { pathname } = new URL(request.url, 'http://localhost');
     const name = decodeURIComponent(pathname);
-    const file = name === '/29061-i10.pdf' ? pdf : name === '/rfc5580.txt' ? rfc
+    const file = name === '/29061-i10.pdf' ? pdf : name === '/29128-i00.pdf' ? reused : name === '/rfc5580.txt' ? rfc
       : name.startsWith('/pdfjs/') ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
       : path.join(dist, name);
     try {
@@ -92,6 +93,25 @@ test('table 9a of TS 29.061: a row link shows the row, wrapped or not, and selec
       assert.ok(state.selectedTop >= 0 && state.selectedTop < 60, `${name} is at the top of the view: ${JSON.stringify(state)}`);
     }
     assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('a row selects its own match, not a mention earlier on the page', { skip: skip || !existsSync(reused) && `no held PDF ${reused}` }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  try {
+    // TS 29.128 table 6.4.1.1, page 42: a row with a match below it, and one with the match of Feature-List-ID above it.
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-i00.pdf`)}#page=39&search=6.4.1&name=SCEF-Reference-ID&row=1`);
+    for (const [name, matchIndex] of [['SCEF-Reference-ID', 0], ['Feature-List', 1]]) {
+      await page.evaluate(hash => { location.hash = hash; }, `#page=39&search=6.4.1&name=${name}&row=1`);
+      await settled(page, name);
+      await page.waitForFunction(index => window.PDFViewerApplication.findController.selected.matchIdx === index, matchIndex);
+      await page.waitForFunction(text => document.querySelector('.highlight.selected')?.textContent === text, name);
+      const state = await viewerState(page);
+      assert.equal(state.page, 42, name);
+      assert.equal(state.selectedPage, 42, name);
+      assert.ok(state.selectedTop >= 0 && state.selectedTop < 30, `${name}: ${JSON.stringify(state)}`);
+    }
   } finally { await context.close(); }
 });
 
