@@ -157,10 +157,10 @@ test('value rows: bits and features beside their numbers, repeated names, wrappe
   try {
     for (const [file, hash, expected] of [
       ['29272-i70', 'page=124&search=7.3.31&name=GERAN+Not+Allowed&row=1&value=1', { page: 125, text: 'GERAN Not Allowed', query: 'GERAN Not Allowed' }],
-      ['29272-i70', 'page=102&search=7.3.8&name=Separation+Indication&row=1&value=0', { page: 102, text: 'Separation', query: 'Separation' }],
-      ['29272-i70', 'page=102&search=7.3.10.1&name=ODB-HPLMN-APN&row=1&value=1', { page: 104, text: 'ODB-', query: 'ODB-' }],
+      ['29272-i70', 'page=102&search=7.3.8&name=Separation+Indication&row=1&value=0', { page: 102, text: 'Separation', query: 'Separation Indication' }],
+      ['29272-i70', 'page=102&search=7.3.10.1&name=ODB-HPLMN-APN&row=1&value=1', { page: 104, text: 'ODB-', query: 'ODB-HPLMN-APN' }],
       ['29272-i70', 'page=176&search=7.4.3.1&name=DIAMETER_ERROR_USER_UNKNOWN&row=1&titled=1', { page: 176, text: 'DIAMETER_ERROR_USER_UNKNOWN', query: 'DIAMETER_ERROR_USER_UNKNOWN' }],
-      ['29468-i00', 'page=27&search=6.4.33&name=System+error&row=1&value=6', { page: 27, text: 'System error', query: 'System error', match: 1 }],
+      ['29468-i00', 'page=27&search=6.4.33&name=System+error&row=1&value=6', { page: 27, text: 'System error', query: 'System error', match: 2 }],
     ]) {
       await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}${file}.pdf`)}#${hash}`);
       await settled(page, expected.query);

@@ -103,10 +103,11 @@ const valueNumber = /^(?:bit\s*)?\d+$/i;
  */
 function findValueRow(items: TextContent['items'], match: NameMatch, value?: number) {
   const lines = textLines(items).map(line => ({ ...line, cells: lineCells(line.items) }));
-  return valueRowBeside(lines, match, 0, value) ?? valueRowBeside(lines, match, 1, value);
+  const pageText = items.map(item => 'str' in item ? item.str : '').join(' ');
+  return valueRowBeside(lines, pageText, match, 0, value) ?? valueRowBeside(lines, pageText, match, 1, value);
 }
 
-function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: ReturnType<typeof lineCells> })[], match: NameMatch, reach: number, value?: number) {
+function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: ReturnType<typeof lineCells> })[], pageText: string, match: NameMatch, reach: number, value?: number) {
   for (let i = 0; i < lines.length; i++) {
     for (const first of lines[i].cells) {
       let column = normalizeName(nameText(first.text));
@@ -127,8 +128,8 @@ function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: 
       }
       if (!match.whole(column)) continue;
       const left = (line: typeof lines[number]) => line.cells[0] !== first && line.cells[0].end <= first.x + 3 && valueNumber.test(line.cells[0].text) && (value === undefined || Number(line.cells[0].text.replace(/\D/g, '')) === value);
-      // A description beside a wrapped name comes between its lines in the page's text: a find can only match the first.
-      const found = last !== i && lines[i].cells.at(-1) !== first ? first.text : text;
+      // A description beside a wrapped name can come between its lines in the page's text: a find can only match the first.
+      const found = last === i || namePattern(text).test(pageText) ? text : first.text;
       if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left)) return { top: lines[i].top, text: found };
     }
   }

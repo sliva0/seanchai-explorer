@@ -4,7 +4,8 @@ A static site over the [Seanchaí](https://github.com/sliva0/seanchai) corpus: e
 Diameter dictionary read from 3GPP specifications and RFCs as one page, highlighted
 with the corpus's own TextMate grammar. AVP names link to their definitions,
 section and page numbers to the source document, and search covers specifications,
-AVPs, commands, applications, registry rows and every line of text.
+AVPs, commands, applications, registry rows, result codes, bits, features and every
+line of text.
 
 It is unofficial and not affiliated with or endorsed by any of the specifications'
 publishers. The site holds no Python and reads only what `seanchai export` writes.
