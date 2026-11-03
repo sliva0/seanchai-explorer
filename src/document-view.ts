@@ -187,14 +187,12 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     controls.append(toggle);
   }
   let occurrences = false;
-  const occurrencesToggle = element('button', 'Occurrences', 'occurrences-toggle');
-  occurrencesToggle.type = 'button';
+  const occurrencesToggle = element('label', 'Occurrences ', 'visibility-toggle occurrences-toggle');
   occurrencesToggle.title = 'Tap a name to list where this document uses it';
-  occurrencesToggle.setAttribute('aria-pressed', 'false');
-  occurrencesToggle.onclick = () => {
-    occurrences = !occurrences;
-    occurrencesToggle.setAttribute('aria-pressed', String(occurrences));
-  };
+  const occurrencesInput = element('input');
+  occurrencesInput.type = 'checkbox';
+  occurrencesInput.onchange = () => { occurrences = occurrencesInput.checked; };
+  occurrencesToggle.append(occurrencesInput);
   controls.append(occurrencesToggle);
   const workspace = element('div');
   workspace.id = 'workspace';

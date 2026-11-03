@@ -43,7 +43,7 @@ function createPaneHeader(source: boolean): HTMLElement {
   title.tabIndex = -1;
   const actions = element('div', undefined, 'pane-actions');
   for (const className of ['publisher-link', 'local-link']) {
-    const anchor = element('a', undefined, className);
+    const anchor = element('a', undefined, `control ${className}`);
     anchor.target = '_blank';
     anchor.rel = 'noopener';
     actions.append(anchor);
@@ -177,7 +177,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   }
 
   function createToggle(): HTMLLabelElement {
-    const label = element('label', 'Source ', 'visibility-toggle');
+    const label = element('label', 'Source ', 'visibility-toggle source-toggle');
     const input = element('input');
     input.type = 'checkbox';
     input.checked = switchedOn;

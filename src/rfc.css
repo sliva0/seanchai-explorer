@@ -1,5 +1,5 @@
 html, body { height: 100%; margin: 0; overflow: hidden; }
-#rfc { box-sizing: border-box; height: 100%; overflow: auto; padding: 0.75rem; overscroll-behavior: contain; }
+#rfc { height: 100%; overflow: auto; padding: var(--space-3); overscroll-behavior: contain; }
 #rfc section { width: max-content; min-width: 100%; }
-#rfc pre { margin: 0; font: 12px/1.5 ui-monospace, monospace; color: var(--ui-fg); }
+#rfc pre { margin: 0; font: var(--text-code)/1.5 var(--mono); color: var(--ui-fg); }
 .rfc-match { color: var(--syntax-number); background: var(--syntax-number-bg); outline: 1px dotted var(--syntax-number); }

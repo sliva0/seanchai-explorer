@@ -70,19 +70,18 @@ function renderMention(mention: Mention, needle: string, site: Site): HTMLElemen
 
 export function renderSearch(container: HTMLElement, site: Site, query: string, isCurrent: () => boolean) {
   const form = element('form', undefined, 'search-form');
-  const label = element('label', 'Search ');
-  const input = element('input');
+  const input = element('input', undefined, 'control');
+  input.setAttribute('aria-label', 'Search');
   input.type = 'search';
   input.value = query;
   input.placeholder = '29.214, Callee-Information, CCR, DIAMETER_SUCCESS, or 505';
-  label.append(input);
-  form.append(label, element('button', 'Search'));
+  form.append(input, element('button', 'Search', 'control'));
   const results = element('section');
   results.id = 'search-results';
   results.setAttribute('aria-live', 'polite');
-  const heading = element('h1', 'Search');
+  const heading = element('h1', 'Search', 'sr-only');
   heading.tabIndex = -1;
-  container.replaceChildren(heading, element('p', 'Find specifications by title or number; AVPs, commands, applications, registry rows and result codes by name or code; bits and features by name; and mentions in document text.'), form, results);
+  container.replaceChildren(heading, form, results);
 
   const expanded = new Set<string>();
   let data: { entries: SearchEntry[]; mentions: Mention[] } | undefined;
@@ -102,7 +101,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
       const shown = expanded.has(key) ? items.length : pageSize;
       for (const item of items.slice(0, shown)) parent.append(render(item));
       if (items.length > shown) {
-        const button = element('button', 'More');
+        const button = element('button', 'More', 'control');
         button.onclick = () => {
           expanded.add(key);
           button.remove();

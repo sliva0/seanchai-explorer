@@ -304,8 +304,6 @@ document.querySelector<HTMLFormElement>('#toolbar')!.onsubmit = event => {
 };
 find.oninput = () => { manual(); automaticFind = false; wholeWord = false; search(find.value); };
 window.addEventListener('hashchange', () => { void navigate().catch(console.error); });
-const toolbar = document.querySelector<HTMLFormElement>('#toolbar')!;
-new ResizeObserver(() => { document.documentElement.style.setProperty('--toolbar-height', `${toolbar.getBoundingClientRect().height}px`); }).observe(toolbar);
 
 Object.assign(window, {
   PDFViewerApplication: {
@@ -332,7 +330,9 @@ try {
   navigator = createSectionNavigator(pdf);
   const outline = await navigator.outline;
   outlinePane.replaceChildren(renderOutline(outline));
-  document.querySelector<HTMLElement>('#chapters-toggle')!.hidden = outline.length === 0;
+  const chaptersToggle = document.querySelector<HTMLElement>('#chapters-toggle')!;
+  chaptersToggle.classList.remove('pending');
+  chaptersToggle.hidden = outline.length === 0;
   setChapters(outline.length > 0 && showChapters);
   viewer.setDocument(pdf);
   linkService.setDocument(pdf);

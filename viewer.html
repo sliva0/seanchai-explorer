@@ -8,15 +8,15 @@
   </head>
   <body>
     <form id="toolbar">
-      <label id="chapters-toggle" class="visibility-toggle" hidden>Chapters <input id="chapters" type="checkbox" aria-controls="outline" checked /></label>
-      <label>Page <input id="page" type="number" min="1" value="1" /></label>
+      <label id="chapters-toggle" class="visibility-toggle pending">Chapters <input id="chapters" type="checkbox" aria-controls="outline" checked /></label>
+      <label>Page <input id="page" class="control" type="number" min="1" value="1" /></label>
       <span id="pages"></span>
-      <label>Zoom <select id="zoom"><option value="page-width">Width</option><option value="page-fit">Page</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="1.75">175%</option><option value="2">200%</option><option value="2.5">250%</option><option value="3">300%</option></select></label>
+      <label>Zoom <select id="zoom" class="control"><option value="page-width">Width</option><option value="page-fit">Page</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="1.75">175%</option><option value="2">200%</option><option value="2.5">250%</option><option value="3">300%</option></select></label>
       <div id="find-controls">
-        <label>Find <input id="find" type="search" /></label>
-        <button type="submit">Find</button>
-        <button id="find-previous" type="button" aria-label="Previous match" title="Previous match">↑</button>
-        <button id="find-next" type="button" aria-label="Next match" title="Next match">↓</button>
+        <label><span class="sr-only">Find</span><input id="find" class="control" type="search" /></label>
+        <button class="control" type="submit">Find</button>
+        <button id="find-previous" class="control" type="button" aria-label="Previous match" title="Previous match">↑</button>
+        <button id="find-next" class="control" type="button" aria-label="Next match" title="Next match">↓</button>
         <output id="matches"></output>
       </div>
     </form>

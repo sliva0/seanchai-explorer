@@ -93,8 +93,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     panel.append(source);
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span');
-    const previous = element('button', 'Previous');
-    const next = element('button', 'Next');
+    const previous = element('button', 'Previous', 'control');
+    const next = element('button', 'Next', 'control');
     actions.append(count, previous, next);
     panel.append(actions);
     const list = element('div', undefined, 'usage-list');
@@ -155,8 +155,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     }
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span', `.dad ${active + 1}/${occurrences.length}`);
-    const previous = element('button', 'Previous');
-    const next = element('button', 'Next');
+    const previous = element('button', 'Previous', 'control');
+    const next = element('button', 'Next', 'control');
     actions.append(count, previous, next);
     panel.append(actions);
     const list = element('div', undefined, 'usage-list');

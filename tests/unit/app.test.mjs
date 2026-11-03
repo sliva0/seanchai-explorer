@@ -12,7 +12,7 @@ test('public: a name and ; Bases: go to the target page and nothing opens a wind
     let opened = 0;
     window.open = () => { opened++; };
     assert.equal(document.querySelector('iframe'), null);
-    assert.equal(document.querySelector('#controls input'), null);
+    assert.equal(document.querySelector('.source-toggle input'), null);
     const name = nameLink(document, '#rfc7944');
     assert.ok(name, 'a name defined in another document');
     const href = name.getAttribute('href');
@@ -69,7 +69,7 @@ test('narrow: the pane is hidden, its source is not loaded, and names navigate',
     const { document, window } = page;
     assert.equal(frameSrc(document), null);
     assert.ok(!document.querySelector('#workspace').classList.contains('with-source'));
-    assert.equal(document.querySelector('#controls label').hidden, true);
+    assert.equal(document.querySelector('.source-toggle').hidden, true);
     const local = [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith('#rfc7944/'));
     const href = local.getAttribute('href');
     click(page, local);
@@ -78,7 +78,7 @@ test('narrow: the pane is hidden, its source is not loaded, and names navigate',
     assert.equal(frameSrc(document), null);
     page.resize(1280);
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
-    assert.equal(document.querySelector('#controls label').hidden, false);
+    assert.equal(document.querySelector('.source-toggle').hidden, false);
     assert.ok(frameSrc(document).includes('rfc.html'));
     page.resize(500);
     assert.ok(!document.querySelector('#workspace').classList.contains('with-source'));
@@ -90,7 +90,7 @@ test('switched off: the source is not loaded, names navigate, and a section link
   try {
     const { document, window } = page;
     page.resize(1280);
-    const toggle = document.querySelector('#controls input');
+    const toggle = document.querySelector('.source-toggle input');
     assert.equal(toggle.hasAttribute('aria-expanded'), false);
     toggle.checked = false;
     toggle.dispatchEvent(new window.Event('change'));
@@ -101,10 +101,10 @@ test('switched off: the source is not loaded, names navigate, and a section link
     await settle();
     assert.ok(window.location.hash.startsWith(href));
     assert.match(window.location.hash, /pane=0/);
-    assert.equal(document.querySelector('#controls input').checked, false);
+    assert.equal(document.querySelector('.source-toggle input').checked, false);
     const section = document.querySelector('pre a[target="_blank"][data-token]');
     click(page, section);
-    assert.equal(document.querySelector('#controls input').checked, true);
+    assert.equal(document.querySelector('.source-toggle input').checked, true);
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
   } finally { await page.close(); }
 });
@@ -300,12 +300,12 @@ test('the occurrences control lists a name on a plain tap, and Esc returns focus
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
-    const control = document.querySelector('.occurrences-toggle');
-    assert.equal(control.getAttribute('aria-pressed'), 'false');
+    const control = document.querySelector('.occurrences-toggle input');
+    assert.equal(control.checked, false);
     const name = document.querySelector('pre a[data-avp]');
     const before = window.location.hash;
     control.click();
-    assert.equal(control.getAttribute('aria-pressed'), 'true');
+    assert.equal(control.checked, true);
     name.focus();
     click(page, name);
     await settle();
@@ -410,9 +410,9 @@ test('a switched-off pane is kept in the URL, and following a name leaves its po
   const page = await boot({ hash: '#rfc7944?pane=0' });
   try {
     const { document, window } = page;
-    assert.equal(document.querySelector('#controls input').checked, false);
+    assert.equal(document.querySelector('.source-toggle input').checked, false);
     assert.equal(document.querySelector('iframe').getAttribute('src'), null);
-    const toggle = document.querySelector('#controls input');
+    const toggle = document.querySelector('.source-toggle input');
     toggle.checked = true;
     toggle.dispatchEvent(new window.Event('change'));
     assert.ok(!window.location.hash.includes('pane=0'));
@@ -437,7 +437,7 @@ test('the route sets the pane\'s visibility both ways, and a link keeps it switc
   const page = await boot({ hash: '#rfc7944?pane=0' });
   try {
     const { document, window } = page;
-    const toggle = () => document.querySelector('#controls input');
+    const toggle = () => document.querySelector('.source-toggle input');
     const shown = () => document.querySelector('#workspace').classList.contains('with-source');
     assert.equal(frameSrc(document), null);
     const link = document.querySelector('.section-list a');

@@ -119,7 +119,7 @@ test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { sk
   context.on('page', opened => pages.push(opened));
   assert.equal(await page.locator('iframe').getAttribute('src'), null);
   assert.equal(await page.locator('#source-pane').isVisible(), false);
-  assert.equal(await page.locator('#controls label').isVisible(), false);
+  assert.equal(await page.locator('.source-toggle').isVisible(), false);
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   assert.equal(await page.evaluate(() => document.querySelector('header').getBoundingClientRect().top), 0, 'the skip link stays out of the layout');
   assert.ok(await page.evaluate(() => document.querySelector('.skip-link').getBoundingClientRect().bottom <= 0));
