@@ -332,6 +332,25 @@ test('the occurrences control lists a name on a plain tap, and Esc returns focus
   } finally { await page.close(); }
 });
 
+test('the occurrences control is read at click time and starts off on each document', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    const control = document.querySelector('.occurrences-toggle input');
+    assert.equal(control.checked, false);
+    // As a browser restoring form state does: the box changes with no change event.
+    control.checked = true;
+    click(page, document.querySelector('pre a[data-avp]'));
+    assert.ok(document.querySelector('.avp-popup'));
+    document.querySelector('.avp-popup .popup-title button').click();
+    await page.go('#rfc7944');
+    assert.equal(document.querySelector('.occurrences-toggle input').checked, false);
+    click(page, document.querySelector('pre a[data-avp]'));
+    await settle();
+    assert.equal(document.querySelector('.avp-popup'), null);
+  } finally { await page.close(); }
+});
+
 test('alt-click and the context-menu key still list occurrences', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
@@ -564,14 +583,14 @@ test('a shared pane state the build cannot show falls back to the document itsel
 
 const rowOf = (document, name) => [...document.querySelectorAll('pre a.value-name')].find(node => node.textContent.replace(/^"|"$/g, '') === name);
 
-test('public: a value name shows its table, with its AVP and source, and walks the rows', async () => {
+test('public: alt on a value name shows its table, with its AVP and source, and walks the rows', async () => {
   const page = await boot({ hash: '#29061-6f0' });
   try {
     const { document, window } = page;
     const before = window.location.hash;
     const name = rowOf(document, 'DIAMETER_ERROR_SERVICE_AREA');
     assert.equal(name.getAttribute('href'), '#29061-6f0/17.8.2');
-    click(page, name);
+    click(page, name, { altKey: true });
     await settle();
     assert.equal(window.location.hash, before, 'stays where it is');
     const popup = document.querySelector('.avp-popup');
@@ -592,6 +611,11 @@ test('public: a value name shows its table, with its AVP and source, and walks t
     name.dispatchEvent(ctrl);
     assert.equal(ctrl.defaultPrevented, false, 'a new tab is the browser\'s');
     assert.equal(document.querySelector('.avp-popup'), null);
+    const plain = new window.MouseEvent('click', { bubbles: true, cancelable: true });
+    name.dispatchEvent(plain);
+    assert.equal(plain.defaultPrevented, false, 'with no pane, its link is the browser\'s');
+    await settle();
+    assert.equal(document.querySelector('.avp-popup'), null);
   } finally { await page.close(); }
 });
 
@@ -608,8 +632,7 @@ test('self-hosted: a value name and its clause drive the pane to the row, and th
     await settle();
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'value'].map(key => [key, pane().get(key)])), { search: row.position.section, name: row.name, row: '1', value: String(row.value) });
     assert.match(page.window.location.hash, /sourceName=/);
-    // Keeping the pane's place in the route fires happy-dom's hashchange, not a browser's: the popup can be gone here.
-    document.querySelector('.avp-popup .popup-title button')?.click();
+    assert.equal(document.querySelector('.avp-popup'), null);
     const codes = valueTables(doc.lines).find(table => table.kind === 'result-codes');
     const code = codes.rows[0];
     const clause = [...document.querySelectorAll(`[data-line="${code.line}"] [data-token]`)].find(node => node.textContent === code.position.section);

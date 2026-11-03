@@ -57,7 +57,7 @@ function tokenNode(token: HighlightedToken, index: number, doc: Document, site: 
   }
   if (token.valueRow) {
     node.classList.add('value-name');
-    node.title = 'Show its table';
+    node.title = 'Alt-click for its table';
   }
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
@@ -208,12 +208,13 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     for (const type of ['click', 'auxclick', 'contextmenu']) toggle.addEventListener(type, refresh);
     controls.append(toggle);
   }
-  let occurrences = false;
   const occurrencesToggle = element('label', 'Occurrences ', 'visibility-toggle occurrences-toggle');
   occurrencesToggle.title = 'Tap a name to list where this document uses it';
   const occurrencesInput = element('input');
   occurrencesInput.type = 'checkbox';
-  occurrencesInput.onchange = () => { occurrences = occurrencesInput.checked; };
+  // Each document starts with it off, whatever the browser would restore on a reload.
+  occurrencesInput.autocomplete = 'off';
+  occurrencesInput.checked = false;
   occurrencesToggle.append(occurrencesInput);
   controls.append(occurrencesToggle);
   const workspace = element('div');
@@ -261,7 +262,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       paneOpen: pane.isOpen(),
       sourceInPane: pane.canShow(),
       paneAvailable: document => pane.paneAvailable(site.summary(document)),
-      occurrences,
+      occurrences: occurrencesInput.checked,
     });
     if (action.type === 'browser') return;
     event.preventDefault();

@@ -75,12 +75,31 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   });
   assert.ok(inView);
   assert.equal(await page.locator('.target-line .variable\\.other\\.enum\\.dad').count(), 1, 'its name is coloured as an enum value');
-  await page.locator('.target-line .value-name').click();
+  await page.locator('.target-line .value-name').click({ modifiers: ['Alt'] });
   assert.match(await page.locator('.avp-popup').textContent(), /Result code 5123 of Experimental-Result-Code/);
   await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
   assert.match(await page.locator('.avp-popup .usage-link[aria-current]').textContent(), /DIAMETER_ERROR_OUT_OF_RESOURCES/);
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.avp-popup').count(), 0);
+  await done();
+});
+
+test('after a reload the occurrences control is off, and only alt lists a name', { skip }, async () => {
+  const { page, done } = await open('#29061-6f0');
+  const control = page.locator('.occurrences-toggle input');
+  await control.check();
+  await page.reload();
+  await page.waitForSelector('pre .value-name');
+  assert.equal(await control.isChecked(), false);
+  await page.locator('pre .value-name').first().click();
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('.avp-popup').count(), 0, 'a value name is followed');
+  await page.locator('pre .value-name').first().click({ modifiers: ['Alt'] });
+  await page.waitForSelector('.avp-popup');
+  await page.keyboard.press('Escape');
+  await page.locator('pre a[data-avp]').first().click();
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('.avp-popup').count(), 0, 'a name is followed');
   await done();
 });
 

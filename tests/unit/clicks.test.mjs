@@ -40,10 +40,13 @@ test('a table row name opens its row in an open pane, and its definition otherwi
   assert.deepEqual(clickAction(hole, plain, '6.3', noPane()), { type: 'browser' });
 });
 
-test('a name with no target finds itself in the pane, or lists its occurrences without one', () => {
+test('a name with no target finds itself in the pane, and is the browser\'s without one', () => {
   const name = { text: 'Y', avp: 'Y' };
   assert.deepEqual(clickAction(name, plain, '6.3', pane()), { type: 'source', position: { section: '6.3', name: 'Y', exact: true, occurrence: true } });
-  assert.deepEqual(clickAction(name, plain, '6.3', noPane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane()), { type: 'browser' });
+  assert.deepEqual(clickAction(name, plain, undefined, pane()), { type: 'browser' });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane({ occurrences: true })), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, { ...plain, altKey: true }, '6.3', noPane()), { type: 'occurrences' });
 });
 
 test('modified clicks are the browser\'s, and alt or the occurrences control lists a name', () => {
@@ -54,14 +57,19 @@ test('modified clicks are the browser\'s, and alt or the occurrences control lis
   const base = { text: 'RFC6733', target };
   assert.deepEqual(clickAction(base, { ...plain, altKey: true }, '1', pane()), { type: 'browser' });
   assert.equal(clickAction(base, plain, '1', noPane({ occurrences: true })).type, 'navigate');
+  assert.deepEqual(clickAction(name, { ...plain, ctrlKey: true }, '1', noPane({ occurrences: true })), { type: 'browser' });
 });
 
-test('a value table\'s name shows its table, whatever the pane; a modified click is the browser\'s', () => {
+test('a value table\'s name goes to its row or the browser, listing only by alt or the control', () => {
   const row = { name: 'Y' };
   const name = { text: 'Y', target, source: { section: '6.3', page: 17, name: 'Y', row: true }, valueRow: row };
-  assert.deepEqual(clickAction(name, plain, '6.3', pane()), { type: 'occurrences' });
-  assert.deepEqual(clickAction(name, plain, '6.3', noPane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, plain, '6.3', pane()), { type: 'source', position: name.source });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane()), { type: 'browser' });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane({ sourceInPane: true })), { type: 'browser' });
+  assert.deepEqual(clickAction(name, plain, '6.3', pane({ occurrences: true })), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, plain, '6.3', noPane({ occurrences: true })), { type: 'occurrences' });
   assert.deepEqual(clickAction(name, { ...plain, altKey: true }, '6.3', noPane()), { type: 'occurrences' });
+  assert.deepEqual(clickAction(name, { ...plain, altKey: true }, '6.3', pane()), { type: 'occurrences' });
   assert.deepEqual(clickAction(name, { ...plain, ctrlKey: true }, '6.3', pane()), { type: 'browser' });
 });
 
