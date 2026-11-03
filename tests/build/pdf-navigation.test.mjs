@@ -114,3 +114,26 @@ test('a row the section does not hold: the nearest table, the clause or format n
     assert.notEqual(none.destArray[0], null, 'the bookmark, not a row');
   });
 });
+
+test('value rows: the table in the section, by number where names repeat, and a result code\'s own clause', { skip }, async () => {
+  const at = async (navigator, section, hint, name, clue) => {
+    const found = await navigator.locate(section, hint, () => true, name, true, undefined, clue);
+    return [found.pageNumber, found.found];
+  };
+  await withNavigator('29272-i70.pdf', async navigator => {
+    assert.deepEqual(await at(navigator, '7.3.31', 124, 'UTRAN Not Allowed', { value: 0 }), [125, 'row']);
+    assert.deepEqual(await at(navigator, '7.3.8', 102, 'Separation Indication', { value: 0 }), [102, 'row']);
+    assert.deepEqual(await at(navigator, '7.4.3.1', 176, 'DIAMETER_ERROR_USER_UNKNOWN', { titled: true }), [176, 'clause']);
+  });
+  await withNavigator('29468-i00.pdf', async navigator => {
+    const repeated = await navigator.locate('6.4.33', 27, () => true, 'System error', true, undefined, { value: 6 });
+    assert.equal(repeated.pageNumber, 27);
+    assert.ok(Math.abs(repeated.destArray[3] - (352.5 + 9 + 10)) < 1);
+  });
+  await withNavigator('29214-i40.pdf', async navigator => {
+    assert.deepEqual(await at(navigator, '5.4.1', 63, 'User-Equipment-Info-Extension', { value: 15 }), [67, 'row']);
+  });
+  await withNavigator('29212-i20.pdf', async navigator => {
+    assert.deepEqual(await at(navigator, '5.5.3', 196, 'DIAMETER_PCC_RULE_EVENT', { titled: true }), [197, 'row']);
+  });
+});

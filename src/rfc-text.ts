@@ -15,7 +15,8 @@ export interface RfcLine { text: string; section: string | null; page: number }
 
 /** Reads the name cell at the start of a table line, on from `column`; null if the line does not carry on the name. */
 function nameCell(line: string, match: NameMatch, column: string) {
-  const text = line.replace(/^[\s|]+/, '');
+  // A result code can be a list's bullet: "o  DIAMETER_SERVER_SELECTION 2007".
+  const text = line.replace(column ? /^[\s|]+/ : /^[\s|]+(?:o\s+)?/, '');
   // Diagrams' "+ Name" and message formats' "[ Name ]" are not rows; a wrapped name may carry on from its hyphen.
   if (!(column ? /^-?[\p{L}\p{N}]/u : /^[\p{L}\p{N}]/u).test(text)) return null;
   const cell = takeName(text, match, column);
@@ -76,9 +77,10 @@ function nearest(lines: RfcLine[], page: number, at: (index: number) => [number,
 
 /**
  * Where a row link goes when it is followed: the row in its section's table, under the name or the spelling
- * the source prints, misprinted, else the nearest table holding it, the clause named after it, or a format naming it.
+ * the source prints, misprinted, a result code's own clause, else the nearest table holding it, the clause named
+ * after it, or a format naming it.
  */
-export function locateRow(lines: RfcLine[], name: string, section: string, page: number, printed?: string): { lines: [number, number]; found: RowFound } | null {
+export function locateRow(lines: RfcLine[], name: string, section: string, page: number, printed?: string, titled = false): { lines: [number, number]; found: RowFound } | null {
   if (!normalizeName(name)) return null;
   const inSection = rowLines(lines, name, section, page);
   if (inSection) return { lines: inSection, found: 'row' };
@@ -86,6 +88,9 @@ export function locateRow(lines: RfcLine[], name: string, section: string, page:
   if (asPrinted) return { lines: asPrinted, found: 'printed' };
   const loose = rowLines(lines, name, section, page, looseName(name));
   if (loose) return { lines: loose, found: 'loose' };
+  // A result code's clause is its place: a table elsewhere mapping the code is not.
+  const own = titled ? lines.findIndex(line => line.section === section) : -1;
+  if (own >= 0) return { lines: [own, own], found: 'clause' };
   for (const key of printed ? [name, printed] : [name]) {
     const match = exactName(key);
     const other = nearest(lines, page, index => {

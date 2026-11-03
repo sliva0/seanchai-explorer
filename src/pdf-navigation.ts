@@ -4,6 +4,8 @@ import type { NameMatch, RowFound } from './table-row.ts';
 
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
 /** `query` is the text to find there when it is not the name asked for, `found` how a row link got there. */
+/** What a value table's row knows of its place: `titled` that its section is its own clause, `value` the number printed beside it. */
+export interface RowClue { titled?: boolean; value?: number }
 export interface Destination { pageNumber: number; destArray: unknown[]; query?: string; found?: RowFound }
 
 function textLines(items: TextContent['items']) {
@@ -91,9 +93,54 @@ function findRow(items: TextContent['items'], match: NameMatch) {
   return null;
 }
 
+/** A value table's number in the cell before its name: "Bit | Name", "Feature bit | Feature | M/O". */
+const valueNumber = /^(?:bit\s*)?\d+$/i;
+
+/**
+ * The row whose name stands beside its number: a value table's. Its name can read as a sentence, so a
+ * cell is taken whole, and only the number on its left says it is a row. A number on the name's first
+ * line goes first, since one centred beside a wrapped name is near the end of another row's name too.
+ */
+function findValueRow(items: TextContent['items'], match: NameMatch, value?: number) {
+  const lines = textLines(items).map(line => ({ ...line, cells: lineCells(line.items) }));
+  return valueRowBeside(lines, match, 0, value) ?? valueRowBeside(lines, match, 1, value);
+}
+
+function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: ReturnType<typeof lineCells> })[], match: NameMatch, reach: number, value?: number) {
+  for (let i = 0; i < lines.length; i++) {
+    for (const first of lines[i].cells) {
+      let column = normalizeName(nameText(first.text));
+      if (!column || !match.starts(column)) continue;
+      const height = lines[i].items[0].height;
+      let text = first.text;
+      let cell = first;
+      let last = i;
+      for (let j = i + 1; !match.whole(column) && j < lines.length && lines[last].y - lines[j].y < 2 * height; j++) {
+        const next = lines[j].cells.find(next => next.x < cell.end && next.end > cell.x);
+        if (!next) continue;
+        const part = normalizeName(nameText(next.text));
+        if (!part || !match.starts(column + part)) break;
+        column += part;
+        text = `${text}${text.endsWith('-') ? '' : ' '}${next.text}`;
+        cell = next;
+        last = j;
+      }
+      if (!match.whole(column)) continue;
+      const left = (line: typeof lines[number]) => line.cells[0] !== first && line.cells[0].end <= first.x + 3 && valueNumber.test(line.cells[0].text) && (value === undefined || Number(line.cells[0].text.replace(/\D/g, '')) === value);
+      if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left)) return { top: lines[i].top, text };
+    }
+  }
+  return null;
+}
+
 /** The top of the table row whose first cell is `name`. */
 export function rowOnPage(items: TextContent['items'], name: string): number | null {
   return findRow(items, exactName(name))?.top ?? null;
+}
+
+/** The top of the value table's row naming `name`, beside the number `value` if said: names repeat among a page's tables, numbers tell them apart. */
+export function valueRowOnPage(items: TextContent['items'], name: string, value?: number): number | null {
+  return findValueRow(items, exactName(name), value)?.top ?? null;
 }
 
 /** The top of the row misprinting `name`, and the name as it is printed. */
@@ -192,9 +239,10 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
   }
   /**
    * Where a row link goes: the row in its section's table, under the name or the spelling the source prints,
-   * misprinted, else the nearest table holding it, the clause named after it, a format naming it, or a mention.
+   * misprinted, a result code's own clause, else the nearest table holding it, the clause named after it,
+   * a format naming it, or a mention.
    */
-  async function locateRow(section: string, hint: number, active: () => boolean, name: string, printed?: string): Promise<Destination | null> {
+  async function locateRow(section: string, hint: number, active: () => boolean, name: string, printed?: string, clue: RowClue = {}): Promise<Destination | null> {
     const bookmark = find(await outline, section);
     if (!active()) return null;
     const fallback = bookmark?.dest ? await destination(bookmark.dest) : null;
@@ -213,10 +261,18 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       const top = on(items, width);
       return top === null ? null : { top };
     };
+    const { titled, value } = clue;
     const steps: [number[], RowFound, Look][] = [
+      ...(value === undefined ? [] : [
+        [inSection, 'row', place(items => valueRowOnPage(items, name, value))],
+        [inSection, 'row', place(items => valueRowOnPage(items, name))],
+        [inSection, 'loose', items => findValueRow(items, looseName(name))],
+      ] as [number[], RowFound, Look][]),
       [inSection, 'row', row(name)],
       ...(printed ? [[inSection, 'printed', row(printed)] as [number[], RowFound, Look]] : []),
       [inSection, 'loose', items => looseRowOnPage(items, name)],
+      // A result code's clause is its place: a table elsewhere mapping the code is not.
+      ...(titled ? [[inSection, 'clause', place((items, width) => headingOnPage(items, section, width))] as [number[], RowFound, Look]] : []),
       [everywhere, 'other-table', row(name)],
       ...(printed ? [[everywhere, 'other-table', row(printed)] as [number[], RowFound, Look]] : []),
       [everywhere, 'clause', place((items, width) => clauseOnPage(items, name, width))],
@@ -234,11 +290,11 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     }
     return fallback;
   }
-  async function locate(section: string, hint: number, active = () => true, name?: string, row = false, printed?: string): Promise<Destination | null> {
-    const key = JSON.stringify([section, name, row, row ? hint : null, printed]);
+  async function locate(section: string, hint: number, active = () => true, name?: string, row = false, printed?: string, clue: RowClue = {}): Promise<Destination | null> {
+    const key = JSON.stringify([section, name, row, row ? hint : null, printed, clue]);
     if (destinations.has(key)) return destinations.get(key)!;
     if (row && name) {
-      const result = await locateRow(section, hint, active, name, printed);
+      const result = await locateRow(section, hint, active, name, printed, clue);
       if (active()) destinations.set(key, result);
       return result;
     }

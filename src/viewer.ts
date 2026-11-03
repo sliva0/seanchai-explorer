@@ -178,7 +178,10 @@ async function navigate() {
   rowTarget = undefined;
   printedAs = undefined;
   wholeWord = row;
-  const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row, params.get('printed') ?? undefined) : null;
+  const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row, params.get('printed') ?? undefined, {
+    ...(params.get('titled') === '1' ? { titled: true } : {}),
+    ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
+  }) : null;
   if (generation !== navigation) return;
   if (destination?.query && destination.query !== name) {
     printedAs = { name: name!, query: destination.query };

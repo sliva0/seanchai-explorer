@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { clauseOnPage, formatOnPage, looseRowOnPage, matchOnRow, mentionOnPage, rowOnPage } from '../../src/pdf-navigation.ts';
+import { clauseOnPage, formatOnPage, headingOnPage, looseRowOnPage, matchOnRow, mentionOnPage, rowOnPage, valueRowOnPage } from '../../src/pdf-navigation.ts';
 
 // Text items captured from the ETSI PDFs: [str, x, y, width, height], in content order.
 const pages = JSON.parse(await readFile(new URL('../fixtures/pdf-rows.json', import.meta.url), 'utf8'));
@@ -152,4 +152,52 @@ test('a mention beside the name, on its line, does not take the selection from i
     { str: 'The AVP used to convey load information', transform: [1, 0, 0, 1, 253.4, 654.9], height: 9.00001, hasEOL: true },
   ];
   assert.equal(matchOnRow(page, [0, 'LoadThe AVP used to convey '.length], 654.9 + 9.00001 + 10), 0);
+});
+
+test('a table of AVPs numbering its rows holds no value row, unless asked for: its name is its first cell or none', () => {
+  assert.equal(rowOnPage(items('29272-i70', 125), 'UTRAN Not Allowed'), null);
+});
+
+test('a bit table: the name beside its number, on one line or wrapped', () => {
+  const page = items('29272-i70', 125);
+  assert.equal(valueRowOnPage(page, 'UTRAN Not Allowed'), top(730.8));
+  assert.equal(valueRowOnPage(page, 'NR as Secondary RAT in E-UTRAN Not Allowed'), top(644.1));
+  assert.equal(valueRowOnPage(page, 'WB-E-UTRAN(MEO) Not Allowed'), top(527.2));
+  assert.equal(valueRowOnPage(page, 'UTRAN'), null);
+  const wrapped = items('29272-i70', 102);
+  assert.equal(valueRowOnPage(wrapped, 'Separation Indication'), top(518.6));
+  assert.equal(valueRowOnPage(wrapped, 'MME Registered for SMS'), top(476.7));
+  assert.equal(valueRowOnPage(wrapped, 'PDN Context Sync Up With UDM not requested'), top(762.2));
+});
+
+test('a feature table: the name after the feature bit, with M/O and a description beside it', () => {
+  const page = items('29214-i40', 66);
+  assert.equal(valueRowOnPage(page, 'Rel8'), top(740.6));
+  assert.equal(valueRowOnPage(page, 'Rel9'), top(688));
+  assert.equal(valueRowOnPage(page, 'Rel9', 1), top(688));
+  assert.equal(valueRowOnPage(page, 'Rel9', 0), null);
+});
+
+test('a page\'s two tables repeating names: the number tells their rows apart', () => {
+  const page = items('29468-i00', 27);
+  assert.equal(valueRowOnPage(page, 'System error', 5), top(633.2));
+  assert.equal(valueRowOnPage(page, 'No Traffic', 6), top(612));
+  assert.equal(valueRowOnPage(page, 'System error', 6), top(352.5));
+  assert.equal(valueRowOnPage(page, 'No Traffic', 7), top(331.4));
+});
+
+test('the end of another row\'s wrapped name is told by its number', () => {
+  assert.equal(valueRowOnPage(items('29272-i70', 102), 'requested', 3), null);
+  assert.equal(valueRowOnPage(items('29272-i70', 125), 'Allowed', 3), null);
+});
+
+test('result codes: an unnumbered line with the code, and a clause heading with it', () => {
+  const lines = items('29212-i20', 197);
+  assert.equal(rowOnPage(lines, 'DIAMETER_ERROR_TRIGGER_EVENT'), top(718.5, 10));
+  assert.equal(rowOnPage(lines, 'DIAMETER_PCC_RULE_EVENT'), top(654.5, 10));
+  assert.equal(rowOnPage(lines, 'DIAMETER_ERROR'), null);
+  const headings = items('29272-i70', 176);
+  assert.equal(rowOnPage(headings, 'DIAMETER_ERROR_USER_UNKNOWN'), null);
+  assert.equal(clauseOnPage(headings, 'DIAMETER_ERROR_USER_UNKNOWN', 595), top(362.1, 12));
+  assert.equal(headingOnPage(headings, '7.4.3.1', 595), top(362.1, 12));
 });

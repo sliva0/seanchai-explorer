@@ -223,3 +223,47 @@ test('the reader goes to the row and marks its lines, and to the heading when th
     assert.equal(page.document.querySelectorAll('.rfc-match').length, 0);
   } finally { await page.close(); }
 });
+
+test('result codes: on a line of their own, as a list\'s bullet, or with the code in brackets', () => {
+  const lines = rfcLines(`7.1.2.  Success
+
+   DIAMETER_SUCCESS 2001
+
+      The request was successfully completed.
+
+10.1.1.  Success
+
+   o  DIAMETER_FIRST_REGISTRATION 2003
+
+   DIAMETER_SUCCESS_RELOCATE_HA (Status Code 2009)
+
+   See RESOURCE_FAILURE (4014) above, and DIAMETER_SUCCESS for more.
+
+8.2.2.  Transient
+
+      RESOURCE_FAILURE (4014)
+
+      UNKNOWN_NAME (code: 5048)
+`);
+  const at = (name, section) => lines[locateRow(lines, name, section, 1).lines[0]].text.trim();
+  assert.equal(at('DIAMETER_SUCCESS', '7.1.2'), 'DIAMETER_SUCCESS 2001');
+  assert.equal(at('DIAMETER_FIRST_REGISTRATION', '10.1.1'), 'o  DIAMETER_FIRST_REGISTRATION 2003');
+  assert.equal(at('DIAMETER_SUCCESS_RELOCATE_HA', '10.1.1'), 'DIAMETER_SUCCESS_RELOCATE_HA (Status Code 2009)');
+  assert.equal(at('RESOURCE_FAILURE', '8.2.2'), 'RESOURCE_FAILURE (4014)');
+  assert.equal(at('UNKNOWN_NAME', '8.2.2'), 'UNKNOWN_NAME (code: 5048)');
+});
+
+test('RFC 7075: a result code\'s own clause goes before a table elsewhere, if the link says the clause is its', () => {
+  const lines = rfcLines(`3.4.  DIAMETER_REALM_REDIRECT_INDICATION Protocol Error Code
+
+   This protocol error code is used.
+
+8.  IANA Considerations
+
+   DIAMETER_REALM_REDIRECT_INDICATION (3011) in the registry.
+`);
+  const { lines: [first], found } = locateRow(lines, 'DIAMETER_REALM_REDIRECT_INDICATION', '3.4', 1, undefined, true);
+  assert.equal(found, 'clause');
+  assert.match(lines[first].text, /^3\.4\./);
+  assert.equal(locateRow(lines, 'DIAMETER_REALM_REDIRECT_INDICATION', '3.4', 1).found, 'other-table');
+});

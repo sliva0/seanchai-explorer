@@ -2,9 +2,11 @@ import type { Citation, Target } from './types.ts';
 
 /**
  * A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for;
- * `printed` the source's spelling of a row the corpus renamed, which the raw mirror holds and so the route does not.
+ * `printed` the source's spelling of a row the corpus renamed, which the raw mirror holds and so the route does not;
+ * `titled` a row whose section is its own clause, as a result code's is, so the clause is where to go when no row reads as it;
+ * `value` the number a bit or feature row prints beside its name, which tells apart a page's tables repeating names.
  */
-export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean; printed?: string }
+export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean; printed?: string; titled?: boolean; value?: number }
 export interface PaneState { document: string; position: SourcePosition }
 /** `line` is a line to point at, `top` the line a view was left scrolled to. */
 export interface RouteOptions { raw?: boolean; source?: PaneState; line?: number; top?: number; paneHidden?: boolean }
@@ -29,6 +31,8 @@ export function routeFor(target: Target, options: RouteOptions = {}): string {
     if (position.exact) params.set('exact', '1');
     if (position.occurrence) params.set('occurrence', '1');
     if (position.row) params.set('row', '1');
+    if (position.titled) params.set('titled', '1');
+    if (position.value !== undefined) params.set('value', String(position.value));
   }
   if (options.paneHidden) params.set('pane', '0');
   if (options.line !== undefined) params.set('line', String(options.line));
@@ -49,6 +53,8 @@ function parseSource(params: URLSearchParams): PaneState | undefined {
       ...(params.get('exact') === '1' ? { exact: true } : {}),
       ...(params.get('occurrence') === '1' ? { occurrence: true } : {}),
       ...(params.get('row') === '1' ? { row: true } : {}),
+      ...(params.get('titled') === '1' ? { titled: true } : {}),
+      ...(params.has('value') && Number.isInteger(Number(params.get('value'))) ? { value: Number(params.get('value')) } : {}),
     },
   };
 }
