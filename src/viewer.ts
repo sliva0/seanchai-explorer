@@ -95,13 +95,23 @@ function scheduleCounter() {
 }
 container.addEventListener('scroll', scheduleCounter, { passive: true });
 let resizeFrame = 0;
+let rescale: ReturnType<typeof setTimeout> | undefined;
+let paneWidth = 0;
+let paneHeight = 0;
 new ResizeObserver(() => {
   cancelAnimationFrame(resizeFrame);
   resizeFrame = requestAnimationFrame(() => {
-    if (!ready || !container.clientWidth || !container.clientHeight) return;
-    if (zoom.value === 'page-width' || zoom.value === 'page-fit') viewer.currentScaleValue = zoom.value;
+    const { clientWidth: width, clientHeight: height } = container;
+    if (!ready || !width || !height) return;
     viewer.update();
     scheduleCounter();
+    const fits = zoom.value === 'page-width' ? width !== paneWidth : zoom.value === 'page-fit' && (width !== paneWidth || height !== paneHeight);
+    paneWidth = width;
+    paneHeight = height;
+    if (!fits) return;
+    // Rescaling redraws the pages: once a dragged splitter stops, and not for a height a fit to width ignores.
+    clearTimeout(rescale);
+    rescale = setTimeout(() => { if (zoom.value === 'page-width' || zoom.value === 'page-fit') viewer.currentScaleValue = zoom.value; }, 150);
   });
 }).observe(container);
 
