@@ -9,3 +9,4 @@ public/pdfjs/
 .data-tmp/
 /export/
 .smoke-dist/
+.smoke-viewer-dist/

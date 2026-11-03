@@ -57,7 +57,7 @@ npm run check               # type check
 
 npm test                    # unit tests over tests/fixtures/export; no build, no export
 npm run test:build          # one real build per mode, overwrites public/data and dist/
-npm run test:smoke          # headless Chromium over a fixture build; CHROMIUM=path to choose the browser
+npm run test:smoke          # headless Chromium over a fixture build, and row links over a held PDF and RFC; CHROMIUM=path to choose the browser
 ```
 
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
