@@ -771,8 +771,8 @@ test('sections, findings and holes link to their clause in the current view', as
   });
   try {
     const { document } = page;
-    const [sections, findings, holes] = document.querySelectorAll('.diagnostic-panel');
-    assert.match(document.querySelector('#diagnostics button').textContent, /^Sections \d+$/);
+    const [findings, holes, sections] = document.querySelectorAll('.diagnostic-panel');
+    assert.match(document.querySelector('.section-control .disclosure').textContent, /^Sections \d+$/);
     const first = sections.querySelector('li');
     const { sections: listed } = await readFixture('documents/29061-6f0.json');
     assert.equal(first.textContent, `${listed[0].section} ${listed[0].title} p. ${listed[0].page}`);
@@ -781,7 +781,7 @@ test('sections, findings and holes link to their clause in the current view', as
     assert.ok(holes.querySelector('li a'), 'a hole links to its clause');
     assert.match(holes.querySelector('li a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
     await page.go('#29061-6f0?raw=1');
-    assert.match(document.querySelector('.diagnostic-panel li a').getAttribute('href'), /\?raw=1$/);
+    assert.match(document.querySelector('#diagnostic-sections li a').getAttribute('href'), /\?raw=1$/);
   } finally { await page.close(); }
 });
 
@@ -792,7 +792,7 @@ test('the strip\'s toggles open one panel at a time, and one with nothing to sho
   });
   try {
     const { document } = page;
-    const [sections, findings, holes] = document.querySelectorAll('#diagnostics button');
+    const [findings, holes, sections] = document.querySelectorAll('#diagnostics .disclosure');
     const panel = toggle => document.getElementById(toggle.getAttribute('aria-controls'));
     assert.equal(holes.disabled, true);
     assert.equal(holes.textContent, 'Holes 0');
@@ -1213,7 +1213,9 @@ test('the strip names the section at the top of the view, and opens the Sections
     const row = rows.find(node => node.dataset.section !== rows[0].dataset.section);
     const section = row.dataset.section;
     const { title } = (await readFixture('documents/29153-j00.json')).sections.find(entry => entry.section === section);
-    assert.equal(document.querySelector('#diagnostics .section-crumb'), null, 'not one of the toggles');
+    const toggle = document.querySelector('.section-control .disclosure');
+    assert.deepEqual([...document.querySelectorAll('#diagnostics button')].map(node => node.textContent.split(' ')[0]).slice(0, 3), ['Findings', 'Holes', 'Sections']);
+    assert.equal(toggle.nextElementSibling.firstElementChild, crumb, 'the crumb follows the Sections toggle');
     pane(document).scrollTop = Number(row.dataset.line) * 20 - 12;
     pane(document).dispatchEvent(new window.Event('scroll'));
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -1222,7 +1224,7 @@ test('the strip names the section at the top of the view, and opens the Sections
     click(page, crumb);
     const panel = document.querySelector('#diagnostic-sections');
     assert.equal(panel.hidden, false);
-    assert.equal(document.querySelector('#diagnostics .disclosure').getAttribute('aria-expanded'), 'true');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
     const current = panel.querySelectorAll('[aria-current]');
     assert.equal(current.length, 1);
     assert.equal(current[0].dataset.section, section);
@@ -1230,6 +1232,8 @@ test('the strip names the section at the top of the view, and opens the Sections
     click(page, crumb);
     assert.equal(panel.hidden, false, 'a second click does not close it');
     assert.equal(panel.querySelectorAll('[aria-current]').length, 1);
+    click(page, toggle);
+    assert.equal(panel.hidden, true, 'the toggle does');
   } finally { await page.close(); }
 });
 

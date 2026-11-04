@@ -251,17 +251,24 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     return anchor;
   };
   const { toggles, bodies, open } = renderDiagnostics([
-    { title: 'Sections', count: doc.sections.length, list: renderSections(doc, sectionLink) },
     { title: 'Findings', count: doc.findings.length, list: renderFindings(doc, sectionLink) },
     { title: 'Holes', count: doc.holes.length, list: renderHoles(doc, sectionLink) },
+    { title: 'Sections', count: doc.sections.length, list: renderSections(doc, sectionLink) },
   ]);
+  const sectionsPanel = bodies.length - 1;
   const tools = element('div');
   tools.id = 'document-tools';
   const crumb = element('button', undefined, 'section-crumb');
   crumb.type = 'button';
   const crumbSlot = element('div', undefined, 'crumb-slot');
   crumbSlot.append(crumb);
-  tools.append(toggles, crumbSlot, controls, ...bodies);
+  // One control over one panel: its toggle opens and closes it, its crumb opens it at the current entry.
+  const sectionControl = element('div', undefined, 'section-control');
+  sectionControl.setAttribute('role', 'group');
+  sectionControl.setAttribute('aria-label', 'Sections');
+  sectionControl.append(toggles.lastElementChild!, crumbSlot);
+  toggles.append(sectionControl);
+  tools.append(toggles, controls, ...bodies);
   container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
@@ -351,8 +358,8 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     crumb.title = section ? `${crumb.textContent}: show in Sections` : '';
   };
   crumb.onclick = () => {
-    const panel = bodies[0];
-    open(0);
+    const panel = bodies[sectionsPanel];
+    open(sectionsPanel);
     for (const node of panel.querySelectorAll('[aria-current]')) node.removeAttribute('aria-current');
     const item = [...panel.querySelectorAll<HTMLElement>('li')].find(node => node.dataset.section === crumb.dataset.section);
     if (!item) return;

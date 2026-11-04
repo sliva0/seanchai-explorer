@@ -194,14 +194,14 @@ test('the strip\'s section panel is bounded, one column, and moves the text belo
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
     const { page, done } = await open('#29217-j00', { viewport });
     const geometry = () => page.evaluate(() => ({
-      toggle: document.querySelector('#diagnostics button').getBoundingClientRect().toJSON(),
+      toggle: document.querySelector('.section-control .disclosure').getBoundingClientRect().toJSON(),
       strip: document.querySelector('#document-tools').getBoundingClientRect().height,
       text: document.querySelector('#document').getBoundingClientRect().top,
       width: document.querySelector('#document').getBoundingClientRect().width,
       scrollTop: document.querySelector('#document').scrollTop,
     }));
     const before = await geometry();
-    await page.locator('#diagnostics button').first().click();
+    await page.locator('.section-control .disclosure').click();
     const after = await geometry();
     const panel = await page.locator('.diagnostic-panel:not([hidden])').evaluate(node => {
       const items = [...node.querySelectorAll('li')].map(item => item.getBoundingClientRect());
@@ -221,7 +221,7 @@ test('the strip\'s section panel is bounded, one column, and moves the text belo
     assert.ok(Math.abs(after.text - before.text - (after.strip - before.strip)) < 1, 'the text moves by the panel alone');
     assert.equal(after.width, before.width);
     assert.equal(after.scrollTop, before.scrollTop);
-    await page.locator('#diagnostics button').first().click();
+    await page.locator('.section-control .disclosure').click();
     assert.deepEqual(await geometry(), before, 'closing restores it');
     await done();
   }
@@ -488,7 +488,7 @@ const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) 
 
 test('a jump in a document eases there, keeps the URL still until it ends, and flashes where it lands', { skip }, async () => {
   const { page, done } = await open('#29217-j00?pane=0');
-  await page.locator('#diagnostics button').first().click();
+  await page.locator('.section-control .disclosure').click();
   const moves = await page.evaluate(async () => {
     const pane = document.querySelector('#document');
     const links = document.querySelectorAll('.section-list a');
@@ -632,7 +632,7 @@ test('the strip names the section at the top of the view without moving, and ope
     await crumb.click();
     const panel = page.locator('#diagnostic-sections');
     await panel.waitFor();
-    assert.equal(await page.locator('#diagnostics .disclosure').first().getAttribute('aria-expanded'), 'true');
+    assert.equal(await page.locator('.section-control .disclosure').getAttribute('aria-expanded'), 'true');
     const entry = panel.locator('li[aria-current]');
     assert.equal(await entry.count(), 1);
     assert.equal(await entry.getAttribute('data-section'), target);
@@ -643,6 +643,56 @@ test('the strip names the section at the top of the view without moving, and ope
     }), 'in view in the panel');
     assert.notEqual(await entry.evaluate(node => getComputedStyle(node).backgroundColor), 'rgba(0, 0, 0, 0)');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await done();
+  }
+});
+
+test('Sections and its crumb are one control after Findings and Holes: the toggle opens and closes, the crumb opens at the current section', { skip }, async () => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
+    const { page, done } = await open('#29217-j00', { viewport });
+    const toggle = page.locator('.section-control .disclosure');
+    const crumb = page.locator('.section-crumb');
+    const panel = page.locator('#diagnostic-sections');
+    const layout = await page.evaluate(() => {
+      const [findings, holes, sections, crumbBox] = [...document.querySelectorAll('#diagnostics button')].map(node => node.getBoundingClientRect());
+      return {
+        order: findings.right <= holes.left && holes.right <= sections.left && sections.right <= crumbBox.left,
+        sameRow: Math.abs(sections.top - crumbBox.top) < 1,
+        strip: document.querySelector('#document-tools').getBoundingClientRect().height,
+        sideways: document.documentElement.scrollWidth > innerWidth,
+      };
+    });
+    assert.equal(layout.order, true);
+    assert.equal(layout.sameRow, true);
+    assert.equal(layout.sideways, false);
+    if (viewport.width === 1280) assert.equal(layout.strip, 35);
+    assert.equal(await page.getByRole('button', { name: await crumb.textContent(), exact: true }).count(), 1, 'the dot before it is not read out');
+    await toggle.click();
+    assert.equal(await panel.isVisible(), true);
+    assert.equal(await panel.locator('li[aria-current]').count(), 0, 'the toggle marks no entry');
+    await toggle.click();
+    assert.equal(await panel.isVisible(), false);
+    const section = await page.evaluate(() => {
+      const pane = document.querySelector('#document');
+      const rows = [...document.querySelectorAll('.dad-line[data-section]')];
+      const { section } = rows[Math.floor(rows.length / 2)].dataset;
+      const heading = rows.find(node => node.dataset.section === section);
+      pane.scrollTop += heading.getBoundingClientRect().top - pane.getBoundingClientRect().top - 12;
+      return section;
+    });
+    await page.waitForFunction(value => document.querySelector('.section-crumb').dataset.section === value, section);
+    await crumb.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await panel.isVisible(), true);
+    assert.equal(await panel.locator('li[aria-current]').getAttribute('data-section'), section);
+    assert.ok(await panel.locator('li[aria-current]').evaluate(node => {
+      const box = node.getBoundingClientRect();
+      const bounds = node.closest('.diagnostic-panel').getBoundingClientRect();
+      return box.top >= bounds.top && box.bottom <= bounds.bottom;
+    }), 'in view in the panel');
+    await toggle.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await panel.isVisible(), false);
     await done();
   }
 });

@@ -20,11 +20,15 @@ ul { margin: 0; padding: 0; list-style: none; }
 /* Document strip */
 #document-tools { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--mono); }
 #controls, #diagnostics { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); }
+#diagnostics { flex: 1 1 auto; min-width: 0; }
 #controls > a { min-width: 9ch; text-align: right; }
-/* Takes what the row has spare and never wraps, so the strip is as tall with or without it. */
-.crumb-slot { flex: 1 1 0; min-width: 0; }
+.section-control { display: flex; flex: 1 1 auto; align-items: center; min-width: 0; }
+.section-control .disclosure { flex: none; }
+/* Takes what the row has spare and asks for none, so the strip is as tall with or without it. */
+.crumb-slot { flex: 1 1 0; width: 0; min-width: 0; }
 .section-crumb { display: block; max-width: 100%; height: var(--control-height); padding: 0 var(--space-1); overflow: hidden; border: 0; border-radius: var(--radius); color: var(--ui-muted); background: none; font: inherit; line-height: var(--control-height); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
 .section-crumb:hover:not(:disabled) { color: var(--ui-link-hover); background: var(--ui-hover); }
+.section-crumb::before { content: '·'; content: '·' / ''; margin-right: var(--space-1); }
 .section-crumb:disabled { visibility: hidden; }
 #diagnostics .disclosure { display: inline-flex; align-items: center; height: var(--control-height); padding: 0 var(--space-1); border: 0; border-radius: var(--radius); color: inherit; background: none; font: inherit; white-space: nowrap; cursor: pointer; }
 #diagnostics .disclosure:hover:not(:disabled) { color: var(--ui-link-hover); background: var(--ui-hover); }
