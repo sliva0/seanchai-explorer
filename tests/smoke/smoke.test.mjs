@@ -434,6 +434,32 @@ test('search: a typo finds a labelled name, mentions group by document, and the 
   await done();
 });
 
+test('search: a family and its documents are two columns, a document a line, at the size of the name', { skip }, async () => {
+  const { page, done } = await open('#search?q=Session-Id');
+  await page.waitForSelector('.search-avp .entry-families');
+  const layout = await page.evaluate(() => {
+    const documents = [...document.querySelectorAll('.search-avp .family-documents')].find(node => node.querySelectorAll('.entry-document').length > 1);
+    const family = documents.closest('li').querySelector('.family');
+    const lines = [...documents.querySelectorAll('.entry-document')].map(node => node.getBoundingClientRect());
+    const size = node => getComputedStyle(node).fontSize;
+    return {
+      lines,
+      familyBox: family.getBoundingClientRect(),
+      sizes: [size(family), size(documents.querySelector('a')), size(documents.querySelector('.entry-document'))],
+      name: size(documents.closest('.search-entry').querySelector('.entry-line strong')),
+      scrolls: document.documentElement.scrollWidth > innerWidth,
+    };
+  });
+  assert.ok(layout.lines.length > 1);
+  assert.ok(layout.lines.every(line => line.left === layout.lines[0].left), 'one column');
+  assert.ok(layout.lines.every((line, index) => !index || line.top >= layout.lines[index - 1].bottom), 'one a line');
+  assert.ok(layout.lines[0].left >= layout.familyBox.right, 'beside the family');
+  assert.ok(Math.abs(layout.lines[0].top - layout.familyBox.top) < 2, 'the first on the family\'s line');
+  assert.deepEqual(layout.sizes, [layout.name, layout.name, layout.name]);
+  assert.equal(layout.scrolls, false);
+  await done();
+});
+
 test('the header link opens search with its input focused, and search data loads only there', { skip }, async () => {
   const requests = [];
   const { page, done } = await open('', {}, async opened => {

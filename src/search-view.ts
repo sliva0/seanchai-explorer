@@ -42,7 +42,7 @@ function withDetail(anchor: HTMLAnchorElement, detail: (string | HTMLElement)[][
 
 interface ListedDocument { doc: DocumentSummary | undefined; node: HTMLElement }
 
-/** A line per publisher, in the index's order, keeping a specification's editions together. */
+/** A row per publisher, in the index's order, with a line per document, keeping a specification's editions together. */
 function renderFamilies(documents: ListedDocument[]): HTMLElement {
   const families = new Map<string, Map<string, HTMLElement[]>>();
   for (const { doc, node } of documents) {
@@ -55,7 +55,7 @@ function renderFamilies(documents: ListedDocument[]): HTMLElement {
   for (const [publisher, family] of [...families].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     const item = element('li');
     const links = element('span', undefined, 'family-documents');
-    [...family.values()].flat().forEach((node, index) => links.append(...(index ? [' · '] : []), node));
+    links.append(...[...family.values()].flat());
     item.append(element('span', `${publisher}:`, 'family'), links);
     list.append(item);
   }

@@ -602,13 +602,14 @@ test('a name is one entry, with no fold, and its documents inline by publisher i
     assert.equal(document.querySelector('#search-results details, #search-results summary'), null);
     assert.equal(section.querySelector('h2').textContent, 'Commands 1');
     assert.equal(section.querySelector('.entry-line').textContent, 'Accounting-Answer (ACA)· command 271');
-    const families = [...section.querySelectorAll('.entry-families li')].map(item => [item.querySelector('.family').textContent, item.querySelector('.family-documents').textContent]);
+    const families = [...section.querySelectorAll('.entry-families li')].map(item => [item.querySelector('.family').textContent, [...item.querySelectorAll('.family-documents > .entry-document')].map(line => line.textContent)]);
     assert.deepEqual(families, [
-      ['3GPP:', 'TS 29.061 (as AC-Answer, NASREQ) · TS 32.299 (Rf) · TS 32.299 Rel-11 (Rf)'],
-      ['IETF:', 'RFC 6733 (base accounting) · RFC 7155 (NASREQ)'],
-      ['oneM2M:', 'TS-0004 (Mch)'],
-      ['OMA:', 'DDS Charging_Data (CH-1)'],
+      ['3GPP:', ['TS 29.061 (as AC-Answer, NASREQ)', 'TS 32.299 (Rf)', 'TS 32.299 Rel-11 (Rf)']],
+      ['IETF:', ['RFC 6733 (base accounting)', 'RFC 7155 (NASREQ)']],
+      ['oneM2M:', ['TS-0004 (Mch)']],
+      ['OMA:', ['DDS Charging_Data (CH-1)']],
     ]);
+    assert.ok(!section.querySelector('.entry-families').textContent.includes('·'), 'nothing joins them');
     const anchor = section.querySelector('.entry-document a');
     assert.equal(anchor.getAttribute('href'), '#29061-jx/6.2');
     assert.equal(anchor.title, 'Command 271 · application 1 (NASREQ) · header none · TS 29.061 6.2');
@@ -631,12 +632,13 @@ test('where documents using a name find it is said once, and at a document only 
     const { document } = page;
     const entry = name => [...document.querySelectorAll('.search-avp .search-entry')].find(node => node.querySelector('strong').textContent === name);
     assert.equal(entry('Zzone').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32 · defined in RFC 9001');
-    assert.deepEqual([...entry('Zzone').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002', 'RFC 9001']);
+    const lines = name => [...entry(name).querySelectorAll('.family-documents')].map(node => [...node.querySelectorAll('.entry-document')].map(line => line.textContent));
+    assert.deepEqual(lines('Zzone'), [['TS 29.001', 'TS 29.002'], ['RFC 9001']]);
     assert.equal(entry('Zzone').querySelector('.entry-facts a').getAttribute('href'), '#def-a/4');
-    assert.deepEqual([...entry('Zztwo').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002 → RFC 9002', 'RFC 9001']);
+    assert.deepEqual(lines('Zztwo'), [['TS 29.001', 'TS 29.002 → RFC 9002'], ['RFC 9001']]);
     assert.equal(entry('Zzthree').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32 · defined in RFC 9002');
-    assert.deepEqual([...entry('Zzthree').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002', 'RFC 9001 (defines it)']);
-    assert.deepEqual([...entry('Zztwice').querySelectorAll('.family-documents')].map(node => node.textContent), ['RFC 9001 (4) · RFC 9001 (7)']);
+    assert.deepEqual(lines('Zzthree'), [['TS 29.001', 'TS 29.002'], ['RFC 9001 (defines it)']]);
+    assert.deepEqual(lines('Zztwice'), [['RFC 9001 (4)', 'RFC 9001 (7)']]);
     assert.equal(entry('Zztwice').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32', 'all define their own');
   } finally { await page.close(); }
 });
