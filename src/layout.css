@@ -99,12 +99,28 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 /* Index */
 .index-view section { margin-bottom: var(--space-6); }
 .index-view h2 { margin-block: var(--space-3) var(--space-2); font-size: var(--text-lg); }
-.index-view li { padding-block: var(--space-1); font-size: var(--text-md); line-height: 1.6; }
-.index-view li p { margin: 0 0 var(--space-1); max-width: 80ch; font-size: var(--text-sm); color: var(--ui-muted); }
+.document-table { width: 100%; max-width: 72rem; border-collapse: collapse; table-layout: fixed; font: var(--text-sm)/1.5 var(--mono); }
+.number-column { width: calc(var(--number-width) + var(--space-4)); }
+.interfaces-column { width: calc(var(--interfaces-width) + var(--space-4)); }
+.document-table tbody tr + tr { border-top: 1px solid var(--ui-divider); }
+.document-table td { padding: var(--space-1) var(--space-4) var(--space-1) 0; vertical-align: baseline; }
+.document-table a { text-decoration: none; }
+.document-table a:hover { color: var(--ui-link-hover); text-decoration: underline; }
+.document-table .doc-title { padding-right: 0; font: var(--text-md)/1.5 var(--sans); }
+.doc-title a { color: inherit; }
+.doc-title p { margin: 0; max-width: 80ch; font-size: var(--text-sm); color: var(--ui-muted); }
 .pinned-release { margin-block: var(--space-3); font-size: var(--text-md); }
 .pinned-release summary { font-weight: 600; }
-.pinned-release ul { margin-top: var(--space-1); }
+.pinned-release table { margin-top: var(--space-1); }
 .versions { color: var(--ui-muted); font-size: var(--text-sm); }
+/* As wide as the source pane's cut-off: number and interfaces on a line, the title under them. */
+@media (max-width: 760px) {
+  .document-table, .document-table tbody { display: block; }
+  .document-table colgroup { display: none; }
+  .document-table tbody tr { display: grid; grid-template-columns: max-content minmax(0, 1fr); column-gap: var(--space-3); padding-block: var(--space-1); }
+  .document-table td { padding: 0; }
+  .document-table .doc-title { grid-column: 1 / -1; }
+}
 
 /* Search */
 .search-form { display: flex; align-items: center; gap: var(--space-2); max-width: 48rem; margin-block: var(--space-1) var(--space-4); }

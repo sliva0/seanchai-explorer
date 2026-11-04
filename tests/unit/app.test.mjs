@@ -366,8 +366,41 @@ test('the index lists releases newest first with pinned ones folded, and version
     ]);
     const folded = document.querySelectorAll('.pinned-release');
     assert.equal(folded[0].open, false);
-    assert.equal(folded[1].querySelector('li p').textContent, 'Held for TS 29.210.');
-    assert.equal(document.querySelectorAll('main li > a').length, documents.length);
+    assert.equal(folded[1].querySelector('.doc-title p').textContent, 'Held for TS 29.210.');
+    assert.equal(document.querySelectorAll('main tbody .doc-number a').length, documents.length);
+  } finally { await page.close(); }
+});
+
+test('an index row is number, interfaces and title, with what its heading says left out', async () => {
+  const doc = (id, publisher, specification, reference, release, version, title, pinned = null) => ({ id, publisher, specification, reference, release, version, title, pinned, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
+  const documents = [
+    doc('29229-j10', '3GPP', '3GPP TS 29.229', 'TS29.229', 19, '19.1.0', 'Cx and Dx interfaces based on Diameter'),
+    doc('29212-j10', '3GPP', '3GPP TS 29.212', 'TS29.212', 19, '19.1.0', 'PCC'),
+    doc('29212-bj0', '3GPP', '3GPP TS 29.212', 'TS29.212', 11, '11.19.0', 'PCC', 'Held for TS 32.299.'),
+    doc('29230-j30', '3GPP', '3GPP TS 29.230', 'TS29.230', 19, '19.3.0', 'Codes'),
+    doc('es283026-010600', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.6.0', 'TISPAN; Rq'),
+    doc('es283026-010500', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.5.0', 'TISPAN; Rq'),
+    doc('rfc6733', 'IETF', 'RFC 6733', 'RFC6733', null, null, 'RFC 6733'),
+    doc('xs0013-006-b_v1.0', '3GPP2', '3GPP2 X.S0013-006', '3GPP2-X.S0013-006', null, '1.0', 'Cx'),
+  ];
+  const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
+  try {
+    const { document } = page;
+    const rows = [...document.querySelectorAll('main tbody tr')].map(row => [...row.children].map(cell => cell.firstChild?.textContent ?? ''));
+    assert.deepEqual(rows, [
+      ['29.212', 'Gx, Gxx, Sd, St, S15', 'PCC'],
+      ['29.229', 'Cx, Dx', 'Cx and Dx interfaces based on Diameter'],
+      ['29.230', '', 'Codes'],
+      ['29.212', 'Gx, Gxx, Sd, S15', 'PCC'],
+      ['RFC 6733', 'Base', ''],
+      ['ES 283 026 V1.5.0', 'Rq', 'TISPAN; Rq'],
+      ['ES 283 026', 'Rq', 'TISPAN; Rq'],
+      ['3GPP2 X.S0013-006', 'Cx', 'Cx'],
+    ]);
+    const row = document.querySelector('main tbody tr');
+    assert.deepEqual([...row.querySelectorAll('a')].map(anchor => [anchor.getAttribute('href'), anchor.tabIndex]), [['#29212-j10', 0], ['#29212-j10', -1]]);
+    const groups = [...document.querySelectorAll('.publisher-group')];
+    assert.deepEqual(groups.map(group => [group.style.getPropertyValue('--number-width'), group.style.getPropertyValue('--interfaces-width')]), [['6ch', '20ch'], ['8ch', '4ch'], ['17ch', '2ch'], ['17ch', '2ch']]);
   } finally { await page.close(); }
 });
 
