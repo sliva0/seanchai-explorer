@@ -100,6 +100,7 @@ function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
   for (const { section, page, title } of doc.sections) {
     const item = element('li');
     const tables = tablesNote(doc.lines, section);
+    item.dataset.section = section;
     item.append(sectionLink(section), ' ', element('span', tables ? `${title} · ${tables}` : title));
     if (page) item.append(' ', element('span', `p. ${page}`, 'section-page'));
     list.append(item);
@@ -145,29 +146,28 @@ function renderDiagnostics(panels: { title: string; count: number; list: HTMLEle
     toggles.append(toggle);
     return { toggle, panel };
   });
-  for (const { toggle, panel } of entries) {
-    toggle.onclick = () => {
-      const opening = panel.hidden;
-      for (const other of entries) {
-        other.panel.hidden = true;
-        other.toggle.setAttribute('aria-expanded', 'false');
-      }
-      panel.hidden = !opening;
-      toggle.setAttribute('aria-expanded', String(opening));
-    };
-  }
-  return { toggles, bodies: entries.map(entry => entry.panel) };
+  const setOpen = (entry: typeof entries[number], opening: boolean) => {
+    for (const other of entries) {
+      other.panel.hidden = true;
+      other.toggle.setAttribute('aria-expanded', 'false');
+    }
+    entry.panel.hidden = !opening;
+    entry.toggle.setAttribute('aria-expanded', String(opening));
+  };
+  for (const entry of entries) entry.toggle.onclick = () => setOpen(entry, entry.panel.hidden === true);
+  return { toggles, bodies: entries.map(entry => entry.panel), open: (index: number) => setOpen(entries[index], true) };
 }
 
-/** The first line at or below the pane's top edge that `filter` selects. */
-function topRow(documentPane: HTMLElement, filter: string): HTMLElement | undefined {
-  const rows = documentPane.querySelectorAll<HTMLElement>(`.dad-line${filter}`);
-  const top = documentPane.getBoundingClientRect().top;
+/** How far below the top edge a jump leaves a line. */
+const JUMP_MARGIN = 12;
+
+/** The first of `rows`, which run down the page, that reaches below `edge`. */
+function topRow(rows: HTMLElement[], edge: number): HTMLElement | undefined {
   let first = 0;
   let last = rows.length;
   while (first < last) {
     const middle = Math.floor((first + last) / 2);
-    if (rows[middle].getBoundingClientRect().bottom <= top) first = middle + 1;
+    if (rows[middle].getBoundingClientRect().bottom <= edge) first = middle + 1;
     else last = middle;
   }
   return rows[first] ?? rows[rows.length - 1];
@@ -198,11 +198,15 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   documentPane.id = 'document';
   documentPane.tabIndex = 0;
   documentPane.setAttribute('aria-label', 'Document text');
+  let rows: HTMLElement[] = [];
+  let sectionRows: HTMLElement[] = [];
+  /** The section a jump to it leaves at the top of the view, where its line sits below the margin and the end of the last section still shows above. */
+  const currentSection = () => topRow(sectionRows, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
   if (doc.raw) {
     const toggle = element('a', raw ? 'Corrected' : 'Raw');
     const refresh = () => {
       const route = parseRoute(location.hash);
-      const section = topRow(documentPane, '[data-section]')?.dataset.section ?? route.section;
+      const section = currentSection() ?? route.section;
       toggle.href = routeFor({ document: doc.id, section: section || null, name: section === route.section ? route.name : undefined }, { raw: !raw, source: route.source, paneHidden: route.paneHidden });
     };
     refresh();
@@ -224,20 +228,26 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   if (pane.toggle) controls.append(pane.toggle);
   const pre = renderLines(lines, doc, site);
   documentPane.append(pre);
+  rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
+  sectionRows = rows.filter(row => row.dataset.section);
   workspace.insertBefore(documentPane, workspace.children[1] ?? null);
   const sectionLink: SectionLink = section => {
     const anchor = element('a', section);
     anchor.href = routeFor({ document: doc.id, section }, { raw: Boolean(raw) });
     return anchor;
   };
-  const { toggles, bodies } = renderDiagnostics([
+  const { toggles, bodies, open } = renderDiagnostics([
     { title: 'Sections', count: doc.sections.length, list: renderSections(doc, sectionLink) },
     { title: 'Findings', count: doc.findings.length, list: renderFindings(doc, sectionLink) },
     { title: 'Holes', count: doc.holes.length, list: renderHoles(doc, sectionLink) },
   ]);
   const tools = element('div');
   tools.id = 'document-tools';
-  tools.append(toggles, controls, ...bodies);
+  const crumb = element('button', undefined, 'section-crumb');
+  crumb.type = 'button';
+  const crumbSlot = element('div', undefined, 'crumb-slot');
+  crumbSlot.append(crumb);
+  tools.append(toggles, crumbSlot, controls, ...bodies);
   container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
@@ -303,6 +313,35 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     focusable = node;
   };
 
+  const sectionTitles = new Map(doc.sections.map(({ section, title }) => [section, title]));
+  const showCrumb = () => {
+    const section = currentSection();
+    const title = sectionTitles.get(section ?? '');
+    crumb.textContent = section ? [section, title].filter(Boolean).join(' · ') : '';
+    crumb.disabled = !section;
+    crumb.dataset.section = section ?? '';
+    crumb.title = section ? `${crumb.textContent}: show in Sections` : '';
+  };
+  crumb.onclick = () => {
+    const panel = bodies[0];
+    open(0);
+    for (const node of panel.querySelectorAll('[aria-current]')) node.removeAttribute('aria-current');
+    const item = [...panel.querySelectorAll<HTMLElement>('li')].find(node => node.dataset.section === crumb.dataset.section);
+    if (!item) return;
+    item.setAttribute('aria-current', 'location');
+    panel.scrollTop += item.getBoundingClientRect().top - panel.getBoundingClientRect().top - (panel.clientHeight - item.offsetHeight) / 2;
+    item.querySelector('a')?.focus({ preventScroll: true });
+  };
+
+  let frame = 0;
+  documentPane.addEventListener('scroll', () => {
+    frame ||= requestAnimationFrame(() => {
+      frame = 0;
+      if (documentPane.isConnected) showCrumb();
+    });
+  }, { passive: true });
+
+  showCrumb();
   return {
     doc,
     raw: Boolean(raw),
@@ -330,7 +369,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       focusable?.focus({ preventScroll: true });
     },
     topLine() {
-      const row = topRow(documentPane, '');
+      const row = topRow(rows, documentPane.getBoundingClientRect().top);
       return row && Number(row.dataset.line);
     },
     valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),

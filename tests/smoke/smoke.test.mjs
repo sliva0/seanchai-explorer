@@ -477,3 +477,47 @@ test('the header link opens search with its input focused, and search data loads
   await page.waitForSelector('.target-line');
   await done();
 });
+
+test('the strip names the section at the top of the view without moving, and opens its entry in the panel', { skip }, async () => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
+    const { page, done } = await open('#29217-j00', { viewport });
+    const crumb = page.locator('.section-crumb');
+    const geometry = () => page.evaluate(() => ({
+      strip: document.querySelector('#document-tools').getBoundingClientRect().toJSON(),
+      header: document.querySelector('.document-header').getBoundingClientRect().toJSON(),
+      text: document.querySelector('#document').getBoundingClientRect().toJSON(),
+    }));
+    const first = await crumb.textContent();
+    assert.match(first, / · /);
+    const before = await geometry();
+    const target = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll('.dad-line[data-section]')];
+      const row = rows[Math.floor(rows.length / 2)];
+      const pane = document.querySelector('#document');
+      const section = row.dataset.section;
+      const heading = rows.find(node => node.dataset.section === section);
+      pane.scrollTop += heading.getBoundingClientRect().top - pane.getBoundingClientRect().top - 12;
+      return section;
+    });
+    await page.waitForFunction(section => document.querySelector('.section-crumb').textContent.startsWith(`${section} · `), target);
+    assert.notEqual(await crumb.textContent(), first);
+    assert.deepEqual(await geometry(), before, 'the strip, header and text stay put');
+    const overflow = await crumb.evaluate(node => ({ overflow: getComputedStyle(node).textOverflow, wide: node.getBoundingClientRect().right <= document.querySelector('#controls').getBoundingClientRect().right }));
+    assert.equal(overflow.overflow, 'ellipsis');
+    await crumb.click();
+    const panel = page.locator('#diagnostic-sections');
+    await panel.waitFor();
+    assert.equal(await page.locator('#diagnostics .disclosure').first().getAttribute('aria-expanded'), 'true');
+    const entry = panel.locator('li[aria-current]');
+    assert.equal(await entry.count(), 1);
+    assert.equal(await entry.getAttribute('data-section'), target);
+    assert.ok(await entry.evaluate(node => {
+      const box = node.getBoundingClientRect();
+      const bounds = node.closest('.diagnostic-panel').getBoundingClientRect();
+      return box.top >= bounds.top && box.bottom <= bounds.bottom;
+    }), 'in view in the panel');
+    assert.notEqual(await entry.evaluate(node => getComputedStyle(node).backgroundColor), 'rgba(0, 0, 0, 0)');
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await done();
+  }
+});

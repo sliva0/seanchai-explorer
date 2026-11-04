@@ -21,6 +21,11 @@ ul { margin: 0; padding: 0; list-style: none; }
 #document-tools { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--mono); }
 #controls, #diagnostics { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); }
 #controls > a { min-width: 9ch; text-align: right; }
+/* Takes what the row has spare and never wraps, so the strip is as tall with or without it. */
+.crumb-slot { flex: 1 1 0; min-width: 0; }
+.section-crumb { display: block; max-width: 100%; height: var(--control-height); padding: 0 var(--space-1); overflow: hidden; border: 0; border-radius: var(--radius); color: var(--ui-muted); background: none; font: inherit; line-height: var(--control-height); text-align: left; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+.section-crumb:hover:not(:disabled) { color: var(--ui-link-hover); background: var(--ui-hover); }
+.section-crumb:disabled { visibility: hidden; }
 #diagnostics .disclosure { display: inline-flex; align-items: center; height: var(--control-height); padding: 0 var(--space-1); border: 0; border-radius: var(--radius); color: inherit; background: none; font: inherit; white-space: nowrap; cursor: pointer; }
 #diagnostics .disclosure:hover:not(:disabled) { color: var(--ui-link-hover); background: var(--ui-hover); }
 #diagnostics .disclosure:disabled { color: var(--ui-muted); cursor: default; }
@@ -32,6 +37,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 .section-list { display: grid; grid-template-columns: max-content minmax(0, max-content) max-content; gap: 0 var(--space-3); width: fit-content; max-width: 100%; }
 .section-list li { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; }
 .section-page { color: var(--ui-muted); text-align: right; white-space: nowrap; }
+/* Its band reaches into the panel's padding, to leave the number clear. */
+.section-list li[aria-current] { background: var(--ui-selected); box-shadow: calc(-1 * var(--space-1)) 0 var(--ui-selected); }
 
 /* Panes */
 #workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }

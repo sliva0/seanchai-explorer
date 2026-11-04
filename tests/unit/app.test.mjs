@@ -948,3 +948,46 @@ test('the section list says what a clause\'s value tables hold', async () => {
     assert.ok(items.some(item => /Value Table \S+ · Result codes \(\d+\)/.test(item)), items.join('\n'));
   } finally { await page.close(); }
 });
+
+// A page laid out as a browser would, for what the view reads back: lines of 20 pixels under a pane at the top of the window.
+const layOut = page => {
+  const { HTMLElement } = page.window;
+  const rect = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.id === 'document') return { top: 0, bottom: 500 };
+    if (!this.classList.contains('dad-line')) return rect.call(this);
+    const top = Number(this.dataset.line) * 20 - this.closest('#document').scrollTop;
+    return { top, bottom: top + 20 };
+  };
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 1e7; } });
+};
+const pane = document => document.querySelector('#document');
+
+test('the strip names the section at the top of the view, and opens the Sections panel at its entry', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document, window } = page;
+    layOut(page);
+    const crumb = document.querySelector('.section-crumb');
+    const rows = [...document.querySelectorAll('.dad-line[data-section]')];
+    const row = rows.find(node => node.dataset.section !== rows[0].dataset.section);
+    const section = row.dataset.section;
+    const { title } = (await readFixture('documents/29153-j00.json')).sections.find(entry => entry.section === section);
+    assert.equal(document.querySelector('#diagnostics .section-crumb'), null, 'not one of the toggles');
+    pane(document).scrollTop = Number(row.dataset.line) * 20 - 12;
+    pane(document).dispatchEvent(new window.Event('scroll'));
+    await new Promise(resolve => setTimeout(resolve, 200));
+    assert.equal(crumb.textContent, `${section} · ${title}`);
+    click(page, crumb);
+    const panel = document.querySelector('#diagnostic-sections');
+    assert.equal(panel.hidden, false);
+    assert.equal(document.querySelector('#diagnostics .disclosure').getAttribute('aria-expanded'), 'true');
+    const current = panel.querySelectorAll('[aria-current]');
+    assert.equal(current.length, 1);
+    assert.equal(current[0].dataset.section, section);
+    assert.equal(document.activeElement, current[0].querySelector('a'));
+    click(page, crumb);
+    assert.equal(panel.hidden, false, 'a second click does not close it');
+    assert.equal(panel.querySelectorAll('[aria-current]').length, 1);
+  } finally { await page.close(); }
+});
