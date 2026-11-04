@@ -44,8 +44,9 @@
   --target-bg: #fdedb6;
   --target-edge: #a87400;
   --target-flash: #f5c542;
-  --find-bg: rgb(255 196 0 / 42%);
-  --find-current-bg: rgb(255 120 0 / 52%);
+  --find-bg: rgb(255 196 0 / 32%);
+  /* The current match is told apart by its edge; its wash stays light enough to read through. */
+  --find-current-bg: rgb(255 150 40 / 30%);
   --find-current-edge: #c25a00;
   /* Coloured text alone reads thin on paper, so each role also sits on a faint wash of its hue, see-through to the band beneath and fainter than any highlight. */
   --syntax-keyword: #41425e;
@@ -100,8 +101,8 @@
     --target-bg: #3b3115;
     --target-edge: #e8ba4e;
     --target-flash: #7d6420;
-    --find-bg: rgb(232 186 78 / 36%);
-    --find-current-bg: rgb(255 130 40 / 38%);
+    --find-bg: rgb(232 186 78 / 28%);
+    --find-current-bg: rgb(255 140 50 / 26%);
     --find-current-edge: #ffb066;
     --syntax-keyword: #d8d8ea;
     --syntax-type: #98d4d4;

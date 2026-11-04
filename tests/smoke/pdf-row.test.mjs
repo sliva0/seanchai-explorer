@@ -391,8 +391,8 @@ test('the viewer in a production build keeps the chosen theme under a dark OS, i
         canvas: getComputedStyle(pageNode.querySelector('.canvasWrapper')).filter !== 'none',
       };
     });
-    assert.deepEqual(await state(), { scheme: 'light', selected: 'rgba(255, 120, 0, 0.52)', filter: 'none', canvas: false });
+    assert.deepEqual(await state(), { scheme: 'light', selected: 'rgba(255, 150, 40, 0.3)', filter: 'none', canvas: false });
     await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
-    assert.deepEqual(await state(), { scheme: 'dark', selected: 'rgba(255, 130, 40, 0.38)', filter: 'none', canvas: true });
+    assert.deepEqual(await state(), { scheme: 'dark', selected: 'rgba(255, 140, 50, 0.26)', filter: 'none', canvas: true });
   } finally { await context.close(); }
 });
