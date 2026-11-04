@@ -1,5 +1,6 @@
 import { allowsFuzzy, foldName, foldQuery, looseSubsequence, nameTypos, spansInName, wordPrefixes, wordTypos } from './fuzzy.ts';
 import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
+import { interfacesOf } from './interfaces.ts';
 import type { DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
 
@@ -41,7 +42,32 @@ function rankAmong(names: string[], needle: string): number | null {
   return names.some(name => name.includes(needle)) ? SUBSTRING : null;
 }
 
-/** Specifications by title or number, best match first and the newest release of equals first. */
+/**
+ * A query as an interface's name, whole, from its start or from a word's: the names are too short for
+ * anything looser, `6a` being no `S6a`. Digits alone are the number of a specification, not `CH-2`.
+ */
+function matchInterface(query: string, name: string): Match | null {
+  const folded = foldQuery(query);
+  if (!/[a-z]/.test(folded.compact)) return null;
+  const written = matchWritten(folded.lower, name.toLowerCase());
+  return written && written.rank < SUBSTRING ? written : matchIgnoringSeparators(folded, foldName(name));
+}
+
+/** What of an interfaces list to mark for a query: each name it matches, as a whole or word by word. */
+export function interfaceSpans(interfaces: string, query: string): Span[] {
+  const spans: Span[] = [];
+  let at = 0;
+  for (const name of interfaces.split(', ')) {
+    for (const needle of [query, ...words(query)]) {
+      const match = matchInterface(needle, name);
+      for (const [start, end] of match ? matchedSpans(name, match) : []) spans.push([at + start, at + end]);
+    }
+    at += name.length + 2;
+  }
+  return mergeSpans(spans);
+}
+
+/** Specifications by title, number or interface, best match first and the newest release of equals first. */
 export function searchSpecifications(documents: DocumentSummary[], query: string): DocumentSummary[] {
   const wanted = words(query);
   const number = compact(query);
@@ -49,9 +75,12 @@ export function searchSpecifications(documents: DocumentSummary[], query: string
   const ranked: { doc: DocumentSummary; rank: number }[] = [];
   for (const doc of documents) {
     const byNumber = number ? rankAmong([doc.reference, doc.specification, doc.id].map(compact), number) : null;
+    const interfaces = interfacesOf(doc).split(', ').filter(Boolean);
+    const byInterface = interfaces.flatMap(name => matchInterface(query, name)?.rank ?? []);
     const text = `${doc.specification} ${doc.title} ${doc.version ?? ''}`.toLowerCase();
-    const rank = byNumber ?? (wanted.every(word => text.includes(word)) ? SUBSTRING : null);
-    if (rank !== null) ranked.push({ doc, rank });
+    const byWords = wanted.every(word => text.includes(word) || interfaces.some(name => matchInterface(word, name))) ? [SUBSTRING] : [];
+    const rank = Math.min(...[byNumber ?? []].flat(), ...byInterface, ...byWords);
+    if (rank !== Infinity) ranked.push({ doc, rank });
   }
   return ranked.sort((a, b) => a.rank - b.rank || newest(a.doc, b.doc) || a.doc.id.localeCompare(b.doc.id)).map(item => item.doc);
 }
@@ -213,12 +242,12 @@ function mergeSpans(spans: Span[]): Span[] {
   return merged;
 }
 
+const matchedSpans = (name: string, match: Match): Span[] => match.written ? [match.written] : mergeSpans(spansInName(name, match.spans ?? []));
+
 /** What of a name to mark for a query, as written. */
 export function matchSpans(name: string, query: string): Span[] {
   const match = matchName(foldQuery(query), foldName(name));
-  if (match?.written) return [match.written];
-  if (!match?.spans) return [];
-  return mergeSpans(spansInName(name, match.spans));
+  return match ? matchedSpans(name, match) : [];
 }
 
 /**

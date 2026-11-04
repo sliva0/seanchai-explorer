@@ -92,7 +92,8 @@ refuses until the types are regenerated.
 
 The index's second column, the interfaces or application of each document, is not in
 the export. `src/interfaces.ts` holds it, curated by hand from each document's scope
-clause and table of contents. To add a document, or change an entry:
+clause and table of contents, and search finds a document by them. To add a document, or
+change an entry:
 
 - key it by `reference`, or by document `id` where one edition's names differ from the
   others (as TS 29.212's St is not in its Release 11 edition);

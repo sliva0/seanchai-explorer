@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
+import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, interfaceSpans, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
 import { boot, readFixture } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -252,6 +252,61 @@ test('specifications match by number or title, best match and newest first', () 
   assert.deepEqual(ids('29.215'), []);
   assert.deepEqual(ids('rfc2'), ['rfc2', 'rfc29']);
   assert.deepEqual(ids(' '), []);
+});
+
+test('specifications match by interface, not loosely, and an exact one beats a title', () => {
+  const doc = (id, reference, title = 'Other', release = 18) => ({ id, reference, specification: reference, title, version: null, release });
+  const documents = [
+    doc('titled', 'TS99.999', 'A protocol, its Cx clause'),
+    doc('29229', 'TS29.229'), doc('x-s0013', '3GPP2-X.S0013-006', 'Other', null), doc('183033', 'ETSI-TS183.033', 'Other', 12),
+    doc('29272', 'TS29.272'), doc('29273', 'TS29.273'), doc('29336', 'TS29.336'),
+    doc('29283', 'TS29.283'), doc('oma', 'OMA-DDS-Charging_Data'), doc('rfc8581', 'RFC8581'), doc('none', 'TS29.230'),
+  ];
+  const ids = query => searchSpecifications(documents, query).map(doc => doc.id);
+  assert.deepEqual(ids('S6a'), ['29272']);
+  assert.deepEqual(ids('s6A'), ['29272'], 'in any case');
+  assert.deepEqual(ids('Cx'), ['29229', '183033', 'x-s0013', 'titled']);
+  assert.deepEqual(ids('S6'), ['29272', '29273', '29336'], 'from a name\'s start');
+  assert.deepEqual(ids('agent'), ['rfc8581'], 'from a word\'s');
+  assert.deepEqual(ids('mcptt2'), ['29283'], 'across a separator');
+  assert.deepEqual(ids('6a'), [], 'never inside a word');
+  assert.deepEqual(ids('s6z'), [], 'never approximately');
+  assert.ok(!ids('2').includes('oma'), 'digits are no name\'s, `CH-2` being only a number away');
+  assert.deepEqual(ids('s6a s6d'), ['29272'], 'word by word');
+  assert.deepEqual(ids('s6a other'), ['29272'], 'or beside words of the title');
+});
+
+test('an interfaces list marks each name a query matches', () => {
+  const list = "S6a, S6d, S7a, S13, S13'";
+  const marked = query => interfaceSpans(list, query).map(([start, end]) => list.slice(start, end));
+  assert.deepEqual(marked('s6a'), ['S6a']);
+  assert.deepEqual(marked('s6'), ['S6', 'S6']);
+  assert.deepEqual(marked('s6a s7a'), ['S6a', 'S7a']);
+  assert.deepEqual(marked('s13'), ['S13', 'S13']);
+  assert.deepEqual(marked('6a'), []);
+  assert.deepEqual(interfaceSpans('', 'cx'), []);
+});
+
+test('a specification found by an interface shows it marked, even where its title names it', async () => {
+  const documents = [
+    { ...summaryOf('29272-x', '3GPP', '3GPP TS 29.272', 18), reference: 'TS29.272', title: 'Mobility Management; Diameter protocol' },
+    { ...summaryOf('29229-x', '3GPP', '3GPP TS 29.229', 18), reference: 'TS29.229', title: 'Cx and Dx interfaces; Protocol details' },
+    { ...summaryOf('29061-x', '3GPP', '3GPP TS 29.061', 18), reference: 'TS29.061', title: 'Interworking' },
+  ];
+  const facts = async query => {
+    const page = await boot({ hash: `#search?q=${query}`, transform: withCorpus(documents, []) });
+    try {
+      const rows = [...page.document.querySelectorAll('.search-specifications .search-entry')];
+      return rows.map(row => [row.querySelector('.entry-facts').textContent, [...row.querySelectorAll('mark')].map(node => node.textContent)]);
+    } finally { await page.close(); }
+  };
+  assert.deepEqual(await facts('S6a'), [["· S6a, S6d, S7a, S7d, S13, S13' — Mobility Management; Diameter protocol", ['S6a']]]);
+  assert.deepEqual(await facts('Dx'), [['· Cx, Dx — Cx and Dx interfaces; Protocol details', ['Dx']]]);
+  assert.deepEqual(await facts('gmb'), [['· Gi, SGi, Gmb, SGmb, Mz — Interworking', ['Gmb', 'Gmb']]], 'an edition differing marks its own too, and not `SGmb`');
+  const page = await boot({ hash: '#search?q=gmb', transform: withCorpus(documents, []) });
+  try {
+    assert.equal(page.document.querySelector('.search-specifications .doc-detail mark').textContent, 'Gmb');
+  } finally { await page.close(); }
 });
 
 test('mentions match on every word or a found AVP, newest release first', () => {

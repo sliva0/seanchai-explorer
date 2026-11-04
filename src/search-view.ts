@@ -1,8 +1,9 @@
 import { docAbout, docInFamily, docName, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
+import { interfacesOf } from './interfaces.ts';
 import { routeFor } from './navigation.ts';
-import { filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
+import { filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
 import type { DocumentSummary, SearchEntry } from './types.ts';
@@ -126,16 +127,28 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
 }
 
 /** One specification: what its newest edition is about, and its editions, each saying only where it differs. */
-function renderSpecification(docs: DocumentSummary[], site: Site): HTMLElement {
+function renderSpecification(docs: DocumentSummary[], site: Site, query: string): HTMLElement {
   const panel = element('article', undefined, 'search-entry');
   const line = element('div', undefined, 'entry-line');
-  const about = docAbout(docs[0]);
+  // A title naming its interfaces leaves them unsaid, unless the query found the document by one.
+  const interfacesFor = (doc: DocumentSummary) => {
+    const all = interfacesOf(doc);
+    return interfaceSpans(all, query).length ? all : docAbout(doc).interfaces;
+  };
+  const markInterfaces = (interfaces: string) => marked(interfaces, interfaceSpans(interfaces, query));
+  const about = { interfaces: interfacesFor(docs[0]), subject: docAbout(docs[0]).subject };
   line.append(element('strong', docName(docs[0])));
-  const facts = [about.interfaces, about.subject].filter(Boolean);
-  if (facts.length) line.append(element('span', `· ${facts.join(' — ')}`, 'entry-facts'));
+  if (about.interfaces || about.subject) {
+    const facts = element('span', '· ', 'entry-facts');
+    facts.append(...markInterfaces(about.interfaces), about.interfaces && about.subject ? ' — ' : '', about.subject);
+    line.append(facts);
+  }
   panel.append(line, renderFamilies(docs.map(doc => {
-    const { interfaces, subject } = docAbout(doc);
-    const detail = [interfaces === about.interfaces ? '' : interfaces, subject === about.subject ? '' : subject].filter(Boolean).map(fact => [fact]);
+    const interfaces = interfacesFor(doc);
+    const { subject } = docAbout(doc);
+    const detail: (string | HTMLElement)[][] = [];
+    if (interfaces && interfaces !== about.interfaces) detail.push(markInterfaces(interfaces));
+    if (subject && subject !== about.subject) detail.push([subject]);
     const node = element('span', undefined, 'entry-document');
     node.append(withDetail(link(docInFamily(site.label(doc), doc), { document: doc.id }), detail));
     return { doc, node };
@@ -220,7 +233,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     const groupSection = (key: string, title: string, groups: NameGroup[]) => section(key, title, groups, group => renderGroup(group, site, text), { approximate: groups.filter(isApproximate).length });
     const specifications = new Map<string, DocumentSummary[]>();
     for (const doc of searchSpecifications(site.index.documents, text)) specifications.set(doc.specification, [...specifications.get(doc.specification) ?? [], doc]);
-    section('specifications', 'Specifications', [...specifications.values()], docs => renderSpecification(docs, site));
+    section('specifications', 'Specifications', [...specifications.values()], docs => renderSpecification(docs, site, text));
     if (failed) { results.append(element('p', failed)); return; }
     if (!data) {
       const status = element('p', 'Loading search data…');
