@@ -485,6 +485,7 @@ const scrollPane = async (page, to) => {
   await page.waitForFunction(() => /[?&]top=\d+/.test(location.hash));
 };
 const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1, `${label}: ${actual} is not ${expected}`);
+
 test('a jump in a document eases there, keeps the URL still until it ends, and flashes where it lands', { skip }, async () => {
   const { page, done } = await open('#29217-j00?pane=0');
   await page.locator('#diagnostics button').first().click();
@@ -517,6 +518,7 @@ test('a jump in a document eases there, keeps the URL still until it ends, and f
   await page.waitForFunction(() => !document.querySelector('.landing'));
   await done();
 });
+
 test('with reduced motion a jump is instant, and the landing still shows', { skip }, async () => {
   const { page, done } = await open('#29217-j00?pane=0', { reducedMotion: 'reduce' });
   const landed = await page.evaluate(() => {
@@ -530,7 +532,8 @@ test('with reduced motion a jump is instant, and the landing still shows', { ski
   assert.ok(landed.flashing);
   await done();
 });
-test('a document comes back to the pixel, through the index, history and a reload', { skip }, async () => {
+
+test('a document comes back to the pixel, through the index, history, a reload and the jump list', { skip }, async () => {
   const { page, done } = await open('#29217-j00');
   await scrollPane(page, 1237);
   const left = await scrollOf(page);
@@ -557,8 +560,49 @@ test('a document comes back to the pixel, through the index, history and a reloa
   await page.goBack();
   await page.waitForSelector('.document-header h1:has-text("29.217")');
   near(await scrollOf(page), again, 'through history');
+  const historyLength = await page.evaluate(() => history.length);
+  await page.keyboard.press('Control+o');
+  await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
+  await page.keyboard.press('Control+o');
+  await page.waitForSelector('.document-header h1:has-text("29.217")');
+  near(await scrollOf(page), again, 'through the jump list');
+  assert.ok(await page.evaluate(() => history.length) >= historyLength);
+  assert.equal(await page.locator('.jump-button[data-walk="back"]').getAttribute('aria-disabled'), 'false');
+  await page.reload();
+  await page.waitForSelector('main #document');
+  await page.keyboard.press('Control+i');
+  await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
   await done();
 });
+
+test('going back in a document restores its exact offset without easing, and the browser steps by document', { skip }, async () => {
+  const { page, done } = await open('#29217-j00?pane=0');
+  await scrollPane(page, 1237);
+  const left = await scrollOf(page);
+  const before = await page.evaluate(() => history.length);
+  await page.evaluate(() => {
+    const links = document.querySelectorAll('.section-list a');
+    links[links.length - 2].click();
+  });
+  await page.waitForTimeout(300);
+  assert.notEqual(await scrollOf(page), left);
+  assert.equal(await page.evaluate(() => history.length), before, 'a move in the page is no history entry');
+  const instant = await page.evaluate(() => {
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'o', ctrlKey: true, bubbles: true, cancelable: true }));
+    return new Promise(resolve => setTimeout(() => resolve(document.querySelector('#document').scrollTop), 0));
+  });
+  near(instant, left, 'at once');
+  await page.locator('.jump-button[data-walk="forward"]').click();
+  await page.waitForTimeout(50);
+  assert.notEqual(await scrollOf(page), left);
+  await page.locator('header nav a', { hasText: 'Index' }).click();
+  await page.waitForSelector('main.index-view');
+  assert.equal(await page.evaluate(() => history.length), before + 1, 'a new page is one');
+  await page.goBack();
+  await page.waitForSelector('.document-header h1:has-text("29.217")');
+  await done();
+});
+
 test('the strip names the section at the top of the view without moving, and opens its entry in the panel', { skip }, async () => {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
     const { page, done } = await open('#29217-j00', { viewport });
@@ -599,6 +643,23 @@ test('the strip names the section at the top of the view without moving, and ope
     }), 'in view in the panel');
     assert.notEqual(await entry.evaluate(node => getComputedStyle(node).backgroundColor), 'rgba(0, 0, 0, 0)');
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await done();
+  }
+});
+
+test('the arrows sit left of the title, in one row', { skip }, async () => {
+  for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
+    const { page, done } = await open('#29153-j00', { viewport });
+    const layout = await page.evaluate(() => {
+      const box = node => node.getBoundingClientRect();
+      const header = document.querySelector('.document-header');
+      const buttons = [...header.querySelectorAll('.jump-button')].map(box);
+      return { buttons, title: box(header.querySelector('h1')), header: box(header), sideways: document.documentElement.scrollWidth > innerWidth };
+    });
+    assert.equal(layout.buttons.length, 4);
+    assert.ok(layout.buttons.every(button => button.top === layout.buttons[0].top && button.height <= 22 && button.width <= 22), JSON.stringify(layout.buttons));
+    assert.ok(layout.buttons.at(-1).right <= layout.title.left, 'left of the title');
+    assert.equal(layout.sideways, false);
     await done();
   }
 });

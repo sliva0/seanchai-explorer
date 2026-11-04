@@ -15,6 +15,8 @@ export interface PopupRequest {
   lines: HighlightedLine[];
   opener: HTMLElement;
   documentPane: HTMLElement;
+  /** Keeps the place a walk through the list is about to leave. */
+  recordJump(): void;
   /** Goes to a node a walk through the list lands on. */
   jumpTo(node: HTMLElement): void;
 }
@@ -71,11 +73,12 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   /** A jump into this document's source: to the pane if it can show it, else to the source in a new tab. */
-  function sourcePlace(label: string, className: string, position: SourcePosition, doc: Document) {
+  function sourcePlace(label: string, className: string, position: SourcePosition, { doc, recordJump }: PopupRequest) {
     const row = element('p', `${label}: `);
     if (pane.canShow()) {
       const button = element('button', position.section, `usage-link source-link ${className}`);
       button.onclick = () => {
+        recordJump();
         pane.setVisible(true);
         pane.show(position, doc, true);
       };
@@ -92,7 +95,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
-  function showValue(row: ValueRow, { doc, opener, documentPane, jumpTo }: PopupRequest) {
+  function showValue(row: ValueRow, { doc, opener, documentPane, recordJump, jumpTo }: PopupRequest) {
     const { panel, closeButton } = open(row.name, opener);
     panel.dataset.value = row.name;
     const { table } = row;
@@ -110,6 +113,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     if (pane.canShow()) {
       const button = element('button', where, 'usage-link source-link');
       button.onclick = () => {
+        recordJump();
         pane.setVisible(true);
         pane.show(table.rows[active].position, doc, true);
       };
@@ -142,6 +146,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       if (pane.readsDocument()) pane.show(table.rows[active].position, doc, true);
     };
     const select = (index: number) => {
+      recordJump();
       mark((index + table.rows.length) % table.rows.length);
       const node = nameNode(active);
       if (node) jumpTo(node);
@@ -165,7 +170,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   function show(request: PopupRequest) {
-    const { token, doc, lines, opener, documentPane, jumpTo } = request;
+    const { token, doc, lines, opener, documentPane, recordJump, jumpTo } = request;
     if (token.valueRow) { showValue(token.valueRow, request); return; }
     const name = token.avp!;
     const { panel, closeButton } = open(`Uses of ${name}`, opener);
@@ -179,8 +184,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     panel.dataset.avp = name;
     const { definition, details } = avpPlaces(token, lines);
-    if (definition) panel.append(sourcePlace('Definition', 'definition-link', definition, doc));
-    if (details) panel.append(sourcePlace('Details', 'details-link', details, doc));
+    if (definition) panel.append(sourcePlace('Definition', 'definition-link', definition, request));
+    if (details) panel.append(sourcePlace('Details', 'details-link', details, request));
     // Where the name links to and neither of those is: Details if elsewhere, and the Definition if all the file says of it is a clause of its own.
     const followed = !details && token.target && (token.target.document !== doc.id || token.target.section !== definition?.section) ? token.target : undefined;
     const summary = followed && site.summary(followed.document);
@@ -203,6 +208,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const buttons: HTMLButtonElement[] = [];
     const select = (index: number) => {
       if (!uses.length) return;
+      recordJump();
       active = (index + uses.length) % uses.length;
       count.textContent = `.dad ${active + 1}/${uses.length}`;
       for (const node of uses) node.classList.remove('avp-current');

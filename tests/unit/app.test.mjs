@@ -960,6 +960,11 @@ const layOut = page => {
   };
   Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 1e7; } });
 };
+const press = (page, init, target = page.document.body) => {
+  const event = new page.window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+  target.dispatchEvent(event);
+  return event;
+};
 const follow = async (page, hash) => {
   const anchor = page.document.createElement('a');
   anchor.setAttribute('href', hash);
@@ -968,7 +973,135 @@ const follow = async (page, hash) => {
   anchor.remove();
   await settle();
 };
+const button = (document, walk) => document.querySelector(`.jump-button[data-walk="${walk}"]`);
 const pane = document => document.querySelector('#document');
+const easing = () => new Promise(resolve => setTimeout(resolve, 320));
+
+test('ctrl+o and ctrl+i walk jumps exactly, within a document and between documents, and alt does too', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document, window } = page;
+    layOut(page);
+    pane(document).scrollTop = 407;
+    await follow(page, `#29153-j00/${document.querySelector('.section-list a').textContent}`);
+    await easing();
+    const atSection = pane(document).scrollTop;
+    assert.notEqual(atSection, 407);
+    const back = press(page, { key: 'o', ctrlKey: true });
+    assert.equal(back.defaultPrevented, true);
+    await settle();
+    assert.equal(pane(document).scrollTop, 407, 'to the pixel');
+    assert.match(window.location.hash, /top=20/);
+    press(page, { key: 'i', ctrlKey: true });
+    await settle();
+    assert.equal(pane(document).scrollTop, atSection);
+    await follow(page, '#rfc7944');
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
+    press(page, { key: 'o', altKey: true });
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'));
+    assert.equal(pane(document).scrollTop, atSection);
+    press(page, { key: 'I', code: 'KeyI', altKey: true });
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
+  } finally { await page.close(); }
+});
+
+test('the walks skip what is in the document for [d and ]d, [j and ]j are the plain ones, and a chord lapses', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    layOut(page);
+    const heading = () => document.querySelector('.document-header h1').textContent;
+    await follow(page, '#29153-j00?line=40');
+    await follow(page, '#rfc7944');
+    await follow(page, '#rfc7944?line=30');
+    press(page, { key: '[' });
+    assert.equal(press(page, { key: 'd' }).defaultPrevented, true);
+    await settle();
+    assert.match(heading(), /^3GPP TS 29\.153/, 'past the RFC\'s other place');
+    press(page, { key: ']' });
+    press(page, { key: 'd' });
+    await settle();
+    assert.match(heading(), /^RFC 7944/);
+    press(page, { key: '[' });
+    press(page, { key: 'j' });
+    await settle();
+    assert.match(heading(), /^RFC 7944/, 'one place back is still the RFC');
+    const lapsed = press(page, { key: 'q' });
+    assert.equal(lapsed.defaultPrevented, false);
+    assert.equal(press(page, { key: 'd' }).defaultPrevented, false, 'a d alone is nothing');
+    assert.equal(press(page, { key: '[', ctrlKey: true }).defaultPrevented, false);
+  } finally { await page.close(); }
+});
+
+test('the keys leave what takes typing alone, and work from a checkbox', async () => {
+  const page = await boot({ hash: '#search?q=DRMP' });
+  try {
+    const { document } = page;
+    const input = document.querySelector('.search-form input');
+    input.focus();
+    assert.equal(document.activeElement, input);
+    assert.equal(press(page, { key: 'o', ctrlKey: true }, input).defaultPrevented, false);
+    press(page, { key: '[' }, input);
+    assert.equal(press(page, { key: 'd' }, input).defaultPrevented, false);
+    await follow(page, '#rfc7944');
+    const uses = document.querySelector('.uses-toggle input');
+    uses.focus();
+    assert.equal(press(page, { key: 'o', ctrlKey: true }, uses).defaultPrevented, true);
+    await settle();
+    assert.equal(document.querySelector('.search-form input').value, 'DRMP', 'back at the search');
+    assert.notEqual(document.activeElement, document.querySelector('.search-form input'), 'with the keys still walking');
+    assert.equal(press(page, { key: 'i', ctrlKey: true }).defaultPrevented, true);
+    await settle();
+    assert.ok(document.querySelector('#document'));
+  } finally { await page.close(); }
+});
+
+test('the header\'s buttons name their key and target, stay in the tab order at the ends, and keep the focus across documents', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    layOut(page);
+    assert.deepEqual([...document.querySelectorAll('.jump-button')].map(node => node.textContent), ['‹', '›', '«', '»']);
+    assert.equal(document.querySelector('.document-header').firstElementChild, document.querySelector('.jump-controls'), 'left of the title');
+    assert.equal(document.querySelector('.source-header .jump-controls'), null);
+    for (const node of document.querySelectorAll('.jump-button')) {
+      assert.equal(node.getAttribute('aria-disabled'), 'true');
+      assert.equal(node.disabled, false);
+    }
+    assert.equal(button(document, 'back').title, 'No earlier position (Ctrl+O)');
+    pane(document).scrollTop = 2240;
+    await follow(page, '#rfc7944');
+    assert.equal(button(document, 'back').title, 'Back to TS 29.153 line 113 (Ctrl+O)');
+    assert.equal(button(document, 'backDocument').title, 'Back to TS 29.153 line 113 ([d)');
+    assert.equal(button(document, 'back').getAttribute('aria-disabled'), 'false');
+    assert.equal(button(document, 'forward').getAttribute('aria-disabled'), 'true');
+    assert.equal(button(document, 'forward').title, 'No later position (Ctrl+I)');
+    button(document, 'back').focus();
+    button(document, 'back').click();
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'));
+    assert.equal(pane(document).scrollTop, 2240);
+    assert.equal(document.activeElement, button(document, 'back'));
+    assert.equal(button(document, 'forward').title, 'Forward to RFC 7944 line 1 (Ctrl+I)');
+    assert.equal(button(document, 'back').getAttribute('aria-disabled'), 'true');
+    button(document, 'back').click();
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'), 'at the end it does nothing');
+    button(document, 'forwardDocument').click();
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
+    assert.equal(button(document, 'backDocument').title, 'Back to TS 29.153 line 113 ([d)');
+    await follow(page, '#');
+    await follow(page, '#search');
+    assert.equal(document.querySelector('.jump-button'), null, 'only a document\'s header has them');
+    document.activeElement.blur();
+    press(page, { key: 'o', altKey: true });
+    await settle();
+    assert.ok(document.querySelector('.index-view'), 'the keys work everywhere');
+  } finally { await page.close(); }
+});
 
 test('following a link pushes history only for a new page, and in a page it replaces', async () => {
   const page = await boot({ hash: '#29153-j00' });
@@ -997,6 +1130,7 @@ test('following a link pushes history only for a new page, and in a page it repl
     assert.equal(pushed, 5, 'raw text has its own lines, so it is a page');
   } finally { await page.close(); }
 });
+
 test('a document comes back where it was left unless its route says otherwise, and raw keeps its own place', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
@@ -1014,6 +1148,61 @@ test('a document comes back where it was left unless its route says otherwise, a
     assert.ok(page.window.sessionStorage.getItem('seanchai-positions').includes('"29153-j00"'));
   } finally { await page.close(); }
 });
+
+test('a second walk before a document has loaded keeps the exact place of the first', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    layOut(page);
+    pane(document).scrollTop = 1237;
+    await follow(page, '#rfc7944');
+    press(page, { key: 'o', ctrlKey: true });
+    press(page, { key: 'i', ctrlKey: true });
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
+    press(page, { key: 'o', ctrlKey: true });
+    await settle();
+    assert.equal(pane(document).scrollTop, 1237);
+  } finally { await page.close(); }
+});
+
+test('the index comes back as far down as it was left', async () => {
+  const page = await boot({ hash: '' });
+  try {
+    const { document } = page;
+    const content = document.querySelector('#content');
+    content.scrollTop = 300;
+    await follow(page, '#rfc7944');
+    assert.equal(button(document, 'back').title, 'Back to Index (Ctrl+O)');
+    press(page, { key: 'o', ctrlKey: true });
+    await settle();
+    assert.ok(document.querySelector('.index-view'));
+    assert.equal(content.scrollTop, 300);
+  } finally { await page.close(); }
+});
+
+test('a reload keeps the jump list and the position, and steps over a document no longer in the corpus', async () => {
+  const entry = (document, top, offset) => ({ document, top, offset, hash: `#${document}?top=${top}` });
+  const page = await boot({
+    hash: '#29153-j00',
+    session: {
+      'seanchai-positions': JSON.stringify({ '29153-j00': { top: 50, offset: 3 } }),
+      'seanchai-jumps': JSON.stringify({ entries: [entry('rfc7944', 10, 4), entry('gone', 1, 0)], index: 2 }),
+    },
+    prepare: layOut,
+  });
+  try {
+    const { document } = page;
+    assert.equal(pane(document).scrollTop, 1003);
+    assert.equal(button(document, 'back').title, 'Back to RFC 7944 line 11 (Ctrl+O)');
+    press(page, { key: 'o', ctrlKey: true });
+    await settle();
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
+    assert.equal(pane(document).scrollTop, 204);
+    assert.equal(JSON.parse(page.window.sessionStorage.getItem('seanchai-jumps')).index, 0);
+  } finally { await page.close(); }
+});
+
 test('the strip names the section at the top of the view, and opens the Sections panel at its entry', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
@@ -1041,5 +1230,32 @@ test('the strip names the section at the top of the view, and opens the Sections
     click(page, crumb);
     assert.equal(panel.hidden, false, 'a second click does not close it');
     assert.equal(panel.querySelectorAll('[aria-current]').length, 1);
+  } finally { await page.close(); }
+});
+
+test('moving the pane is a jump, and going back moves it back with the reader\'s pane state', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document, window } = page;
+    const shows = () => document.querySelector('.source-document').textContent;
+    const was = shows();
+    click(page, document.querySelector('pre a[data-avp][href^="#rfc7944"]'));
+    await settle();
+    assert.match(shows(), /^RFC 7944/);
+    assert.match(window.location.hash, /source=rfc7944/);
+    press(page, { key: 'o', ctrlKey: true });
+    await settle();
+    assert.equal(shows(), was);
+    assert.doesNotMatch(window.location.hash, /source=rfc7944/);
+    press(page, { key: 'i', ctrlKey: true });
+    await settle();
+    assert.match(shows(), /^RFC 7944/);
+    const toggle = document.querySelector('.source-toggle input');
+    toggle.checked = false;
+    toggle.dispatchEvent(new window.Event('change'));
+    press(page, { key: 'o', ctrlKey: true });
+    await settle();
+    assert.match(window.location.hash, /pane=0/);
+    assert.equal(document.querySelector('.source-toggle input').checked, false);
   } finally { await page.close(); }
 });

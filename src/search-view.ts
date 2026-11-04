@@ -191,7 +191,8 @@ function mentionRenderer(site: Site, query: string, names: Set<string>) {
   };
 }
 
-export function renderSearch(container: HTMLElement, site: Site, query: string, isCurrent: () => boolean) {
+/** `returning` is a walk back to a search already made: the keys stay the walk's, not the input's, and `onReady` puts its results back where they were. */
+export function renderSearch(container: HTMLElement, site: Site, query: string, isCurrent: () => boolean, { returning = false, onReady }: { returning?: boolean; onReady?: () => void } = {}) {
   const form = element('form', undefined, 'search-form');
   const input = element('input', undefined, 'control');
   input.setAttribute('aria-label', 'Search');
@@ -292,8 +293,12 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
   };
   form.onsubmit = event => { event.preventDefault(); clearTimeout(timer); update(); };
   update();
-  input.focus();
+  if (!returning) input.focus();
   site.loadSearch().then(loaded => {
     data = { index: indexEntries(loaded.entries), mentions: foldMentions(sortMentions(loaded.mentions, site.summary)) };
-  }).catch(error => { failed = String(error); }).finally(() => { if (isCurrent()) update(); });
+  }).catch(error => { failed = String(error); }).finally(() => {
+    if (!isCurrent()) return;
+    update();
+    onReady?.();
+  });
 }

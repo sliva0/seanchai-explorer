@@ -15,6 +15,22 @@ apart from its Definition, and an alt-click always to the Definition.
 It is unofficial and not affiliated with or endorsed by any of the specifications'
 publishers. The site holds no Python and reads only what `seanchai export` writes.
 
+## Keyboard
+
+Every jump, within a document or to another, keeps the place it leaves on a list for the
+tab, which goes back to it to the pixel and survives a reload.
+
+| Keys | Go to |
+|---|---|
+| `Ctrl+O`, `Alt+O`, `[j` | the place before on the list |
+| `Ctrl+I`, `Alt+I`, `]j` | the place after on the list |
+| `[d` | the place before on the list in another document |
+| `]d` | the place after on the list in another document |
+
+The arrows left of a document's title do the same, and a browser's Back and Forward step
+between documents, the index and search. The keys wait while the focus is in a text box
+or a list, and a bracket's second key must come within a second.
+
 ## Two build modes
 
 ETSI's PDF responses forbid framing from another origin (`X-Frame-Options`,

@@ -21,6 +21,8 @@ export interface ViewServices {
   popup: AvpPopup;
   highlight(lines: Line[]): HighlightedLine[];
   navigate(hash: string): void;
+  /** Keeps the place about to be left, for a jump this view makes itself. */
+  recordJump(): void;
   /** The view has come to rest somewhere new. */
   scrolled(view: DocumentView): void;
 }
@@ -193,6 +195,7 @@ export interface DocumentView {
   settle(): void;
   focusPosition(): void;
   position(): ScrollPosition | undefined;
+  pointedLine(): number | undefined;
   /** The value table's row a link to `section` under `name` means, if it means one. */
   valueRow(section: string, name: string): ValueRow | undefined;
 }
@@ -264,6 +267,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
   const showUses = (node: HTMLElement) => popup.show({
     token: tokenOf(node), doc, lines, opener: node, documentPane,
+    recordJump: services.recordJump,
     jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
   });
   const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], .value-name');
@@ -278,6 +282,8 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') { showUses(node); return; }
     popup.close();
+    // A move of the pane is a jump too: the route being left says where the pane was.
+    if (action.type === 'source' || action.type === 'pane-target') services.recordJump();
     if (action.type === 'source') {
       pane.setVisible(true);
       pane.show({ ...doc.sections.find(section => section.section === action.position.section), ...action.position }, doc, true);
@@ -372,7 +378,9 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     restLater();
   }, { passive: true });
   // A reader who has started scrolling should not be scrolled.
-  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown']) documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
+  for (const type of ['wheel', 'touchstart', 'pointerdown']) documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
+  // A walk's keys are no scrolling, and must read where the move was going, not where it had got to.
+  documentPane.addEventListener('keydown', event => { if (!event.ctrlKey && !event.altKey && !event.metaKey) scroller.stop(); }, { passive: true });
 
   function jumpTo(target: HTMLElement, { smooth, flash: flashes, margin = JUMP_MARGIN }: { smooth: boolean; flash: boolean; margin?: number }) {
     scroller.to(scrollTopFor(documentPane, target, margin), smooth, () => {
@@ -412,6 +420,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       const edge = documentPane.getBoundingClientRect().top;
       const row = topRow(rows, edge);
       return row && { top: Number(row.dataset.line), offset: edge - row.getBoundingClientRect().top };
+    },
+    pointedLine() {
+      const row = documentPane.querySelector<HTMLElement>('.target-line');
+      return row ? Number(row.dataset.line) : undefined;
     },
     valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),
   };
