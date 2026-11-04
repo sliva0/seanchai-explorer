@@ -236,6 +236,8 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       mounted = { doc, position, workspace, documentHeader };
       selected = undefined;
       workspace.append(documentHeader);
+      // A name arriving later would change the header's height under a restored position.
+      refreshHeaders();
       if (!paneKind(doc, site.mode)) return;
       const aside = element('aside');
       aside.id = 'source-pane';

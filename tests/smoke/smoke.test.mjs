@@ -478,9 +478,14 @@ test('the header link opens search with its input focused, and search data loads
   await done();
 });
 
+const scrollOf = page => page.locator('#document').evaluate(node => node.scrollTop);
+// A number no line's height divides, so that it falls inside a line.
+const scrollPane = async (page, to) => {
+  await page.locator('#document').evaluate((node, value) => { node.scrollTop = value; }, to);
+  await page.waitForFunction(() => /[?&]top=\d+/.test(location.hash));
+};
 const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1, `${label}: ${actual} is not ${expected}`);
-
-test('a jump in a document eases there and flashes where it lands', { skip }, async () => {
+test('a jump in a document eases there, keeps the URL still until it ends, and flashes where it lands', { skip }, async () => {
   const { page, done } = await open('#29217-j00?pane=0');
   await page.locator('#diagnostics button').first().click();
   const moves = await page.evaluate(async () => {
@@ -492,7 +497,7 @@ test('a jump in a document eases there and flashes where it lands', { skip }, as
     const began = performance.now();
     const samples = [];
     while (performance.now() - began < 350) {
-      samples.push({ at: performance.now() - began, top: pane.scrollTop });
+      samples.push({ at: performance.now() - began, top: pane.scrollTop, hash: location.hash });
       await new Promise(requestAnimationFrame);
     }
     const row = document.getElementById(`section-${section}`);
@@ -506,6 +511,9 @@ test('a jump in a document eases there and flashes where it lands', { skip }, as
   assert.ok(moves.samples.find(sample => sample.top === final).at < 320, 'about 200 ms');
   near(moves.gap, 12, 'just under the top edge');
   assert.ok(moves.flashing);
+  const moving = moves.samples.filter(sample => sample.top !== final);
+  assert.ok(moving.every(sample => !sample.hash.includes('top=')), 'no position in the URL on the way');
+  await page.waitForFunction(() => /top=\d+/.test(location.hash));
   await page.waitForFunction(() => !document.querySelector('.landing'));
   await done();
 });
@@ -520,6 +528,35 @@ test('with reduced motion a jump is instant, and the landing still shows', { ski
   });
   assert.ok(landed.top > 500, JSON.stringify(landed));
   assert.ok(landed.flashing);
+  await done();
+});
+test('a document comes back to the pixel, through the index, history and a reload', { skip }, async () => {
+  const { page, done } = await open('#29217-j00');
+  await scrollPane(page, 1237);
+  const left = await scrollOf(page);
+  near(left, 1237, 'set');
+  const hash = await page.evaluate(() => location.hash);
+  assert.match(hash, /^#29217-j00\?top=\d+$/);
+  await page.reload();
+  await page.waitForSelector('main #document');
+  near(await scrollOf(page), left, 'after a reload');
+  await page.waitForTimeout(300);
+  near(await scrollOf(page), left, 'and it stays');
+  assert.equal(await page.evaluate(() => location.hash), hash);
+  await page.locator('header nav a', { hasText: 'Index' }).click();
+  await page.waitForSelector('main.index-view');
+  await page.locator('main.index-view a[href="#29217-j00"]').first().click();
+  await page.waitForSelector('main #document');
+  near(await scrollOf(page), left, 'through the index');
+  await page.locator('main #document pre').waitFor();
+  await page.locator('#document').evaluate(node => { node.scrollTop = 3111; });
+  await page.waitForTimeout(250);
+  const again = await scrollOf(page);
+  await page.evaluate(() => { location.hash = '#rfc7944'; });
+  await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
+  await page.goBack();
+  await page.waitForSelector('.document-header h1:has-text("29.217")');
+  near(await scrollOf(page), again, 'through history');
   await done();
 });
 test('the strip names the section at the top of the view without moving, and opens its entry in the panel', { skip }, async () => {

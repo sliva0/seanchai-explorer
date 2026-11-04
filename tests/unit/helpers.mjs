@@ -13,13 +13,14 @@ function asSelfHosted(data) {
 }
 
 let boots = 0;
-const globals = ['window', 'document', 'location', 'history', 'localStorage', 'matchMedia', 'fetch', 'innerWidth', 'innerHeight', 'HTMLElement', 'Element', 'Node', 'requestAnimationFrame', 'cancelAnimationFrame'];
+const globals = ['window', 'document', 'location', 'history', 'localStorage', 'sessionStorage', 'matchMedia', 'fetch', 'innerWidth', 'innerHeight', 'HTMLElement', 'Element', 'Node', 'requestAnimationFrame', 'cancelAnimationFrame'];
 
 /**
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
- * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source.
+ * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source,
+ * `session` is what the tab's storage already holds, and `prepare` runs on the page before it starts.
  */
-export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, text, transform = (_path, data) => data } = {}) {
+export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, session = {}, prepare = () => {}, text, transform = (_path, data) => data } = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
     width,
@@ -54,6 +55,24 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     }
   };
   if (stored) window.localStorage.setItem('seanchai-theme', stored);
+  // happy-dom announces pushState and replaceState as hash changes, which a browser does not.
+  const silent = [];
+  for (const method of ['pushState', 'replaceState']) {
+    const original = window.history[method].bind(window.history);
+    window.history[method] = (...args) => {
+      const before = window.location.hash;
+      original(...args);
+      if (window.location.hash !== before) silent.push(window.location.href);
+    };
+  }
+  window.addEventListener('hashchange', event => {
+    const at = silent.indexOf(event.newURL);
+    if (at < 0) return;
+    silent.splice(at, 1);
+    event.stopImmediatePropagation();
+  });
+  for (const [key, value] of Object.entries(session)) window.sessionStorage.setItem(key, value);
+  prepare({ window, document: window.document });
   const saved = Object.fromEntries(globals.map(name => [name, globalThis[name]]));
   for (const name of globals) globalThis[name] = window[name];
   globalThis.window = window;

@@ -6,8 +6,10 @@ import type { DocumentView } from './document-view.ts';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
 import { renderIndex } from './index-view.ts';
-import { parseRoute, routeFor } from './navigation.ts';
+import { pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
+import { createPositionStore } from './positions.ts';
+import type { ScrollPosition } from './positions.ts';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -75,13 +77,39 @@ try {
   let request = 0;
   // Focus moves on navigation, not when the site is first opened.
   let arrived = false;
+  // The position is put back by the route, not by the browser after it.
+  history.scrollRestoration = 'manual';
 
-  /** Keeps a view shareable: the pane's state goes into this history entry, so Back returns to it too. */
-  function updateRoute(options: RouteOptions) {
+  const positions = createPositionStore(() => sessionStorage);
+
+  const targetOf = (route: Route) => ({ document: route.document, section: route.section || null, name: route.name });
+
+  /**
+   * Keeps a view shareable: the pane's state goes into this history entry, so Back returns to it too.
+   * `offset` is what `top` cannot say, the pixels of that line above the edge, and is kept beside it to return to exactly.
+   */
+  function updateRoute(options: RouteOptions, offset?: number) {
     const parsed = parseRoute(location.hash);
     if (parsed.document !== view?.doc.id) return;
-    const next = routeFor({ document: parsed.document, section: parsed.section || null, name: parsed.name }, { ...parsed, ...options });
-    if (next !== location.hash) history.replaceState(history.state, '', next);
+    const next = routeFor(targetOf(parsed), { ...parsed, ...options });
+    const stale = offset !== undefined && offset !== history.state?.offset;
+    if (next !== location.hash || stale) history.replaceState(stale ? { ...history.state, offset } : history.state, '', next);
+  }
+
+  /** Remembers where the document being left is, and returns that for its history entry to keep. */
+  function leave(): ScrollPosition | undefined {
+    if (!view) return undefined;
+    view.settle();
+    const left = view.position();
+    if (left) positions.set(pageOf({ document: view.doc.id, raw: view.raw }), left);
+    return left;
+  }
+
+  /** Puts the route in the browser's history: a new entry for a new page, so that Back steps between documents, the same one for a move within a page. */
+  function setRoute(hash: string, state: unknown) {
+    const samePage = pageOf(parseRoute(hash)) === pageOf(parseRoute(location.hash));
+    if (samePage) { if ((hash === '#' ? '' : hash) !== location.hash || state) history.replaceState(state, '', hash); }
+    else history.pushState(state, '', hash);
   }
 
   const sourcePane = pane = createSourcePane(site, () => theme.current, () => {
@@ -96,20 +124,32 @@ try {
       return decorated;
     },
     navigate(hash: string) {
-      if (location.hash === hash) { void route({ smooth: true }); return; }
-      view?.settle();
-      updateRoute({ top: view?.topLine() });
-      location.hash = hash;
+      const left = leave();
+      if (left && pageOf(parseRoute(hash)) !== pageOf(parseRoute(location.hash))) updateRoute({ top: left.top }, left.offset);
+      setRoute(hash, null);
+      arrived = true;
+      void route({ smooth: true });
+    },
+    scrolled(moved: DocumentView) {
+      if (moved !== view) return;
+      const left = leave();
+      if (left) updateRoute({ top: left.top }, left.offset);
     },
   };
-  // A link's route does not say the pane is off, and without that it would switch the pane on.
+  // Every route link goes through here, for the history to step by document. A link's route does not say the pane is off, and without that it would switch the pane on.
   document.addEventListener('click', event => {
     const anchor = (event.target as Element).closest?.<HTMLAnchorElement>('a[href^="#"]');
-    if (!anchor || event.defaultPrevented || sourcePane.switchedOn || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
-    const target = parseRoute(anchor.getAttribute('href')!);
-    if (!target.document || target.document === 'search' || target.paneHidden) return;
+    if (!anchor || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
     event.preventDefault();
-    services.navigate(routeFor({ document: target.document, section: target.section || null, name: target.name }, { ...target, paneHidden: true }));
+    const href = anchor.getAttribute('href')!;
+    const target = parseRoute(href);
+    const keepsPaneOff = !sourcePane.switchedOn && target.document && target.document !== 'search' && !target.paneHidden;
+    services.navigate(keepsPaneOff ? routeFor(targetOf(target), { ...target, paneHidden: true }) : href);
+  });
+  // A reload soon after a scroll comes before the view has come to rest.
+  window.addEventListener('pagehide', () => {
+    const left = leave();
+    if (left) updateRoute({ top: left.top }, left.offset);
   });
   function leaveDocument(className: string) {
     view = undefined;
@@ -120,12 +160,14 @@ try {
   /** How a route is come to: `smooth` is a jump, which is eased if it stays in the document. */
   interface Arrival { smooth?: boolean }
 
-  /** Gives a document's view its position: what the route names. */
+  /** Gives a document's view its position: what the route names, else where it was left. */
   function position(current: DocumentView, parsed: Route, fresh: boolean, value: ReturnType<DocumentView['valueRow']>, { smooth }: Arrival) {
     const pointed = current.pointAtLine(parsed.line ?? value?.line);
     const row = pointed ?? (parsed.section ? current.sectionRow(parsed.section) : undefined);
-    if (parsed.top !== undefined) current.restore(parsed.top);
+    const saved = positions.get(pageOf({ document: current.doc.id, raw: current.raw }));
+    if (parsed.top !== undefined) current.restore(parsed.top, history.state?.offset ?? (saved?.top === parsed.top ? saved.offset : undefined));
     else if (row) current.jumpTo(row, { smooth: Boolean(smooth) && !fresh, flash: arrived });
+    else if (fresh && saved && !parsed.section) current.restore(saved.top, saved.offset);
   }
 
   async function route(arrival: Arrival = {}) {
@@ -199,7 +241,9 @@ try {
     }
   }
 
+  // A route the app did not set itself: the browser's Back and Forward, or an edited address.
   window.addEventListener('hashchange', () => {
+    leave();
     arrived = true;
     void route({ smooth: true });
   });

@@ -18,6 +18,11 @@ export interface Route extends RouteOptions {
   name?: string;
 }
 
+/** What a route shows, apart from where in it: a change of this is a new browser history entry. A document's corrected and raw text have different lines, so they are two pages. */
+export function pageOf(route: Pick<Route, 'document' | 'raw'>): string {
+  return route.document && route.document !== 'search' && route.raw ? `${route.document}?raw` : route.document;
+}
+
 export function routeFor(target: Target, options: RouteOptions = {}): string {
   const params = new URLSearchParams();
   if (options.raw) params.set('raw', '1');

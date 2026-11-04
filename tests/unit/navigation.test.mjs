@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseRoute, routeFor } from '../../src/navigation.ts';
+import { pageOf, parseRoute, routeFor } from '../../src/navigation.ts';
 
 test('section and raw links survive encoding and parsing', () => {
   const hash = routeFor({ document: '29272-i70', section: '7.3.138' }, { raw: true });
@@ -35,4 +35,13 @@ test('a malformed route falls back rather than failing', () => {
   assert.equal(parseRoute('#doc?source=other&page=-2&line=-1').line, undefined);
   assert.equal(parseRoute('#doc?line=bad').line, undefined);
   assert.equal(parseRoute('#doc').source, undefined);
+});
+
+test('a page is what a route shows, apart from where in it', () => {
+  const page = hash => pageOf(parseRoute(hash));
+  assert.equal(page('#29214-i40/5.4.0?line=3&top=2&name=X'), '29214-i40');
+  assert.equal(page('#29214-i40?raw=1'), '29214-i40?raw');
+  assert.equal(page('#search?q=x'), 'search');
+  assert.equal(page(''), '');
+  assert.equal(page('#'), '');
 });

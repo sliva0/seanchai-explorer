@@ -878,10 +878,9 @@ test('public: right-click on a value name shows its table, with its AVP and sour
     name.dispatchEvent(ctrl);
     assert.equal(ctrl.defaultPrevented, false, 'a new tab is the browser\'s');
     assert.equal(document.querySelector('.avp-popup'), null);
-    const plain = new window.MouseEvent('click', { bubbles: true, cancelable: true });
-    name.dispatchEvent(plain);
-    assert.equal(plain.defaultPrevented, false, 'with only a placeholder, its link is the browser\'s');
+    click(page, name);
     await settle();
+    assert.equal(window.location.hash, name.getAttribute('href'), 'with only a placeholder, its link is followed');
     assert.equal(document.querySelector('.avp-popup'), null);
   } finally { await page.close(); }
 });
@@ -961,8 +960,60 @@ const layOut = page => {
   };
   Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 1e7; } });
 };
+const follow = async (page, hash) => {
+  const anchor = page.document.createElement('a');
+  anchor.setAttribute('href', hash);
+  page.document.body.append(anchor);
+  click(page, anchor);
+  anchor.remove();
+  await settle();
+};
 const pane = document => document.querySelector('#document');
 
+test('following a link pushes history only for a new page, and in a page it replaces', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document, window } = page;
+    const length = window.history.length;
+    let pushed = 0;
+    const pushState = window.history.pushState.bind(window.history);
+    window.history.pushState = (...args) => { pushed++; pushState(...args); };
+    click(page, document.querySelector('.section-list a'));
+    await settle();
+    assert.match(window.location.hash, /^#29153-j00\//);
+    assert.equal(window.history.length, length);
+    await follow(page, '#29153-j00?line=20');
+    assert.equal(window.location.hash, '#29153-j00?line=20');
+    assert.equal(pushed, 0);
+    await follow(page, '#rfc7944');
+    assert.equal(window.location.hash, '#rfc7944');
+    assert.equal(window.history.length, length + 1);
+    await follow(page, '#');
+    await follow(page, '#search?q=DRMP');
+    await follow(page, '#search?q=Ns');
+    assert.equal(pushed, 3, 'index and search are pages, and another search is the same one');
+    await follow(page, '#29153-j00');
+    await follow(page, '#29153-j00?raw=1');
+    assert.equal(pushed, 5, 'raw text has its own lines, so it is a page');
+  } finally { await page.close(); }
+});
+test('a document comes back where it was left unless its route says otherwise, and raw keeps its own place', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    layOut(page);
+    pane(document).scrollTop = 1237;
+    await follow(page, '#');
+    await follow(page, '#29153-j00');
+    assert.equal(pane(document).scrollTop, 1237);
+    await follow(page, '#29153-j00?raw=1');
+    assert.equal(pane(document).scrollTop, 0, 'the raw text\'s lines are not these');
+    await follow(page, '#');
+    await follow(page, '#29153-j00?top=9');
+    assert.equal(pane(document).scrollTop, 180, 'a line in the route wins');
+    assert.ok(page.window.sessionStorage.getItem('seanchai-positions').includes('"29153-j00"'));
+  } finally { await page.close(); }
+});
 test('the strip names the section at the top of the view, and opens the Sections panel at its entry', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
@@ -978,6 +1029,7 @@ test('the strip names the section at the top of the view, and opens the Sections
     pane(document).dispatchEvent(new window.Event('scroll'));
     await new Promise(resolve => setTimeout(resolve, 200));
     assert.equal(crumb.textContent, `${section} · ${title}`);
+    assert.match(window.location.hash, new RegExp(`top=${Number(row.dataset.line) - 1}$`), 'and the URL, once it has come to rest');
     click(page, crumb);
     const panel = document.querySelector('#diagnostic-sections');
     assert.equal(panel.hidden, false);

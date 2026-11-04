@@ -8,6 +8,7 @@ import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import { markDetails } from './avp-places.ts';
 import type { AvpPopup } from './avp-popup.ts';
+import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line, RawDocument } from './types.ts';
@@ -20,6 +21,8 @@ export interface ViewServices {
   popup: AvpPopup;
   highlight(lines: Line[]): HighlightedLine[];
   navigate(hash: string): void;
+  /** The view has come to rest somewhere new. */
+  scrolled(view: DocumentView): void;
 }
 
 function correctionNode(token: HighlightedToken, reason: string, id: string): HTMLElement {
@@ -189,7 +192,7 @@ export interface DocumentView {
   /** Ends a smooth scroll at its goal, so that what is read next is where the view is going. */
   settle(): void;
   focusPosition(): void;
-  topLine(): number | undefined;
+  position(): ScrollPosition | undefined;
   /** The value table's row a link to `section` under `name` means, if it means one. */
   valueRow(section: string, name: string): ValueRow | undefined;
 }
@@ -352,12 +355,21 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     item.querySelector('a')?.focus({ preventScroll: true });
   };
 
+  // Where the view came to rest goes to the URL and the session once, not at every step of the way there.
+  let resting: ReturnType<typeof setTimeout> | undefined;
+  const restLater = () => {
+    clearTimeout(resting);
+    resting = setTimeout(() => {
+      if (!scroller.moving && documentPane.isConnected) services.scrolled(view);
+    }, 150);
+  };
   let frame = 0;
   documentPane.addEventListener('scroll', () => {
     frame ||= requestAnimationFrame(() => {
       frame = 0;
       if (documentPane.isConnected) showCrumb();
     });
+    restLater();
   }, { passive: true });
   // A reader who has started scrolling should not be scrolled.
   for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown']) documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
@@ -396,9 +408,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     focusPosition() {
       focusable?.focus({ preventScroll: true });
     },
-    topLine() {
-      const row = topRow(rows, documentPane.getBoundingClientRect().top);
-      return row && Number(row.dataset.line);
+    position() {
+      const edge = documentPane.getBoundingClientRect().top;
+      const row = topRow(rows, edge);
+      return row && { top: Number(row.dataset.line), offset: edge - row.getBoundingClientRect().top };
     },
     valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),
   };
