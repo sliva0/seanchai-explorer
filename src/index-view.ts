@@ -7,6 +7,8 @@ import type { DocumentSummary } from './types.ts';
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
 const MAX_INTERFACES_WIDTH = 24;
 
+const FOOTER_HELP = 'Right-click any AVP name to see where it is used. Alt-click goes to its definition, click to its details.';
+
 function byName(a: DocumentSummary, b: DocumentSummary) {
   return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
 }
@@ -87,7 +89,7 @@ export function renderIndex(container: HTMLElement, site: Site) {
   for (const [publisher, releases] of [...publishers].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     container.append(renderPublisher(publisher, releases, site));
   }
-  container.append(element('p', 'Right-click any AVP or command name to see where it is used.', 'versions'));
+  container.append(element('p', FOOTER_HELP, 'versions'));
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
   container.append(element('footer', [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`].filter(Boolean).join(' · '), 'versions'));
 }

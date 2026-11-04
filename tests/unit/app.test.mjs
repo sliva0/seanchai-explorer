@@ -415,7 +415,7 @@ test('an index row is number, interfaces and title, with what its heading says l
 test('the index says once how to see where a name is used', async () => {
   const page = await boot();
   try {
-    assert.equal([...page.document.querySelectorAll('main > .versions')].filter(node => node.textContent === 'Right-click any AVP or command name to see where it is used.').length, 1);
+    assert.equal([...page.document.querySelectorAll('main > .versions')].filter(node => node.textContent === 'Right-click any AVP name to see where it is used. Alt-click goes to its definition, click to its details.').length, 1);
   } finally { await page.close(); }
 });
 
