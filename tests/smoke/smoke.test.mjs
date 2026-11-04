@@ -697,6 +697,37 @@ test('Sections and its crumb are one control after Findings and Holes: the toggl
   }
 });
 
+test('a rule of the theme\'s border stands between the strip\'s right-hand controls, and none is left by a hidden one', { skip }, async () => {
+  const { page, done } = await open('#29153-j00');
+  const rules = () => page.evaluate(() => {
+    const strong = getComputedStyle(document.documentElement).getPropertyValue('--ui-border-strong').trim();
+    const probe = document.createElement('i');
+    probe.style.color = strong;
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).color;
+    probe.remove();
+    const controls = [...document.querySelectorAll('#controls > *')].filter(node => !node.hidden).map(node => {
+      const style = getComputedStyle(node);
+      return { width: style.borderLeftWidth, colour: style.borderLeftColor, height: node.getBoundingClientRect().height };
+    });
+    return { colour, controls, strip: document.querySelector('#document-tools').getBoundingClientRect().height };
+  });
+  for (const theme of ['light', 'dark']) {
+    if (theme === 'dark') await page.locator('.theme-toggle').click();
+    const { colour, controls, strip } = await rules();
+    assert.equal(controls.length, 3);
+    assert.equal(controls[0].width, '0px');
+    for (const control of controls.slice(1)) assert.deepEqual([control.width, control.colour], ['1px', colour]);
+    assert.equal(new Set(controls.map(control => control.height)).size, 1, 'rules of one height');
+    assert.equal(strip, 35);
+  }
+  await done();
+  const narrow = await open('#29153-j00', { viewport: { width: 390, height: 780 } });
+  const shown = await narrow.page.evaluate(() => [...document.querySelectorAll('#controls > *')].filter(node => !node.hidden).map(node => getComputedStyle(node).borderLeftWidth));
+  assert.deepEqual(shown, ['0px', '1px'], 'Source is hidden, Raw and the uses control keep the one rule');
+  await narrow.done();
+});
+
 test('the arrows sit left of the title, in one row', { skip }, async () => {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
     const { page, done } = await open('#29153-j00', { viewport });

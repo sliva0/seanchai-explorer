@@ -21,7 +21,9 @@ ul { margin: 0; padding: 0; list-style: none; }
 #document-tools { display: flex; flex: none; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0 var(--space-3); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--mono); }
 #controls, #diagnostics { display: flex; flex-wrap: wrap; align-items: center; gap: 0 var(--space-3); }
 #diagnostics { flex: 1 1 auto; min-width: 0; }
-#controls > a { min-width: 9ch; text-align: right; }
+#controls > a { min-width: 9ch; line-height: var(--control-height); text-align: right; }
+/* A rule on the left of each, so a hidden one leaves none behind. */
+#controls > * + * { padding-left: var(--space-3); border-left: 1px solid var(--ui-border-strong); }
 .section-control { display: flex; flex: 1 1 auto; align-items: center; min-width: 0; }
 .section-control .disclosure { flex: none; }
 /* Takes what the row has spare and asks for none, so the strip is as tall with or without it. */
