@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import test from 'node:test';
 import Ajv2020 from 'ajv/dist/2020.js';
+import { curatedInterfaces } from '../../src/interfaces.ts';
 import { rfcPages } from '../../src/rfc-text.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -25,6 +26,7 @@ async function pdfs() {
 
 async function checkExport() {
   const index = await json('index.json');
+  for (const doc of index.documents) assert.equal(typeof curatedInterfaces(doc), 'string', `${doc.id} (${doc.reference}) is missing from src/interfaces.ts`);
   const validate = new Ajv2020({ strict: false }).compile(await json('schema.json'));
   for (const file of ['index.json', 'search.json', ...index.documents.flatMap(doc => [doc.path, doc.raw])]) {
     assert.ok(validate(await json(file)), `${file}: ${JSON.stringify(validate.errors?.slice(0, 3))}`);

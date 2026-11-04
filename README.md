@@ -85,6 +85,20 @@ npm test
 `--any-schema` lets through an export of another schema version, which `npm run build`
 refuses until the types are regenerated.
 
+## Interface names
+
+The index's second column, the interfaces or application of each document, is not in
+the export. `src/interfaces.ts` holds it, curated by hand from each document's scope
+clause and table of contents. To add a document, or change an entry:
+
+- key it by `reference`, or by document `id` where one edition's names differ from the
+  others (as TS 29.212's St is not in its Release 11 edition);
+- list names as the specification spells them, comma-separated: the Diameter ones, not
+  every interface it mentions. For an RFC, name its application;
+- give a document with none an empty string, so that it reads as decided. A missing
+  entry shows as a blank too, but `npm test` fails on it for the fixture's documents
+  and `npm run test:build` for a real export's.
+
 ## Deployment
 
 `.github/workflows/pages.yml` deploys to GitHub Pages on a push to `main`: it installs
