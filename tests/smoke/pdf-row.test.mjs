@@ -184,9 +184,9 @@ test('a row selects its own match, not a mention earlier on the page', { skip: s
   const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
   const page = await context.newPage();
   try {
-    // TS 29.128 table 6.4.1.1, page 43: a row with a match below it, and one with the match of Feature-List-ID above it.
+    // TS 29.128 table 6.4.1.1, page 43: a row with a match below it, and one below Feature-List-ID, which a whole name does not match.
     await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29128-j20.pdf`)}#page=39&search=6.4.1&name=SCEF-Reference-ID&row=1`);
-    for (const [name, matchIndex] of [['SCEF-Reference-ID', 0], ['Feature-List', 1]]) {
+    for (const [name, matchIndex] of [['SCEF-Reference-ID', 0], ['Feature-List', 0]]) {
       await page.evaluate(hash => { location.hash = hash; }, `#page=39&search=6.4.1&name=${name}&row=1`);
       await settled(page, name);
       await page.waitForFunction(index => window.PDFViewerApplication.findController.selected.matchIdx === index, matchIndex);

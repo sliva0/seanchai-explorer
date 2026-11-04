@@ -32,10 +32,11 @@ class FindController extends PDFFindController {
   }
   // pdf.js joins a name a table wraps as "3GPP-SGSN-" over "Address" into 3GPP-SGSNAddress, which its own match misses.
   override match(query: string | string[], pageContent: string, pageIndex: number) {
-    if (typeof query !== 'string' || !/[_-]/.test(query)) return super.match(query, pageContent, pageIndex);
+    if (typeof query !== 'string' || !(wholeWord || /[_-]/.test(query))) return super.match(query, pageContent, pageIndex);
     const parts = query.split(/[\s_-]+/).map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
     const body = parts.join('[\\s_-]*');
-    const pattern = new RegExp(wholeWord ? `(?<![\\p{L}\\p{N}])${body}(?![\\p{L}\\p{N}])` : body, 'giu');
+    // A whole name: "Load" is not "Load-Type", nor "3GPP-User-Location-Info" the start of "3GPP-User-Location-Info-Time".
+    const pattern = new RegExp(wholeWord ? `(?<![\\p{L}\\p{N}_-])${body}(?![\\p{L}\\p{N}_-])` : body, 'giu');
     return [...pageContent.matchAll(pattern)].filter(found => found[0]).map(found => ({ index: found.index, length: found[0].length }));
   }
 }
@@ -189,7 +190,7 @@ async function navigate() {
   find.value = name ?? section;
   rowTarget = undefined;
   printedAs = undefined;
-  wholeWord = row;
+  wholeWord = Boolean(name);
   const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row, params.get('printed') ?? undefined, {
     ...(params.get('titled') === '1' ? { titled: true } : {}),
     ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
