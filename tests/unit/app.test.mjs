@@ -544,7 +544,7 @@ test('self-hosted: a cell in the raw text keeps to the raw text', async () => {
   } finally { await page.close(); }
 });
 
-test('self-hosted: the popup gives each target the pane alone first and the view second, and neither is a jump until the view moves', async () => {
+test('self-hosted: the popup gives each target both panels first and the pane alone second, and neither is a jump until the view moves', async () => {
   const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted' });
   try {
     const { document, window } = page;
@@ -557,10 +557,12 @@ test('self-hosted: the popup gives each target the pane alone first and the view
     const definition = popup.querySelector('.place-definition');
     const details = popup.querySelector('.place-details');
     const words = row => [...row.children].map(node => node.textContent);
-    assert.deepEqual(words(definition), ['Definition:', '17.7', 'show in pane', 'go there']);
-    assert.deepEqual(words(details), ['Details:', '17.7.2', 'show in pane', 'go there']);
+    assert.deepEqual(words(definition), ['Definition:', '17.7', 'Jump to', 'Show on the right']);
+    assert.deepEqual(words(details), ['Details:', '17.7.2', 'Jump to', 'Show on the right']);
     assert.equal(definition.querySelector('button').className, 'control pane-action');
-    assert.equal(definition.querySelector('a').className, 'view-action');
+    assert.equal(definition.querySelector('a').className, 'control view-action');
+    assert.match(definition.querySelector('a').title, /text on the left and the source pane on the right/);
+    assert.match(definition.querySelector('button').title, /only the source pane on the right, and opens it if it is hidden/);
     definition.querySelector('button').click();
     await settle();
     assert.equal(paneAt(document).get('search'), '17.7');
@@ -579,6 +581,41 @@ test('self-hosted: the popup gives each target the pane alone first and the view
     assert.equal(paneAt(document).get('search'), '17.7.2');
     assert.ok(window.location.hash.startsWith('#29061-6f0/17.7.2?'));
     assert.equal(jumps(), 1);
+  } finally { await page.close(); }
+});
+
+test('self-hosted: Show on the right opens a pane that is switched off, and leaves the text where it is', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7?pane=0', mode: 'self-hosted' });
+  try {
+    const { document, window } = page;
+    const control = document.querySelector('.source-toggle input');
+    assert.equal(control.checked, false);
+    const before = window.location.hash.split('?')[0];
+    rightClick(page, tmgi(document));
+    await settle();
+    document.querySelector('.avp-popup .place-details .pane-action').click();
+    await settle();
+    assert.equal(control.checked, true);
+    assert.doesNotMatch(window.location.hash, /pane=0/);
+    assert.equal(paneAt(document).get('search'), '17.7.2');
+    assert.equal(window.location.hash.split('?')[0], before);
+    assert.ok(document.querySelector('.avp-popup'), 'still open');
+  } finally { await page.close(); }
+});
+
+test('a use in the popup is the line with its alignment padding collapsed, in its text and its title', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7' });
+  try {
+    const { document } = page;
+    rightClick(page, tmgi(document));
+    await settle();
+    const uses = [...document.querySelectorAll('.avp-popup .usage-link')];
+    assert.deepEqual(uses.map(use => use.textContent), [
+      '17.6.2 · [ TMGI ] ; bold',
+      '17.6.5 · [ TMGI ] ; bold',
+      '17.7 · TMGI 900 17.7.2 OctetString M,V P - - Yes',
+    ]);
+    assert.deepEqual(uses.map(use => use.title), uses.map(use => use.textContent));
   } finally { await page.close(); }
 });
 
@@ -607,7 +644,7 @@ test('public: the popup has only the view\'s way to a target, under the publishe
     await settle();
     const definition = document.querySelector('.avp-popup .place-definition');
     assert.equal(definition.querySelector('button'), null);
-    assert.equal(definition.querySelector('.view-action').textContent, 'go there');
+    assert.equal(definition.querySelector('.view-action').textContent, 'Jump to');
     assert.match(definition.querySelector('.place-where').href, /etsi\.org.*#page=\d+$/);
     document.querySelector('.avp-popup .popup-title button').click();
     click(page, name);

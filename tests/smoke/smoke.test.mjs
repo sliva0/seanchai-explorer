@@ -168,6 +168,8 @@ test('public, desktop: the popup has only the text\'s way to a place the pane ca
   const row = page.locator('.avp-popup .place-definition');
   assert.match(await row.locator('.place-where').textContent(), /^TS 29\.217 · /);
   assert.equal(await row.locator('.pane-action').count(), 0);
+  const edges = await page.locator('.avp-popup').evaluate(popup => [popup.querySelector('.view-action').getBoundingClientRect().right, popup.querySelector('.popup-title button').getBoundingClientRect().right]);
+  assert.equal(edges[0], edges[1], 'no room kept for the action that is not there');
   await row.locator('.view-action').click();
   await page.waitForSelector('.document-header h1:has-text("29.217")');
   assert.equal(await page.locator('.avp-popup').count(), 0);
@@ -765,7 +767,7 @@ test('a plain click on a name moves the pane and leaves the text, an alt-click m
   await done();
 });
 
-test('the popup\'s two ways to a target read as a first and a second, in both themes, and stay compact', { skip }, async () => {
+test('the popup\'s two ways to a target are two like buttons side by side, in both themes, and stay compact', { skip }, async () => {
   const { page, done } = await open('#rfc7944');
   await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
   const row = page.locator('.avp-popup .place-definition');
@@ -775,29 +777,32 @@ test('the popup\'s two ways to a target read as a first and a second, in both th
       await page.locator('.theme-toggle').click();
       await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
     }
-    assert.deepEqual([await row.locator('button').textContent(), await row.locator('a').textContent()], ['show in pane', 'go there']);
+    assert.deepEqual([await row.locator('a').textContent(), await row.locator('button').textContent()], ['Jump to', 'Show on the right']);
     const look = await page.locator('.avp-popup').evaluate(popup => {
-      const style = node => getComputedStyle(node);
-      const primary = popup.querySelector('.pane-action');
-      const secondary = popup.querySelector('.view-action');
+      const jump = popup.querySelector('.view-action');
+      const show = popup.querySelector('.pane-action');
+      const looks = node => {
+        const style = getComputedStyle(node);
+        return [style.borderTopWidth, style.borderTopColor, style.borderTopStyle, style.borderRadius, style.color, style.backgroundColor, style.fontFamily, style.fontSize, style.fontWeight, style.textDecorationLine, node.getBoundingClientRect().height];
+      };
       const box = popup.getBoundingClientRect();
       return {
-        primaryBorder: style(primary).borderTopWidth,
-        secondaryBorder: style(secondary).borderTopWidth,
-        colours: [style(primary).color, style(secondary).color],
-        first: primary.getBoundingClientRect().right <= secondary.getBoundingClientRect().left,
-        oneLine: Math.abs(primary.getBoundingClientRect().top + primary.getBoundingClientRect().height / 2 - secondary.getBoundingClientRect().top - secondary.getBoundingClientRect().height / 2) < 2,
+        jump: looks(jump),
+        show: looks(show),
+        first: jump.getBoundingClientRect().right <= show.getBoundingClientRect().left,
+        sameLine: jump.getBoundingClientRect().top === show.getBoundingClientRect().top,
         width: box.width,
         selfScrolls: popup.scrollHeight > popup.clientHeight,
       };
     });
-    assert.equal(look.primaryBorder, '1px');
-    assert.equal(look.secondaryBorder, '0px');
-    assert.notEqual(look.colours[0], look.colours[1]);
+    assert.deepEqual(look.jump, look.show);
     assert.equal(look.first, true);
-    assert.equal(look.oneLine, true);
+    assert.equal(look.sameLine, true);
     assert.ok(look.width <= 80 * 8, JSON.stringify(look));
     assert.equal(look.selfScrolls, false);
+    await row.locator('a').hover();
+    const hovered = await row.locator('a').evaluate(node => getComputedStyle(node).textDecorationLine);
+    assert.equal(hovered, 'none', 'no underline the button has not');
   }
   const before = await scrollOf(page);
   await row.locator('button').click();

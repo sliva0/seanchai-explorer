@@ -75,9 +75,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   /**
-   * A target of a name and the two ways to it: the pane alone, which is the lighter and comes first, and the view with
-   * the pane beside it. Each is there only if the place is in that medium. With no way to it in the pane, its label
-   * is the publisher's copy at that place, if there is one.
+   * A target of a name and the two ways to it: both panels, then the pane alone. Each is there only if the place is in
+   * that medium. With no way to it in the pane, its label is the publisher's copy at that place, if there is one.
    */
   function placeRow(label: string, className: string, place: Place, { doc, raw }: PopupRequest) {
     const summary = site.summary(place.document);
@@ -91,18 +90,18 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const whereNode = href ? externalLink(where, href.href) : element('span', where);
     whereNode.classList.add('place-where');
     row.append(whereNode);
+    if (place.target) {
+      const anchor = element('a', 'Jump to', 'control view-action');
+      anchor.href = placeRoute(place, doc, raw);
+      anchor.title = inPane ? 'Moves the text on the left and the source pane on the right' : 'Moves the text to this place';
+      row.append(anchor);
+    }
     if (inPane) {
-      const button = element('button', 'show in pane', 'control pane-action');
+      const button = element('button', 'Show on the right', 'control pane-action');
       button.type = 'button';
-      button.title = 'Moves the source pane only';
+      button.title = 'Moves only the source pane on the right, and opens it if it is hidden';
       button.onclick = () => void pane.showPlace(place, doc).catch(console.error);
       row.append(button);
-    }
-    if (place.target) {
-      const anchor = element('a', 'go there', 'view-action');
-      anchor.href = placeRoute(place, doc, raw);
-      anchor.title = inPane ? 'Moves this view and the source pane' : 'Moves this view';
-      row.append(anchor);
     }
     return row;
   }
@@ -231,7 +230,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     next.onclick = () => select(active + 1);
     uses.forEach((node, index) => {
       const line = lineOf(node);
-      const text = lines[Number(line.dataset.line)].tokens.filter(token => !token.kind).map(token => token.text).join('').trim();
+      // The spacing only aligns the line with its neighbours in the file.
+      const text = lines[Number(line.dataset.line)].tokens.filter(token => !token.kind).map(token => token.text).join('').replace(/\s+/g, ' ').trim();
       const button = element('button', `${line.dataset.section ?? ''} · ${text}`, 'usage-link');
       button.title = button.textContent!;
       button.onclick = () => select(index);

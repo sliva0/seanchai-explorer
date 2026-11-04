@@ -21,14 +21,14 @@ publishers. The site holds no Python and reads only what `seanchai export` write
 |---|---|
 | Click | its definition in the source pane alone, which opens if it was switched off; with the control in the document's strip on, where it is used |
 | Alt-click | its definition in the text and the pane |
-| Right-click, the menu key | where it is used, with Definition and Details each offering `show in pane` and `go there` |
+| Right-click, the menu key | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
 A definition is the row of the first AVP table listing the name, or the clause its link
 names where that is another document's or there is no row. Details are the clause that
 row points to, and are left out where it points nowhere else. Where the pane cannot read
 the place (a public build's PDFs, a document in no format it reads, a narrow window) a
-click does what an alt-click does, and the popup offers only `go there`. A value's name
+click does what an alt-click does, and the popup offers only `Jump to`. A value's name
 goes to its row the same way, and a `; Section:` or `; Page:` link to its clause, or with
 no pane to the publisher's copy in a new tab.
 
