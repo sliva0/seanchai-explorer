@@ -31,20 +31,23 @@ function follow(target: Target, context: ClickContext): ClickAction {
  * in the pane or on the target's page; only `; Section:` and `; Page:` links
  * with no pane to go to are left to the browser, whose new tab their markup asks for.
  * Only the uses control makes a click list a name; otherwise that is a right-click's, which the view handles.
+ * A table row's name and Section cell go to the AVP's Details where it has them apart from its Definition, the row itself.
  */
 export function clickAction(token: ValueToken, event: ClickModifiers, section: string | undefined, context: ClickContext): ClickAction {
   const listable = token.avp || token.valueRow;
   if (event.ctrlKey || event.metaKey || event.shiftKey) return { type: 'browser' };
   if (listable && context.uses) return { type: 'uses' };
   if (token.valueRow) return context.paneOpen && token.source ? { type: 'source', position: token.source } : { type: 'browser' };
+  const place = token.details ?? token.source;
   if (token.avp) {
-    if (token.source?.row && context.paneOpen) return { type: 'source', position: token.source };
+    if (place?.row && context.paneOpen) return { type: 'source', position: place };
     if (token.target) return follow({ ...token.target, name: token.target.name ?? token.avp }, context);
     if (!token.source) {
       return context.paneOpen && section ? { type: 'source', position: { section, name: token.avp, exact: true, occurrence: true } } : { type: 'browser' };
     }
   }
-  if (token.source) return context.sourceInPane ? { type: 'source', position: token.source } : { type: 'browser' };
+  if (place && context.sourceInPane) return { type: 'source', position: place };
+  if (token.source) return { type: 'browser' };
   if (token.target) return follow(token.target, context);
   return { type: 'browser' };
 }

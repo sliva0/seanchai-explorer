@@ -1,7 +1,9 @@
+import { avpPlaces } from './avp-places.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
+import type { SourcePosition } from './navigation.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document } from './types.ts';
 import { valueRowLabel } from './values.ts';
@@ -64,6 +66,27 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const top = below + size.height <= innerHeight - 12 ? below : above >= 12 ? above : innerHeight - size.height - 12;
     panel.style.top = `${Math.max(12, top)}px`;
     closeButton.focus({ preventScroll: true });
+  }
+
+  /** A jump into this document's source: to the pane if it can show it, else to the source in a new tab. */
+  function sourcePlace(label: string, className: string, position: SourcePosition, doc: Document) {
+    const row = element('p', `${label}: `);
+    if (pane.canShow()) {
+      const button = element('button', position.section, `usage-link source-link ${className}`);
+      button.onclick = () => {
+        pane.setVisible(true);
+        pane.show(position, doc, true);
+      };
+      row.append(button);
+    } else {
+      const href = sourceHref(doc, position, site.mode);
+      if (href) {
+        const anchor = externalLink(position.section, href.href);
+        anchor.className = className;
+        row.append(anchor);
+      } else row.append(position.section);
+    }
+    return row;
   }
 
   /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
@@ -153,11 +176,17 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     });
     let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     panel.dataset.avp = name;
-    const definition = token.target && site.summary(token.target.document);
-    if (token.target && definition) {
-      const row = element('p', 'Definition: ');
-      const anchor = link(`${site.label(definition)}${token.target.section ? ` · ${token.target.section}` : ''}`, { ...token.target, name });
-      anchor.className = 'definition-link';
+    const { definition, details } = avpPlaces(token, lines);
+    if (definition) panel.append(sourcePlace('Definition', 'definition-link', definition, doc));
+    if (details) panel.append(sourcePlace('Details', 'details-link', details, doc));
+    // Where the name links to and neither of those is: Details if elsewhere, and the Definition if all the file says of it is a clause of its own.
+    const followed = !details && token.target && (token.target.document !== doc.id || token.target.section !== definition?.section) ? token.target : undefined;
+    const summary = followed && site.summary(followed.document);
+    if (followed && summary) {
+      const elsewhere = Boolean(definition) || followed.document !== doc.id;
+      const row = element('p', `${elsewhere ? 'Details' : 'Definition'}: `);
+      const anchor = link(`${site.label(summary)}${followed.section ? ` · ${followed.section}` : ''}`, { ...followed, name });
+      anchor.className = elsewhere ? 'details-link' : 'definition-link';
       row.append(anchor);
       panel.append(row);
     }

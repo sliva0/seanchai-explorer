@@ -229,6 +229,59 @@ test('a name no table holds goes to where the source names it, and one it never 
   } finally { await context.close(); }
 });
 
+test('Details: a row of a clause\'s numbered description table, not the contents or the AVP table, wrapped or not', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  const errors = [];
+  page.on('pageerror', error => errors.push(String(error)));
+  try {
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}#page=129&search=16.4.7&name=3GPP-Selection-Mode&row=1&titled=1`);
+    await settled(page, '3GPP-Selection-Mode');
+    await page.waitForFunction(() => document.querySelector('.highlight.selected')?.textContent === '3GPP-Selection-', undefined, { timeout: 15000 });
+    const state = await viewerState(page);
+    assert.equal(state.page, 88, 'table 16.4.7.1, under a subclause of the one asked for');
+    assert.equal(state.selectedPage, 88);
+    assert.ok(state.selectedTop >= 0 && state.selectedTop < 60, JSON.stringify(state));
+    assert.equal(await page.inputValue('#find'), '3GPP-Selection-Mode');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Details: a clause with no such table is its heading, even under the table listing the AVP', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+  const page = await context.newPage();
+  try {
+    for (const [hash, name, expected, afterTable] of [
+      ['page=172&search=17.7.2&name=TMGI&row=1&titled=1', 'TMGI', 150, false],
+      ['page=172&search=20.5a.1&name=MBMS-Access-Indicator&row=1&titled=1', 'MBMS-Access-Indicator', 175, true],
+    ]) {
+      await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}#${hash}`);
+      await settled(page, name);
+      await page.waitForFunction(text => document.querySelector('.highlight.selected')?.textContent === text, name, { timeout: 15000 });
+      if (afterTable) await page.waitForFunction(() => window.PDFViewerApplication.findController.selected.matchIdx > 0);
+      const state = await viewerState(page);
+      assert.equal(state.page, expected, hash);
+      assert.equal(state.selectedPage, expected, hash);
+      assert.ok(state.selectedTop >= 0 && state.selectedTop < 70, `${hash}: ${JSON.stringify(state)}`);
+    }
+  } finally { await context.close(); }
+});
+
+test('Details in the RFC reader: the clause an AVP table points to', { skip: skip || !existsSync(path.join(specifications, 'rfc/rfc5778.txt')) && 'no held rfc5778' }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${base}rfc.html?file=${encodeURIComponent(`${base}rfc5778.txt`)}#page=18&section=6.20&query=MIP6-Auth-Mode&row=1&titled=1`);
+    await page.waitForSelector('.rfc-line', { state: 'attached' });
+    await page.waitForFunction(() => document.querySelector('.rfc-match, .rfc-match-line'));
+    const first = await page.evaluate(() => {
+      const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
+      return [...document.querySelectorAll('.rfc-line')].find(node => node.getBoundingClientRect().bottom > top).textContent.trim();
+    });
+    assert.match(first, /^6\.20\.\s+MIP6-Auth-Mode/);
+  } finally { await context.close(); }
+});
+
 const noValues = skip || (!existsSync(values) || !existsSync(repeating)) && `no held PDFs ${values}, ${repeating}`;
 
 test('value rows: bits and features beside their numbers, repeated names, wrapped names, and a result code at its clause', { skip: noValues }, async () => {

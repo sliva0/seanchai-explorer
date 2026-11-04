@@ -451,8 +451,60 @@ test('a uses popup names the definition\'s document without publisher or version
     for (const [href, label] of [['#29217-j00', /^TS 29\.217 · /], ['#rfc7944', /^RFC 7944 · /]]) {
       click(page, document.querySelector(`pre a[data-avp][href^="${href}"]`));
       await settle();
-      assert.match(document.querySelector('.avp-popup .definition-link').textContent, label);
+      assert.match(document.querySelector('.avp-popup .details-link').textContent, label);
     }
+  } finally { await page.close(); }
+});
+
+test('self-hosted: a table row\'s name and Section cell go to its Details, and the popup offers both targets', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    const paneAt = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+    const name = [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
+    click(page, name);
+    await settle();
+    assert.equal(paneAt().get('search'), '17.7.2');
+    assert.equal(paneAt().get('name'), 'TMGI');
+    assert.equal(paneAt().get('row'), '1');
+    assert.equal(paneAt().get('titled'), '1');
+    const cell = name.closest('.dad-line').querySelector('a[target="_blank"][data-token]');
+    assert.equal(cell.textContent, '17.7.2');
+    assert.equal(new URLSearchParams(new URL(cell.href).hash.slice(1)).get('name'), null, 'the browser\'s link is the bare clause');
+    click(page, cell);
+    await settle();
+    assert.equal(paneAt().get('search'), '17.7.2');
+    assert.equal(paneAt().get('name'), 'TMGI');
+    rightClick(page, name);
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.match(popup.querySelector('.definition-link').parentElement.textContent, /^Definition: 17\.7$/);
+    assert.match(popup.querySelector('.details-link').parentElement.textContent, /^Details: 17\.7\.2$/);
+    popup.querySelector('.definition-link').click();
+    await settle();
+    assert.equal(paneAt().get('search'), '17.7');
+    assert.equal(paneAt().get('titled'), null);
+    popup.querySelector('.details-link').click();
+    await settle();
+    assert.equal(paneAt().get('search'), '17.7.2');
+    assert.ok(page.window.location.hash.includes('titled=1'), 'kept in the route');
+  } finally { await page.close(); }
+});
+
+test('the popup shows one target where a row\'s clause is its table\'s', async () => {
+  const onlyRow = (path, data) => path !== 'data/documents/29061-6f0.json' ? data : { ...data, lines: data.lines.map(line => {
+    const row = line.tokens.find(token => token.avp === 'TMGI' && token.source?.row);
+    return row ? { ...line, tokens: line.tokens.map(token => token === row ? { ...token, target: { document: '29061-6f0', section: row.source.section } } : token.source ? { ...token, source: { ...token.source, section: row.source.section } } : token) } : line;
+  }) };
+  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted', transform: onlyRow });
+  try {
+    const { document } = page;
+    const name = [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
+    rightClick(page, name);
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.match(popup.querySelector('.definition-link').parentElement.textContent, /^Definition: 17\.7$/);
+    assert.equal(popup.querySelector('.details-link'), null);
   } finally { await page.close(); }
 });
 

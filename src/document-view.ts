@@ -6,6 +6,7 @@ import { compactComment } from './comments.ts';
 import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
+import { markDetails } from './avp-places.ts';
 import type { AvpPopup } from './avp-popup.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line, RawDocument } from './types.ts';
@@ -188,7 +189,9 @@ export interface DocumentView {
 
 export function renderDocument(container: HTMLElement, services: ViewServices, doc: Document, raw: RawDocument | undefined): DocumentView {
   const { site, pane, popup } = services;
-  const lines = services.highlight(raw ? raw.lines : doc.lines);
+  const fileLines = raw ? raw.lines : doc.lines;
+  markDetails(fileLines, doc);
+  const lines = services.highlight(fileLines);
   const controls = element('section');
   controls.id = 'controls';
   const documentPane = element('section');

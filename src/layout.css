@@ -165,3 +165,4 @@ mark { background: var(--syntax-number-bg); color: var(--syntax-number); }
 .usage-list { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .usage-link { display: block; width: 100%; border: 0; border-radius: 2px; padding: 0.125rem var(--space-1); text-align: left; color: var(--ui-link); background: none; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
 .usage-link:hover, .usage-link[aria-current] { background: var(--ui-hover); }
+.avp-popup p .usage-link { display: inline; width: auto; }

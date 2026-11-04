@@ -118,3 +118,38 @@ test('a name\'s title says what a plain click does as things stand, and how to r
   assert.equal(titled(value, noPane()), 'Click: its row · Right-click: its table');
   assert.equal(titled(value, pane({ uses: true })), 'Click or right-click: its table');
 });
+
+const details = { section: '16.4.7', page: 86, name: 'Y', row: true, titled: true };
+
+test('a table row\'s name goes to its Details in an open pane, and its definition\'s page without one', () => {
+  const definition = { section: '16a.5', page: 129, name: 'Y', row: true };
+  const row = { text: 'Y', avp: 'Y', target: { document: 'd', section: '16.4.7' }, source: definition, details };
+  assert.deepEqual(clickAction(row, plain, '16a.5', pane()), { type: 'source', position: details });
+  assert.equal(clickAction(row, plain, '16a.5', noPane()).type, 'navigate');
+  assert.equal(clickAction(row, plain, '16a.5', pane({ paneOpen: false, sourceInPane: false })).type, 'pane-target');
+  assert.deepEqual(clickAction(row, { ...plain, altKey: true }, '16a.5', pane()), { type: 'source', position: details }, 'alt is a plain click');
+  assert.deepEqual(clickAction(row, { ...plain, ctrlKey: true }, '16a.5', pane()), { type: 'browser' });
+  assert.deepEqual(clickAction(row, plain, '16a.5', pane({ uses: true })), { type: 'uses' });
+  const hole = { text: 'Y', avp: 'Y', source: definition, details };
+  assert.deepEqual(clickAction(hole, plain, '16a.5', noPane({ sourceInPane: true })), { type: 'source', position: details });
+  assert.deepEqual(clickAction(hole, plain, '16a.5', noPane()), { type: 'browser' });
+});
+
+test('a row with no Details of its own still goes to its Definition', () => {
+  const definition = { section: '7.3', page: 19, name: 'Y', row: true };
+  assert.deepEqual(clickAction({ text: 'Y', avp: 'Y', target, source: definition }, plain, '7.3', pane()), { type: 'source', position: definition });
+});
+
+test('a Section cell goes to the Details, and the browser keeps its link', () => {
+  const cell = { text: '16.4.7', source: { section: '16.4.7', page: 129 }, details };
+  assert.deepEqual(clickAction(cell, plain, '16a.5', pane()), { type: 'source', position: details });
+  assert.deepEqual(clickAction(cell, plain, '16a.5', noPane({ sourceInPane: true })), { type: 'source', position: details });
+  assert.deepEqual(clickAction(cell, plain, '16a.5', noPane()), { type: 'browser' });
+  assert.deepEqual(clickAction(cell, { ...plain, shiftKey: true }, '16a.5', pane()), { type: 'browser' });
+});
+
+test('an origin cell naming this document goes to the Details, and is followed with no pane', () => {
+  const cell = { text: 'TS29.061', target: { document: 'd', section: '16.4.7', name: 'Y' }, details };
+  assert.deepEqual(clickAction(cell, plain, '20.5', pane()), { type: 'source', position: details });
+  assert.deepEqual(clickAction(cell, plain, '20.5', noPane()), { type: 'navigate', target: cell.target });
+});

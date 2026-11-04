@@ -4,7 +4,7 @@ import type { NameMatch, RowFound } from './table-row.ts';
 
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
 /** `query` is the text to find there when it is not the name asked for, `found` how a row link got there. */
-/** What a value table's row knows of its place: `titled` that its section is its own clause, `value` the number printed beside it. */
+/** What a row knows of its place: `titled` that its section is its own clause, subclauses and all, `value` the number printed beside it. */
 export interface RowClue { titled?: boolean; value?: number }
 export interface Destination { pageNumber: number; destArray: unknown[]; query?: string; found?: RowFound }
 
@@ -219,11 +219,11 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       if (child) return child;
     }
   }
-  /** The page of the first bookmark after `bookmark`: a section's last page, and the next one's first. */
-  async function nextBookmarkPage(bookmark: Outline[number]): Promise<number | null> {
+  /** The page of the first bookmark after `bookmark`, past its subclauses if asked: a section's last page, and the next one's first. */
+  async function nextBookmarkPage(bookmark: Outline[number], pastSubclauses = false): Promise<number | null> {
     const flat = (items: Outline): Outline => items.flatMap(item => [item, ...flat(item.items)]);
     const all = flat(await outline);
-    for (const item of all.slice(all.indexOf(bookmark) + 1)) {
+    for (const item of all.slice(all.indexOf(bookmark) + 1 + (pastSubclauses ? flat(bookmark.items).length : 0))) {
       const next = item.dest && await destination(item.dest);
       if (next) return next.pageNumber;
     }
@@ -252,9 +252,21 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     if (fallback) hint = fallback.pageNumber;
     const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
     // A section's table starts at its heading and stays in the section: the same name in another table comes after it.
-    const end = fallback && bookmark ? await nextBookmarkPage(bookmark) ?? pdf.numPages : pdf.numPages;
-    const inSection = fallback ? pageNumbers.slice(hint - 1, end) : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).reverse()];
+    const end = fallback && bookmark ? await nextBookmarkPage(bookmark, clue.titled) ?? pdf.numPages : pdf.numPages;
+    let inSection = fallback ? pageNumbers.slice(hint - 1, end) : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).reverse()];
     const everywhere = pageNumbers.toSorted((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b);
+    // A line of running text can start with a clause's number too: a heading naming the row comes first.
+    const heading = (items: TextContent['items'], width: number) => headingOnPage(items, section, width, name) ?? headingOnPage(items, section, width);
+    // A clause can begin under a table listing its AVP: on its heading's page, only what is below the heading is the clause's.
+    let clause: { pageNumber: number; top: number } | undefined;
+    for (const pageNumber of clue.titled ? fallback ? [hint] : everywhere : []) {
+      if (!active()) return null;
+      const { items, width } = await textOf(pageNumber);
+      const top = heading(items, width);
+      if (top !== null) { clause = { pageNumber, top }; break; }
+    }
+    // With no bookmarks to end it, the heading's page is all that is known to be the clause.
+    if (clause && !fallback) inSection = [clause.pageNumber];
     type Look = (items: TextContent['items'], width: number) => { top: number; text?: string } | null;
     const row = (key: string): Look => items => {
       const top = rowOnPage(items, key);
@@ -274,8 +286,10 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       [inSection, 'row', row(name)],
       ...(printed ? [[inSection, 'printed', row(printed)] as [number[], RowFound, Look]] : []),
       [inSection, 'loose', items => looseRowOnPage(items, name)],
-      // A result code's clause is its place: a table elsewhere mapping the code is not.
-      ...(titled ? [[inSection, 'clause', place((items, width) => headingOnPage(items, section, width))] as [number[], RowFound, Look]] : []),
+      // A clause's description table can number its rows, with the name in the second column.
+      ...(titled && value === undefined ? [[inSection, 'row', items => findValueRow(items, exactName(name))] as [number[], RowFound, Look]] : []),
+      // A result code's or an AVP's clause is its place: a table elsewhere mapping the code, or listing the AVP, is not.
+      ...(titled ? [[inSection, 'clause', place(heading)] as [number[], RowFound, Look]] : []),
       [everywhere, 'other-table', row(name)],
       ...(printed ? [[everywhere, 'other-table', row(printed)] as [number[], RowFound, Look]] : []),
       [everywhere, 'clause', place((items, width) => clauseOnPage(items, name, width))],
@@ -293,6 +307,7 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
         const { items, width } = await textOf(pageNumber);
         if (!active()) return null;
         const hit = look(items, width);
+        if (hit && found !== 'clause' && order === inSection && pageNumber === clause?.pageNumber && hit.top >= clause.top) continue;
         if (hit) return { pageNumber, destArray: [null, { name: 'XYZ' }, null, hit.top, null], found, ...(hit.text ? { query: hit.text } : {}) };
       }
     }

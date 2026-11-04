@@ -24,8 +24,11 @@ export interface ValueTable {
   rows: ValueRow[];
 }
 
-/** A token of a value table's row: `valueRow` on its name, and what a row's clause links to says the row too. */
-export interface ValueToken extends Token { valueRow?: ValueRow }
+/**
+ * A token of a value table's row: `valueRow` on its name, and what a row's clause links to says the row too.
+ * `details` is on an AVP table row's name and Section cell, where the clause describing the AVP is another than the table's.
+ */
+export interface ValueToken extends Token { valueRow?: ValueRow; details?: SourcePosition }
 
 const lineText = (line: Line) => line.tokens.filter(token => !token.correction && token.kind !== 'comment').map(token => token.text).join('').trimEnd();
 const rowText = /^("?)(.+?)\1\s*=\s*(\d+)\s*(?:;\s*([^;]*?))?\s*(?:;;.*)?$/;
