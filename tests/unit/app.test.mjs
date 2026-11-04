@@ -145,6 +145,12 @@ test('public: ; Section: links open the publisher in a new tab', async () => {
     const event = new page.window.MouseEvent('click', { bubbles: true, cancelable: true });
     section.dispatchEvent(event);
     assert.equal(event.defaultPrevented, false);
+    const opened = [];
+    page.window.open = (...args) => { opened.push(args); return null; };
+    const alt = new page.window.MouseEvent('click', { bubbles: true, cancelable: true, altKey: true });
+    section.dispatchEvent(alt);
+    assert.equal(alt.defaultPrevented, true, 'a browser would download what alt-click leaves to it');
+    assert.deepEqual(opened, [[section.href, '_blank', 'noopener']]);
   } finally { await page.close(); }
 });
 
@@ -468,6 +474,12 @@ test('self-hosted: a table row\'s name and Section cell go to its Details, and t
     assert.equal(paneAt().get('name'), 'TMGI');
     assert.equal(paneAt().get('row'), '1');
     assert.equal(paneAt().get('titled'), '1');
+    name.dispatchEvent(new page.window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(name.title, 'Click: details · Alt-click: definition · Right-click: where it is used');
+    click(page, name, { altKey: true });
+    await settle();
+    assert.equal(paneAt().get('search'), '17.7', 'alt is the row itself');
+    assert.equal(paneAt().get('titled'), null);
     const cell = name.closest('.dad-line').querySelector('a[target="_blank"][data-token]');
     assert.equal(cell.textContent, '17.7.2');
     assert.equal(new URLSearchParams(new URL(cell.href).hash.slice(1)).get('name'), null, 'the browser\'s link is the bare clause');
@@ -563,7 +575,7 @@ test('the uses control is read at click time and starts off on each document', a
   } finally { await page.close(); }
 });
 
-test('right-click and the context-menu key list a name\'s uses, alt-click does not', async () => {
+test('right-click and the context-menu key list a name\'s uses, alt-click goes to its definition', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
@@ -585,8 +597,8 @@ test('right-click and the context-menu key list a name\'s uses, alt-click does n
     assert.equal(document.querySelector('.avp-popup'), null);
     click(page, document.querySelector('pre a[data-avp][href^="#rfc7944"]'), { altKey: true });
     await settle();
-    assert.equal(document.querySelector('.avp-popup'), null, 'alt is a plain click');
-    assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('source'), 'rfc7944', 'and is followed like one');
+    assert.equal(document.querySelector('.avp-popup'), null, 'alt lists nothing');
+    assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('source'), 'rfc7944', 'a name with no row is followed to its definition');
   } finally { await page.close(); }
 });
 
@@ -601,7 +613,7 @@ test('a name\'s title follows the control, and the control says what it does', a
     assert.equal(control.title, 'Plain click lists where a name is used instead of following it');
     control.querySelector('input').click();
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(name.title, 'Click or right-click: where it is used');
+    assert.equal(name.title, 'Click or right-click: where it is used · Alt-click: definition');
     control.querySelector('input').click();
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
     assert.equal(name.title, 'Click: definition · Right-click: where it is used');

@@ -83,7 +83,7 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   await done();
 });
 
-test('after a reload the uses control is off, only a right-click lists a name, and alt does not', { skip }, async () => {
+test('after a reload the uses control is off, only a right-click lists a name, and alt goes to its definition', { skip }, async () => {
   const { page, done } = await open('#29061-6f0');
   const control = page.locator('.uses-toggle input');
   await control.check();
@@ -102,7 +102,7 @@ test('after a reload the uses control is off, only a right-click lists a name, a
   await page.keyboard.press('Escape');
   await page.locator('pre a[data-avp]').first().click({ modifiers: ['Alt'] });
   await page.waitForTimeout(50);
-  assert.equal(await page.locator('.avp-popup').count(), 0, 'alt is a plain click');
+  assert.equal(await page.locator('.avp-popup').count(), 0, 'alt lists nothing');
   await page.goto(`${base}#29061-6f0`);
   await page.waitForSelector('pre a[data-avp]');
   await page.locator('pre a[data-avp]').first().click();
@@ -381,6 +381,19 @@ test('light applies under a dark OS, the reader in the pane follows the toggle, 
   await page.reload();
   await page.waitForSelector('main #document');
   assert.equal(await page.evaluate(() => document.documentElement.dataset.theme), 'dark');
+  await done();
+});
+
+test('alt on a publisher\'s link opens its new tab and downloads nothing', { skip }, async () => {
+  const { page, done } = await open('#29153-j00');
+  const context = page.context();
+  await context.route(/etsi\.org/, route => route.fulfill({ contentType: 'text/plain', body: '' }));
+  let downloads = 0;
+  page.on('download', () => { downloads++; });
+  const popup = context.waitForEvent('page');
+  await page.locator('pre a[target="_blank"][data-token]').first().click({ modifiers: ['Alt'] });
+  assert.match((await popup).url(), /etsi\.org/);
+  assert.equal(downloads, 0);
   await done();
 });
 

@@ -9,7 +9,8 @@ line of text.
 A name is also found by its initials or a misspelling, labelled approximate and listed
 after the precise matches.
 Right-clicking a name lists where its document uses it, as does a plain click with the
-control in the document's strip on.
+control in the document's strip on. A click goes to an AVP's Details where it has them
+apart from its Definition, and an alt-click always to the Definition.
 
 It is unofficial and not affiliated with or endorsed by any of the specifications'
 publishers. The site holds no Python and reads only what `seanchai export` writes.

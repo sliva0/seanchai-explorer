@@ -1,4 +1,4 @@
-import { clickAction, nameTitle, PLAIN_CLICK } from './clicks.ts';
+import { clickAction, nameTitle } from './clicks.ts';
 import type { ClickAction, ClickContext } from './clicks.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
@@ -57,7 +57,7 @@ function tokenNode(token: HighlightedToken, index: number, doc: Document, site: 
   if (token.scope) node.classList.add(token.scope);
   if (token.avp) node.dataset.avp = token.avp;
   if (token.valueRow) node.classList.add('value-name');
-  if (token.avp || token.valueRow) node.title = nameTitle(token, clickAction(token, PLAIN_CLICK, undefined, paneless));
+  if (token.avp || token.valueRow) node.title = nameTitle(token, undefined, paneless);
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
@@ -259,6 +259,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       pane.show({ ...doc.sections.find(section => section.section === action.position.section), ...action.position }, doc, true);
     } else if (action.type === 'pane-target') void pane.showTarget(action.target).catch(console.error);
     else if (action.type === 'navigate') services.navigate(routeFor(action.target, pane.switchedOn ? {} : { paneHidden: true }));
+    else if (action.type === 'new-tab') {
+      const anchor = node.closest('a');
+      if (anchor) window.open(anchor.href, anchor.target, anchor.rel);
+    }
   }
 
   pre.addEventListener('click', event => {
@@ -289,7 +293,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   for (const type of ['mouseover', 'focusin']) {
     pre.addEventListener(type, event => {
       const node = nameAt(event.target);
-      if (node) node.title = nameTitle(tokenOf(node), clickAction(tokenOf(node), PLAIN_CLICK, sectionAt(node), clickContext()));
+      if (node) node.title = nameTitle(tokenOf(node), sectionAt(node), clickContext());
     });
   }
 

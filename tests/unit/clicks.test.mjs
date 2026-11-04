@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { clickAction, nameTitle } from '../../src/clicks.ts';
 
-const plain = { ctrlKey: false, metaKey: false, shiftKey: false };
+const plain = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
 const alt = { ...plain, altKey: true };
 const pane = (over = {}) => ({ paneOpen: true, sourceInPane: true, paneAvailable: () => true, uses: false, ...over });
 const noPane = (over = {}) => ({ paneOpen: false, sourceInPane: false, paneAvailable: () => false, uses: false, ...over });
@@ -67,21 +67,43 @@ test('modified clicks are the browser\'s, and only the uses control lists a name
   assert.deepEqual(clickAction(name, { ...plain, ctrlKey: true }, '1', noPane({ uses: true })), { type: 'browser' });
 });
 
-test('alt alone is a plain click, on any token and with the control either way', () => {
-  const tokens = [
-    { text: 'Y', avp: 'Y', target },
-    { text: 'Y', avp: 'Y' },
-    { text: 'RFC6733', target },
-    { text: '7.2', source: { section: '7.2', page: 73 } },
-    { text: 'Y', target, source: { section: '6.3', page: 17, name: 'Y', row: true }, valueRow: { name: 'Y' } },
-  ];
-  for (const token of tokens) {
-    for (const context of [pane(), noPane(), pane({ uses: true }), noPane({ uses: true })]) {
-      assert.deepEqual(clickAction(token, alt, '6.3', context), clickAction(token, plain, '6.3', context));
-    }
-  }
-  assert.equal(clickAction(tokens[0], alt, '6.3', pane()).type, 'pane-target', 'no popup, and not left to the browser');
-  assert.deepEqual(clickAction(tokens[0], { ...alt, ctrlKey: true }, '6.3', pane()), { type: 'browser' });
+const details = { section: '16.4.7', page: 86, name: 'Y', row: true, titled: true };
+
+test('alt goes to the row where there is one, even past Details and the control', () => {
+  const definition = { section: '16a.5', page: 129, name: 'Y', row: true };
+  const row = { text: 'Y', avp: 'Y', target: { document: 'd', section: '16.4.7' }, source: definition, details };
+  assert.deepEqual(clickAction(row, alt, '16a.5', pane()), { type: 'source', position: definition });
+  assert.deepEqual(clickAction(row, alt, '16a.5', pane({ uses: true })), { type: 'source', position: definition });
+  const hole = { text: 'Y', avp: 'Y', source: definition, details };
+  assert.deepEqual(clickAction(hole, alt, '16a.5', noPane({ sourceInPane: true })), { type: 'source', position: definition });
+});
+
+test('alt follows a name with no row as a plain click does, without the control', () => {
+  const name = { text: 'Y', avp: 'Y', target };
+  assert.deepEqual(clickAction(name, alt, '6.3', pane()), { type: 'pane-target', target: { ...target, name: 'Y' } });
+  assert.deepEqual(clickAction(name, alt, '6.3', noPane({ uses: true })), { type: 'navigate', target: { ...target, name: 'Y' } });
+  const base = { text: 'RFC6733', target };
+  assert.deepEqual(clickAction(base, alt, '6.3', pane()), clickAction(base, plain, '6.3', pane()));
+  const unlinked = { text: 'Y', avp: 'Y' };
+  assert.deepEqual(clickAction(unlinked, alt, '6.3', pane()), clickAction(unlinked, plain, '6.3', pane()));
+  assert.deepEqual(clickAction(unlinked, alt, '6.3', noPane()), { type: 'browser' });
+});
+
+test('with no pane alt takes the plain path to the definition, none of it left to the browser, which would download', () => {
+  const definition = { section: '16a.5', page: 129, name: 'Y', row: true };
+  const row = { text: 'Y', avp: 'Y', target, source: definition, details };
+  assert.deepEqual(clickAction(row, alt, '16a.5', noPane()), { type: 'navigate', target: { ...target, name: 'Y' } });
+  assert.deepEqual(clickAction(row, alt, '16a.5', pane({ paneOpen: false, sourceInPane: false })), { type: 'pane-target', target: { ...target, name: 'Y' } });
+  assert.deepEqual(clickAction({ text: '7.2', source: { section: '7.2', page: 73 } }, alt, '7.2', noPane()), { type: 'new-tab' });
+  assert.deepEqual(clickAction({ text: 'Y', avp: 'Y', source: definition }, alt, '16a.5', noPane()), { type: 'new-tab' });
+  const value = { text: 'V', target, source: definition, valueRow: { name: 'V' } };
+  assert.deepEqual(clickAction(value, alt, '6.3', noPane()), { type: 'navigate', target });
+  assert.deepEqual(clickAction(value, alt, '6.3', pane()), { type: 'source', position: definition });
+  assert.deepEqual(clickAction(value, alt, '6.3', noPane({ uses: true })), { type: 'navigate', target });
+});
+
+test('alt with another modifier is the browser\'s', () => {
+  assert.deepEqual(clickAction({ text: 'Y', avp: 'Y', target }, { ...alt, ctrlKey: true }, '6.3', pane()), { type: 'browser' });
 });
 
 test('a value table\'s name goes to its row or the browser, listing only by the control', () => {
@@ -101,25 +123,26 @@ test('a value row\'s clause goes to the source as any source link does, naming t
   assert.deepEqual(clickAction(clause, plain, '17.8', noPane()), { type: 'browser' });
 });
 
-test('a name\'s title says what a plain click does as things stand, and how to reach its uses or table', () => {
-  const titled = (token, context) => nameTitle(token, clickAction(token, plain, '6.3', context));
+test('a name\'s title says each gesture that differs as things stand', () => {
+  const titled = (token, context) => nameTitle(token, '6.3', context);
   const followed = { text: 'Y', avp: 'Y', target };
   assert.equal(titled(followed, noPane()), 'Click: definition · Right-click: where it is used');
   assert.equal(titled(followed, pane()), 'Click: definition · Right-click: where it is used');
   const row = { ...followed, source: { section: '6.3', page: 17, name: 'Y', row: true } };
-  assert.equal(titled(row, pane()), 'Click: source row · Right-click: where it is used');
+  assert.equal(titled(row, pane()), 'Click: definition · Right-click: where it is used');
   assert.equal(titled(row, noPane()), 'Click: definition · Right-click: where it is used');
+  assert.equal(titled({ ...row, details }, pane()), 'Click: details · Alt-click: definition · Right-click: where it is used');
+  assert.equal(titled({ ...row, details }, noPane()), 'Click: definition · Right-click: where it is used');
   const undefinedName = { text: 'Y', avp: 'Y' };
   assert.equal(titled(undefinedName, pane()), 'Click: find in source · Right-click: where it is used');
   assert.equal(titled(undefinedName, noPane()), 'Right-click: where it is used');
-  assert.equal(titled(followed, noPane({ uses: true })), 'Click or right-click: where it is used');
+  assert.equal(titled(followed, noPane({ uses: true })), 'Click or right-click: where it is used · Alt-click: definition');
+  assert.equal(titled(undefinedName, noPane({ uses: true })), 'Click or right-click: where it is used');
   const value = { text: 'V', target, source: { section: '6.3', page: 17, name: 'V', row: true }, valueRow: { name: 'V' } };
   assert.equal(titled(value, pane()), 'Click: source row · Right-click: its table');
   assert.equal(titled(value, noPane()), 'Click: its row · Right-click: its table');
-  assert.equal(titled(value, pane({ uses: true })), 'Click or right-click: its table');
+  assert.equal(titled(value, pane({ uses: true })), 'Click or right-click: its table · Alt-click: source row');
 });
-
-const details = { section: '16.4.7', page: 86, name: 'Y', row: true, titled: true };
 
 test('a table row\'s name goes to its Details in an open pane, and its definition\'s page without one', () => {
   const definition = { section: '16a.5', page: 129, name: 'Y', row: true };
@@ -127,7 +150,7 @@ test('a table row\'s name goes to its Details in an open pane, and its definitio
   assert.deepEqual(clickAction(row, plain, '16a.5', pane()), { type: 'source', position: details });
   assert.equal(clickAction(row, plain, '16a.5', noPane()).type, 'navigate');
   assert.equal(clickAction(row, plain, '16a.5', pane({ paneOpen: false, sourceInPane: false })).type, 'pane-target');
-  assert.deepEqual(clickAction(row, { ...plain, altKey: true }, '16a.5', pane()), { type: 'source', position: details }, 'alt is a plain click');
+  assert.deepEqual(clickAction(row, { ...plain, altKey: true }, '16a.5', pane()), { type: 'source', position: definition }, 'alt is the Definition');
   assert.deepEqual(clickAction(row, { ...plain, ctrlKey: true }, '16a.5', pane()), { type: 'browser' });
   assert.deepEqual(clickAction(row, plain, '16a.5', pane({ uses: true })), { type: 'uses' });
   const hole = { text: 'Y', avp: 'Y', source: definition, details };
