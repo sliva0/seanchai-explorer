@@ -1,9 +1,9 @@
-import { avpPlaces } from './avp-places.ts';
+import { namePlaces, placeRoute } from './avp-places.ts';
+import type { Place } from './avp-places.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, externalLink, link } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
-import type { SourcePosition } from './navigation.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document } from './types.ts';
 import { valueRowLabel } from './values.ts';
@@ -12,6 +12,8 @@ import type { ValueRow } from './values.ts';
 export interface PopupRequest {
   token: HighlightedToken;
   doc: Document;
+  /** The view is of the raw text, whose lines `lines` are. */
+  raw: boolean;
   lines: HighlightedLine[];
   opener: HTMLElement;
   documentPane: HTMLElement;
@@ -72,30 +74,42 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     closeButton.focus({ preventScroll: true });
   }
 
-  /** A jump into this document's source: to the pane if it can show it, else to the source in a new tab. */
-  function sourcePlace(label: string, className: string, position: SourcePosition, { doc, recordJump }: PopupRequest) {
-    const row = element('p', `${label}: `);
-    if (pane.canShow()) {
-      const button = element('button', position.section, `usage-link source-link ${className}`);
-      button.onclick = () => {
-        recordJump();
-        pane.setVisible(true);
-        pane.show(position, doc, true);
-      };
+  /**
+   * A target of a name and the two ways to it: the pane alone, which is the lighter and comes first, and the view with
+   * the pane beside it. Each is there only if the place is in that medium. With no way to it in the pane, its label
+   * is the publisher's copy at that place, if there is one.
+   */
+  function placeRow(label: string, className: string, place: Place, { doc, raw }: PopupRequest) {
+    const summary = site.summary(place.document);
+    if (!summary) return undefined;
+    const section = place.position?.section ?? place.target?.section ?? '';
+    const where = place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · ');
+    const row = element('div', undefined, `popup-place ${className}`);
+    row.append(element('span', `${label}:`));
+    const inPane = pane.shows(summary);
+    const href = !inPane && place.position ? sourceHref(doc, place.position, site.mode) : null;
+    const whereNode = href ? externalLink(where, href.href) : element('span', where);
+    whereNode.classList.add('place-where');
+    row.append(whereNode);
+    if (inPane) {
+      const button = element('button', 'show in pane', 'control pane-action');
+      button.type = 'button';
+      button.title = 'Moves the source pane only';
+      button.onclick = () => void pane.showPlace(place, doc).catch(console.error);
       row.append(button);
-    } else {
-      const href = sourceHref(doc, position, site.mode);
-      if (href) {
-        const anchor = externalLink(position.section, href.href);
-        anchor.className = className;
-        row.append(anchor);
-      } else row.append(position.section);
+    }
+    if (place.target) {
+      const anchor = element('a', 'go there', 'view-action');
+      anchor.href = placeRoute(place, doc, raw);
+      anchor.title = inPane ? 'Moves this view and the source pane' : 'Moves this view';
+      row.append(anchor);
     }
     return row;
   }
 
   /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
   function showValue(row: ValueRow, { doc, opener, documentPane, recordJump, jumpTo }: PopupRequest) {
+    const inPane = pane.shows(doc);
     const { panel, closeButton } = open(row.name, opener);
     panel.dataset.value = row.name;
     const { table } = row;
@@ -110,10 +124,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     panel.append(of);
     const source = element('p', 'Source: ');
     const where = `${row.position.section}${row.position.page ? ` · p. ${row.position.page}` : ''}`;
-    if (pane.canShow()) {
+    if (inPane) {
       const button = element('button', where, 'usage-link source-link');
       button.onclick = () => {
-        recordJump();
         pane.setVisible(true);
         pane.show(table.rows[active].position, doc, true);
       };
@@ -183,20 +196,11 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     });
     let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     panel.dataset.avp = name;
-    const { definition, details } = avpPlaces(token, lines);
-    if (definition) panel.append(sourcePlace('Definition', 'definition-link', definition, request));
-    if (details) panel.append(sourcePlace('Details', 'details-link', details, request));
-    // Where the name links to and neither of those is: Details if elsewhere, and the Definition if all the file says of it is a clause of its own.
-    const followed = !details && token.target && (token.target.document !== doc.id || token.target.section !== definition?.section) ? token.target : undefined;
-    const summary = followed && site.summary(followed.document);
-    if (followed && summary) {
-      const elsewhere = Boolean(definition) || followed.document !== doc.id;
-      const row = element('p', `${elsewhere ? 'Details' : 'Definition'}: `);
-      const anchor = link(`${site.label(summary)}${followed.section ? ` · ${followed.section}` : ''}`, { ...followed, name });
-      anchor.className = elsewhere ? 'details-link' : 'definition-link';
-      row.append(anchor);
-      panel.append(row);
-    }
+    const { definition, details } = namePlaces(token, lines, doc);
+    const places = element('div', undefined, 'popup-places');
+    const rows = [definition && placeRow('Definition', 'place-definition', definition, request), details && placeRow('Details', 'place-details', details, request)];
+    places.append(...rows.filter(row => row !== undefined));
+    if (places.childElementCount) panel.append(places);
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span', `.dad ${active + 1}/${uses.length}`);
     count.style.minWidth = `${`.dad ${uses.length}/${uses.length}`.length}ch`;

@@ -183,7 +183,13 @@ mark { border-radius: 2px; background: var(--mark-bg); color: var(--mark-fg); }
 .popup-title strong { min-width: 0; overflow-wrap: anywhere; }
 .popup-title button { flex: none; width: 1.25rem; height: 1.25rem; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius); background: none; color: var(--ui-muted); font-size: var(--text-md); line-height: 1; cursor: pointer; }
 .popup-title button:hover { color: var(--ui-fg); background: var(--ui-hover); }
-.popup-actions .control { height: 1.375rem; }
+.popup-actions .control, .pane-action { height: 1.375rem; }
+.popup-places { display: grid; flex: none; grid-template-columns: max-content minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-1) var(--space-2); }
+.popup-place { display: contents; }
+.place-where { min-width: 0; overflow-wrap: anywhere; }
+.pane-action { grid-column: 3; }
+.view-action { grid-column: 4; color: var(--ui-muted); text-decoration: underline; white-space: nowrap; }
+.view-action:hover { color: var(--ui-link-hover); }
 .usage-details { display: flex; flex: 0 1 auto; flex-direction: column; gap: var(--space-1); min-height: 0; }
 .usage-list { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .usage-link { display: block; width: 100%; border: 0; border-radius: 2px; padding: 0.125rem var(--space-1); text-align: left; color: var(--ui-link); background: none; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }

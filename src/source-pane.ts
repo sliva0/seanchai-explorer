@@ -1,9 +1,10 @@
+import type { Place } from './avp-places.ts';
 import { docSubject, docTitle, docVersioned, dataURL, isPdfURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
 import type { Site } from './data.ts';
 import { element, externalLink } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
 import { correctedRow, printedRow } from './printed-row.ts';
-import type { Document, DocumentSummary, Target } from './types.ts';
+import type { Document, DocumentSummary } from './types.ts';
 
 const svgNamespace = 'http://www.w3.org/2000/svg';
 const selfHostingGuide = 'https://github.com/sliva0/seanchai-explorer#two-build-modes';
@@ -262,11 +263,11 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     get switchedOn() { return switchedOn; },
     /** The pane is showing, and a position in the mounted document can go to it. */
     readsDocument: () => isOpen() && readsMounted(),
-    /** As `readsDocument`, whether or not the pane is switched on. */
-    canShow: () => Boolean(wide.matches && mounted?.frame && readsMounted()),
-    /** A followed name goes to the pane only if this holds; otherwise to the target's page. */
-    paneAvailable(target: DocumentSummary | undefined): boolean {
-      return isOpen() && Boolean(target && paneKind(target, site.mode));
+    /** The pane can read this document here, switched on or not. A place in one it cannot is only the view's to go to. */
+    shows(target: Pick<DocumentSummary, 'source'> | undefined): boolean {
+      if (!wide.matches || !mounted?.frame || !target) return false;
+      const kind = paneKind(target, site.mode);
+      return Boolean(kind && kind !== 'placeholder');
     },
     setVisible,
     /** Moves the pane to a position, and remembers it for when the pane is next shown. `moved` is a move to keep in the URL. */
@@ -286,13 +287,21 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       void site.loadRaw(doc.id).then(raw => printedRow(doc, raw, position), () => null)
         .then(printed => place(printed ? { ...position, printed } : position));
     },
-    /** Shows a followed name's definition in the pane. */
-    async showTarget(target: Target) {
+    /** Moves the pane alone to a place, switching it on: to a position in `doc`, or to a target's clause in whichever document has it. */
+    async showPlace(place: Place, doc: Document) {
+      if (place.position) {
+        setVisible(true);
+        this.show({ ...doc.sections.find(section => section.section === place.position!.section), ...place.position }, doc, true);
+        return;
+      }
+      const target = place.target!;
       const generation = ++request;
-      const doc = await site.loadDocument(target.document);
+      const held = await site.loadDocument(target.document);
       if (generation !== request) return;
-      const position = doc.sections.find(section => section.section === target.section) ?? doc.sections[0];
-      if (position) this.show({ ...position, name: target.name }, doc, true);
+      const position = held.sections.find(section => section.section === target.section) ?? held.sections[0];
+      if (!position) return;
+      setVisible(true);
+      this.show({ ...position, name: target.name }, held, true);
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };

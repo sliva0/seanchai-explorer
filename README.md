@@ -8,17 +8,35 @@ AVPs, commands, applications, registry rows, result codes, bits, features and ev
 line of text.
 A name is also found by its initials or a misspelling, labelled approximate and listed
 after the precise matches.
-Right-clicking a name lists where its document uses it, as does a plain click with the
-control in the document's strip on. A click goes to an AVP's Details where it has them
-apart from its Definition, and an alt-click always to the Definition.
+The text is what is being read and the source pane only beside it, so a click on a name
+shows its definition in the pane and leaves the text where it is. An alt-click moves the
+text there too, and a right-click lists where the document uses the name.
 
 It is unofficial and not affiliated with or endorsed by any of the specifications'
 publishers. The site holds no Python and reads only what `seanchai export` writes.
 
+## Mouse
+
+| On a name | |
+|---|---|
+| Click | its definition in the source pane alone, which opens if it was switched off; with the control in the document's strip on, where it is used |
+| Alt-click | its definition in the text and the pane |
+| Right-click, the menu key | where it is used, with Definition and Details each offering `show in pane` and `go there` |
+| Ctrl-, Shift- or Cmd-click | the browser's |
+
+A definition is the row of the first AVP table listing the name, or the clause its link
+names where that is another document's or there is no row. Details are the clause that
+row points to, and are left out where it points nowhere else. Where the pane cannot read
+the place (a public build's PDFs, a document in no format it reads, a narrow window) a
+click does what an alt-click does, and the popup offers only `go there`. A value's name
+goes to its row the same way, and a `; Section:` or `; Page:` link to its clause, or with
+no pane to the publisher's copy in a new tab.
+
 ## Keyboard
 
-Every jump, within a document or to another, keeps the place it leaves on a list for the
-tab, which goes back to it to the pixel and survives a reload.
+Every move of the text, within a document or to another, keeps the place it leaves on a
+list for the tab, which goes back to it to the pixel and survives a reload. A move of the
+pane alone is not on the list: the text has not gone anywhere.
 
 | Keys | Go to |
 |---|---|

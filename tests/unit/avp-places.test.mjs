@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { avpPlaces, markDetails } from '../../src/avp-places.ts';
+import { markDetails, namePlaces, placeRoute, tokenPlace } from '../../src/avp-places.ts';
 import { correctedRow, printedRow } from '../../src/printed-row.ts';
 
 const doc = { id: 'd', sections: [{ section: '16.4.7', page: 86, title: 'AVP Y' }, { section: '20.5', page: 172, title: 'AVP Table' }] };
@@ -57,18 +57,75 @@ test('a later column naming another AVP is not the row\'s cell, and other lines 
   assert.equal(page.details, undefined);
 });
 
-test('a name knows both places, from its row or the AVP\'s row anywhere in the file', () => {
+const here = { document: 'd', section: '16.4.7' };
+const file = () => {
   const lines = [
-    { tokens: [{ text: 'Y', avp: 'Y', target: { document: 'd', section: '16.4.7' } }] },
+    { tokens: [{ text: 'Y', avp: 'Y', target: here }] },
     { tokens: [name('Y', '30')] },
-    { tokens: [name('Y', '16a.5', { document: 'd', section: '16.4.7' })] },
+    { tokens: [name('Y', '16a.5', here)] },
+    { tokens: [name('Y', '20.5', here)] },
+    { anchor: '16.4.7', tokens: [{ text: 'Z', avp: 'Z', target: here }] },
   ];
   markDetails(lines, doc);
+  return lines;
+};
+
+test('a name has one Definition and Details wherever in the file it is asked', () => {
+  const lines = file();
   const row = lines[2].tokens[0];
-  assert.deepEqual(avpPlaces(row, lines), { definition: row.source, details });
-  assert.deepEqual(avpPlaces(lines[0].tokens[0], lines), { definition: row.source, details }, 'a mention, from the row with both');
-  assert.deepEqual(avpPlaces(lines[1].tokens[0], lines), { definition: lines[1].tokens[0].source, details: undefined }, 'a row answers for itself');
-  assert.deepEqual(avpPlaces({ text: 'Q', avp: 'Q' }, lines), { definition: undefined, details: undefined });
+  const expected = {
+    definition: { document: 'd', position: row.source, target: { document: 'd', section: '16a.5', name: 'Y' }, line: 2 },
+    details: { document: 'd', position: details, target: { document: 'd', section: '16.4.7', name: 'Y' } },
+  };
+  assert.deepEqual(namePlaces(lines[0].tokens[0], lines, doc), expected, 'a mention');
+  assert.deepEqual(namePlaces(row, lines, doc), expected, 'its row');
+  assert.deepEqual(namePlaces(lines[3].tokens[0], lines, doc), expected, 'another table listing it');
+});
+
+test('rows of the name that link elsewhere answer for themselves, and a name no row lists has only its link', () => {
+  const lines = file();
+  const hole = lines[1].tokens[0];
+  assert.deepEqual(namePlaces(hole, lines, doc), { definition: { document: 'd', position: hole.source, target: { document: 'd', section: '30', name: 'Y' }, line: 1 } });
+  assert.deepEqual(namePlaces(lines[4].tokens[0], lines, doc), { definition: { document: 'd', target: { ...here, name: 'Z' } } });
+  assert.deepEqual(namePlaces({ text: 'Q', avp: 'Q' }, lines, doc), {});
+});
+
+test('a Definition in another document is its clause there, and a Details row is never made from it', () => {
+  const lines = [{ tokens: [{ text: 'R', avp: 'R', target: { document: 'rfc6733', section: '6.7.1' } }] }];
+  assert.deepEqual(namePlaces(lines[0].tokens[0], lines, doc), { definition: { document: 'rfc6733', target: { document: 'rfc6733', section: '6.7.1', name: 'R' } } });
+  const listed = [{ tokens: [name('R', '20.5', { document: 'rfc6733', section: '6.7.1', name: 'S' })] }];
+  markDetails(listed, doc);
+  assert.deepEqual(namePlaces(listed[0].tokens[0], listed, doc), { definition: { document: 'rfc6733', target: { document: 'rfc6733', section: '6.7.1', name: 'S' } } });
+});
+
+test('Details the file has no line for are only in the source', () => {
+  const lines = [{ tokens: [name('Y', '16a.5', here)] }];
+  markDetails(lines, doc);
+  assert.deepEqual(namePlaces(lines[0].tokens[0], lines, doc).details, { document: 'd', position: details });
+});
+
+test('a click\'s place: a value\'s row, a cell\'s Details, a link\'s own, and a lost name\'s search of its clause', () => {
+  const lines = file();
+  const source = { section: '6.3', page: 17, name: 'V', row: true };
+  assert.deepEqual(tokenPlace({ text: 'V', target: { document: 'd', section: '6.3' }, source, valueRow: { name: 'V' } }, lines, doc, '6'), { document: 'd', position: source, target: { document: 'd', section: '6.3', name: 'V' } });
+  const cell = { text: '16.4.7', source: { section: '16.4.7', page: 129 }, details };
+  assert.deepEqual(tokenPlace(cell, lines, doc, '6'), { document: 'd', position: details, target: { document: 'd', section: '16.4.7' } });
+  const unlined = { text: '9', source: { section: '9', page: 9 } };
+  assert.deepEqual(tokenPlace(unlined, lines, doc, '6'), { document: 'd', position: unlined.source });
+  const base = { text: 'RFC6733', target: { document: 'rfc6733' } };
+  assert.deepEqual(tokenPlace(base, lines, doc, '6'), { document: 'rfc6733', target: base.target });
+  assert.deepEqual(tokenPlace({ text: 'Q', avp: 'Q' }, lines, doc, '6'), { document: 'd', position: { section: '6', page: null, name: 'Q', exact: true, occurrence: true } });
+  assert.equal(tokenPlace({ text: 'Q', avp: 'Q' }, lines, doc, undefined), undefined);
+  assert.equal(tokenPlace({ text: 'plain' }, lines, doc, '6'), undefined);
+});
+
+test('a place\'s route takes the view to its line, the pane to its position, keeps this document\'s raw text and a switched-off pane', () => {
+  const place = { document: 'd', position: { section: '16a.5', page: 129, name: 'Y', row: true }, target: { document: 'd', section: '16a.5', name: 'Y' }, line: 740 };
+  assert.equal(placeRoute(place, doc, false), '#d/16a.5?name=Y&source=d&sourceSection=16a.5&page=129&sourceName=Y&row=1&line=740');
+  assert.match(placeRoute(place, doc, true), /^#d\/16a\.5\?raw=1&/);
+  assert.match(placeRoute(place, doc, false, true), /&pane=0&line=740$/);
+  const away = { document: 'rfc6733', target: { document: 'rfc6733', section: '6.7.1', name: 'R' } };
+  assert.equal(placeRoute(away, doc, true), '#rfc6733/6.7.1?name=R', 'another document\'s text is corrected, its pane its clause');
 });
 
 test('Details of a renamed row keep the spelling its table\'s raw row holds', () => {

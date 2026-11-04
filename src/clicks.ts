@@ -1,17 +1,14 @@
-import type { SourcePosition } from './navigation.ts';
-import type { Target } from './types.ts';
+import type { Place } from './avp-places.ts';
 import type { ValueToken } from './values.ts';
 
 export interface ClickModifiers { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }
 
 export interface ClickContext {
-  /** The source pane is showing and can read this document, so a position in it can go there. */
-  paneOpen: boolean;
-  /** The pane is or could be switched on, and can read this document. */
-  sourceInPane: boolean;
-  /** The one check for a followed name: wide viewport, pane switched on, target showable in a pane, if only as a placeholder. */
-  paneAvailable(document: string): boolean;
-  /** Names list their uses instead of being followed. */
+  /** The pane can read this document here, switched on or not: wide enough, and not a placeholder or an unknown format. */
+  paneShows(document: string): boolean;
+  /** The pane is switched on, which a move of the view leaves as it is. */
+  paneOn: boolean;
+  /** Names list their uses instead of showing their definition. */
   uses: boolean;
 }
 
@@ -20,67 +17,46 @@ export type ClickAction =
   /** The token's link in the new tab its markup asks for, which an alt-click would have the browser download. */
   | { type: 'new-tab' }
   | { type: 'uses' }
-  | { type: 'source'; position: SourcePosition }
-  | { type: 'pane-target'; target: Target }
-  | { type: 'navigate'; target: Target };
-
-function follow(target: Target, context: ClickContext): ClickAction {
-  return context.paneAvailable(target.document) ? { type: 'pane-target', target } : { type: 'navigate', target };
-}
+  /** The source pane alone moves, and is switched on if it was off. */
+  | { type: 'pane'; place: Place }
+  /** The view moves, and the pane with it. */
+  | { type: 'both'; place: Place };
 
 /**
- * What a click on a token does. Followed names and `; Bases:` stay in this tab,
- * in the pane or on the target's page; only `; Section:` and `; Page:` links
- * with no pane to go to are left to the browser, whose new tab their markup asks for.
- * Only the uses control makes a click list a name; otherwise that is a right-click's, which the view handles.
- * A table row's name and Section cell go to the AVP's Details where it has them apart from its Definition, the row itself.
- * An alt-click goes to the Definition whatever the control says, and nothing of it is left to the browser.
+ * What a click on a token does. The view is what is being read and the pane only beside it, so a plain click moves
+ * the pane alone, and an alt-click both. Where the pane cannot read the place all that can happen is the view's jump.
+ * A link to the source alone is left to the browser then, whose new tab its markup asks for. Nothing of an alt-click
+ * is left to the browser, and only the uses control makes a click list a name; otherwise that is a right-click's.
  */
-export function clickAction(token: ValueToken, event: ClickModifiers, section: string | undefined, context: ClickContext): ClickAction {
+export function clickAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext): ClickAction {
   if (event.ctrlKey || event.metaKey || event.shiftKey) return { type: 'browser' };
-  if (!event.altKey) return plainAction(token, token.details ?? token.source, section, context);
-  const action = plainAction(token, token.source, section, { ...context, uses: false });
-  if (action.type !== 'browser') return action;
-  return token.target ? { type: 'navigate', target: token.target } : token.source ? { type: 'new-tab' } : action;
-}
-
-function plainAction(token: ValueToken, place: SourcePosition | null | undefined, section: string | undefined, context: ClickContext): ClickAction {
-  const listable = token.avp || token.valueRow;
-  if (listable && context.uses) return { type: 'uses' };
-  if (token.valueRow) return context.paneOpen && token.source ? { type: 'source', position: token.source } : { type: 'browser' };
-  if (token.avp) {
-    if (place?.row && context.paneOpen) return { type: 'source', position: place };
-    if (token.target) return follow({ ...token.target, name: token.target.name ?? token.avp }, context);
-    if (!token.source) {
-      return context.paneOpen && section ? { type: 'source', position: { section, name: token.avp, exact: true, occurrence: true } } : { type: 'browser' };
-    }
-  }
-  if (place && context.sourceInPane) return { type: 'source', position: place };
-  if (token.source) return { type: 'browser' };
-  if (token.target) return follow(token.target, context);
-  return { type: 'browser' };
+  if (!event.altKey && context.uses && (token.avp || token.valueRow)) return { type: 'uses' };
+  if (!place) return { type: 'browser' };
+  const inPane = context.paneShows(place.document);
+  if (!inPane && token.source && !token.target) return { type: event.altKey ? 'new-tab' : 'browser' };
+  if (inPane && !(event.altKey && place.target)) return { type: 'pane', place };
+  return place.target ? { type: 'both', place } : { type: 'browser' };
 }
 
 const PLAIN_CLICK: ClickModifiers = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
 
-/** Where an action takes a name, in a tooltip's words. */
-function destination(token: ValueToken, action: ClickAction): string {
-  if (action.type === 'source') {
-    if (!action.position.row) return 'find in source';
-    if (token.valueRow) return 'source row';
-    return action.position === token.details ? 'details' : 'definition';
+/** What an action does for a name, in a tooltip's words. */
+function saying(token: ValueToken, action: ClickAction, context: ClickContext): string {
+  if (action.type === 'pane') return token.valueRow ? 'source row in pane' : action.place.position?.occurrence ? 'find in pane' : 'definition in pane';
+  if (action.type === 'both') {
+    if (context.paneOn && context.paneShows(action.place.document)) return `${token.valueRow ? 'source row' : 'definition'} in both`;
+    return token.valueRow ? 'go to its row' : 'go to definition';
   }
-  if (token.target) return token.valueRow ? 'its row' : 'definition';
-  return token.source ? 'source' : '';
+  return token.source ? 'source in new tab' : '';
 }
 
 /** A name's tooltip as things stand: what a click does, what an alt-click does if that differs, and the way to its uses. A value's popup is its table instead. */
-export function nameTitle(token: ValueToken, section: string | undefined, context: ClickContext): string {
-  const popup = token.valueRow ? 'its table' : 'where it is used';
-  const plain = clickAction(token, PLAIN_CLICK, section, context);
-  const alt = destination(token, clickAction(token, { ...PLAIN_CLICK, altKey: true }, section, context));
+export function nameTitle(token: ValueToken, place: Place | undefined, context: ClickContext): string {
+  const popup = token.valueRow ? 'its table' : 'uses';
+  const plain = clickAction(token, place, PLAIN_CLICK, context);
+  const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context), context);
   const listing = plain.type === 'uses';
-  const click = listing ? '' : destination(token, plain);
+  const click = listing ? '' : saying(token, plain, context);
   return [
     listing ? `Click or right-click: ${popup}` : click && `Click: ${click}`,
     alt && alt !== click && `Alt-click: ${alt}`,

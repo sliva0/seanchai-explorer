@@ -6,7 +6,7 @@ import { compactComment } from './comments.ts';
 import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
-import { markDetails } from './avp-places.ts';
+import { markDetails, placeRoute, tokenPlace } from './avp-places.ts';
 import type { AvpPopup } from './avp-popup.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
@@ -49,9 +49,9 @@ function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
 }
 
 /** Until a pointer or focus comes to a name and its title is worked out for the pane as it then is. */
-const paneless: ClickContext = { paneOpen: false, sourceInPane: false, paneAvailable: () => false, uses: false };
+const paneless: ClickContext = { paneShows: () => false, paneOn: false, uses: false };
 
-function tokenNode(token: HighlightedToken, index: number, doc: Document, site: Site): Node {
+function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine, lines: HighlightedLine[], doc: Document, site: Site): Node {
   let node: HTMLElement | undefined;
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
   if (token.target) node = link(token.text, { ...token.target, name: token.target.name ?? token.avp });
@@ -63,7 +63,7 @@ function tokenNode(token: HighlightedToken, index: number, doc: Document, site: 
   if (token.scope) node.classList.add(token.scope);
   if (token.avp) node.dataset.avp = token.avp;
   if (token.valueRow) node.classList.add('value-name');
-  if (token.avp || token.valueRow) node.title = nameTitle(token, undefined, paneless);
+  if (token.avp || token.valueRow) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined), paneless);
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
@@ -84,7 +84,7 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLP
         const node = correctionNode(token, reason, `correction-${doc.id}-${correction++}`);
         node.dataset.token = String(index);
         row.append(node);
-      } else row.append(tokenNode(token, index, doc, site));
+      } else row.append(tokenNode(token, index, line, lines, doc, site));
     });
     pre.append(row);
   });
@@ -228,7 +228,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     controls.append(toggle);
   }
   const usesToggle = element('label', 'Click shows uses ', 'visibility-toggle uses-toggle');
-  usesToggle.title = 'Plain click lists where a name is used instead of following it';
+  usesToggle.title = 'Plain click lists where a name is used instead of showing its definition';
   const usesInput = element('input');
   usesInput.type = 'checkbox';
   // Each document starts with it off, whatever the browser would restore on a reload.
@@ -273,29 +273,25 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
   const showUses = (node: HTMLElement) => popup.show({
-    token: tokenOf(node), doc, lines, opener: node, documentPane,
+    token: tokenOf(node), doc, raw: Boolean(raw), lines, opener: node, documentPane,
     recordJump: services.recordJump,
     jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
   });
   const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], .value-name');
   const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
   const clickContext = (): ClickContext => ({
-    paneOpen: pane.readsDocument(),
-    sourceInPane: pane.canShow(),
-    paneAvailable: document => pane.paneAvailable(site.summary(document)),
+    paneShows: document => pane.shows(site.summary(document)),
+    paneOn: pane.switchedOn,
     uses: usesInput.checked,
   });
+  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node));
 
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') { showUses(node); return; }
     popup.close();
-    // A move of the pane is a jump too: the route being left says where the pane was.
-    if (action.type === 'source' || action.type === 'pane-target') services.recordJump();
-    if (action.type === 'source') {
-      pane.setVisible(true);
-      pane.show({ ...doc.sections.find(section => section.section === action.position.section), ...action.position }, doc, true);
-    } else if (action.type === 'pane-target') void pane.showTarget(action.target).catch(console.error);
-    else if (action.type === 'navigate') services.navigate(routeFor(action.target, pane.switchedOn ? {} : { paneHidden: true }));
+    // Nothing moves in the view when the pane alone does, so the jump list has nothing to keep.
+    if (action.type === 'pane') void pane.showPlace(action.place, doc).catch(console.error);
+    else if (action.type === 'both') services.navigate(placeRoute(action.place, doc, Boolean(raw), !pane.switchedOn));
     else if (action.type === 'new-tab') {
       const anchor = node.closest('a');
       if (anchor) window.open(anchor.href, anchor.target, anchor.rel);
@@ -308,7 +304,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     if (correction) { toggleCorrection(correction, tokenOf(correction.parentElement!)); return; }
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
-    const action = clickAction(tokenOf(node), event, sectionAt(node), clickContext());
+    const action = clickAction(tokenOf(node), placeOf(node), event, clickContext());
     if (action.type === 'browser') return;
     event.preventDefault();
     perform(action, node);
@@ -330,7 +326,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   for (const type of ['mouseover', 'focusin']) {
     pre.addEventListener(type, event => {
       const node = nameAt(event.target);
-      if (node) node.title = nameTitle(tokenOf(node), sectionAt(node), clickContext());
+      if (node) node.title = nameTitle(tokenOf(node), placeOf(node), clickContext());
     });
   }
 

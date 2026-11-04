@@ -123,7 +123,7 @@ test('public, desktop: ; From: links to the document a reprint comes from', { sk
   await done();
 });
 
-test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for their RFC or theirs', { skip }, async () => {
+test('public, desktop: a PDF\'s pane is a placeholder, a name in an RFC takes the pane alone, and one in a PDF goes to its page', { skip }, async () => {
   const { page, context, done } = await open('#29153-j00');
   const pages = [];
   context.on('page', opened => pages.push(opened));
@@ -139,13 +139,18 @@ test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for the
     return { filled: box.width === pane.width && box.height === pane.height, centred: Math.abs(text.left + text.right - pane.left - pane.right) < 2, overflows: node.scrollHeight > node.clientHeight };
   });
   assert.deepEqual(fit, { filled: true, centred: true, overflows: false });
-  await page.locator('pre a[data-avp][href^="#rfc7944"]').first().click();
+  await scrollPane(page, 1237);
+  const left = await scrollOf(page);
+  await page.locator('pre a[data-avp][href^="#rfc7944"]').first().evaluate(node => node.click());
   await page.frameLocator('iframe').locator('.rfc-line', { hasText: 'DRMP AVP' }).last().waitFor();
   await page.waitForSelector('.source-header h2:has-text("RFC 7944")');
   assert.equal(await placeholder.count(), 0);
   assert.equal(await page.title(), 'TS 29.153 — Seanchaí');
   assert.ok(await page.evaluate(() => location.hash.startsWith('#29153-j00?') && location.hash.includes('source=rfc7944')));
-  await page.locator('pre a[data-avp][href^="#29217-j00"]').first().click();
+  near(await scrollOf(page), left, 'the text stays');
+  await page.locator('pre a[data-avp][href^="#29217-j00"]').first().evaluate(node => node.click());
+  await page.waitForSelector('.document-header h1:has-text("29.217")');
+  assert.ok(await page.evaluate(() => location.hash.startsWith('#29217-j00/')));
   await placeholder.waitFor();
   assert.match(await placeholder.textContent(), /TS 29\.217/);
   assert.match(await placeholder.locator('a').first().getAttribute('href'), /ts_129217v190000p\.pdf#page=\d+$/);
@@ -154,15 +159,21 @@ test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for the
   await done();
 });
 
-test('public, desktop: with the pane off a name opens the target page in the same tab', { skip }, async () => {
+test('public, desktop: the popup has only the text\'s way to a place the pane cannot read, and with the pane off it stays off', { skip }, async () => {
   const { page, context, done } = await open('#29153-j00?pane=0');
   const pages = [];
   context.on('page', opened => pages.push(opened));
-  await page.locator('pre a[data-avp][href^="#rfc7944"]').first().click();
-  await page.waitForFunction(() => location.hash.startsWith('#rfc7944'));
-  await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
+  const name = page.locator('pre a[data-avp][href^="#29217-j00"]').first();
+  await name.click({ button: 'right' });
+  const row = page.locator('.avp-popup .place-definition');
+  assert.match(await row.locator('.place-where').textContent(), /^TS 29\.217 · /);
+  assert.equal(await row.locator('.pane-action').count(), 0);
+  await row.locator('.view-action').click();
+  await page.waitForSelector('.document-header h1:has-text("29.217")');
+  assert.equal(await page.locator('.avp-popup').count(), 0);
+  assert.match(await page.evaluate(() => location.hash), /pane=0/);
   assert.equal(pages.length, 0);
-  assert.equal(await page.title(), 'RFC 7944 — Seanchaí');
+  assert.equal(await page.title(), 'TS 29.217 — Seanchaí');
   await page.goBack();
   await page.waitForSelector('.document-header h1:has-text("29.153")');
   await done();
@@ -726,6 +737,79 @@ test('a rule of the theme\'s border stands between the strip\'s right-hand contr
   const shown = await narrow.page.evaluate(() => [...document.querySelectorAll('#controls > *')].filter(node => !node.hidden).map(node => getComputedStyle(node).borderLeftWidth));
   assert.deepEqual(shown, ['0px', '1px'], 'Source is hidden, Raw and the uses control keep the one rule');
   await narrow.done();
+});
+
+const paneHash = page => page.locator('iframe').evaluate(frame => Object.fromEntries(new URLSearchParams(new URL(frame.src).hash.slice(1))));
+
+test('a plain click on a name moves the pane and leaves the text, an alt-click moves both and is a jump', { skip }, async () => {
+  const { page, done } = await open('#29153-j00');
+  await scrollPane(page, 1237);
+  const left = await scrollOf(page);
+  const back = page.locator('.jump-button[data-walk="back"]');
+  const name = page.locator('pre a[data-avp][href^="#rfc7944"]').first();
+  const avp = await name.getAttribute('data-avp');
+  await name.evaluate(node => node.click());
+  await page.waitForSelector('.source-header h2:has-text("RFC 7944")');
+  await page.waitForTimeout(350);
+  near(await scrollOf(page), left, 'the text stays');
+  assert.equal((await paneHash(page)).query, avp);
+  assert.equal(await back.getAttribute('aria-disabled'), 'true', 'nothing moved to go back from');
+  await name.evaluate(node => node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })));
+  await page.waitForSelector('.document-header h1:has-text("RFC 7944")');
+  assert.ok(await page.evaluate(() => location.hash.startsWith('#rfc7944/')));
+  await page.frameLocator('iframe').locator('.rfc-line', { hasText: 'DRMP AVP' }).last().waitFor();
+  assert.equal((await paneHash(page)).query, avp, 'the pane with it');
+  await back.click();
+  await page.waitForSelector('.document-header h1:has-text("29.153")');
+  near(await scrollOf(page), left, 'the jump list goes back to the pixel');
+  await done();
+});
+
+test('the popup\'s two ways to a target read as a first and a second, in both themes, and stay compact', { skip }, async () => {
+  const { page, done } = await open('#rfc7944');
+  await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
+  const row = page.locator('.avp-popup .place-definition');
+  for (const theme of ['light', 'dark']) {
+    if (theme === 'dark') {
+      await page.keyboard.press('Escape');
+      await page.locator('.theme-toggle').click();
+      await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
+    }
+    assert.deepEqual([await row.locator('button').textContent(), await row.locator('a').textContent()], ['show in pane', 'go there']);
+    const look = await page.locator('.avp-popup').evaluate(popup => {
+      const style = node => getComputedStyle(node);
+      const primary = popup.querySelector('.pane-action');
+      const secondary = popup.querySelector('.view-action');
+      const box = popup.getBoundingClientRect();
+      return {
+        primaryBorder: style(primary).borderTopWidth,
+        secondaryBorder: style(secondary).borderTopWidth,
+        colours: [style(primary).color, style(secondary).color],
+        first: primary.getBoundingClientRect().right <= secondary.getBoundingClientRect().left,
+        oneLine: Math.abs(primary.getBoundingClientRect().top + primary.getBoundingClientRect().height / 2 - secondary.getBoundingClientRect().top - secondary.getBoundingClientRect().height / 2) < 2,
+        width: box.width,
+        selfScrolls: popup.scrollHeight > popup.clientHeight,
+      };
+    });
+    assert.equal(look.primaryBorder, '1px');
+    assert.equal(look.secondaryBorder, '0px');
+    assert.notEqual(look.colours[0], look.colours[1]);
+    assert.equal(look.first, true);
+    assert.equal(look.oneLine, true);
+    assert.ok(look.width <= 80 * 8, JSON.stringify(look));
+    assert.equal(look.selfScrolls, false);
+  }
+  const before = await scrollOf(page);
+  await row.locator('button').click();
+  await page.waitForFunction(() => /row=1/.test(document.querySelector('iframe').src));
+  assert.equal(await scrollOf(page), before);
+  assert.ok(await page.locator('.avp-popup').count(), 'still open, to walk on');
+  assert.equal(await page.locator('.jump-button[data-walk="back"]').getAttribute('aria-disabled'), 'true');
+  await row.locator('a').click();
+  await page.waitForSelector('.target-line');
+  assert.equal(await page.locator('.avp-popup').count(), 0);
+  assert.equal(await page.locator('.jump-button[data-walk="back"]').getAttribute('aria-disabled'), 'false');
+  await done();
 });
 
 test('the arrows sit left of the title, in one row', { skip }, async () => {
