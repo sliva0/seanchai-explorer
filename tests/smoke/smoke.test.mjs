@@ -64,8 +64,7 @@ async function open(hash, options = {}, prepare = async () => {}) {
 
 test('public, desktop: a value row: search groups it, its link marks the row, its name keeps a popup with its table', { skip }, async () => {
   const { page, done } = await open('#search?q=DIAMETER_ERROR_SERVICE_AREA');
-  await page.locator('.search-result-codes summary').click();
-  await page.locator('.search-result-codes li a').click();
+  await page.locator('.search-result-codes .entry-document a').click();
   await page.waitForSelector('.target-line');
   assert.match(await page.locator('.target-line').textContent(), /^DIAMETER_ERROR_SERVICE_AREA\s+= 5123 ; 17\.8\.2/);
   const inView = await page.locator('.target-line').evaluate(line => {
@@ -378,8 +377,9 @@ test('light applies under a dark OS, the reader in the pane follows the toggle, 
 
 test('search: a typo finds a labelled name, mentions group by document, and the keyboard opens a result', { skip }, async () => {
   const { page, done } = await open('#search?q=DRMPP');
-  await page.waitForSelector('.search-avp details.approximate summary:has-text("DRMP")');
-  assert.equal(await page.locator('.search-avp details.approximate em').first().textContent(), 'approximate');
+  await page.waitForSelector('.search-avp .approximate strong:has-text("DRMP")');
+  assert.equal(await page.locator('.search-avp .approximate em').first().textContent(), 'approximate');
+  assert.equal(await page.locator('#search-results details').count(), 0);
   await page.locator('.search-form input').fill('DRMP');
   await page.keyboard.press('Enter');
   await page.waitForSelector('.search-mentions .mention-document h3 a');
@@ -387,10 +387,6 @@ test('search: a typo finds a labelled name, mentions group by document, and the 
   assert.equal(new Set(headings).size, headings.length, 'one heading per document');
   assert.ok(await page.locator('.mention-document li .mention-link').first().textContent().then(text => text.startsWith('· ')));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll');
-  await page.keyboard.press('ArrowDown');
-  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'SUMMARY');
-  await page.keyboard.press('Enter');
-  await page.waitForSelector('.search-avp details[open]');
   await page.keyboard.press('ArrowDown');
   assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'A');
   await page.keyboard.press('Enter');
@@ -408,7 +404,7 @@ test('the header link opens search with its input focused, and search data loads
   await page.waitForSelector('.search-form input:focus');
   await page.keyboard.type('DRMP');
   await page.keyboard.press('Enter');
-  await page.waitForSelector('.search-avp summary:has-text("DRMP")');
+  await page.waitForSelector('.search-avp strong:has-text("DRMP")');
   assert.ok(requests.some(url => url.endsWith('/data/search.json')));
   assert.equal(await page.evaluate(() => document.activeElement?.closest('.search-form') !== null), true);
   await page.locator('.mention-link').first().click();

@@ -35,6 +35,12 @@ export function docNumber(doc: Named): string {
   return doc.publisher === 'ETSI' ? doc.specification.replace(/^ETSI /, '') : doc.specification;
 }
 
+/** The name beside its publisher's: OMA's `DDS-Charging_Data` reads as its publisher prints it, `DDS Charging_Data`. */
+export function docInFamily(name: string, doc: Pick<DocumentSummary, 'publisher'>): string {
+  const bare = name.replace(new RegExp(`^${doc.publisher}[ -]`), '');
+  return doc.publisher === 'OMA' ? bare.replace(/^DDS-/, 'DDS ') : bare;
+}
+
 /** The name and version, for a pane showing the text itself. */
 export function docVersioned(doc: Named & Pick<DocumentSummary, 'version'>): string {
   return `${docName(doc)}${doc.version ? ` V${doc.version}` : ''}`;
@@ -50,18 +56,31 @@ export function docSubject(doc: Titled): string {
   return !title || [doc.specification, doc.reference, docLabel(doc)].some(name => compact(name) === title) ? '' : doc.title;
 }
 
-/** A label with the interfaces, unless the title names them all, and the title. */
-export function docHeading(label: string, doc: Titled): string {
+/** The interfaces, unless the title names them all, and the title. */
+export function docAbout(doc: Titled): { interfaces: string; subject: string } {
   const subject = docSubject(doc);
   const interfaces = interfacesOf(doc);
   const words = new Set(subject.split(/[\s;:,()]+/));
-  const unsaid = interfaces && !interfaces.split(', ').every(name => words.has(name));
-  return `${label}${unsaid ? ` · ${interfaces}` : ''}${subject ? ` — ${subject}` : ''}`;
+  return { interfaces: interfaces.split(', ').every(name => words.has(name)) ? '' : interfaces, subject };
+}
+
+/** A label with what its document is about. */
+export function docHeading(label: string, doc: Titled): string {
+  const { interfaces, subject } = docAbout(doc);
+  return `${label}${interfaces ? ` · ${interfaces}` : ''}${subject ? ` — ${subject}` : ''}`;
 }
 
 /** The full heading of a document's own page. */
 export function docTitle(doc: Titled): string {
   return docHeading(docLabel(doc), doc);
+}
+
+const PUBLISHER_ORDER = ['3GPP', 'IETF', 'ETSI', '3GPP2', 'oneM2M', 'OMA'];
+
+/** Where a publisher's documents go in any list by publisher, one not named last. */
+export function publisherRank(publisher: string): number {
+  const rank = PUBLISHER_ORDER.indexOf(publisher);
+  return rank === -1 ? PUBLISHER_ORDER.length : rank;
 }
 
 type Edition = Pick<DocumentSummary, 'id' | 'specification' | 'release' | 'version'>;

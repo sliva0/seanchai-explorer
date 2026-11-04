@@ -132,17 +132,19 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 .search-section > p { color: var(--ui-muted); }
 .search-section > button { margin-top: var(--space-2); }
 .search-section li { padding-block: var(--space-1); line-height: 1.5; }
-.search-section details { margin-block: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius); }
-.search-section details > p { margin: var(--space-2) var(--space-3) 0; color: var(--ui-muted); }
-.search-section details > ul { padding: var(--space-1) var(--space-3) var(--space-2); }
-.search-section summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-3); }
-.search-section summary:hover { background: var(--ui-hover); }
-.search-section summary::before { align-self: center; margin-right: calc(-1 * var(--space-1)); }
-.search-section details[open] > summary { border-bottom: 1px solid var(--ui-border); }
-.search-section summary strong { font: 600 var(--text-sm)/1.4 var(--mono); overflow-wrap: anywhere; }
-.search-section summary span { margin-left: auto; color: var(--ui-muted); font-size: var(--text-xs); }
-.search-section summary em { color: var(--ui-muted); font-size: var(--text-xs); }
-.search-section .approximate summary strong { font-weight: 400; }
+.search-entry { padding-block: var(--space-1); }
+.search-entry + .search-entry { border-top: 1px solid var(--ui-divider); }
+.entry-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 var(--space-2); }
+.entry-line strong { font: 600 var(--text-sm)/1.5 var(--mono); overflow-wrap: anywhere; }
+.entry-facts, .entry-line em, .entry-wireshark { color: var(--ui-muted); font-size: var(--text-xs); }
+.entry-facts { min-width: 0; overflow-wrap: anywhere; }
+.search-entry.approximate strong { font-weight: 400; }
+.entry-wireshark { margin: 0; }
+.search-section .entry-families li { display: flex; align-items: baseline; gap: var(--space-2); padding-block: 0; }
+.family { flex: none; width: 4rem; color: var(--ui-muted); font-size: var(--text-xs); }
+.family-documents { min-width: 0; font-size: var(--text-sm); overflow-wrap: anywhere; }
+.family-documents a { white-space: nowrap; }
+.doc-detail { color: var(--ui-muted); font-size: var(--text-xs); white-space: normal; }
 .mention-document + .mention-document { margin-top: var(--space-3); }
 .mention-document h3 { margin: 0; font: 600 var(--text-sm)/1.5 var(--mono); }
 .search-mentions li { display: flex; align-items: baseline; gap: var(--space-2); }

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, identityLabel, indexEntries, INITIALS, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
+import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
 import { boot, readFixture } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -169,12 +169,53 @@ test('a mention marks the query, or its words, and any AVP found by it', () => {
   assert.deepEqual(marks(mention('aaa'), 'aa'), ['aaa'], 'overlaps merge');
 });
 
-test('aliases find all occurrences without merging different wire identities', () => {
+test('a name is one group per kind, whatever its wire identities, and a number finds only what it identifies', () => {
   const entry = avp('Call-Barring-Info', 10415, 1488, { wireshark_name: 'Call-Barring-Infor-List', document: 'a' });
-  const found = searchEntries([entry, { ...entry, document: 'b' }, { ...entry, identity: { kind: 'avp', vendor_id: 0, code: 1488 }, document: 'c' }], '  infor-list ').avp;
-  assert.deepEqual(found.map(group => group.entries.length).sort(), [1, 2]);
+  const other = { ...entry, identity: { kind: 'avp', vendor_id: 0, code: 1489 }, document: 'c' };
+  const entries = [entry, { ...entry, document: 'b' }, other];
+  assert.deepEqual(searchEntries(entries, '  infor-list ').avp.map(group => group.entries.length), [3]);
+  assert.deepEqual(searchEntries(entries, '1489').avp.map(group => group.entries.map(item => item.document)), [['c']]);
   assert.deepEqual(names(searchEntries([entry], '').avp), []);
   assert.deepEqual(names(searchEntries([entry], 'missing').avp), []);
+  const value = (value_kind, document) => ({ name: 'V', kind: 'value', document, target: null, defined_in: [], wireshark_name: null, abbreviation: null, identity: { kind: 'value', value_kind, value: 1, avp: 'A', application: null, feature_list_id: null } });
+  assert.equal(searchEntries([value('bits', 'a'), value('features', 'b'), value('bits', 'c')], 'v').value.length, 2, 'a value table of each kind has its own section');
+});
+
+test('a command spelled shorter by some documents joins the name spelled out', () => {
+  const entries = [
+    command('AC-Answer', 271, 1, { abbreviation: 'ACA', document: 'a' }), command('AC-Answer', 271, 1, { abbreviation: 'ACA', document: 'b' }), command('AC-Answer', 271, 1, { abbreviation: 'ACA', document: 'c' }),
+    command('Accounting-Answer', 271, 3, { abbreviation: 'ACA', document: 'd' }),
+    command('Multimedia-Auth-Answer', 303, 1, { abbreviation: 'MAA', document: 'e' }), command('Multimedia-Auth-Answer', 303, 1, { abbreviation: 'MAA', document: 'f' }),
+    command('Multimedia-Authentication-Answer', 303, 1, { abbreviation: 'MAA', document: 'g' }),
+    command('Same-Code', 271, 1, { document: 'h' }),
+  ];
+  const documents = groups => groups.map(group => [group.name, group.entries.map(entry => entry.document)]);
+  assert.deepEqual(documents(searchEntries(entries, 'aca').command), [['Accounting-Answer', ['a', 'b', 'c', 'd']]]);
+  assert.deepEqual(searchEntries(entries, 'ac-answer').command.map(group => [group.name, group.rank]), [['Accounting-Answer', EXACT]], 'the shorter spelling still finds it');
+  assert.deepEqual(documents(searchEntries(entries, 'accounting-answer').command), [['Accounting-Answer', ['d']]], 'and each spelling only its own documents');
+  assert.deepEqual(names(searchEntries(entries, 'maa').command), ['Multimedia-Auth-Answer'], 'neither shortened: the commoner');
+  assert.deepEqual(names(searchEntries(entries, 'same-code').command), ['Same-Code'], 'a code alone does not make one command');
+});
+
+test('what a name\'s entries agree on is said once, the rest beside each document', () => {
+  const said = (...entries) => {
+    const facts = groupFacts(entries);
+    return [facts.shared, entries.map(facts.differing)];
+  };
+  const named = (application, application_id, header_application_id = null, command_code = 271) => {
+    const entry = command('X', command_code, application_id);
+    Object.assign(entry.identity, { application, header_application_id });
+    return entry;
+  };
+  assert.deepEqual(said(named('Rf', 3), named('Rf', 3)), [['command 271', 'application 3 (Rf)'], [[], []]], 'a header all agree on goes unsaid');
+  assert.deepEqual(said(named('Rf', 3), named('Diameter base accounting', 3), named(null, null)), [['command 271'], [['Rf'], ['base accounting'], []]]);
+  assert.deepEqual(said(named(null, 3), named('Rf', 3)), [['command 271'], [['application 3'], ['Rf']]]);
+  assert.deepEqual(said(named('Rf', 3, 3), named('Rf', 3, null)), [['command 271', 'application 3 (Rf)'], [['header 3'], ['header none']]]);
+  assert.deepEqual(said(named('Rf', 3, null, 283), named('Rf', 3, null, 300)), [['application 3 (Rf)'], [['command 283'], ['command 300']]]);
+  assert.deepEqual(said(avp('X', 0, 1, { data_type: 'Unsigned32' }), avp('X', 10415, 1, { data_type: 'Unsigned32' })), [['Unsigned32'], [['0:1'], ['10415:1']]]);
+  const hole = avp('X', 0, 1, { identity: null });
+  assert.deepEqual(said(avp('X', 0, 1), hole), [['0:1'], [[], []]], 'a hole disagrees with nothing');
+  assert.deepEqual(said(hole), [[], [[]]]);
 });
 
 test('a group lists its newest release first', () => {
@@ -237,14 +278,14 @@ test('the search page shows a section per kind with matches over the fixture, an
     const headings = [...document.querySelectorAll('#search-results h2')].map(node => node.textContent);
     assert.ok(headings.some(heading => heading.startsWith('Commands ')));
     assert.ok(!headings.some(heading => heading.endsWith(' 0')), 'groups without matches are left out');
-    assert.ok(document.querySelector('.search-command summary').textContent.includes(named('command').name));
+    assert.ok(document.querySelector('.search-command strong').textContent.includes(named('command').name));
     const input = document.querySelector('.search-form input');
     assert.equal(document.activeElement, input);
     input.value = named('application').name;
     input.dispatchEvent(new window.Event('input'));
     assert.match(window.location.hash, /^#search\?q=/);
     document.querySelector('.search-form').dispatchEvent(new window.Event('submit', { cancelable: true }));
-    assert.ok(document.querySelector('.search-application summary').textContent.includes(named('application').name));
+    assert.ok(document.querySelector('.search-application strong').textContent.includes(named('application').name));
     const mention = document.querySelector('.search-mentions .mention-link');
     assert.match(mention.getAttribute('href'), /line=\d+/);
   } finally { await page.close(); }
@@ -259,13 +300,11 @@ test('more shows every remaining entry of its group, and only of that group', as
   try {
     const { document } = page;
     assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent), ['AVPs 47', 'Mentions 47']);
-    assert.equal(document.querySelectorAll('.search-avp details').length, 20);
+    assert.equal(document.querySelectorAll('.search-avp .search-entry').length, 20);
     assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
-    document.querySelector('.search-avp details').open = true;
     document.querySelector('.search-avp > button').click();
-    assert.equal(document.querySelectorAll('.search-avp details').length, 47);
+    assert.equal(document.querySelectorAll('.search-avp .search-entry').length, 47);
     assert.equal(document.querySelector('.search-avp > button'), null);
-    assert.equal(document.querySelector('.search-avp details').open, true, 'what is open stays open');
     assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
     assert.ok(document.querySelector('.search-mentions > button'));
   } finally { await page.close(); }
@@ -310,10 +349,10 @@ test('the search page groups values per kind, and a row\'s link opens its table 
   try {
     const { document } = page;
     assert.deepEqual([...document.querySelectorAll('#search-results h2')].map(node => node.textContent)[0], 'Result codes 1');
-    const summary = document.querySelector('.search-result-codes summary').textContent;
-    assert.match(summary, /DIAMETER_ERROR_SERVICE_AREA/);
-    assert.match(summary, /Result code 5123 of Experimental-Result-Code/);
-    const anchor = document.querySelector('.search-result-codes li a');
+    const line = document.querySelector('.search-result-codes .entry-line').textContent;
+    assert.match(line, /DIAMETER_ERROR_SERVICE_AREA/);
+    assert.match(line, /Result code 5123 of Experimental-Result-Code/);
+    const anchor = document.querySelector('.search-result-codes .entry-document a');
     assert.equal(anchor.textContent, 'TS 29.061 · 17.8.2');
     assert.equal(anchor.getAttribute('href'), '#29061-6f0/17.8.2?name=DIAMETER_ERROR_SERVICE_AREA');
     await page.go(anchor.getAttribute('href'));
@@ -323,15 +362,16 @@ test('the search page groups values per kind, and a row\'s link opens its table 
   } finally { await page.close(); }
 });
 
-test('a specification\'s row shows its short name, an older edition\'s release, and interfaces its title leaves out', async () => {
+test('a specification is one entry, with what its newest edition is about, and editions saying where they differ', async () => {
   const older = (data, id) => ({ ...data.documents.find(doc => doc.id === '29109-j00'), id, release: 6, version: '6.0.0', title: 'GAA' });
   const transform = (path, data) => path === 'data/index.json' ? { ...data, documents: [...data.documents, older(data, '29109-600')] } : data;
   const page = await boot({ hash: `#search?q=${encodeURIComponent('29.109')}`, transform });
   try {
-    assert.deepEqual([...page.document.querySelectorAll('.search-specifications li a')].map(anchor => anchor.textContent), [
-      'TS 29.109 · Zh, Dz, Zn, Zpn — GAA; Zh and Zn interfaces based on Diameter',
-      'TS 29.109 Rel-6 · Zh, Dz, Zn, Zpn — GAA',
-    ]);
+    const { document } = page;
+    assert.equal(document.querySelectorAll('.search-specifications .search-entry').length, 1);
+    assert.equal(document.querySelector('.search-specifications .entry-line').textContent, 'TS 29.109· Zh, Dz, Zn, Zpn — GAA; Zh and Zn interfaces based on Diameter');
+    assert.equal(document.querySelector('.search-specifications .family').textContent, '3GPP:');
+    assert.deepEqual([...document.querySelectorAll('.search-specifications .entry-document a')].map(anchor => [anchor.textContent, anchor.getAttribute('href')]), [['TS 29.109', '#29109-j00'], ['TS 29.109 Rel-6 (GAA)', '#29109-600']]);
   } finally { await page.close(); }
 });
 
@@ -342,7 +382,7 @@ test('bits and features get their own groups', async () => {
     const page = await boot({ hash: `#search?q=${encodeURIComponent(named(kind).name)}` });
     try {
       assert.ok([...page.document.querySelectorAll('#search-results h2')].some(node => node.textContent.startsWith(heading)), kind);
-      assert.ok(page.document.querySelector(`.search-${kind} summary`).textContent.includes(named(kind).name));
+      assert.ok(page.document.querySelector(`.search-${kind} strong`).textContent.includes(named(kind).name));
     } finally { await page.close(); }
   }
 });
@@ -404,7 +444,7 @@ test('approximate hits are labelled, counted apart, marked, and bring no mention
   const page = await boot({ hash: '#search?q=zzsesion', transform: withMentions(mentions, added) });
   try {
     const { document } = page;
-    const rows = [...document.querySelectorAll('.search-avp details')];
+    const rows = [...document.querySelectorAll('.search-avp .search-entry')];
     assert.deepEqual(rows.map(row => [row.querySelector('strong').textContent, row.classList.contains('approximate')]), [['Zzsesion', false], ['Zzsesion-Extra', false], ['Zzsession-Other', true]]);
     assert.equal(rows[2].querySelector('em').textContent, 'approximate');
     assert.equal(rows[0].querySelector('em'), null);
@@ -438,19 +478,73 @@ test('arrow keys walk the input and what is on screen', async () => {
   } finally { await page.close(); }
 });
 
-test('arrow keys skip the links of a closed result', async () => {
+test('arrow keys walk a result\'s links with nothing to open first', async () => {
   const page = await boot({ hash: `#search?q=${encodeURIComponent('DIAMETER_ERROR_SERVICE_AREA')}` });
   try {
     const { document, window } = page;
     const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
-    const summary = document.querySelector('.search-result-codes summary');
     press('ArrowDown');
-    assert.equal(document.activeElement, summary);
-    press('ArrowDown');
-    assert.notEqual(document.activeElement, summary.parentElement.querySelector('li a'), 'closed');
+    assert.equal(document.activeElement, document.querySelector('.search-result-codes .entry-document a'));
     press('ArrowUp');
-    summary.parentElement.open = true;
-    press('ArrowDown');
-    assert.equal(document.activeElement, summary.parentElement.querySelector('li a'), 'open');
+    assert.equal(document.activeElement, document.querySelector('.search-form input'));
+  } finally { await page.close(); }
+});
+
+const summaryOf = (id, publisher, specification, release = null, version = null) => ({ id, publisher, specification, release, version, reference: specification, title: specification, pinned: null, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
+const withCorpus = (documents, entries) => (path, data) => path === 'data/index.json' ? { ...data, documents: [...data.documents, ...documents] } : path === 'data/search.json' ? { ...data, entries: [...data.entries, ...entries], mentions: [] } : data;
+
+test('a name is one entry, with no fold, and its documents inline by publisher in the index\'s order', async () => {
+  const documents = [
+    summaryOf('oma', 'OMA', 'OMA-DDS-Charging_Data'), summaryOf('m2m', 'oneM2M', 'oneM2M TS-0004'), summaryOf('rfc6733x', 'IETF', 'RFC 6733'), summaryOf('rfc7155x', 'IETF', 'RFC 7155'),
+    summaryOf('32299-bx', '3GPP', '3GPP TS 32.299', 11, '11.0.0'), summaryOf('29061-jx', '3GPP', '3GPP TS 29.061', 19, '19.0.0'), summaryOf('32299-jx', '3GPP', '3GPP TS 32.299', 19, '19.0.0'),
+  ];
+  const aca = (name, document, application_id, application) => ({ ...command(name, 271, application_id, { abbreviation: 'ACA', document, defined_in: [] }), target: { document, section: '6.2' }, identity: { kind: 'command', command_code: 271, application_id, header_application_id: null, application } });
+  const entries = [
+    aca('Accounting-Answer', 'oma', 3, 'CH-1'), aca('Accounting-Answer', 'm2m', 3, 'Mch'), aca('Accounting-Answer', 'rfc6733x', 3, 'Diameter base accounting'), aca('Accounting-Answer', 'rfc7155x', 1, 'NASREQ'),
+    aca('Accounting-Answer', '32299-bx', 3, 'Rf'), aca('AC-Answer', '29061-jx', 1, 'NASREQ'), aca('Accounting-Answer', '32299-jx', 3, 'Rf'),
+  ];
+  const page = await boot({ hash: '#search?q=ACA', transform: withCorpus(documents, entries) });
+  try {
+    const { document } = page;
+    const section = document.querySelector('.search-command');
+    assert.equal(document.querySelector('#search-results details, #search-results summary'), null);
+    assert.equal(section.querySelector('h2').textContent, 'Commands 1');
+    assert.equal(section.querySelector('.entry-line').textContent, 'Accounting-Answer (ACA)· command 271');
+    const families = [...section.querySelectorAll('.entry-families li')].map(item => [item.querySelector('.family').textContent, item.querySelector('.family-documents').textContent]);
+    assert.deepEqual(families, [
+      ['3GPP:', 'TS 29.061 (as AC-Answer, NASREQ) · TS 32.299 (Rf) · TS 32.299 Rel-11 (Rf)'],
+      ['IETF:', 'RFC 6733 (base accounting) · RFC 7155 (NASREQ)'],
+      ['oneM2M:', 'TS-0004 (Mch)'],
+      ['OMA:', 'DDS Charging_Data (CH-1)'],
+    ]);
+    const anchor = section.querySelector('.entry-document a');
+    assert.equal(anchor.getAttribute('href'), '#29061-jx/6.2');
+    assert.equal(anchor.title, 'Command 271 · application 1 (NASREQ) · header none · TS 29.061 6.2');
+  } finally { await page.close(); }
+});
+
+test('where documents using a name find it is said once, and at a document only where it differs', async () => {
+  const documents = [summaryOf('use-a', '3GPP', '3GPP TS 29.001', 19), summaryOf('use-b', '3GPP', '3GPP TS 29.002', 19), summaryOf('def-a', 'IETF', 'RFC 9001'), summaryOf('def-b', 'IETF', 'RFC 9002')];
+  const uses = (name, document, target) => avp(name, 0, 1, { document, target, data_type: 'Unsigned32' });
+  const one = { document: 'def-a', section: '4' };
+  const other = { document: 'def-b', section: '5' };
+  const entries = [
+    uses('Zzone', 'use-a', one), uses('Zzone', 'use-b', one), uses('Zzone', 'def-a', one),
+    uses('Zztwo', 'use-a', one), uses('Zztwo', 'use-b', other), uses('Zztwo', 'def-a', one),
+    uses('Zzthree', 'use-a', other), uses('Zzthree', 'use-b', other), uses('Zzthree', 'def-a', one),
+    uses('Zztwice', 'def-a', one), uses('Zztwice', 'def-a', { document: 'def-a', section: '7' }),
+  ];
+  const page = await boot({ hash: '#search?q=zz', transform: withCorpus(documents, entries) });
+  try {
+    const { document } = page;
+    const entry = name => [...document.querySelectorAll('.search-avp .search-entry')].find(node => node.querySelector('strong').textContent === name);
+    assert.equal(entry('Zzone').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32 · defined in RFC 9001');
+    assert.deepEqual([...entry('Zzone').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002', 'RFC 9001']);
+    assert.equal(entry('Zzone').querySelector('.entry-facts a').getAttribute('href'), '#def-a/4');
+    assert.deepEqual([...entry('Zztwo').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002 → RFC 9002', 'RFC 9001']);
+    assert.equal(entry('Zzthree').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32 · defined in RFC 9002');
+    assert.deepEqual([...entry('Zzthree').querySelectorAll('.family-documents')].map(node => node.textContent), ['TS 29.001 · TS 29.002', 'RFC 9001 (defines it)']);
+    assert.deepEqual([...entry('Zztwice').querySelectorAll('.family-documents')].map(node => node.textContent), ['RFC 9001 (4) · RFC 9001 (7)']);
+    assert.equal(entry('Zztwice').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32', 'all define their own');
   } finally { await page.close(); }
 });

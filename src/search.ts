@@ -25,7 +25,7 @@ export interface NameGroup { name: string; kind: Kind; rank: number; entries: Se
 export type EntryResults = Record<Kind, NameGroup[]>;
 export const isApproximate = (group: Pick<NameGroup, 'rank'>) => group.rank >= INITIALS;
 
-interface IndexedEntry { entry: SearchEntry; names: number[]; application: string | null; group: string }
+interface IndexedEntry { entry: SearchEntry; names: number[]; application: string | null; title: string; group: string }
 /** Entries with their names folded once: a query ranks each distinct name, not each entry. */
 export interface EntryIndex { entries: IndexedEntry[]; names: FoldedName[] }
 export type FoldedMention = Mention & { folded: string };
@@ -78,7 +78,29 @@ function matchesPair(entry: SearchEntry, first: number, second: number): boolean
   return identity?.kind === 'command' && identity.application_id === first && identity.command_code === second;
 }
 
+/**
+ * Commands some documents print shortened, as TS 29.061 does `AC-Answer`: one code and
+ * abbreviation make one command, under the name spelled out, or else the one most documents use.
+ */
+function commandTitles(entries: SearchEntry[]): Map<string, string> {
+  const spellings = new Map<string, Map<string, number>>();
+  for (const { identity, abbreviation, name } of entries) {
+    if (identity?.kind !== 'command' || !abbreviation) continue;
+    const key = `${identity.command_code} ${abbreviation}`;
+    const counts = spellings.get(key) ?? new Map<string, number>();
+    spellings.set(key, counts.set(name, (counts.get(name) ?? 0) + 1));
+  }
+  const shortened = (name: string) => /^[A-Z]{2}-/.test(name) ? 1 : 0;
+  const titles = new Map<string, string>();
+  for (const counts of spellings.values()) {
+    const [title, ...others] = [...counts.keys()].sort((a, b) => shortened(a) - shortened(b) || counts.get(b)! - counts.get(a)! || b.length - a.length);
+    for (const name of others) titles.set(name, title);
+  }
+  return titles;
+}
+
 export function indexEntries(entries: SearchEntry[]): EntryIndex {
+  const titles = commandTitles(entries);
   const names: FoldedName[] = [];
   const known = new Map<string, number>();
   const nameId = (name: string) => {
@@ -91,12 +113,17 @@ export function indexEntries(entries: SearchEntry[]): EntryIndex {
   };
   return {
     names,
-    entries: entries.map(entry => ({
-      entry,
-      names: [entry.name, entry.wireshark_name, entry.abbreviation].filter(name => name != null).map(nameId),
-      application: entry.identity?.kind === 'command' ? entry.identity.application?.toLowerCase() ?? null : null,
-      group: JSON.stringify([entry.kind, entry.name, entry.identity]),
-    })),
+    entries: entries.map(entry => {
+      const title = entry.kind === 'command' ? titles.get(entry.name) ?? entry.name : entry.name;
+      return {
+        entry,
+        names: [entry.name, entry.wireshark_name, entry.abbreviation].filter(name => name != null).map(nameId),
+        application: entry.identity?.kind === 'command' ? entry.identity.application?.toLowerCase() ?? null : null,
+        title,
+        // Each kind of value has a section of its own.
+        group: JSON.stringify([entry.kind, entry.identity?.kind === 'value' ? entry.identity.value_kind : null, title]),
+      };
+    }),
   };
 }
 
@@ -238,7 +265,7 @@ export function searchEntries(index: EntryIndex, query: string, summary: (id: st
       group.entries.push(entry);
       group.rank = Math.min(group.rank, rank);
     } else {
-      groups.set(item.group, { name: entry.name, kind: entry.kind, rank, entries: [entry] });
+      groups.set(item.group, { name: item.title, kind: entry.kind, rank, entries: [entry] });
     }
   }
   for (const group of groups.values()) {
@@ -271,6 +298,77 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
     }
     default: return '';
   }
+}
+
+/** What is said of an entry, in order; `brief` beside a document's label, where the entry's name is already said. */
+interface Fact { text: string; brief?: string }
+
+function entryFacts(entry: SearchEntry): Fact[] {
+  const identity = entry.identity;
+  const type = { text: entry.data_type ?? '' };
+  switch (identity?.kind) {
+    case 'avp': return [{ text: `${identity.vendor_id}:${identity.code}` }, type];
+    case 'application': return [{ text: `application ${identity.application_id}` }, type];
+    case 'registry': return [{ text: `${identity.registry} ${identity.code}` }, type];
+    case 'value': return [
+      { text: `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}` },
+      { text: identity.feature_list_id === null ? '' : `list ${identity.feature_list_id}` },
+      { text: identity.application ?? '' },
+    ];
+    case 'command': {
+      const id = identity.application_id === null ? '' : `application ${identity.application_id}`;
+      const name = identity.application ?? '';
+      return [
+        { text: `command ${identity.command_code}` },
+        { text: name && id ? `${id} (${name})` : id || name, brief: name.replace(/^Diameter /, '') || id },
+      ];
+    }
+    default: return [];
+  }
+}
+
+/** What a command's header prints, worth saying only where documents disagree on it. */
+function headerFact(entry: SearchEntry): string {
+  const identity = entry.identity;
+  return identity?.kind === 'command' ? `header ${identity.header_application_id ?? 'none'}` : '';
+}
+
+export interface GroupFacts {
+  /** What every entry of a name agrees on, said once. */
+  shared: string[];
+  /** What tells this entry from the name's others. */
+  differing(entry: SearchEntry): string[];
+}
+
+/** An entry with no identity is a hole, a name its document does not define: it has nothing to disagree about. */
+export function groupFacts(entries: SearchEntry[]): GroupFacts {
+  const known = entries.filter(entry => entry.identity);
+  const facts = new Map(known.map(entry => [entry, entryFacts(entry)]));
+  const slots = facts.get(known[0])?.length ?? 0;
+  const agree = (read: (entry: SearchEntry) => string) => known.every(entry => read(entry) === read(known[0]));
+  const agreed = Array.from({ length: slots }, (_, slot) => agree(entry => facts.get(entry)![slot].text));
+  const headers = !agree(headerFact);
+  return {
+    shared: agreed.flatMap((same, slot) => same && facts.get(known[0])![slot].text ? [facts.get(known[0])![slot].text] : []),
+    differing(entry) {
+      const own = facts.get(entry) ?? [];
+      const said = own.flatMap((fact, slot) => agreed[slot] ? [] : [fact.brief ?? fact.text]);
+      return [...said, headers ? headerFact(entry) : ''].filter(Boolean);
+    },
+  };
+}
+
+/** Where most of the documents using a name but not defining it find it; none if all define their own. */
+export function usualDefinition(entries: SearchEntry[]): SearchEntry['target'] | undefined {
+  const uses = new Map<string, number>();
+  let usual: SearchEntry['target'] | undefined;
+  for (const { document, target } of entries) {
+    if (!target || target.document === document) continue;
+    const count = (uses.get(target.document) ?? 0) + 1;
+    uses.set(target.document, count);
+    if (!usual || count > uses.get(usual.document)!) usual = target;
+  }
+  return usual;
 }
 
 /** Newest release first, keeping the file order within each. */

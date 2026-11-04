@@ -1,4 +1,4 @@
-import { docNumber, docSubject } from './data.ts';
+import { docNumber, docSubject, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { element, link } from './dom.ts';
 import { interfacesOf } from './interfaces.ts';
@@ -51,12 +51,6 @@ function foldPinned(docs: DocumentSummary[], name: string, site: Site): HTMLDeta
   const fold = element('details', undefined, 'pinned-release');
   fold.append(element('summary', `${name}: ${docs.length} held for later citations`), documentTable(docs, site));
   return fold;
-}
-
-const PUBLISHER_ORDER = ['3GPP', 'IETF', 'ETSI', '3GPP2', 'oneM2M'];
-function publisherRank(publisher: string): number {
-  const rank = PUBLISHER_ORDER.indexOf(publisher);
-  return rank === -1 ? PUBLISHER_ORDER.length : rank;
 }
 
 /** Documents by publisher, newest release first, with the pinned older ones folded with their reasons. */

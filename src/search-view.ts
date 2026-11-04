@@ -1,11 +1,11 @@
-import { docHeading, docName } from './data.ts';
+import { docAbout, docInFamily, docName, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
 import { routeFor } from './navigation.ts';
-import { filterMentions, foldMentions, identityLabel, indexEntries, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions } from './search.ts';
+import { filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
-import type { SearchEntry } from './types.ts';
+import type { DocumentSummary, SearchEntry } from './types.ts';
 import { valueKinds } from './values.ts';
 
 const pageSize = 20;
@@ -29,58 +29,117 @@ function marked(text: string, spans: Span[]): (string | HTMLElement)[] {
   return parts;
 }
 
-function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
-  const first = group.entries[0];
-  const panel = element('details');
-  const summary = element('summary');
-  const detail = [identityLabel(first), first.data_type].filter(Boolean).join(' · ');
-  const mark = (name: string) => marked(name, matchSpans(name, query));
-  const title = element('strong');
-  title.append(...mark(first.name));
-  if (first.abbreviation) title.append(' (', ...mark(first.abbreviation), ')');
-  summary.append(title);
-  if (isApproximate(group)) {
-    panel.className = 'approximate';
-    summary.append(element('em', 'approximate'));
+/** A document's link with what tells it from the entry's others, muted and in the link. */
+function withDetail(anchor: HTMLAnchorElement, detail: (string | HTMLElement)[][]): HTMLAnchorElement {
+  if (!detail.length) return anchor;
+  const note = element('span', ' (', 'doc-detail');
+  detail.forEach((part, index) => note.append(...(index ? [', '] : []), ...part));
+  note.append(')');
+  anchor.append(note);
+  return anchor;
+}
+
+interface ListedDocument { doc: DocumentSummary | undefined; node: HTMLElement }
+
+/** A line per publisher, in the index's order, keeping a specification's editions together. */
+function renderFamilies(documents: ListedDocument[]): HTMLElement {
+  const families = new Map<string, Map<string, HTMLElement[]>>();
+  for (const { doc, node } of documents) {
+    const family = families.get(doc?.publisher ?? 'Other') ?? new Map<string, HTMLElement[]>();
+    const specification = doc?.specification ?? '';
+    family.set(specification, [...family.get(specification) ?? [], node]);
+    families.set(doc?.publisher ?? 'Other', family);
   }
-  summary.append(element('span', detail));
-  panel.append(summary);
-  if (first.wireshark_name && first.wireshark_name !== first.name) {
-    const wireshark = element('p', 'Wireshark: ');
-    wireshark.append(...mark(first.wireshark_name));
-    panel.append(wireshark);
-  }
-  const list = element('ul');
-  const seen = new Set<string>();
-  for (const entry of group.entries) {
-    const key = JSON.stringify([entry.document, entry.target]);
-    if (seen.has(key)) continue;
-    seen.add(key);
+  const list = element('ul', undefined, 'entry-families');
+  for (const [publisher, family] of [...families].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     const item = element('li');
+    const links = element('span', undefined, 'family-documents');
+    [...family.values()].flat().forEach((node, index) => links.append(...(index ? [' · '] : []), node));
+    item.append(element('span', `${publisher}:`, 'family'), links);
+    list.append(item);
+  }
+  return list;
+}
+
+/** One name: what its entries agree on, on its line, and its documents under it by publisher. */
+function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
+  const mark = (name: string) => marked(name, matchSpans(name, query));
+  const labelOf = (id: string) => {
+    const doc = site.summary(id);
+    return doc ? site.label(doc) : id;
+  };
+  const { entries } = group;
+  const facts = groupFacts(entries);
+  const panel = element('article', undefined, isApproximate(group) ? 'search-entry approximate' : 'search-entry');
+  const line = element('div', undefined, 'entry-line');
+  const title = element('strong');
+  title.append(...mark(group.name));
+  const abbreviations = [...new Set(entries.map(entry => entry.abbreviation).filter(name => name != null))];
+  if (abbreviations.length) {
+    title.append(' (');
+    abbreviations.forEach((name, index) => title.append(...(index ? [', '] : []), ...mark(name)));
+    title.append(')');
+  }
+  line.append(title);
+  const said = element('span', facts.shared.map(fact => `· ${fact}`).join(' '), 'entry-facts');
+  // Where the documents using it find it is said once; a document says so only where it differs.
+  const usual = usualDefinition(entries);
+  if (usual) said.append(`${facts.shared.length ? ' ' : ''}· defined in `, link(labelOf(usual.document), usual));
+  if (said.textContent) line.append(said);
+  if (isApproximate(group)) line.append(element('em', 'approximate'));
+  panel.append(line);
+  const wireshark = [...new Set(entries.map(entry => entry.wireshark_name).filter(name => name != null && name !== group.name))] as string[];
+  if (wireshark.length) {
+    const note = element('p', 'Wireshark: ', 'entry-wireshark');
+    wireshark.forEach((name, index) => note.append(...(index ? [', '] : []), ...mark(name)));
+    panel.append(note);
+  }
+  const listed = new Map(entries.map(entry => [JSON.stringify([entry.document, entry.target, facts.differing(entry), entry.name]), entry]));
+  const perDocument = new Map<string, number>();
+  for (const { document } of listed.values()) perDocument.set(document, (perDocument.get(document) ?? 0) + 1);
+  panel.append(renderFamilies([...listed.values()].map(entry => {
+    const item = element('span', undefined, 'entry-document');
     const doc = site.summary(entry.document);
-    const label = doc ? site.label(doc) : entry.document;
-    if (entry.kind === 'value' && entry.target) {
-      // The name is a row of the document's table: the link says which, and the page marks it.
-      item.append(link(`${label} · ${entry.target.section}`, { ...entry.target, name: entry.name }));
-    } else if (entry.target?.document === entry.document) {
-      // Mentioned and defined in one document: one link, to the definition.
-      item.append(link(label, entry.target));
-    } else {
-      item.append(link(label, { document: entry.document }));
-      if (entry.target) {
-        const definer = site.summary(entry.target.document);
-        item.append(' → ', link(definer ? site.label(definer) : entry.defined_in.join(', ') || entry.name, entry.target));
-      }
-    }
+    const label = doc ? docInFamily(site.label(doc), doc) : entry.document;
+    const { target } = entry;
+    const own = target?.document === entry.document;
+    const detail: (string | HTMLElement)[][] = facts.differing(entry).map(fact => [fact]);
+    if (entry.name !== group.name) detail.unshift(['as ', ...mark(entry.name)]);
+    // Twice in one document, only its clause tells which.
+    if (target?.section && entry.kind !== 'value' && perDocument.get(entry.document)! > 1) detail.push([target.section]);
+    if (usual && own && target.document !== usual.document) detail.push(['defines it']);
     if (entry.across_releases) {
       // Which edition stands in for a citation is the point here, so its version stays.
       const crossing = entry.across_releases;
       const cited = site.index.documents.find(doc => doc.reference === crossing.cited);
-      item.append(` · ${cited ? docName(cited) : crossing.cited} V${crossing.version} · ${crossing.rule}`);
+      detail.push([`${cited ? docName(cited) : crossing.cited} V${crossing.version}, ${crossing.rule}`]);
     }
-    list.append(item);
-  }
-  panel.append(list);
+    // A row of the document's table: the link says which, and the page marks it.
+    const anchor = entry.kind === 'value' && target ? link(`${label} · ${target.section}`, { ...target, name: entry.name })
+      : link(label, own ? target : { document: entry.document });
+    anchor.title = [identityLabel(entry), entry.data_type, target?.section && `${labelOf(target.document)} ${target.section}`].filter(Boolean).join(' · ');
+    item.append(withDetail(anchor, detail));
+    if (target && !own && target.document !== usual?.document) item.append(' → ', link(labelOf(target.document), target));
+    return { doc, node: item };
+  })));
+  return panel;
+}
+
+/** One specification: what its newest edition is about, and its editions, each saying only where it differs. */
+function renderSpecification(docs: DocumentSummary[], site: Site): HTMLElement {
+  const panel = element('article', undefined, 'search-entry');
+  const line = element('div', undefined, 'entry-line');
+  const about = docAbout(docs[0]);
+  line.append(element('strong', docName(docs[0])));
+  const facts = [about.interfaces, about.subject].filter(Boolean);
+  if (facts.length) line.append(element('span', `· ${facts.join(' — ')}`, 'entry-facts'));
+  panel.append(line, renderFamilies(docs.map(doc => {
+    const { interfaces, subject } = docAbout(doc);
+    const detail = [interfaces === about.interfaces ? '' : interfaces, subject === about.subject ? '' : subject].filter(Boolean).map(fact => [fact]);
+    const node = element('span', undefined, 'entry-document');
+    node.append(withDetail(link(docInFamily(site.label(doc), doc), { document: doc.id }), detail));
+    return { doc, node };
+  })));
   return panel;
 }
 
@@ -133,7 +192,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     results.replaceChildren();
     const text = input.value;
     if (!text.trim()) return;
-    function section<T>(key: string, title: string, items: T[], render: (item: T) => HTMLElement | null, { wrap = false, approximate = 0 } = {}) {
+    function section<T>(key: string, title: string, items: T[], render: (item: T) => HTMLElement | null, { approximate = 0 } = {}) {
       if (!items.length) return;
       const node = element('section', undefined, `search-section search-${key}`);
       const heading = element('h2');
@@ -142,11 +201,9 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
       if (approximate) heading.append(element('span', precise ? `+${approximate} approximate` : 'approximate', 'count'));
       node.append(heading);
       results.append(node);
-      const parent = wrap ? element('ul') : node;
-      if (wrap) node.append(parent);
       const add = (item: T) => {
         const rendered = render(item);
-        if (rendered) parent.append(rendered);
+        if (rendered) node.append(rendered);
       };
       const shown = expanded.has(key) ? items.length : pageSize;
       items.slice(0, shown).forEach(add);
@@ -161,11 +218,9 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
       }
     }
     const groupSection = (key: string, title: string, groups: NameGroup[]) => section(key, title, groups, group => renderGroup(group, site, text), { approximate: groups.filter(isApproximate).length });
-    section('specifications', 'Specifications', searchSpecifications(site.index.documents, text), doc => {
-      const item = element('li');
-      item.append(link(docHeading(site.label(doc), doc), { document: doc.id }));
-      return item;
-    }, { wrap: true });
+    const specifications = new Map<string, DocumentSummary[]>();
+    for (const doc of searchSpecifications(site.index.documents, text)) specifications.set(doc.specification, [...specifications.get(doc.specification) ?? [], doc]);
+    section('specifications', 'Specifications', [...specifications.values()], docs => renderSpecification(docs, site));
     if (failed) { results.append(element('p', failed)); return; }
     if (!data) {
       const status = element('p', 'Loading search data…');
@@ -184,11 +239,10 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     if (!results.childElementCount) results.append(element('p', 'No matches.'));
   }
 
-  /** Arrows walk the input and what is on screen; Enter is then the browser's, opening a link or a summary. */
+  /** Arrows walk the input and what is on screen; Enter is then the browser's, opening a link. */
   function walk(event: KeyboardEvent) {
     if ((event.key !== 'ArrowDown' && event.key !== 'ArrowUp') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    const stops = [...results.querySelectorAll<HTMLElement>('summary, a[href], button')].filter(node => node.tagName === 'SUMMARY' || !node.closest('details:not([open])'));
-    const route = [input, ...stops];
+    const route = [input, ...results.querySelectorAll<HTMLElement>('a[href], button')];
     const next = route[route.indexOf(document.activeElement as HTMLElement) + (event.key === 'ArrowDown' ? 1 : -1)];
     if (!next) return;
     event.preventDefault();
