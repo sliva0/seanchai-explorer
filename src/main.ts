@@ -1,5 +1,5 @@
 import { createAvpPopup } from './avp-popup.ts';
-import { docLabel, openSite, paneKind, siteURL } from './data.ts';
+import { openSite, paneKind, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
 import type { DocumentView } from './document-view.ts';
@@ -145,12 +145,12 @@ try {
       if (fresh) {
         view = undefined;
         sourcePane.unmount();
-        setTitle(docLabel(meta));
+        setTitle(site.label(meta));
         // A quick load goes straight from the old page to the new; only a slow one says so.
         const loading = setTimeout(() => {
           if (generation !== request) return;
           content.className = '';
-          const status = element('p', `Loading ${docLabel(meta)}…`);
+          const status = element('p', `Loading ${site.label(meta)}…`);
           status.setAttribute('role', 'status');
           content.replaceChildren(status);
         }, 150);

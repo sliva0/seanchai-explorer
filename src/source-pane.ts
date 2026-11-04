@@ -1,4 +1,4 @@
-import { docLabel, docTitle, dataURL, isPdfURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
+import { docSubject, docTitle, docVersioned, dataURL, isPdfURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
 import type { Site } from './data.ts';
 import { element, externalLink } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
@@ -57,7 +57,8 @@ function createPaneHeader(source: boolean): HTMLElement {
 }
 
 function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: SourcePosition, site: Site) {
-  header.querySelector('h1, h2')!.textContent = docTitle(doc);
+  // The source's bar is the narrower one in a split, and the two share a row: a third line would move the text below.
+  header.querySelector('h1, h2')!.textContent = header.classList.contains('source-header') ? [docVersioned(doc), docSubject(doc)].filter(Boolean).join(' — ') : docTitle(doc);
   const kind = paneKind(doc, site.mode);
   // The PDF viewer shows its own page; the indicator is for panes without one.
   const page = header.querySelector('.source-page');
@@ -81,7 +82,7 @@ function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: S
 
 /** What the pane says of a PDF this build does not hold: why, and where to read it instead. */
 function fillPlaceholder(panel: HTMLElement, doc: DocumentSummary, position: SourcePosition) {
-  const reason = element('p', `The PDF of ${docLabel(doc)} cannot be shown here for licensing reasons.`);
+  const reason = element('p', `The PDF of ${docVersioned(doc)} cannot be shown here for licensing reasons.`);
   const url = publisherURL(doc, position);
   const publisher = element('p');
   if (url) publisher.append(externalLink(`Open at ${hostName(url)}${position.page ? `, p. ${position.page}` : ''}`, url.href));
@@ -183,7 +184,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       mounted.aside!.replaceChildren(mounted.placeholder!);
       return;
     }
-    mounted.frame.title = docLabel(selected.doc);
+    mounted.frame.title = docVersioned(selected.doc);
     if (mounted.frame.src !== url.href) mounted.frame.src = url.href;
     if (!mounted.frame.isConnected) mounted.aside!.replaceChildren(mounted.frame);
   }
@@ -239,7 +240,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       const aside = element('aside');
       aside.id = 'source-pane';
       const frame = element('iframe');
-      frame.title = docLabel(doc);
+      frame.title = docVersioned(doc);
       frame.onload = () => postTheme(frame);
       aside.append(frame);
       mounted.sourceHeader = createPaneHeader(true);

@@ -1,4 +1,4 @@
-import { docLabel, docTitle } from './data.ts';
+import { docHeading, docName } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
 import { routeFor } from './navigation.ts';
@@ -58,7 +58,7 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
     seen.add(key);
     const item = element('li');
     const doc = site.summary(entry.document);
-    const label = doc ? docLabel(doc) : entry.document;
+    const label = doc ? site.label(doc) : entry.document;
     if (entry.kind === 'value' && entry.target) {
       // The name is a row of the document's table: the link says which, and the page marks it.
       item.append(link(`${label} · ${entry.target.section}`, { ...entry.target, name: entry.name }));
@@ -69,12 +69,14 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
       item.append(link(label, { document: entry.document }));
       if (entry.target) {
         const definer = site.summary(entry.target.document);
-        item.append(' → ', link(definer ? docLabel(definer) : entry.defined_in.join(', ') || entry.name, entry.target));
+        item.append(' → ', link(definer ? site.label(definer) : entry.defined_in.join(', ') || entry.name, entry.target));
       }
     }
     if (entry.across_releases) {
+      // Which edition stands in for a citation is the point here, so its version stays.
       const crossing = entry.across_releases;
-      item.append(` · ${crossing.cited} V${crossing.version} · ${crossing.rule}`);
+      const cited = site.index.documents.find(doc => doc.reference === crossing.cited);
+      item.append(` · ${cited ? docName(cited) : crossing.cited} V${crossing.version} · ${crossing.rule}`);
     }
     list.append(item);
   }
@@ -93,7 +95,7 @@ function mentionRenderer(site: Site, query: string, names: Set<string>) {
       groups.set(mention.document, list);
       const doc = site.summary(mention.document);
       const heading = element('h3');
-      heading.append(link(doc ? docLabel(doc) : mention.document, { document: mention.document }));
+      heading.append(link(doc ? site.label(doc) : mention.document, { document: mention.document }));
       added = element('div', undefined, 'mention-document');
       added.append(heading, list);
     }
@@ -161,7 +163,7 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     const groupSection = (key: string, title: string, groups: NameGroup[]) => section(key, title, groups, group => renderGroup(group, site, text), { approximate: groups.filter(isApproximate).length });
     section('specifications', 'Specifications', searchSpecifications(site.index.documents, text), doc => {
       const item = element('li');
-      item.append(link(docTitle(doc), { document: doc.id }));
+      item.append(link(docHeading(site.label(doc), doc), { document: doc.id }));
       return item;
     }, { wrap: true });
     if (failed) { results.append(element('p', failed)); return; }

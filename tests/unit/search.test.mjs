@@ -314,12 +314,24 @@ test('the search page groups values per kind, and a row\'s link opens its table 
     assert.match(summary, /DIAMETER_ERROR_SERVICE_AREA/);
     assert.match(summary, /Result code 5123 of Experimental-Result-Code/);
     const anchor = document.querySelector('.search-result-codes li a');
-    assert.equal(anchor.textContent, '3GPP TS 29.061 V6.15.0 · 17.8.2');
+    assert.equal(anchor.textContent, 'TS 29.061 · 17.8.2');
     assert.equal(anchor.getAttribute('href'), '#29061-6f0/17.8.2?name=DIAMETER_ERROR_SERVICE_AREA');
     await page.go(anchor.getAttribute('href'));
     const marked = document.querySelector('.target-line');
     assert.ok(marked.textContent.startsWith('DIAMETER_ERROR_SERVICE_AREA'));
     assert.equal(document.querySelectorAll('.target-line').length, 1);
+  } finally { await page.close(); }
+});
+
+test('a specification\'s row shows its short name, an older edition\'s release, and interfaces its title leaves out', async () => {
+  const older = (data, id) => ({ ...data.documents.find(doc => doc.id === '29109-j00'), id, release: 6, version: '6.0.0', title: 'GAA' });
+  const transform = (path, data) => path === 'data/index.json' ? { ...data, documents: [...data.documents, older(data, '29109-600')] } : data;
+  const page = await boot({ hash: `#search?q=${encodeURIComponent('29.109')}`, transform });
+  try {
+    assert.deepEqual([...page.document.querySelectorAll('.search-specifications li a')].map(anchor => anchor.textContent), [
+      'TS 29.109 · Zh, Dz, Zn, Zpn — GAA; Zh and Zn interfaces based on Diameter',
+      'TS 29.109 Rel-6 · Zh, Dz, Zn, Zpn — GAA',
+    ]);
   } finally { await page.close(); }
 });
 
@@ -344,7 +356,7 @@ test('mentions group under one heading per document, newest release first', asyn
   const page = await boot({ hash: '#search?q=zzgroup', transform: withMentions(mentions) });
   try {
     const { document } = page;
-    assert.deepEqual(documentHeadings(document), [['3GPP TS 29.153 V19.0.0', '#29153-j00'], ['3GPP TS 29.061 V6.15.0', '#29061-6f0']]);
+    assert.deepEqual(documentHeadings(document), [['TS 29.153', '#29153-j00'], ['TS 29.061', '#29061-6f0']]);
     const groups = [...document.querySelectorAll('.mention-document')];
     assert.deepEqual(groups.map(group => group.querySelectorAll('li').length), [2, 3], 'a document\'s mentions stay together');
     const anchor = groups[0].querySelector('li .mention-link');

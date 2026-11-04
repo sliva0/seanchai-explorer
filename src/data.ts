@@ -1,5 +1,6 @@
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, Line, RawDocument, Search } from './types.ts';
+import { interfacesOf } from './interfaces.ts';
 import type { SourcePosition } from './navigation.ts';
 import { valueTables } from './values.ts';
 
@@ -21,14 +22,61 @@ export function docLabel(doc: Pick<DocumentSummary, 'specification' | 'version'>
   return `${doc.specification}${doc.version ? ` V${doc.version}` : ''}`;
 }
 
+type Named = Pick<DocumentSummary, 'publisher' | 'specification'>;
+
+/** The name where any publisher's may be beside it: a bare TS number is 3GPP's, and the others keep their prefix. */
+export function docName(doc: Named): string {
+  return doc.publisher === '3GPP' ? doc.specification.replace(/^3GPP /, '') : doc.specification;
+}
+
+/** The name under a heading that says the publisher. 3GPP2, oneM2M and OMA keep their prefix, which carries meaning. */
+export function docNumber(doc: Named): string {
+  if (doc.publisher === '3GPP') return docName(doc).replace(/^TS /, '');
+  return doc.publisher === 'ETSI' ? doc.specification.replace(/^ETSI /, '') : doc.specification;
+}
+
+/** The name and version, for a pane showing the text itself. */
+export function docVersioned(doc: Named & Pick<DocumentSummary, 'version'>): string {
+  return `${docName(doc)}${doc.version ? ` V${doc.version}` : ''}`;
+}
+
 const compact = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-/** The label with the title, unless the title only says the specification's name again. */
-export function docTitle(doc: Pick<DocumentSummary, 'specification' | 'version' | 'reference' | 'title'>): string {
-  const label = docLabel(doc);
+type Titled = Pick<DocumentSummary, 'id' | 'specification' | 'version' | 'reference' | 'title'>;
+
+/** The title, unless it only says the specification's name again. */
+export function docSubject(doc: Titled): string {
   const title = compact(doc.title);
-  if (!title || [doc.specification, doc.reference, label].some(name => compact(name) === title)) return label;
-  return `${label} — ${doc.title}`;
+  return !title || [doc.specification, doc.reference, docLabel(doc)].some(name => compact(name) === title) ? '' : doc.title;
+}
+
+/** A label with the interfaces, unless the title names them all, and the title. */
+export function docHeading(label: string, doc: Titled): string {
+  const subject = docSubject(doc);
+  const interfaces = interfacesOf(doc);
+  const words = new Set(subject.split(/[\s;:,()]+/));
+  const unsaid = interfaces && !interfaces.split(', ').every(name => words.has(name));
+  return `${label}${unsaid ? ` · ${interfaces}` : ''}${subject ? ` — ${subject}` : ''}`;
+}
+
+/** The full heading of a document's own page. */
+export function docTitle(doc: Titled): string {
+  return docHeading(docLabel(doc), doc);
+}
+
+type Edition = Pick<DocumentSummary, 'id' | 'specification' | 'release' | 'version'>;
+
+const compareEditions = (a: Edition, b: Edition) => (a.release ?? -1) - (b.release ?? -1) || (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true });
+
+/** What tells each edition from a newer one of its specification in the corpus. The newest has nothing to say. */
+function olderEditions(documents: Edition[]): Map<string, string> {
+  const newest = new Map<string, Edition>();
+  for (const doc of documents) {
+    const held = newest.get(doc.specification);
+    if (!held || compareEditions(doc, held) > 0) newest.set(doc.specification, doc);
+  }
+  const older = documents.filter(doc => newest.get(doc.specification) !== doc);
+  return new Map(older.map(doc => [doc.id, doc.release ? `Rel-${doc.release}` : doc.version ? `V${doc.version}` : '']));
 }
 
 /** Whether a URL is a publisher's PDF, which a source kind may not say. */
@@ -103,6 +151,10 @@ export interface Site {
   index: Index;
   mode: Mode;
   summary(id: string): DocumentSummary | undefined;
+  /** The edition, only if the corpus holds a newer one of the specification: `Rel-11`, or a version with no release. */
+  edition(doc: DocumentSummary): string;
+  /** The name in a list of any publishers' documents, with the edition if it has to say. */
+  label(doc: DocumentSummary): string;
   loadDocument(id: string): Promise<Document>;
   loadRaw(id: string): Promise<RawDocument>;
   loadSearch(): Promise<Search>;
@@ -116,6 +168,7 @@ function marked<T extends { lines: Line[] }>(file: T): T {
 
 export function createSite(index: Index): Site {
   const summaries = new Map(index.documents.map(doc => [doc.id, doc]));
+  const editions = olderEditions(index.documents);
   const cache = new Map<string, Promise<unknown>>();
   function cached<T>(path: string): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
@@ -135,6 +188,8 @@ export function createSite(index: Index): Site {
     index,
     mode: index.mode,
     summary: id => summaries.get(id),
+    edition: doc => editions.get(doc.id) ?? '',
+    label: doc => [docName(doc), editions.get(doc.id)].filter(Boolean).join(' '),
     loadDocument: id => cached<Document>(known(id).path).then(marked),
     loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
     loadSearch: () => cached<Search>('search.json'),

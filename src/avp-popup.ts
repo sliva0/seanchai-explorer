@@ -1,4 +1,4 @@
-import { docLabel, sourceHref } from './data.ts';
+import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
@@ -156,7 +156,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const definition = token.target && site.summary(token.target.document);
     if (token.target && definition) {
       const row = element('p', 'Definition: ');
-      const anchor = link(`${docLabel(definition)}${token.target.section ? ` · ${token.target.section}` : ''}`, { ...token.target, name });
+      const anchor = link(`${site.label(definition)}${token.target.section ? ` · ${token.target.section}` : ''}`, { ...token.target, name });
       anchor.className = 'definition-link';
       row.append(anchor);
       panel.append(row);

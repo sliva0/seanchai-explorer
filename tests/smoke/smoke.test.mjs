@@ -123,7 +123,7 @@ test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for the
   await placeholder.waitFor();
   assert.equal(await page.locator('iframe').count(), 0);
   assert.equal(await page.locator('.source-toggle').isVisible(), true);
-  assert.match(await placeholder.textContent(), /The PDF of 3GPP TS 29\.153 V19\.0\.0 cannot be shown here/);
+  assert.match(await placeholder.textContent(), /The PDF of TS 29\.153 V19\.0\.0 cannot be shown here/);
   const fit = await placeholder.evaluate(node => {
     const pane = node.parentElement.getBoundingClientRect();
     const box = node.getBoundingClientRect();
@@ -135,11 +135,11 @@ test('public, desktop: a PDF\'s pane is a placeholder, and names swap it for the
   await page.frameLocator('iframe').locator('.rfc-line', { hasText: 'DRMP AVP' }).last().waitFor();
   await page.waitForSelector('.source-header h2:has-text("RFC 7944")');
   assert.equal(await placeholder.count(), 0);
-  assert.equal(await page.title(), '3GPP TS 29.153 V19.0.0 — Seanchaí');
+  assert.equal(await page.title(), 'TS 29.153 — Seanchaí');
   assert.ok(await page.evaluate(() => location.hash.startsWith('#29153-j00?') && location.hash.includes('source=rfc7944')));
   await page.locator('pre a[data-avp][href^="#29217-j00"]').first().click();
   await placeholder.waitFor();
-  assert.match(await placeholder.textContent(), /3GPP TS 29\.217/);
+  assert.match(await placeholder.textContent(), /TS 29\.217/);
   assert.match(await placeholder.locator('a').first().getAttribute('href'), /ts_129217v190000p\.pdf#page=\d+$/);
   assert.equal(await page.locator('iframe').count(), 0);
   assert.equal(pages.length, 0);

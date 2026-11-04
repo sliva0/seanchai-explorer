@@ -18,15 +18,25 @@ test('public: a PDF gets the pane and its toggle, with a placeholder for the vie
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
     assert.equal(document.querySelectorAll('#source-pane').length, 1);
     const placeholder = document.querySelector('.source-placeholder');
-    assert.match(placeholder.textContent, /The PDF of 3GPP TS 29\.153 V19\.0\.0 cannot be shown here for licensing reasons\./);
+    assert.match(placeholder.textContent, /The PDF of TS 29\.153 V19\.0\.0 cannot be shown here for licensing reasons\./);
     const [publisher, selfHost] = placeholderLinks(document);
     assert.match(publisher, new RegExp(`^https://www\\.etsi\\.org/.*#page=${pageNumber}$`));
     assert.equal(selfHost, 'https://github.com/sliva0/seanchai-explorer#two-build-modes');
-    assert.ok(document.querySelector('.source-document').textContent.startsWith('3GPP TS 29.153'));
+    assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153 V19.0.0 — '));
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153 V19.0.0 — '));
     assert.equal(document.querySelector('.source-header .source-page').textContent, `p. ${pageNumber}`);
     assert.equal(document.querySelector('.source-header .publisher-link').href, publisher);
     assert.equal(document.querySelector('.source-header .local-link').hidden, true);
     assert.equal(document.querySelector('.document-header .local-link').hidden, true);
+  } finally { await page.close(); }
+});
+
+test('the page header says it all, the source pane\'s the short name, version and title', async () => {
+  const page = await boot({ hash: '#29061-6f0' });
+  try {
+    const { document } = page;
+    assert.equal(document.querySelector('.document-header h1').textContent, '3GPP TS 29.061 V6.15.0 · Gi, Gmb — PLMN interworking with packet data networks');
+    assert.equal(document.querySelector('.source-document').textContent, 'TS 29.061 V6.15.0 — PLMN interworking with packet data networks');
   } finally { await page.close(); }
 });
 
@@ -71,7 +81,7 @@ test('public: a name defined in a PDF shows that document\'s placeholder, which 
     const section = decodeURIComponent(name.getAttribute('href').split('?')[0].split('/')[1]);
     pageNumber = await sectionPage('29217-j00', section);
     const check = () => {
-      assert.match(document.querySelector('.source-placeholder').textContent, /The PDF of 3GPP TS 29\.217 V19\.0\.0 cannot/);
+      assert.match(document.querySelector('.source-placeholder').textContent, /The PDF of TS 29\.217 V19\.0\.0 cannot/);
       assert.match(placeholderLinks(document)[0], new RegExp(`/ts_129217v190000p\\.pdf#page=${pageNumber}$`));
       assert.equal(document.querySelector('.source-header .source-page').textContent, `p. ${pageNumber}`);
       assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'));
@@ -99,7 +109,7 @@ test('public: a name defined in a PDF shows that document\'s placeholder, which 
   try {
     const restored = opened.document;
     assert.ok(restored.querySelector('main h1').textContent.startsWith('3GPP TS 29.153'));
-    assert.match(restored.querySelector('.source-placeholder').textContent, /3GPP TS 29\.217/);
+    assert.match(restored.querySelector('.source-placeholder').textContent, /TS 29\.217/);
     assert.match(placeholderLinks(restored)[0], new RegExp(`#page=${pageNumber}$`));
     assert.equal(opened.window.location.hash, shared);
   } finally { await opened.close(); }
@@ -212,7 +222,7 @@ test('self-hosted: PDFs go to the viewer pane at the clause and table row', asyn
     assert.equal(source.pathname, '/viewer.html');
     assert.ok(source.searchParams.get('file').endsWith('/data/sources/29153-j00.pdf'));
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('search'), '5.1');
-    assert.ok(document.querySelector('.source-document').textContent.startsWith('3GPP TS 29.153'));
+    assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153'));
     assert.equal(document.querySelector('.source-header .publisher-link span').textContent, 'etsi.org');
     assert.equal(document.querySelector('.source-header .local-link span').textContent, 'localhost');
     const row = [...document.querySelectorAll('.table-row a[data-avp]')][0];
@@ -388,6 +398,19 @@ test('the raw link is worked out when clicked, from the top visible section', as
     click(page, toggle);
     assert.equal(toggle.getAttribute('href'), `#29153-j00/${rows[visible].dataset.section}?raw=1`);
     window.HTMLElement.prototype.getBoundingClientRect = rect;
+  } finally { await page.close(); }
+});
+
+test('an occurrences popup names the definition\'s document without publisher or version', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    document.querySelector('.occurrences-toggle input').click();
+    for (const [href, label] of [['#29217-j00', /^TS 29\.217 · /], ['#rfc7944', /^RFC 7944 · /]]) {
+      click(page, document.querySelector(`pre a[data-avp][href^="${href}"]`));
+      await settle();
+      assert.match(document.querySelector('.avp-popup .definition-link').textContent, label);
+    }
   } finally { await page.close(); }
 });
 
@@ -580,7 +603,7 @@ test('each route sets its title and heading, and navigation moves focus', async 
     assert.equal(document.title, 'Seanchaí');
     assert.notEqual(document.activeElement, document.querySelector('main'), 'not on first load');
     await page.go('#29153-j00');
-    assert.equal(document.title, '3GPP TS 29.153 V19.0.0 — Seanchaí');
+    assert.equal(document.title, 'TS 29.153 — Seanchaí');
     const heading = document.querySelector('main h1');
     assert.match(heading.textContent, /^3GPP TS 29\.153 V19\.0\.0 — /);
     assert.equal(document.activeElement, heading);
@@ -661,7 +684,7 @@ test('a mention link marks its line, a later route clears it, and loading says s
     page.window.location.hash = '#29061-6f0';
     await new Promise(resolve => setTimeout(resolve, 0));
     const status = document.querySelector('main [role="status"]');
-    if (status) assert.match(status.textContent, /^Loading 3GPP TS 29\.061/);
+    if (status) assert.match(status.textContent, /^Loading TS 29\.061/);
     await settle();
     assert.equal(document.querySelector('main [role="status"]'), null);
   } finally { await page.close(); }
@@ -683,7 +706,7 @@ test('public: an RFC page restores a PDF\'s placeholder beside it from a shared 
     const { document } = page;
     assert.equal(document.querySelector('iframe'), null);
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
-    assert.match(document.querySelector('.source-placeholder').textContent, /3GPP TS 29\.153/);
+    assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.153/);
   } finally { await page.close(); }
 });
 
