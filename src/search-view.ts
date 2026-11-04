@@ -6,7 +6,7 @@ import { routeFor } from './navigation.ts';
 import { filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
-import type { DocumentSummary, SearchEntry } from './types.ts';
+import type { DocumentSummary, SearchEntry, Target } from './types.ts';
 import { valueKinds } from './values.ts';
 
 const pageSize = 20;
@@ -62,6 +62,12 @@ function renderFamilies(documents: ListedDocument[]): HTMLElement {
   return list;
 }
 
+/** Where an entry's link goes: a value's row, its own definition, or else its document. */
+function entryTarget({ kind, name, document, target }: SearchEntry): Target {
+  if (kind === 'value' && target) return { ...target, name };
+  return target?.document === document ? target : { document };
+}
+
 /** One name: what its entries agree on, on its line, and its documents under it by publisher. */
 function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
   const mark = (name: string) => marked(name, matchSpans(name, query));
@@ -73,8 +79,12 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
   const facts = groupFacts(entries);
   const panel = element('article', undefined, isApproximate(group) ? 'search-entry approximate' : 'search-entry');
   const line = element('div', undefined, 'entry-line');
+  // Where the documents using it find it is said once; a document says so only where it differs.
+  const usual = usualDefinition(entries);
   const title = element('strong');
-  title.append(...mark(group.name));
+  const nameLink = link('', usual ?? entryTarget(entries[0]));
+  nameLink.append(...mark(group.name));
+  title.append(nameLink);
   const abbreviations = [...new Set(entries.map(entry => entry.abbreviation).filter(name => name != null))];
   if (abbreviations.length) {
     title.append(' (');
@@ -83,8 +93,6 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
   }
   line.append(title);
   const said = element('span', facts.shared.map(fact => `· ${fact}`).join(' '), 'entry-facts');
-  // Where the documents using it find it is said once; a document says so only where it differs.
-  const usual = usualDefinition(entries);
   if (usual) said.append(`${facts.shared.length ? ' ' : ''}· defined in `, link(labelOf(usual.document), usual));
   if (said.textContent) line.append(said);
   if (isApproximate(group)) line.append(element('em', 'approximate'));
@@ -116,8 +124,7 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
       detail.push([`${cited ? docName(cited) : crossing.cited} V${crossing.version}, ${crossing.rule}`]);
     }
     // A row of the document's table: the link says which, and the page marks it.
-    const anchor = entry.kind === 'value' && target ? link(`${label} · ${target.section}`, { ...target, name: entry.name })
-      : link(label, own ? target : { document: entry.document });
+    const anchor = link(entry.kind === 'value' && target ? `${label} · ${target.section}` : label, entryTarget(entry));
     anchor.title = [identityLabel(entry), entry.data_type, target?.section && `${labelOf(target.document)} ${target.section}`].filter(Boolean).join(' · ');
     item.append(withDetail(anchor, detail));
     if (target && !own && target.document !== usual?.document) item.append(' → ', link(labelOf(target.document), target));
@@ -137,7 +144,9 @@ function renderSpecification(docs: DocumentSummary[], site: Site, query: string)
   };
   const markInterfaces = (interfaces: string) => marked(interfaces, interfaceSpans(interfaces, query));
   const about = { interfaces: interfacesFor(docs[0]), subject: docAbout(docs[0]).subject };
-  line.append(element('strong', docName(docs[0])));
+  const title = element('strong');
+  title.append(link(docName(docs[0]), { document: docs[0].id }));
+  line.append(title);
   if (about.interfaces || about.subject) {
     const facts = element('span', '· ', 'entry-facts');
     facts.append(...markInterfaces(about.interfaces), about.interfaces && about.subject ? ' — ' : '', about.subject);
@@ -252,14 +261,24 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     if (!results.childElementCount) results.append(element('p', 'No matches.'));
   }
 
-  /** Arrows walk the input and what is on screen; Enter is then the browser's, opening a link. */
+  /**
+   * Up and down step from entry to entry, landing on an entry's name; left and right step within one, and in the
+   * input stay the caret's. Whatever is outside an entry, as a mention's line, is a stop of its own.
+   * Enter is then the browser's, opening a link.
+   */
   function walk(event: KeyboardEvent) {
-    if ((event.key !== 'ArrowDown' && event.key !== 'ArrowUp') || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    const route = [input, ...results.querySelectorAll<HTMLElement>('a[href], button')];
-    const next = route[route.indexOf(document.activeElement as HTMLElement) + (event.key === 'ArrowDown' ? 1 : -1)];
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const vertical = event.key === 'ArrowDown' || event.key === 'ArrowUp';
+    if (!vertical && event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    const active = document.activeElement as HTMLElement;
+    if (!vertical && active === input) return;
+    const stops = [input, ...results.querySelectorAll<HTMLElement>('a[href], button')];
+    const entryOf = (node: HTMLElement): HTMLElement => node.closest<HTMLElement>('.search-entry') ?? node;
+    const peers = vertical ? [...new Set(stops.map(entryOf))] : stops.filter(stop => entryOf(stop) === entryOf(active));
+    const next = peers[peers.indexOf(vertical ? entryOf(active) : active) + (event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1)];
     if (!next) return;
     event.preventDefault();
-    next.focus();
+    (vertical ? stops.find(stop => entryOf(stop) === next)! : next).focus();
   }
   input.onkeydown = walk;
   results.onkeydown = walk;

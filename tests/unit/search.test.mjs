@@ -533,15 +533,52 @@ test('arrow keys walk the input and what is on screen', async () => {
   } finally { await page.close(); }
 });
 
-test('arrow keys walk a result\'s links with nothing to open first', async () => {
+test('up and down step between entries by name, left and right within one', async () => {
   const page = await boot({ hash: `#search?q=${encodeURIComponent('DIAMETER_ERROR_SERVICE_AREA')}` });
   try {
     const { document, window } = page;
     const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const input = document.querySelector('.search-form input');
+    assert.equal(press('ArrowRight'), true, 'in the input they are the caret\'s');
+    assert.equal(press('ArrowLeft'), true);
+    assert.equal(document.activeElement, input);
     press('ArrowDown');
-    assert.equal(document.activeElement, document.querySelector('.search-result-codes .entry-document a'));
+    const name = document.querySelector('.search-result-codes strong a');
+    assert.equal(document.activeElement, name);
+    assert.equal(press('ArrowLeft'), true, 'nothing before the name');
+    assert.equal(document.activeElement, name);
+    press('ArrowRight');
+    const links = [...name.closest('.search-entry').querySelectorAll('a[href]')];
+    assert.equal(document.activeElement, links[1]);
+    assert.ok(links[1].closest('.search-entry') === name.closest('.search-entry'));
+    press('ArrowLeft');
+    assert.equal(document.activeElement, name);
+    press('ArrowRight');
     press('ArrowUp');
-    assert.equal(document.activeElement, document.querySelector('.search-form input'));
+    assert.equal(document.activeElement, input, 'up leaves from any link of the entry');
+    assert.equal(press('ArrowRight'), true);
+  } finally { await page.close(); }
+});
+
+test('down passes an entry\'s many links at once, and comes back to the name', async () => {
+  const documents = ['a', 'b', 'c', 'd'].map(id => summaryOf(id, '3GPP', `3GPP TS 99.00${id}`, 18));
+  const entry = (name, document) => ({ name, kind: 'avp', document, identity: { kind: 'avp', vendor_id: 10415, code: 900 + name.length }, wireshark_name: null, abbreviation: null, target: { document, section: '1' } });
+  const added = [...['a', 'b', 'c', 'd'].map(id => entry('Zzwalk', id)), entry('Zzwalk-Other', 'a')];
+  const page = await boot({ hash: '#search?q=zzwalk', transform: withCorpus(documents, added) });
+  try {
+    const { document, window } = page;
+    const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
+    const names = [...document.querySelectorAll('.search-avp strong a')];
+    assert.deepEqual(names.map(node => node.textContent), ['Zzwalk', 'Zzwalk-Other']);
+    press('ArrowDown');
+    assert.equal(document.activeElement, names[0]);
+    press('ArrowRight');
+    press('ArrowRight');
+    assert.ok(document.activeElement.closest('.entry-document'));
+    press('ArrowDown');
+    assert.equal(document.activeElement, names[1], 'whichever link it was on');
+    press('ArrowUp');
+    assert.equal(document.activeElement, names[0]);
   } finally { await page.close(); }
 });
 

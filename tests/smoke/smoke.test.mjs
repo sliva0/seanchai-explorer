@@ -409,8 +409,26 @@ test('search: a typo finds a labelled name, mentions group by document, and the 
   assert.equal(new Set(headings).size, headings.length, 'one heading per document');
   assert.ok(await page.locator('.mention-document li .mention-link').first().textContent().then(text => text.startsWith('· ')));
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'no sideways scroll');
+  const focused = () => page.evaluate(() => {
+    const node = document.activeElement;
+    const entry = node.closest('.search-entry');
+    return { name: node.matches('strong a'), entry: entry && [...document.querySelectorAll('.search-entry')].indexOf(entry) };
+  });
   await page.keyboard.press('ArrowDown');
-  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'A');
+  const first = await focused();
+  assert.equal(first.name, true, 'down lands on an entry\'s name');
+  await page.keyboard.press('ArrowRight');
+  const within = await focused();
+  assert.equal(within.name, false, 'right walks its documents');
+  assert.equal(within.entry, first.entry);
+  await page.keyboard.press('ArrowLeft');
+  assert.equal((await focused()).name, true);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowDown');
+  const second = await focused();
+  assert.equal(second.name, true, 'down leaves from any of its links');
+  assert.equal(second.entry, first.entry + 1);
+  await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Enter');
   await page.waitForFunction(() => !location.hash.startsWith('#search'));
   await done();
