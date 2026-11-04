@@ -78,6 +78,7 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   assert.match(await page.locator('.avp-popup').textContent(), /Result code 5123 of Experimental-Result-Code/);
   await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
   assert.match(await page.locator('.avp-popup .usage-link[aria-current]').textContent(), /DIAMETER_ERROR_OUT_OF_RESOURCES/);
+  assert.equal(await page.locator('.avp-current').evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(213, 227, 248)', 'the walked row shows over its token\'s tint');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('.avp-popup').count(), 0);
   await done();

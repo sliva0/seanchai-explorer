@@ -117,7 +117,8 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 .dad-line.raw-warning { background: var(--warning-bg); box-shadow: inset 3px 0 var(--warning); outline: 1px dotted var(--warning-outline); }
 .avp-name { border: 0; padding: 0; margin: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
 .avp-name:hover { text-decoration: underline; }
-.avp-current { border-radius: 2px; background: var(--ui-selected); box-shadow: 0 0 0 1px var(--ui-link); }
+/* Above the token rules, which set a background on the same node. */
+pre .avp-current { border-radius: 2px; background: var(--ui-selected); box-shadow: 0 0 0 1px var(--ui-link); }
 
 /* Index */
 .index-view section { margin-bottom: var(--space-6); }

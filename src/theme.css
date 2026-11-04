@@ -47,26 +47,26 @@
   --find-bg: rgb(255 196 0 / 42%);
   --find-current-bg: rgb(255 120 0 / 52%);
   --find-current-edge: #c25a00;
-  /* Colour alone tells the roles apart: backgrounds behind tokens break a dense line into patches. */
+  /* Coloured text alone reads thin on paper, so each role also sits on a faint wash of its hue, see-through to the band beneath and fainter than any highlight. */
   --syntax-keyword: #41425e;
-  --syntax-keyword-bg: transparent;
+  --syntax-keyword-bg: rgb(70 75 170 / 9%);
   --syntax-type: #00696a;
-  --syntax-type-bg: transparent;
+  --syntax-type-bg: rgb(0 150 150 / 10%);
   --syntax-number: #814d00;
-  --syntax-number-bg: transparent;
+  --syntax-number-bg: rgb(200 130 0 / 12%);
   --syntax-reference: #773f8e;
-  --syntax-reference-bg: transparent;
+  --syntax-reference-bg: rgb(150 60 190 / 9%);
   --syntax-fixed: #9d3106;
-  --syntax-fixed-bg: transparent;
+  --syntax-fixed-bg: rgb(220 80 20 / 9%);
   --syntax-required: #0b6d32;
-  --syntax-required-bg: transparent;
+  --syntax-required-bg: rgb(20 160 70 / 10%);
   --syntax-optional: #2d5f87;
-  --syntax-optional-bg: transparent;
+  --syntax-optional-bg: rgb(30 110 190 / 10%);
   --syntax-fixed-strong: #8a2400;
   --syntax-required-strong: #005c24;
   --syntax-optional-strong: #004b7c;
   --syntax-string: #814559;
-  --syntax-string-bg: transparent;
+  --syntax-string-bg: rgb(190 70 110 / 9%);
   color: var(--ui-fg);
   background: var(--ui-bg);
   scrollbar-color: var(--ui-scrollbar) transparent;
@@ -114,6 +114,15 @@
     --syntax-required-strong: #aef1bb;
     --syntax-optional-strong: #b9e4ff;
     --syntax-string: #eab7c6;
+    /* Light text holds its contrast here, and backgrounds would only break a dense line into patches. */
+    --syntax-keyword-bg: transparent;
+    --syntax-type-bg: transparent;
+    --syntax-number-bg: transparent;
+    --syntax-reference-bg: transparent;
+    --syntax-fixed-bg: transparent;
+    --syntax-required-bg: transparent;
+    --syntax-optional-bg: transparent;
+    --syntax-string-bg: transparent;
 }
 /* Above pdf.js's own :root { color-scheme: light dark }, which a build loads after this file. */
 :root[data-theme="light"] { color-scheme: light; }

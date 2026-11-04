@@ -55,7 +55,8 @@ async function palette(theme) {
     for (const [, name, value] of css.match(block)[1].matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
       const hex = value.match(/^#([\da-f]{6})$/);
       const rgb = value.match(/^rgb\((\d+) (\d+) (\d+) \/ ([\d.]+)%\)$/);
-      if (hex) tokens[name] = [0, 2, 4].map(start => parseInt(hex[1].slice(start, start + 2), 16)).concat(1);
+      if (value === 'transparent') tokens[name] = [0, 0, 0, 0];
+      else if (hex) tokens[name] = [0, 2, 4].map(start => parseInt(hex[1].slice(start, start + 2), 16)).concat(1);
       else if (rgb) tokens[name] = [Number(rgb[1]), Number(rgb[2]), Number(rgb[3]), Number(rgb[4]) / 100];
     }
   }
@@ -69,6 +70,21 @@ const contrast = (first, second) => {
   const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a);
   return (high + 0.05) / (low + 0.05);
 };
+
+test('a token\'s tint stays nearer the light paper than any highlight, and the dark theme has none', async () => {
+  const light = await palette('light');
+  const dark = await palette('dark');
+  const paper = light['--ui-bg'];
+  const distance = name => Math.max(...over(light[name], paper).slice(0, 3).map((value, index) => Math.abs(value - paper[index])));
+  const tints = Object.keys(light).filter(name => name.startsWith('--syntax-') && name.endsWith('-bg'));
+  assert.equal(tints.length, 8);
+  const faintest = Math.min(...['--mark-bg', '--target-bg', '--ui-selected', '--ui-selection'].map(distance));
+  for (const name of tints) {
+    assert.ok(light[name][3] < 1, `${name} shows the band beneath`);
+    assert.ok(distance(name) < faintest, `${name}: ${distance(name).toFixed(1)} against ${faintest.toFixed(1)}`);
+    assert.deepEqual(dark[name], [0, 0, 0, 0], name);
+  }
+});
 
 // What the dark filter in viewer.css makes of a PDF's white paper and black text.
 const pdfPage = { light: { paper: [255, 255, 255, 1], text: [0, 0, 0, 1] }, dark: { paper: [27, 26, 25, 1], text: [239, 235, 228, 1] } };
@@ -91,7 +107,14 @@ for (const theme of ['light', 'dark']) {
     check(4.5, '--ui-muted', '--ui-divider', ...bands);
     check(4.5, '--ui-fg', '--ui-selected', ...bands);
     check(4.5, '--ui-link', '--ui-selected', ...bands);
-    for (const name of syntax) check(4.5, name, '--ui-selected', ...bands);
+    for (const name of syntax) {
+      check(4.5, name, '--ui-selected', ...bands);
+      const tintName = `${name.replace(/-strong$/, '')}-bg`;
+      for (const band of bands) {
+        const value = contrast(tokens[name], over(tokens[tintName], over(tokens[band], tokens['--ui-bg'])));
+        if (value < 4.5) failures.push(`${name} on ${tintName} on ${band}: ${value.toFixed(2)} < 4.5`);
+      }
+    }
     check(4.5, '--mark-fg', '--mark-bg');
     check(3, '--ui-border-strong', '--ui-bg', '--ui-surface', '--ui-chrome');
     check(3, '--warning', '--warning-bg');
