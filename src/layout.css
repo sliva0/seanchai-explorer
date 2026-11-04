@@ -99,6 +99,9 @@ pre [class*="empty-cell"] { color: var(--ui-muted); }
 .correction-detail[hidden] { display: none; }
 .correction-note { color: var(--syntax-reference); font-style: italic; }
 .dad-line.target-line { background: var(--target-bg); box-shadow: inset 3px 0 var(--target-edge); }
+/* From a stronger tint to whatever the line's own background is. A fade of colour, so reduced motion keeps it. */
+@keyframes landing { from { background-color: var(--target-flash); } }
+.dad-line.landing { animation: landing 600ms ease-out; }
 .dad-line.corrected-line { background: var(--corrected-bg); }
 .dad-line.raw-warning { background: var(--warning-bg); box-shadow: inset 3px 0 var(--warning); outline: 1px dotted var(--warning-outline); }
 .avp-name { border: 0; padding: 0; margin: 0; background: none; color: inherit; font: inherit; cursor: pointer; }

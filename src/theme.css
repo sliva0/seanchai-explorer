@@ -43,6 +43,7 @@
   --mark-fg: #2a2000;
   --target-bg: #fdedb6;
   --target-edge: #a87400;
+  --target-flash: #f5c542;
   --find-bg: rgb(255 196 0 / 42%);
   --find-current-bg: rgb(255 120 0 / 52%);
   --find-current-edge: #c25a00;
@@ -98,6 +99,7 @@
     --mark-fg: #1f1700;
     --target-bg: #3b3115;
     --target-edge: #e8ba4e;
+    --target-flash: #7d6420;
     --find-bg: rgb(232 186 78 / 36%);
     --find-current-bg: rgb(255 130 40 / 38%);
     --find-current-edge: #ffb066;

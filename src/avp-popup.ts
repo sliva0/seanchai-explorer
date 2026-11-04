@@ -1,7 +1,7 @@
 import { avpPlaces } from './avp-places.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
-import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
+import { counted, element, externalLink, link } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import type { SourcePosition } from './navigation.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -15,6 +15,8 @@ export interface PopupRequest {
   lines: HighlightedLine[];
   opener: HTMLElement;
   documentPane: HTMLElement;
+  /** Goes to a node a walk through the list lands on. */
+  jumpTo(node: HTMLElement): void;
 }
 
 export type AvpPopup = ReturnType<typeof createAvpPopup>;
@@ -90,7 +92,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
-  function showValue(row: ValueRow, { doc, opener, documentPane }: PopupRequest) {
+  function showValue(row: ValueRow, { doc, opener, documentPane, jumpTo }: PopupRequest) {
     const { panel, closeButton } = open(row.name, opener);
     panel.dataset.value = row.name;
     const { table } = row;
@@ -142,7 +144,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const select = (index: number) => {
       mark((index + table.rows.length) % table.rows.length);
       const node = nameNode(active);
-      if (node) scrollToNode(documentPane, node, 24);
+      if (node) jumpTo(node);
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
@@ -163,7 +165,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   function show(request: PopupRequest) {
-    const { token, doc, lines, opener, documentPane } = request;
+    const { token, doc, lines, opener, documentPane, jumpTo } = request;
     if (token.valueRow) { showValue(token.valueRow, request); return; }
     const name = token.avp!;
     const { panel, closeButton } = open(`Uses of ${name}`, opener);
@@ -209,7 +211,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       node.classList.add('avp-current');
       buttons[active].setAttribute('aria-current', 'location');
       buttons[active].scrollIntoView?.({ block: 'nearest' });
-      scrollToNode(documentPane, node, 24);
+      jumpTo(node);
       const line = lineOf(node);
       const position = doc.sections.find(section => section.section === line.dataset.section);
       const row = lines[Number(line.dataset.line)].tokens.find(token => token.avp === name && token.source?.row)?.source;

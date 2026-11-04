@@ -3,11 +3,12 @@ import type { ClickAction, ClickContext } from './clicks.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { compactComment } from './comments.ts';
-import { counted, element, externalLink, link, scrollToNode } from './dom.ts';
+import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import { markDetails } from './avp-places.ts';
 import type { AvpPopup } from './avp-popup.ts';
+import { createScroller } from './scroll.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line, RawDocument } from './types.ts';
 import { valueKindTitle, valueRowAt, valueTables } from './values.ts';
@@ -177,10 +178,16 @@ export interface DocumentView {
   doc: Document;
   raw: boolean;
   documentPane: HTMLElement;
-  scrollToSection(section: string): void;
-  scrollToLine(line: number): void;
-  /** Marks and scrolls to the line a link points at; no line clears the mark. */
-  pointAtLine(line: number | undefined): void;
+  /** Marks the line a link points at and returns it; no line clears the mark. */
+  pointAtLine(line: number | undefined): HTMLElement | undefined;
+  /** A section's line, to jump to. */
+  sectionRow(section: string): HTMLElement | undefined;
+  /** Goes to a line a link points at, leaving it just below the top edge. */
+  jumpTo(row: HTMLElement, options: { smooth: boolean; flash: boolean; margin?: number }): void;
+  /** Puts a line at the top edge, with `offset` pixels of it above the edge if given. */
+  restore(top: number, offset?: number): void;
+  /** Ends a smooth scroll at its goal, so that what is read next is where the view is going. */
+  settle(): void;
   focusPosition(): void;
   topLine(): number | undefined;
   /** The value table's row a link to `section` under `name` means, if it means one. */
@@ -198,6 +205,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   documentPane.id = 'document';
   documentPane.tabIndex = 0;
   documentPane.setAttribute('aria-label', 'Document text');
+  const scroller = createScroller(documentPane);
   let rows: HTMLElement[] = [];
   let sectionRows: HTMLElement[] = [];
   /** The section a jump to it leaves at the top of the view, where its line sits below the margin and the end of the last section still shows above. */
@@ -251,7 +259,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
-  const showUses = (node: HTMLElement) => popup.show({ token: tokenOf(node), doc, lines, opener: node, documentPane });
+  const showUses = (node: HTMLElement) => popup.show({
+    token: tokenOf(node), doc, lines, opener: node, documentPane,
+    jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
+  });
   const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], .value-name');
   const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
   const clickContext = (): ClickContext => ({
@@ -308,10 +319,18 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   }
 
   let focusable: HTMLElement | undefined;
-  const focusLater = (node: HTMLElement) => {
-    node.tabIndex = -1;
+  const focusLater = (node: HTMLElement | undefined) => {
+    if (node) node.tabIndex = -1;
     focusable = node;
   };
+
+  /** A stronger tint fading to the line's own, once it has come to rest, to show where the motion ended. */
+  function flash(row: HTMLElement) {
+    row.classList.remove('landing');
+    void row.offsetWidth;
+    row.classList.add('landing');
+    row.addEventListener('animationend', () => row.classList.remove('landing'), { once: true });
+  }
 
   const sectionTitles = new Map(doc.sections.map(({ section, title }) => [section, title]));
   const showCrumb = () => {
@@ -340,31 +359,40 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       if (documentPane.isConnected) showCrumb();
     });
   }, { passive: true });
+  // A reader who has started scrolling should not be scrolled.
+  for (const type of ['wheel', 'touchstart', 'pointerdown', 'keydown']) documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
 
-  showCrumb();
-  return {
+  function jumpTo(target: HTMLElement, { smooth, flash: flashes, margin = JUMP_MARGIN }: { smooth: boolean; flash: boolean; margin?: number }) {
+    scroller.to(scrollTopFor(documentPane, target, margin), smooth, () => {
+      const row = target.closest<HTMLElement>('.dad-line');
+      if (flashes && row) flash(row);
+    });
+  }
+
+  const view: DocumentView = {
     doc,
     raw: Boolean(raw),
     documentPane,
-    scrollToSection(section) {
-      const anchor = document.getElementById(`section-${section}`);
-      if (anchor) {
-        scrollToNode(documentPane, anchor);
-        focusLater(anchor);
-      }
-    },
-    scrollToLine(line) {
-      const row = documentPane.querySelector(`[data-line="${line}"]`);
-      if (row) scrollToNode(documentPane, row);
-    },
     pointAtLine(line) {
       for (const node of documentPane.querySelectorAll('.target-line')) node.classList.remove('target-line');
-      const row = line === undefined ? null : documentPane.querySelector<HTMLElement>(`[data-line="${line}"]`);
-      if (!row) return;
-      row.classList.add('target-line');
-      scrollToNode(documentPane, row);
+      const row = line === undefined ? undefined : rows[line];
+      row?.classList.add('target-line');
       focusLater(row);
+      return row;
     },
+    sectionRow(section) {
+      const row = document.getElementById(`section-${section}`) ?? undefined;
+      if (row && !focusable) focusLater(row);
+      return row;
+    },
+    jumpTo,
+    restore(top, offset) {
+      const row = rows[top];
+      if (!row) return;
+      // A line with no saved offset is flush with the edge, except the first, above which the pane has only padding.
+      scroller.to(top === 0 && offset === undefined ? 0 : scrollTopFor(documentPane, row, 0) + (offset ?? 0), false);
+    },
+    settle: () => scroller.finish(),
     focusPosition() {
       focusable?.focus({ preventScroll: true });
     },
@@ -374,4 +402,6 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     },
     valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),
   };
+  showCrumb();
+  return view;
 }

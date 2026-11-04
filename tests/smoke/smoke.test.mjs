@@ -478,6 +478,50 @@ test('the header link opens search with its input focused, and search data loads
   await done();
 });
 
+const near = (actual, expected, label) => assert.ok(Math.abs(actual - expected) <= 1, `${label}: ${actual} is not ${expected}`);
+
+test('a jump in a document eases there and flashes where it lands', { skip }, async () => {
+  const { page, done } = await open('#29217-j00?pane=0');
+  await page.locator('#diagnostics button').first().click();
+  const moves = await page.evaluate(async () => {
+    const pane = document.querySelector('#document');
+    const links = document.querySelectorAll('.section-list a');
+    const link = links[links.length - 2];
+    const section = link.textContent;
+    link.click();
+    const began = performance.now();
+    const samples = [];
+    while (performance.now() - began < 350) {
+      samples.push({ at: performance.now() - began, top: pane.scrollTop });
+      await new Promise(requestAnimationFrame);
+    }
+    const row = document.getElementById(`section-${section}`);
+    return { samples, gap: row.getBoundingClientRect().top - pane.getBoundingClientRect().top, flashing: row.classList.contains('landing'), section };
+  });
+  const tops = moves.samples.map(sample => sample.top);
+  const final = tops.at(-1);
+  assert.ok(final > 500, JSON.stringify(tops));
+  assert.ok(new Set(tops.filter(top => top > 0 && top < final)).size >= 3, `in steps: ${tops}`);
+  assert.ok(tops.every((top, index) => !index || top >= tops[index - 1]), `one way: ${tops}`);
+  assert.ok(moves.samples.find(sample => sample.top === final).at < 320, 'about 200 ms');
+  near(moves.gap, 12, 'just under the top edge');
+  assert.ok(moves.flashing);
+  await page.waitForFunction(() => !document.querySelector('.landing'));
+  await done();
+});
+test('with reduced motion a jump is instant, and the landing still shows', { skip }, async () => {
+  const { page, done } = await open('#29217-j00?pane=0', { reducedMotion: 'reduce' });
+  const landed = await page.evaluate(() => {
+    const links = document.querySelectorAll('.section-list a');
+    const link = links[links.length - 2];
+    link.click();
+    const row = document.getElementById(`section-${link.textContent}`);
+    return { top: document.querySelector('#document').scrollTop, flashing: row.classList.contains('landing') };
+  });
+  assert.ok(landed.top > 500, JSON.stringify(landed));
+  assert.ok(landed.flashing);
+  await done();
+});
 test('the strip names the section at the top of the view without moving, and opens its entry in the panel', { skip }, async () => {
   for (const viewport of [{ width: 1280, height: 800 }, { width: 390, height: 780 }]) {
     const { page, done } = await open('#29217-j00', { viewport });

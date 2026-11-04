@@ -27,6 +27,7 @@ export function externalLink(text: string, href: string): HTMLAnchorElement {
   return node;
 }
 
-export function scrollToNode(pane: HTMLElement, node: Element, margin = 12) {
-  pane.scrollTop += node.getBoundingClientRect().top - pane.getBoundingClientRect().top - margin;
+/** The pane's `scrollTop` that puts a node `margin` pixels below its top edge. */
+export function scrollTopFor(pane: HTMLElement, node: Element, margin: number): number {
+  return pane.scrollTop + node.getBoundingClientRect().top - pane.getBoundingClientRect().top - margin;
 }

@@ -7,7 +7,7 @@ import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
 import { renderIndex } from './index-view.ts';
 import { parseRoute, routeFor } from './navigation.ts';
-import type { RouteOptions } from './navigation.ts';
+import type { Route, RouteOptions } from './navigation.ts';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -96,7 +96,8 @@ try {
       return decorated;
     },
     navigate(hash: string) {
-      if (location.hash === hash) { void route(); return; }
+      if (location.hash === hash) { void route({ smooth: true }); return; }
+      view?.settle();
       updateRoute({ top: view?.topLine() });
       location.hash = hash;
     },
@@ -116,7 +117,18 @@ try {
     content.className = className;
   }
 
-  async function route() {
+  /** How a route is come to: `smooth` is a jump, which is eased if it stays in the document. */
+  interface Arrival { smooth?: boolean }
+
+  /** Gives a document's view its position: what the route names. */
+  function position(current: DocumentView, parsed: Route, fresh: boolean, value: ReturnType<DocumentView['valueRow']>, { smooth }: Arrival) {
+    const pointed = current.pointAtLine(parsed.line ?? value?.line);
+    const row = pointed ?? (parsed.section ? current.sectionRow(parsed.section) : undefined);
+    if (parsed.top !== undefined) current.restore(parsed.top);
+    else if (row) current.jumpTo(row, { smooth: Boolean(smooth) && !fresh, flash: arrived });
+  }
+
+  async function route(arrival: Arrival = {}) {
     popup.close();
     const generation = ++request;
     const parsed = parseRoute(location.hash);
@@ -162,6 +174,8 @@ try {
       const current = view!;
       sourcePane.setVisible(!parsed.paneHidden);
       const value = parsed.name === undefined ? undefined : current.valueRow(parsed.section, parsed.name);
+      // Before anything is waited for, so that a page is never painted at the wrong place first.
+      position(current, parsed, fresh, value, arrival);
       const target = parsed.source && site.summary(parsed.source.document);
       if (parsed.source && target && paneKind(target, site.mode)) {
         const doc = await site.loadDocument(target.id);
@@ -173,9 +187,6 @@ try {
         const position = current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];
         if (position) sourcePane.show({ ...position, name: parsed.name }, current.doc);
       }
-      if (parsed.section) current.scrollToSection(parsed.section);
-      current.pointAtLine(parsed.line ?? value?.line);
-      if (parsed.top !== undefined) current.scrollToLine(parsed.top);
       if (arrived) {
         if (fresh) focusHeading();
         else current.focusPosition();
@@ -190,7 +201,7 @@ try {
 
   window.addEventListener('hashchange', () => {
     arrived = true;
-    void route();
+    void route({ smooth: true });
   });
   await route();
 } catch (error) { showError(error); }
