@@ -2,5 +2,5 @@ html, body { height: 100%; margin: 0; overflow: hidden; }
 #rfc { height: 100%; overflow: auto; padding: var(--space-3); overscroll-behavior: contain; }
 #rfc section { width: max-content; min-width: 100%; }
 #rfc pre { margin: 0; font: var(--text-code)/1.5 var(--mono); color: var(--ui-fg); }
-.rfc-match { color: var(--syntax-number); background: var(--syntax-number-bg); }
-.rfc-match-line { color: var(--syntax-number); background: var(--syntax-number-bg); outline: 1px dotted var(--syntax-number); }
+.rfc-match { border-radius: 2px; color: var(--mark-fg); background: var(--mark-bg); }
+.rfc-match-line { background: var(--target-bg); box-shadow: inset 3px 0 var(--target-edge); }

@@ -10,93 +10,119 @@
   --text-sm: 0.8125rem;
   --text-md: 0.875rem;
   --text-lg: 1.0625rem;
-  --text-code: 0.78rem;
+  --text-code: 0.8125rem;
   --control-height: 1.625rem;
   --radius: 3px;
   color-scheme: light;
-  --ui-bg: #fff;
-  --ui-fg: #202833;
-  --ui-surface: #f7f9fb;
-  --ui-border: #d7dde3;
-  --ui-link: #205c9a;
-  --ui-link-hover: #123d69;
-  --ui-hover: #eaf1f8;
-  --ui-muted: #66717d;
-  --ui-divider: #eef1f4;
-  --ui-divider-hover: #c5d8eb;
-  --ui-stripe: rgb(35 50 70 / 4.5%);
-  --pdf-surround: #e9edf2;
-  --corrected-bg: #fff8e6;
-  --warning-bg: #fff0d2;
-  --warning: #ba7b18;
+  /* Paper and ink: a warm neutral base, one blue accent, each surface a step from the last. */
+  --ui-bg: #fbfaf6;
+  --ui-fg: #25231f;
+  --ui-surface: #f3f0e8;
+  --ui-chrome: #e8e4d9;
+  --ui-raised: #fffefb;
+  --ui-border: #d2cdc0;
+  --ui-border-strong: #858073;
+  --ui-link: #0b56a8;
+  --ui-link-hover: #083c78;
+  --ui-hover: #ece8dd;
+  --ui-selected: #d5e3f8;
+  --ui-selection: rgb(11 86 168 / 22%);
+  --ui-muted: #676359;
+  --ui-divider: #e8e4d9;
+  --ui-divider-hover: #a9bcd8;
+  --ui-stripe: rgb(110 90 50 / 6%);
+  --ui-scrollbar: #bcb7a9;
+  --ui-shadow: rgb(60 50 30 / 22%);
+  --pdf-surround: #d8d4c8;
+  --corrected-bg: #f3edfa;
+  --warning-bg: #fde8d4;
+  --warning: #b4530b;
   --warning-outline: transparent;
-  --syntax-keyword: #47567b;
-  --syntax-keyword-bg: #edf0f8;
-  --syntax-type: #245e48;
-  --syntax-type-bg: #eaf4ee;
-  --syntax-number: #725511;
-  --syntax-number-bg: #faf3df;
-  --syntax-reference: #654182;
-  --syntax-reference-bg: #f2ebf8;
-  --syntax-fixed: #7b4d2e;
-  --syntax-fixed-bg: #fbefe5;
-  --syntax-required: #265e47;
-  --syntax-required-bg: #e9f3ec;
-  --syntax-optional: #335e85;
-  --syntax-optional-bg: #edf3fa;
-  --syntax-fixed-strong: #943f0e;
-  --syntax-required-strong: #09663b;
-  --syntax-optional-strong: #144f9e;
-  --syntax-string: #5c596c;
-  --syntax-string-bg: #f3f1f7;
+  /* What was looked for: a highlighter stroke for a found word, a band for the row it took you to. */
+  --mark-bg: #ffdb66;
+  --mark-fg: #2a2000;
+  --target-bg: #fdedb6;
+  --target-edge: #a87400;
+  --find-bg: rgb(255 196 0 / 42%);
+  --find-current-bg: rgb(255 120 0 / 52%);
+  --find-current-edge: #c25a00;
+  /* Colour alone tells the roles apart: backgrounds behind tokens break a dense line into patches. */
+  --syntax-keyword: #41425e;
+  --syntax-keyword-bg: transparent;
+  --syntax-type: #00696a;
+  --syntax-type-bg: transparent;
+  --syntax-number: #814d00;
+  --syntax-number-bg: transparent;
+  --syntax-reference: #773f8e;
+  --syntax-reference-bg: transparent;
+  --syntax-fixed: #9d3106;
+  --syntax-fixed-bg: transparent;
+  --syntax-required: #0b6d32;
+  --syntax-required-bg: transparent;
+  --syntax-optional: #2d5f87;
+  --syntax-optional-bg: transparent;
+  --syntax-fixed-strong: #8a2400;
+  --syntax-required-strong: #005c24;
+  --syntax-optional-strong: #004b7c;
+  --syntax-string: #814559;
+  --syntax-string-bg: transparent;
   color: var(--ui-fg);
   background: var(--ui-bg);
+  scrollbar-color: var(--ui-scrollbar) transparent;
 }
 :root[data-theme="dark"] {
     color-scheme: dark;
-    --ui-bg: #151c24;
-    --ui-fg: #dce4ed;
-    --ui-surface: #1d2732;
-    --ui-border: #354352;
-    --ui-link: #9ac8ff;
-    --ui-link-hover: #c4e0ff;
-    --ui-hover: #283b50;
-    --ui-muted: #a0afbf;
-    --ui-divider: #25313e;
-    --ui-divider-hover: #496989;
-    --ui-stripe: transparent;
-    --pdf-surround: #202a35;
-    --corrected-bg: rgb(228 185 106 / 7%);
-    --warning-bg: transparent;
-    --warning: #e4b96a;
-    --warning-outline: #8d713e;
-    --syntax-keyword: #c3cdf6;
-    --syntax-keyword-bg: transparent;
-    --syntax-type: #a2dac0;
-    --syntax-type-bg: transparent;
-    --syntax-number: #e4ce92;
-    --syntax-number-bg: transparent;
-    --syntax-reference: #d4b9f0;
-    --syntax-reference-bg: transparent;
-    --syntax-fixed: #e8be9c;
-    --syntax-fixed-bg: transparent;
-    --syntax-required: #aad9bd;
-    --syntax-required-bg: transparent;
-    --syntax-optional: #adceec;
-    --syntax-optional-bg: transparent;
-    --syntax-fixed-strong: #ffd1a8;
-    --syntax-required-strong: #a1efc0;
-    --syntax-optional-strong: #bbdcff;
-    --syntax-string: #c5bed7;
-    --syntax-string-bg: transparent;
+    --ui-bg: #1b1a18;
+    --ui-fg: #e4e1da;
+    --ui-surface: #242320;
+    --ui-chrome: #2c2a27;
+    --ui-raised: #33312d;
+    --ui-border: #413f39;
+    --ui-border-strong: #7f7b70;
+    --ui-link: #8fc0fa;
+    --ui-link-hover: #bcd9fc;
+    --ui-hover: #36342f;
+    --ui-selected: #27405f;
+    --ui-selection: rgb(143 192 250 / 30%);
+    --ui-muted: #aaa69b;
+    --ui-divider: #2e2c29;
+    --ui-divider-hover: #55708f;
+    --ui-stripe: rgb(255 245 225 / 3.5%);
+    --ui-scrollbar: #5a574f;
+    --ui-shadow: rgb(0 0 0 / 55%);
+    --pdf-surround: #2c2a27;
+    --corrected-bg: #292433;
+    --warning-bg: #3a2818;
+    --warning: #ec9f5a;
+    --mark-bg: #dfb453;
+    --mark-fg: #1f1700;
+    --target-bg: #3b3115;
+    --target-edge: #e8ba4e;
+    --find-bg: rgb(232 186 78 / 36%);
+    --find-current-bg: rgb(255 130 40 / 38%);
+    --find-current-edge: #ffb066;
+    --syntax-keyword: #d8d8ea;
+    --syntax-type: #98d4d4;
+    --syntax-number: #e9bf8b;
+    --syntax-reference: #dfb4f3;
+    --syntax-fixed: #ffaf94;
+    --syntax-required: #9dd8a9;
+    --syntax-optional: #a7cced;
+    --syntax-fixed-strong: #ffc9ad;
+    --syntax-required-strong: #aef1bb;
+    --syntax-optional-strong: #b9e4ff;
+    --syntax-string: #eab7c6;
 }
+/* Above pdf.js's own :root { color-scheme: light dark }, which a build loads after this file. */
+:root[data-theme="light"] { color-scheme: light; }
+::selection { background: var(--ui-selection); }
 * { box-sizing: border-box; }
-a { color: var(--ui-link); text-underline-offset: 2px; }
-a:hover { color: var(--ui-link-hover); }
+a { color: var(--ui-link); text-decoration: none; text-underline-offset: 2px; }
+a:hover { color: var(--ui-link-hover); text-decoration: underline; }
 button, input, select { font: inherit; }
 :focus-visible { outline: 2px solid var(--ui-link); outline-offset: 1px; }
-.control { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); height: var(--control-height); padding: 0 var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius); color: var(--ui-link); background: var(--ui-bg); font: var(--text-xs)/1 var(--mono); text-decoration: none; white-space: nowrap; cursor: pointer; }
-.control:hover { border-color: var(--ui-muted); color: var(--ui-link-hover); background: var(--ui-hover); }
+.control { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); height: var(--control-height); padding: 0 var(--space-2); border: 1px solid var(--ui-border-strong); border-radius: var(--radius); color: var(--ui-link); background: var(--ui-bg); font: var(--text-xs)/1 var(--mono); text-decoration: none; white-space: nowrap; cursor: pointer; }
+.control:hover { border-color: var(--ui-link); color: var(--ui-link-hover); background: var(--ui-hover); }
 input.control { justify-content: start; color: var(--ui-fg); cursor: text; }
 input.control:hover { background: var(--ui-bg); color: var(--ui-fg); }
 .visibility-toggle { display: inline-flex; align-items: center; gap: var(--space-1); height: var(--control-height); cursor: pointer; user-select: none; white-space: nowrap; }

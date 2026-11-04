@@ -373,3 +373,26 @@ test('the RFC reader shows a misprinted row, the table holding a row, and the cl
     }
   } finally { await context.close(); }
 });
+
+test('the viewer in a production build keeps the chosen theme under a dark OS, its highlights themed and only its canvas inverted', { skip }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1000, height: 900 }, colorScheme: 'dark' });
+  const page = await context.newPage();
+  try {
+    await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29061-j10.pdf`)}${rowHash('3GPP-Session-Stop-Indicator')}`);
+    await settled(page, '3GPP-Session-Stop-Indicator');
+    await page.waitForFunction(() => document.querySelector('.highlight.selected'));
+    const state = () => page.evaluate(() => {
+      const selected = document.querySelector('.highlight.selected');
+      const pageNode = selected.closest('.page');
+      return {
+        scheme: getComputedStyle(document.documentElement).colorScheme,
+        selected: getComputedStyle(selected).backgroundColor,
+        filter: getComputedStyle(pageNode).filter,
+        canvas: getComputedStyle(pageNode.querySelector('.canvasWrapper')).filter !== 'none',
+      };
+    });
+    assert.deepEqual(await state(), { scheme: 'light', selected: 'rgba(255, 120, 0, 0.52)', filter: 'none', canvas: false });
+    await page.evaluate(() => { document.documentElement.dataset.theme = 'dark'; });
+    assert.deepEqual(await state(), { scheme: 'dark', selected: 'rgba(255, 130, 40, 0.38)', filter: 'none', canvas: true });
+  } finally { await context.close(); }
+});

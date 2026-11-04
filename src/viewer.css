@@ -26,6 +26,14 @@ body { display: flex; flex-direction: column; font: var(--text-xs)/1.4 var(--mon
 #outline a[aria-current] { color: var(--ui-link); font-weight: bold; }
 #page-pane { flex: 1; min-width: 0; position: relative; }
 #viewerContainer { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; background: var(--pdf-surround); }
-:root[data-theme="dark"] .pdfViewer .page { filter: invert(0.9) hue-rotate(180deg); }
-@media print { :root[data-theme="dark"] .pdfViewer .page { filter: none; } }
+/* Only the canvas is inverted, so what lies over it takes the theme's colours as written. The sepia brings its paper to --ui-bg. */
+@media screen {
+  :root[data-theme="dark"] .pdfViewer { --page-bg-color: var(--ui-bg); }
+  :root[data-theme="dark"] .pdfViewer .page .canvasWrapper { filter: invert(0.9) hue-rotate(180deg) sepia(0.12); }
+}
+@media not (forced-colors: active) {
+  .textLayer .highlight { --highlight-bg-color: var(--find-bg); --highlight-selected-bg-color: var(--find-current-bg); }
+  .textLayer .highlight.selected { box-shadow: 0 0 0 1px var(--find-current-edge); }
+  .textLayer ::selection { background: var(--ui-selection); }
+}
 @media (max-width: 480px) { #outline { width: 8rem; font-size: 0.6875rem; } }

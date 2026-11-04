@@ -331,7 +331,7 @@ test('lines are blocks reaching the pane edge, at the spacing of one text line',
   assert.equal(sizes.display, 'block');
   await page.goto(`${base}#29153-j00?raw=1`);
   await page.waitForSelector('.raw-warning');
-  assert.equal(await page.locator('.raw-warning').first().evaluate(row => getComputedStyle(row).backgroundColor), 'rgb(255, 240, 210)');
+  assert.equal(await page.locator('.raw-warning').first().evaluate(row => getComputedStyle(row).backgroundColor), 'rgb(253, 232, 212)');
   assert.equal(sizes.rowWidth, sizes.preWidth);
   assert.ok(sizes.rowWidth >= sizes.paneWidth);
   assert.ok(Math.abs(sizes.rowHeight - sizes.lineHeight) < 1, JSON.stringify(sizes));
