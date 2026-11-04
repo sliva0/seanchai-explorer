@@ -8,6 +8,8 @@ const frameSrc = document => document.querySelector('iframe')?.getAttribute('src
 const placeholderLinks = document => [...document.querySelectorAll('#source-pane .source-placeholder a')].map(a => a.href);
 const sectionPage = async (id, section) => (await readFixture(`documents/${id}.json`)).sections.find(entry => entry.section === section).page;
 
+const rightClick = (page, node) => node.dispatchEvent(new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+
 test('public: a PDF gets the pane and its toggle, with a placeholder for the viewer', async () => {
   const page = await boot({ hash: '#29153-j00/5.1' });
   try {
@@ -59,7 +61,7 @@ test('public: a name defined in an RFC goes to the pane and leaves the main view
     assert.equal(document.querySelector('.source-placeholder'), null);
     assert.ok(document.querySelector('.source-document').textContent.startsWith('RFC 7944'));
     // Walking this document's own names has nothing to show, so the RFC stays.
-    click(page, name, { altKey: true });
+    rightClick(page, name);
     document.querySelector('.avp-popup .usage-link').click();
     assert.equal(frameSrc(document), source.href);
     document.querySelector('.avp-popup .popup-title button').click();
@@ -404,6 +406,13 @@ test('an index row is number, interfaces and title, with what its heading says l
   } finally { await page.close(); }
 });
 
+test('the index says once how to see where a name is used', async () => {
+  const page = await boot();
+  try {
+    assert.equal([...page.document.querySelectorAll('main > .versions')].filter(node => node.textContent === 'Right-click any AVP or command name to see where it is used.').length, 1);
+  } finally { await page.close(); }
+});
+
 test('the versions an export leaves out are left out', async () => {
   const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, corpus_version: null } : data });
   try {
@@ -434,11 +443,11 @@ test('the raw link is worked out when clicked, from the top visible section', as
   } finally { await page.close(); }
 });
 
-test('an occurrences popup names the definition\'s document without publisher or version', async () => {
+test('a uses popup names the definition\'s document without publisher or version', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document } = page;
-    document.querySelector('.occurrences-toggle input').click();
+    document.querySelector('.uses-toggle input').click();
     for (const [href, label] of [['#29217-j00', /^TS 29\.217 · /], ['#rfc7944', /^RFC 7944 · /]]) {
       click(page, document.querySelector(`pre a[data-avp][href^="${href}"]`));
       await settle();
@@ -447,11 +456,11 @@ test('an occurrences popup names the definition\'s document without publisher or
   } finally { await page.close(); }
 });
 
-test('the occurrences control lists a name on a plain tap, and Esc returns focus to it', async () => {
+test('the uses control lists a name on a plain tap, and Esc returns focus to it', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
-    const control = document.querySelector('.occurrences-toggle input');
+    const control = document.querySelector('.uses-toggle input');
     assert.equal(control.checked, false);
     const name = document.querySelector('pre a[data-avp]');
     const before = window.location.hash;
@@ -483,11 +492,11 @@ test('the occurrences control lists a name on a plain tap, and Esc returns focus
   } finally { await page.close(); }
 });
 
-test('the occurrences control is read at click time and starts off on each document', async () => {
+test('the uses control is read at click time and starts off on each document', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document } = page;
-    const control = document.querySelector('.occurrences-toggle input');
+    const control = document.querySelector('.uses-toggle input');
     assert.equal(control.checked, false);
     // As a browser restoring form state does: the box changes with no change event.
     control.checked = true;
@@ -495,23 +504,55 @@ test('the occurrences control is read at click time and starts off on each docum
     assert.ok(document.querySelector('.avp-popup'));
     document.querySelector('.avp-popup .popup-title button').click();
     await page.go('#rfc7944');
-    assert.equal(document.querySelector('.occurrences-toggle input').checked, false);
+    assert.equal(document.querySelector('.uses-toggle input').checked, false);
     click(page, document.querySelector('pre a[data-avp]'));
     await settle();
     assert.equal(document.querySelector('.avp-popup'), null);
   } finally { await page.close(); }
 });
 
-test('alt-click and the context-menu key still list occurrences', async () => {
+test('right-click and the context-menu key list a name\'s uses, alt-click does not', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
     const name = document.querySelector('pre a[data-avp]');
-    click(page, name, { altKey: true });
-    assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
-    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    const escape = () => document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    assert.equal(rightClick(page, name), false, 'the browser\'s menu is replaced');
+    const popup = document.querySelector('.avp-popup');
+    assert.equal(popup.dataset.avp, name.dataset.avp);
+    assert.equal(popup.querySelector('.popup-title strong').textContent, `Uses of ${name.dataset.avp}`);
+    assert.equal(popup.getAttribute('aria-label'), `Uses of ${name.dataset.avp}`);
+    assert.match(popup.querySelector('.usage-details').textContent, /^Uses \d+/);
+    escape();
     name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ContextMenu', bubbles: true, cancelable: true }));
     assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
+    escape();
+    const line = [...document.querySelectorAll('pre .dad-line')].find(node => !node.querySelector('[data-avp], .value-name'));
+    assert.equal(rightClick(page, line), true, 'anywhere else the menu is the browser\'s');
+    assert.equal(rightClick(page, document.querySelector('.document-header')), true);
+    assert.equal(document.querySelector('.avp-popup'), null);
+    click(page, document.querySelector('pre a[data-avp][href^="#rfc7944"]'), { altKey: true });
+    await settle();
+    assert.equal(document.querySelector('.avp-popup'), null, 'alt is a plain click');
+    assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('source'), 'rfc7944', 'and is followed like one');
+  } finally { await page.close(); }
+});
+
+test('a name\'s title follows the control, and the control says what it does', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document, window } = page;
+    const name = document.querySelector('pre a[data-avp]');
+    assert.equal(name.title, 'Click: definition · Right-click: where it is used');
+    const control = document.querySelector('.uses-toggle');
+    assert.equal(control.textContent.trim(), 'Click shows uses');
+    assert.equal(control.title, 'Plain click lists where a name is used instead of following it');
+    control.querySelector('input').click();
+    name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(name.title, 'Click or right-click: where it is used');
+    control.querySelector('input').click();
+    name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(name.title, 'Click: definition · Right-click: where it is used');
   } finally { await page.close(); }
 });
 
@@ -745,14 +786,14 @@ test('public: an RFC page restores a PDF\'s placeholder beside it from a shared 
 
 const rowOf = (document, name) => [...document.querySelectorAll('pre a.value-name')].find(node => node.textContent.replace(/^"|"$/g, '') === name);
 
-test('public: alt on a value name shows its table, with its AVP and source, and walks the rows', async () => {
+test('public: right-click on a value name shows its table, with its AVP and source, and walks the rows', async () => {
   const page = await boot({ hash: '#29061-6f0' });
   try {
     const { document, window } = page;
     const before = window.location.hash;
     const name = rowOf(document, 'DIAMETER_ERROR_SERVICE_AREA');
     assert.equal(name.getAttribute('href'), '#29061-6f0/17.8.2');
-    click(page, name, { altKey: true });
+    rightClick(page, name);
     await settle();
     assert.equal(window.location.hash, before, 'stays where it is');
     const popup = document.querySelector('.avp-popup');

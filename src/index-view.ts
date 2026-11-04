@@ -87,6 +87,7 @@ export function renderIndex(container: HTMLElement, site: Site) {
   for (const [publisher, releases] of [...publishers].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     container.append(renderPublisher(publisher, releases, site));
   }
+  container.append(element('p', 'Right-click any AVP or command name to see where it is used.', 'versions'));
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
   container.append(element('footer', [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`].filter(Boolean).join(' · '), 'versions'));
 }

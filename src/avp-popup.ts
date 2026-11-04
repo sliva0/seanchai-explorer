@@ -35,16 +35,16 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     if (popup && !popup.contains(event.target as Node)) close();
   });
 
-  /** The name and the close button: what any popup opens with. */
-  function open(name: string, opener: HTMLElement) {
+  /** The heading and the close button: what any popup opens with. */
+  function open(heading: string, opener: HTMLElement) {
     close();
     openerNode = opener;
     const panel = element('section', undefined, 'avp-popup');
     popup = panel;
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', name);
+    panel.setAttribute('aria-label', heading);
     const title = element('div', undefined, 'popup-title');
-    title.append(element('strong', name));
+    title.append(element('strong', heading));
     const closeButton = element('button', '×');
     closeButton.setAttribute('aria-label', 'Close');
     closeButton.onclick = () => close(true);
@@ -143,15 +143,15 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const { token, doc, lines, opener, documentPane } = request;
     if (token.valueRow) { showValue(token.valueRow, request); return; }
     const name = token.avp!;
-    const { panel, closeButton } = open(name, opener);
+    const { panel, closeButton } = open(`Uses of ${name}`, opener);
     const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;
     const seen = new Set<Element>();
-    const occurrences = [...documentPane.querySelectorAll<HTMLElement>('[data-avp]')].filter(node => {
+    const uses = [...documentPane.querySelectorAll<HTMLElement>('[data-avp]')].filter(node => {
       if (node.dataset.avp !== name || seen.has(lineOf(node))) return false;
       seen.add(lineOf(node));
       return true;
     });
-    let active = Math.max(0, occurrences.findIndex(node => lineOf(node) === lineOf(opener)));
+    let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     panel.dataset.avp = name;
     const definition = token.target && site.summary(token.target.document);
     if (token.target && definition) {
@@ -162,8 +162,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       panel.append(row);
     }
     const actions = element('div', undefined, 'popup-actions');
-    const count = element('span', `.dad ${active + 1}/${occurrences.length}`);
-    count.style.minWidth = `${`.dad ${occurrences.length}/${occurrences.length}`.length}ch`;
+    const count = element('span', `.dad ${active + 1}/${uses.length}`);
+    count.style.minWidth = `${`.dad ${uses.length}/${uses.length}`.length}ch`;
     const previous = element('button', 'Previous', 'control');
     const next = element('button', 'Next', 'control');
     actions.append(count, previous, next);
@@ -171,12 +171,12 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const list = element('div', undefined, 'usage-list');
     const buttons: HTMLButtonElement[] = [];
     const select = (index: number) => {
-      if (!occurrences.length) return;
-      active = (index + occurrences.length) % occurrences.length;
-      count.textContent = `.dad ${active + 1}/${occurrences.length}`;
-      for (const node of occurrences) node.classList.remove('avp-current');
+      if (!uses.length) return;
+      active = (index + uses.length) % uses.length;
+      count.textContent = `.dad ${active + 1}/${uses.length}`;
+      for (const node of uses) node.classList.remove('avp-current');
       for (const button of buttons) button.removeAttribute('aria-current');
-      const node = occurrences[active];
+      const node = uses[active];
       node.classList.add('avp-current');
       buttons[active].setAttribute('aria-current', 'location');
       buttons[active].scrollIntoView?.({ block: 'nearest' });
@@ -188,7 +188,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
-    occurrences.forEach((node, index) => {
+    uses.forEach((node, index) => {
       const line = lineOf(node);
       const text = lines[Number(line.dataset.line)].tokens.filter(token => !token.kind).map(token => token.text).join('').trim();
       const button = element('button', `${line.dataset.section ?? ''} · ${text}`, 'usage-link');
@@ -200,7 +200,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     });
     const usages = element('div', undefined, 'usage-details');
     const usagesTitle = element('div');
-    usagesTitle.append(...counted('Mentions', occurrences.length));
+    usagesTitle.append(...counted('Uses', uses.length));
     usages.append(usagesTitle, list);
     panel.append(usages);
     place(panel, closeButton, opener);

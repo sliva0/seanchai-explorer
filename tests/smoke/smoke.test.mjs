@@ -74,7 +74,7 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   });
   assert.ok(inView);
   assert.equal(await page.locator('.target-line .variable\\.other\\.enum\\.dad').count(), 1, 'its name is coloured as an enum value');
-  await page.locator('.target-line .value-name').click({ modifiers: ['Alt'] });
+  await page.locator('.target-line .value-name').click({ button: 'right' });
   assert.match(await page.locator('.avp-popup').textContent(), /Result code 5123 of Experimental-Result-Code/);
   await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
   assert.match(await page.locator('.avp-popup .usage-link[aria-current]').textContent(), /DIAMETER_ERROR_OUT_OF_RESOURCES/);
@@ -83,9 +83,9 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   await done();
 });
 
-test('after a reload the occurrences control is off, and only alt lists a name', { skip }, async () => {
+test('after a reload the uses control is off, only a right-click lists a name, and alt does not', { skip }, async () => {
   const { page, done } = await open('#29061-6f0');
-  const control = page.locator('.occurrences-toggle input');
+  const control = page.locator('.uses-toggle input');
   await control.check();
   await page.reload();
   await page.waitForSelector('pre .value-name');
@@ -93,9 +93,18 @@ test('after a reload the occurrences control is off, and only alt lists a name',
   await page.locator('pre .value-name').first().click();
   await page.waitForTimeout(50);
   assert.equal(await page.locator('.avp-popup').count(), 0, 'a value name is followed');
-  await page.locator('pre .value-name').first().click({ modifiers: ['Alt'] });
+  await page.locator('pre .value-name').first().click({ button: 'right' });
   await page.waitForSelector('.avp-popup');
   await page.keyboard.press('Escape');
+  await page.locator('pre a[data-avp]').first().click({ button: 'right' });
+  await page.waitForSelector('.avp-popup');
+  assert.match(await page.locator('.avp-popup .popup-title strong').textContent(), /^Uses of /);
+  await page.keyboard.press('Escape');
+  await page.locator('pre a[data-avp]').first().click({ modifiers: ['Alt'] });
+  await page.waitForTimeout(50);
+  assert.equal(await page.locator('.avp-popup').count(), 0, 'alt is a plain click');
+  await page.goto(`${base}#29061-6f0`);
+  await page.waitForSelector('pre a[data-avp]');
   await page.locator('pre a[data-avp]').first().click();
   await page.waitForTimeout(50);
   assert.equal(await page.locator('.avp-popup').count(), 0, 'a name is followed');
@@ -172,7 +181,7 @@ test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { sk
   await page.locator('pre a[data-avp]').first().click();
   await page.waitForFunction(() => location.hash.startsWith('#rfc7944/'));
   assert.equal(pages.length, 0);
-  await page.locator('.occurrences-toggle').click();
+  await page.locator('.uses-toggle').click();
   await page.locator('pre a[data-avp]').first().click();
   await page.waitForSelector('.avp-popup');
   await page.keyboard.press('Escape');
@@ -235,7 +244,7 @@ test('the header stays put, and neither theme label nor text length moves what i
   assert.deepEqual(await theme.boundingBox(), box, 'the toggle keeps its size for either label');
   const headerTop = await top('#workspace');
   const header = await page.locator('.source-header').boundingBox();
-  await page.locator('.occurrences-toggle input').check();
+  await page.locator('.uses-toggle input').check();
   assert.equal(await top('#workspace'), headerTop);
   assert.deepEqual(await page.locator('.source-header').boundingBox(), header);
   await done();
@@ -283,9 +292,9 @@ test('a quick document load keeps the old page until the new one, a slow one say
   await done();
 });
 
-test('the occurrence popup is compact, monospace, sized to content, and has one scrollbar', { skip }, async () => {
+test('the uses popup is compact, monospace, sized to content, and has one scrollbar', { skip }, async () => {
   const { page, done } = await open('#29153-j00');
-  await page.locator('.occurrences-toggle input').check();
+  await page.locator('.uses-toggle input').check();
   await page.locator('pre a[data-avp]').first().click();
   const popup = await page.locator('.avp-popup').evaluate(node => {
     const list = node.querySelector('.usage-list');

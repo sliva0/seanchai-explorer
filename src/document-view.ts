@@ -1,5 +1,5 @@
-import { clickAction } from './clicks.ts';
-import type { ClickAction } from './clicks.ts';
+import { clickAction, nameTitle, PLAIN_CLICK } from './clicks.ts';
+import type { ClickAction, ClickContext } from './clicks.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { compactComment } from './comments.ts';
@@ -41,6 +41,9 @@ function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
   toggle.setAttribute('aria-expanded', String(!full.hidden));
 }
 
+/** Until a pointer or focus comes to a name and its title is worked out for the pane as it then is. */
+const paneless: ClickContext = { paneOpen: false, sourceInPane: false, paneAvailable: () => false, uses: false };
+
 function tokenNode(token: HighlightedToken, index: number, doc: Document, site: Site): Node {
   let node: HTMLElement | undefined;
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
@@ -51,14 +54,9 @@ function tokenNode(token: HighlightedToken, index: number, doc: Document, site: 
   else if (!token.scope) return document.createTextNode(token.text);
   else node = element('span', token.text);
   if (token.scope) node.classList.add(token.scope);
-  if (token.avp) {
-    node.dataset.avp = token.avp;
-    node.title = 'Alt-click for occurrences';
-  }
-  if (token.valueRow) {
-    node.classList.add('value-name');
-    node.title = 'Alt-click for its table';
-  }
+  if (token.avp) node.dataset.avp = token.avp;
+  if (token.valueRow) node.classList.add('value-name');
+  if (token.avp || token.valueRow) node.title = nameTitle(token, clickAction(token, PLAIN_CLICK, undefined, paneless));
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
@@ -208,15 +206,15 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     for (const type of ['click', 'auxclick', 'contextmenu']) toggle.addEventListener(type, refresh);
     controls.append(toggle);
   }
-  const occurrencesToggle = element('label', 'Occurrences ', 'visibility-toggle occurrences-toggle');
-  occurrencesToggle.title = 'Tap a name to list where this document uses it';
-  const occurrencesInput = element('input');
-  occurrencesInput.type = 'checkbox';
+  const usesToggle = element('label', 'Click shows uses ', 'visibility-toggle uses-toggle');
+  usesToggle.title = 'Plain click lists where a name is used instead of following it';
+  const usesInput = element('input');
+  usesInput.type = 'checkbox';
   // Each document starts with it off, whatever the browser would restore on a reload.
-  occurrencesInput.autocomplete = 'off';
-  occurrencesInput.checked = false;
-  occurrencesToggle.append(occurrencesInput);
-  controls.append(occurrencesToggle);
+  usesInput.autocomplete = 'off';
+  usesInput.checked = false;
+  usesToggle.append(usesInput);
+  controls.append(usesToggle);
   const workspace = element('div');
   workspace.id = 'workspace';
   pane.mount(workspace, doc);
@@ -240,10 +238,18 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
-  const showOccurrences = (node: HTMLElement) => popup.show({ token: tokenOf(node), doc, lines, opener: node, documentPane });
+  const showUses = (node: HTMLElement) => popup.show({ token: tokenOf(node), doc, lines, opener: node, documentPane });
+  const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], .value-name');
+  const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
+  const clickContext = (): ClickContext => ({
+    paneOpen: pane.readsDocument(),
+    sourceInPane: pane.canShow(),
+    paneAvailable: document => pane.paneAvailable(site.summary(document)),
+    uses: usesInput.checked,
+  });
 
   function perform(action: ClickAction, node: HTMLElement) {
-    if (action.type === 'occurrences') { showOccurrences(node); return; }
+    if (action.type === 'uses') { showUses(node); return; }
     popup.close();
     if (action.type === 'source') {
       pane.setVisible(true);
@@ -258,23 +264,31 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     if (correction) { toggleCorrection(correction, tokenOf(correction.parentElement!)); return; }
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
-    const action = clickAction(tokenOf(node), event, node.closest<HTMLElement>('.dad-line')!.dataset.section, {
-      paneOpen: pane.readsDocument(),
-      sourceInPane: pane.canShow(),
-      paneAvailable: document => pane.paneAvailable(site.summary(document)),
-      occurrences: occurrencesInput.checked,
-    });
+    const action = clickAction(tokenOf(node), event, sectionAt(node), clickContext());
     if (action.type === 'browser') return;
     event.preventDefault();
     perform(action, node);
   });
+  pre.addEventListener('contextmenu', event => {
+    const node = nameAt(event.target);
+    if (!node) return;
+    event.preventDefault();
+    showUses(node);
+  });
   pre.addEventListener('keydown', event => {
-    const node = (event.target as Element).closest<HTMLElement>('[data-avp], .value-name');
+    const node = nameAt(event.target);
     if (node && (event.key === 'ContextMenu' || (event.shiftKey && event.key === 'F10'))) {
       event.preventDefault();
-      showOccurrences(node);
+      showUses(node);
     }
   });
+  // What a click does depends on the pane and the control, so a title says it as they are when it shows.
+  for (const type of ['mouseover', 'focusin']) {
+    pre.addEventListener(type, event => {
+      const node = nameAt(event.target);
+      if (node) node.title = nameTitle(tokenOf(node), clickAction(tokenOf(node), PLAIN_CLICK, sectionAt(node), clickContext()));
+    });
+  }
 
   let focusable: HTMLElement | undefined;
   const focusLater = (node: HTMLElement) => {
