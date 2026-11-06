@@ -127,3 +127,20 @@ test('a name\'s title says what each gesture moves as things stand', () => {
   assert.equal(titled(value, place, noPane()), 'Click: go to its row · Right-click: its table');
   assert.equal(titled(value, place, reads({ uses: true })), 'Click or right-click: its table · Alt-click: source row in both');
 });
+
+test('a name goes where its place says, details or definition, and to its other place where the gesture can do less there', () => {
+  const details = { document: 'd', position: { section: '16.4.7', page: 86, name: 'Y', row: true, titled: true }, target: { document: 'd', section: '16.4.7', name: 'Y' }, of: 'details' };
+  const definition = { ...row, of: 'definition' };
+  assert.equal(nameTitle(rowName, details, reads(), definition), 'Click: details in pane · Alt-click: details in both · Right-click: uses');
+  assert.equal(nameTitle(rowName, details, noPane(), definition), 'Click: go to details · Right-click: uses');
+  assert.equal(nameTitle(rowName, definition, reads(), details), 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+  const unlined = { document: 'd', position: details.position, of: 'details' };
+  assert.deepEqual(clickAction(rowName, unlined, plain, reads(), definition), { type: 'pane', place: unlined });
+  assert.deepEqual(clickAction(rowName, unlined, alt, reads(), definition), { type: 'both', place: definition }, 'the view has no line for it');
+  assert.deepEqual(clickAction(rowName, unlined, plain, noPane(), definition), { type: 'both', place: definition }, 'nor the pane a reader');
+  assert.equal(nameTitle(rowName, unlined, reads(), definition), 'Click: details in pane · Alt-click: definition in both · Right-click: uses');
+  assert.deepEqual(clickAction(rowName, unlined, alt, reads()), { type: 'pane', place: unlined }, 'with nothing to fall back on');
+  const nowhere = { document: 'd', position: definition.position, of: 'definition' };
+  assert.deepEqual(clickAction(rowName, unlined, alt, reads(), nowhere), { type: 'pane', place: unlined }, 'nor with a fallback no better');
+  assert.deepEqual(clickAction(rowName, unlined, plain, reads({ uses: true }), definition), { type: 'uses' });
+});

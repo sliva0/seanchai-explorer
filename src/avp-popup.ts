@@ -1,3 +1,5 @@
+import { avpIdentities, avpTables } from './avp-facts.ts';
+import type { AvpIdentity } from './avp-facts.ts';
 import { namePlaces, placeRoute } from './avp-places.ts';
 import type { Place } from './avp-places.ts';
 import { sourceHref } from './data.ts';
@@ -5,8 +7,8 @@ import type { Site } from './data.ts';
 import { counted, element, externalLink, link } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import type { SourcePane } from './source-pane.ts';
-import type { Document } from './types.ts';
-import { valueRowLabel } from './values.ts';
+import type { Document, Line } from './types.ts';
+import { valueRowLabel, valueTableTitle } from './values.ts';
 import type { ValueRow } from './values.ts';
 
 export interface PopupRequest {
@@ -15,6 +17,8 @@ export interface PopupRequest {
   /** The view is of the raw text, whose lines `lines` are. */
   raw: boolean;
   lines: HighlightedLine[];
+  /** The file's own lines, which `lines` decorate. */
+  fileLines: Line[];
   opener: HTMLElement;
   documentPane: HTMLElement;
   /** Keeps the place a walk through the list is about to leave. */
@@ -106,6 +110,30 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     return row;
   }
 
+  /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
+  const identityText = ({ code, vendor, type }: AvpIdentity) =>
+    [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? ''].filter(Boolean).join(' · ');
+
+  /**
+   * What the files at hand say a name is, and the tables of its numbers: this one's, and the one its link names if
+   * that has been loaded already. A table here is gone to in the pane at its first row, a result code's at its clause,
+   * an `Enumerated AVP` block as Details are; one in another document at its clause there.
+   */
+  function facts(request: PopupRequest) {
+    const { token, doc, fileLines } = request;
+    const name = token.avp!;
+    const away = token.target && token.target.document !== doc.id ? site.held(token.target.document) : undefined;
+    const files = [...away ? [{ lines: away.lines, name: token.target!.name ?? name, document: away.id }] : [], { lines: fileLines, name, document: doc.id }];
+    const identities = avpIdentities(files).map(identityText).filter(Boolean);
+    const tables = [...files].reverse().flatMap(({ lines, name, document }) => avpTables(lines, name).map(table => {
+      const { section, page, line } = table;
+      const position = !('rows' in table) ? { section, page, name, row: true, titled: true } : table.kind === 'result-codes' ? { section, page } : table.rows[0].position;
+      const place: Place = { document, ...document === doc.id ? { position } : {}, target: { document, section }, line };
+      return placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place, request);
+    }));
+    return { identities, tables: tables.filter(row => row !== undefined) };
+  }
+
   /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
   function showValue(row: ValueRow, { doc, opener, documentPane, recordJump, jumpTo }: PopupRequest) {
     const inPane = pane.shows(doc);
@@ -195,10 +223,24 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     });
     let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     panel.dataset.avp = name;
+    const { identities, tables } = facts(request);
+    if (identities.length) {
+      const identity = element('div', undefined, 'popup-identity');
+      identity.append(...identities.map(text => element('p', text)));
+      panel.append(identity);
+    }
     const { definition, details } = namePlaces(token, lines, doc);
     const places = element('div', undefined, 'popup-places');
     const rows = [definition && placeRow('Definition', 'place-definition', definition, request), details && placeRow('Details', 'place-details', details, request)];
     places.append(...rows.filter(row => row !== undefined));
+    // In the targets' grid, for their columns to line up.
+    if (tables.length) {
+      const values = element('div', undefined, 'popup-tables');
+      values.setAttribute('role', 'group');
+      values.setAttribute('aria-label', 'Value tables');
+      values.append(...tables);
+      places.append(values);
+    }
     if (places.childElementCount) panel.append(places);
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span', `.dad ${active + 1}/${uses.length}`);

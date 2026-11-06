@@ -1,3 +1,4 @@
+import type { ClickTarget } from './click-target.ts';
 import { routeFor } from './navigation.ts';
 import type { SourcePosition } from './navigation.ts';
 import type { Document, Line, Target } from './types.ts';
@@ -13,6 +14,8 @@ export interface Place {
   position?: SourcePosition;
   target?: Target;
   line?: number;
+  /** Which of a name's two places this is, for a title to say. */
+  of?: ClickTarget;
 }
 
 /**
@@ -87,17 +90,32 @@ export function namePlaces(token: ValueToken, lines: Line[], doc: Pick<Document,
   return { ...(definition ? { definition } : {}), ...(detailsPlace ? { details: detailsPlace } : {}) };
 }
 
-/** Where a click on a token goes: a name to its Definition, a value's name to its row, any other link to its Details or its own place. */
-export function tokenPlace(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, section: string | undefined): Place | undefined {
+const other = (target: ClickTarget): ClickTarget => target === 'details' ? 'definition' : 'details';
+
+/** A name's places in the order a click tries them: the one chosen, then the other. */
+function nameOrder(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, prefer: ClickTarget): Place[] {
+  const places = namePlaces(token, lines, doc);
+  return [prefer, other(prefer)].flatMap(of => places[of] ? [{ ...places[of], of }] : []);
+}
+
+/**
+ * Where a click on a token goes: a name to the place chosen for it, its Details or its Definition, else to the other;
+ * a value's name to its row, any other link to its Details or its own place.
+ */
+export function tokenPlace(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, section: string | undefined, prefer: ClickTarget = 'details'): Place | undefined {
   if (token.valueRow) return { document: doc.id, position: token.source!, target: { ...token.target!, name: token.valueRow.name } };
   if (token.avp) {
-    const { definition } = namePlaces(token, lines, doc);
-    return definition ?? (section ? { document: doc.id, position: { section, page: null, name: token.avp, exact: true, occurrence: true } } : undefined);
+    return nameOrder(token, lines, doc, prefer)[0] ?? (section ? { document: doc.id, position: { section, page: null, name: token.avp, exact: true, occurrence: true } } : undefined);
   }
   const position = token.details ?? token.source ?? undefined;
   if (token.target) return position ? { document: doc.id, position, target: token.target } : { document: token.target.document, target: token.target };
   if (!position) return undefined;
   return { document: doc.id, position, ...(fileIndex(lines).anchors.has(position.section) ? { target: { document: doc.id, section: position.section } } : {}) };
+}
+
+/** A name's other place, where it has both: what a click falls back on where it cannot go to the one chosen. */
+export function fallbackPlace(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, prefer: ClickTarget = 'details'): Place | undefined {
+  return token.avp ? nameOrder(token, lines, doc, prefer)[1] : undefined;
 }
 
 /** The route that moves the view to a place and the pane with it, a switched-off pane only in what it will show when switched on. Only this document has this view's raw text. */

@@ -175,6 +175,8 @@ export interface Site {
   /** The name in a list of any publishers' documents, with the edition if it has to say. */
   label(doc: DocumentSummary): string;
   loadDocument(id: string): Promise<Document>;
+  /** A document already loaded, for what can be shown of it without waiting. */
+  held(id: string): Document | undefined;
   loadRaw(id: string): Promise<RawDocument>;
   loadSearch(): Promise<Search>;
 }
@@ -189,6 +191,7 @@ export function createSite(index: Index): Site {
   const summaries = new Map(index.documents.map(doc => [doc.id, doc]));
   const editions = olderEditions(index.documents);
   const cache = new Map<string, Promise<unknown>>();
+  const held = new Map<string, Document>();
   function cached<T>(path: string): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
     if (!result) {
@@ -209,7 +212,8 @@ export function createSite(index: Index): Site {
     summary: id => summaries.get(id),
     edition: doc => editions.get(doc.id) ?? '',
     label: doc => [docName(doc), editions.get(doc.id)].filter(Boolean).join(' '),
-    loadDocument: id => cached<Document>(known(id).path).then(marked),
+    loadDocument: id => cached<Document>(known(id).path).then(marked).then(doc => { held.set(id, doc); return doc; }),
+    held: id => held.get(id),
     loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
     loadSearch: () => cached<Search>('search.json'),
   };

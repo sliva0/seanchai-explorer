@@ -187,8 +187,11 @@ test('narrow: the pane is hidden, its source is not loaded, and names navigate',
     const local = [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith('#rfc7944/'));
     click(page, local);
     await settle();
-    assert.ok(window.location.hash.startsWith('#rfc7944/'));
-    assert.equal(document.querySelector('.target-line [data-avp]').dataset.avp, local.dataset.avp, 'to the row listing it');
+    assert.equal(window.location.hash.split('?')[0], local.getAttribute('href').split('?')[0], 'to the clause describing it');
+    document.querySelector('.click-target input[value="definition"]').click();
+    click(page, local);
+    await settle();
+    assert.equal(document.querySelector('.target-line [data-avp]').dataset.avp, local.dataset.avp, 'or to the row listing it');
     assert.equal(frameSrc(document), null);
     page.resize(1280);
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
@@ -425,7 +428,7 @@ test('an index row is number, interfaces and title, with what its heading says l
 test('the index says once what clicks on a name do', async () => {
   const page = await boot();
   try {
-    assert.equal([...page.document.querySelectorAll('main > .versions')].filter(node => node.textContent === 'Click an AVP name to see its definition in the source pane, alt-click to move the text there too, right-click to see where it is used.').length, 1);
+    assert.equal([...page.document.querySelectorAll('main > .versions')].filter(node => node.textContent === 'Click an AVP name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where it is used.').length, 1);
   } finally { await page.close(); }
 });
 
@@ -478,8 +481,8 @@ test('a uses popup names a Definition\'s document without publisher or version',
 const paneAt = document => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
 const tmgi = document => [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
 
-test('self-hosted: a table row\'s name goes to its Definition in the pane, and its Section cell to its Details', async () => {
-  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted' });
+test('self-hosted: a table row\'s name goes to its Definition in the pane where chosen, and its Section cell to its Details', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted', clickTarget: 'definition' });
   try {
     const { document, window } = page;
     const name = tmgi(document);
@@ -506,7 +509,7 @@ test('self-hosted: a table row\'s name goes to its Definition in the pane, and i
 });
 
 test('self-hosted: an alt-click takes the view to the row and the pane with it, and the list keeps where it left', async () => {
-  const page = await boot({ hash: '#29061-6f0', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29061-6f0', mode: 'self-hosted', clickTarget: 'definition' });
   try {
     const { document, window } = page;
     layOut(page);
@@ -534,7 +537,7 @@ test('self-hosted: an alt-click takes the view to the row and the pane with it, 
 });
 
 test('self-hosted: a cell in the raw text keeps to the raw text', async () => {
-  const page = await boot({ hash: '#29061-6f0?raw=1', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29061-6f0?raw=1', mode: 'self-hosted', clickTarget: 'definition' });
   try {
     const { document, window } = page;
     click(page, tmgi(document), { altKey: true });
@@ -636,7 +639,7 @@ test('the popup shows one target where a row\'s clause is its table\'s', async (
 });
 
 test('public: the popup has only the view\'s way to a target, under the publisher\'s copy, and a name\'s click goes there', async () => {
-  const page = await boot({ hash: '#29061-6f0/17.7' });
+  const page = await boot({ hash: '#29061-6f0/17.7', clickTarget: 'definition' });
   try {
     const { document, window } = page;
     const name = tmgi(document);
@@ -687,6 +690,153 @@ test('a Definition in a document the pane has no reader for is only the view\'s,
     await settle();
     assert.ok(window.location.hash.startsWith('#rfc7944/'));
     assert.equal(document.querySelector('#source-pane'), null, 'and its own page has no pane');
+  } finally { await page.close(); }
+});
+
+test('self-hosted: a click goes to a name\'s Details by default, and the strip\'s choice of Definition is kept for every document', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted' });
+  try {
+    const { document, window } = page;
+    const control = document.querySelector('.click-target');
+    assert.equal(control.previousElementSibling, document.querySelector('.uses-toggle'));
+    assert.equal(control.nextElementSibling, document.querySelector('.source-toggle'), 'beside the pane\'s toggle');
+    assert.equal(control.getAttribute('role'), 'radiogroup');
+    assert.deepEqual([...control.querySelectorAll('label')].map(label => label.textContent.trim()), ['Definition', 'Details']);
+    const chosen = () => control.querySelector('input:checked').value;
+    assert.equal(chosen(), 'details');
+    const name = tmgi(document);
+    const hover = () => { name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true })); return name.title; };
+    assert.equal(hover(), 'Click: details in pane · Alt-click: details in both · Right-click: uses');
+    click(page, name);
+    await settle();
+    assert.equal(paneAt(document).get('search'), '17.7.2');
+    assert.equal(paneAt(document).get('titled'), '1');
+    control.querySelector('input[value="definition"]').click();
+    assert.equal(window.localStorage.getItem('seanchai-click-target'), 'definition');
+    assert.equal(hover(), 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    click(page, name);
+    await settle();
+    assert.equal(paneAt(document).get('search'), '17.7');
+    assert.equal(paneAt(document).get('titled'), null);
+    await page.go('#rfc7944');
+    assert.equal(document.querySelector('.click-target input:checked').value, 'definition');
+    const drmp = document.querySelector('pre a[data-avp="DRMP"]');
+    drmp.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(drmp.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    document.querySelector('.click-target input[value="details"]').click();
+    assert.equal(window.localStorage.getItem('seanchai-click-target'), 'details');
+  } finally { await page.close(); }
+});
+
+test('self-hosted: where the view has no line for the Details, an alt-click takes both to the Definition, and the title says so', async () => {
+  const unanchored = (path, data) => path !== 'data/documents/29061-6f0.json' ? data : { ...data, lines: data.lines.map(line => line.anchor === '17.7.2' ? { ...line, anchor: null } : line) };
+  const page = await boot({ hash: '#29061-6f0/17.7', mode: 'self-hosted', transform: unanchored });
+  try {
+    const { document, window } = page;
+    const name = tmgi(document);
+    name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(name.title, 'Click: details in pane · Alt-click: definition in both · Right-click: uses');
+    click(page, name, { altKey: true });
+    await settle();
+    assert.ok(document.querySelector('.target-line').querySelector('a[data-avp="TMGI"]'), 'the row listing it');
+    assert.equal(paneAt(document).get('search'), '17.7');
+  } finally { await page.close(); }
+});
+
+test('public: where neither panel can show the Details, a click goes to the Definition', async () => {
+  const unanchored = (path, data) => path !== 'data/documents/29061-6f0.json' ? data : { ...data, lines: data.lines.map(line => line.anchor === '17.7.2' ? { ...line, anchor: null } : line) };
+  const page = await boot({ hash: '#29061-6f0/17.7', transform: unanchored });
+  try {
+    const { document, window } = page;
+    const name = tmgi(document);
+    name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(name.title, 'Click: go to definition · Right-click: uses');
+    click(page, name);
+    await settle();
+    assert.ok(document.querySelector('.target-line').querySelector('a[data-avp="TMGI"]'));
+  } finally { await page.close(); }
+});
+
+const popupOf = async (page, node) => {
+  rightClick(page, node);
+  await settle();
+  return page.document.querySelector('.avp-popup');
+};
+const identities = popup => [...popup.querySelectorAll('.popup-identity p')].map(line => line.textContent);
+const tableRows = popup => [...popup.querySelectorAll('.popup-tables .place-table')].map(row => [...row.children].map(node => node.textContent));
+
+test('self-hosted: a name\'s popup says its code, vendor and type, and gives its value tables both ways to them', async () => {
+  const page = await boot({ hash: '#29217-j00', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    const row = [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'Congestion-Level-Range');
+    let popup = await popupOf(page, row);
+    assert.deepEqual(identities(popup), ['Code 4003 · Vendor-ID 10415 · Unsigned32']);
+    assert.equal(popup.firstElementChild.nextElementSibling.className, 'popup-identity', 'under the title');
+    assert.deepEqual(tableRows(popup), [['Bits:', '5.3.5', 'Jump to', 'Show on the right']]);
+    assert.equal(popup.querySelector('.popup-tables').closest('.popup-places').querySelector('.place-definition') !== null, true, 'in the targets\' grid, after them');
+    const before = pane(document).scrollTop;
+    popup.querySelector('.place-table .pane-action').click();
+    await settle();
+    assert.deepEqual([paneAt(document).get('search'), paneAt(document).get('name'), paneAt(document).get('value')], ['5.3.5', 'No congestion', '0'], 'the pane at its first row');
+    assert.equal(pane(document).scrollTop, before);
+    assert.ok(document.querySelector('.avp-popup'), 'still open');
+    const jump = popup.querySelector('.place-table .view-action');
+    assert.match(jump.getAttribute('href'), /^#29217-j00\/5\.3\.5\?source=29217-j00&sourceSection=5\.3\.5&.*&line=244$/);
+    click(page, jump);
+    await settle();
+    assert.equal(document.querySelector('.avp-popup'), null);
+    assert.equal(document.querySelector('.target-line').dataset.line, '244');
+    popup = await popupOf(page, [...document.querySelectorAll('pre a[data-avp]')].find(node => node.dataset.avp === 'Experimental-Result-Code'));
+    assert.deepEqual(tableRows(popup).map(cells => cells.slice(0, 2)), [['Result codes:', '5.5']]);
+    popup.querySelector('.place-table .pane-action').click();
+    await settle();
+    assert.deepEqual([paneAt(document).get('search'), paneAt(document).get('name')], ['5.5', null], 'a result code\'s table at its clause');
+    popup = await popupOf(page, [...document.querySelectorAll('pre [data-avp]')].find(node => node.dataset.avp === 'Feature-List'));
+    assert.deepEqual(tableRows(popup).map(cells => cells[0]), ['Features list 1 (Np):']);
+    assert.deepEqual(identities(popup), [], 'nothing said of it here');
+    assert.equal(popup.querySelector('.popup-identity'), null);
+  } finally { await page.close(); }
+});
+
+test('a name\'s popup leaves out what it has nothing for, shows an Enumerated AVP block as a table, and every identity that disagrees', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7' });
+  try {
+    const popup = await popupOf(page, tmgi(page.document));
+    assert.deepEqual(identities(popup), ['Code 900 · Vendor-ID 10415 · OctetString']);
+    assert.equal(popup.querySelector('.popup-tables'), null);
+  } finally { await page.close(); }
+  const recoded = (path, data) => path !== 'data/documents/rfc7944.json' ? data : { ...data, lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('header: 301', 'header: 302') })) })) };
+  for (const [transform, expected] of [[undefined, ['Code 301 · Enumerated']], [recoded, ['Code 301 · Enumerated', 'Code 302 · Enumerated']]]) {
+    const drmp = await boot({ hash: '#rfc7944', transform });
+    try {
+      const popup = await popupOf(drmp, drmp.document.querySelector('pre a[data-avp="DRMP"]'));
+      assert.deepEqual(identities(popup), expected, 'IETF\'s vendor 0 is none to name');
+      assert.deepEqual(tableRows(popup), [['Enumerated:', '9.1', 'Jump to', 'Show on the right']], 'the RFC reader reads it');
+      assert.match(popup.querySelector('.place-table .view-action').getAttribute('href'), /^#rfc7944\/9\.1\?.*&line=13$/);
+      popup.querySelector('.place-table .pane-action').click();
+      await settle();
+      assert.deepEqual([paneAt(drmp.document).get('section'), paneAt(drmp.document).get('query')], ['9.1', 'DRMP'], 'the pane as at its Details');
+    } finally { await drmp.close(); }
+  }
+});
+
+test('a name defined in another document has its identity and tables from there once that is loaded, and nothing is loaded for them', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { document } = page;
+    const drmp = () => [...document.querySelectorAll('pre a[data-avp]')].find(node => node.dataset.avp === 'DRMP');
+    let popup = await popupOf(page, drmp());
+    assert.equal(popup.querySelector('.popup-identity'), null);
+    assert.equal(popup.querySelector('.popup-tables'), null);
+    assert.ok(!page.fetched.includes('data/documents/rfc7944.json'));
+    popup.querySelector('.popup-title button').click();
+    await page.go('#rfc7944');
+    await page.go('#29153-j00');
+    popup = await popupOf(page, drmp());
+    assert.deepEqual(identities(popup), ['Code 301 · Enumerated']);
+    assert.deepEqual(tableRows(popup).map(cells => cells.slice(0, 3)), [['Enumerated:', 'RFC 7944 · 9.1', 'Jump to']]);
+    assert.match(popup.querySelector('.place-table .view-action').getAttribute('href'), /^#rfc7944\/9\.1\?line=13$/);
   } finally { await page.close(); }
 });
 
@@ -784,7 +934,7 @@ test('a name\'s title follows the pane and the control, and the control says wha
     assert.equal(name.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
     const control = document.querySelector('.uses-toggle');
     assert.equal(control.textContent.trim(), 'Click shows uses');
-    assert.equal(control.title, 'Plain click lists where a name is used instead of showing its definition');
+    assert.equal(control.title, 'Plain click lists where a name is used instead of going to it');
     control.querySelector('input').click();
     hover();
     assert.equal(name.title, 'Click or right-click: uses · Alt-click: definition in both');

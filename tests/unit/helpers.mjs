@@ -18,9 +18,10 @@ const globals = ['window', 'document', 'location', 'history', 'localStorage', 's
 /**
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
  * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source,
- * `session` is what the tab's storage already holds, and `prepare` runs on the page before it starts.
+ * `session` is what the tab's storage already holds, `clickTarget` the stored place a click on a name goes to first,
+ * and `prepare` runs on the page before it starts.
  */
-export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, session = {}, prepare = () => {}, text, transform = (_path, data) => data } = {}) {
+export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, clickTarget, session = {}, prepare = () => {}, text, transform = (_path, data) => data } = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
     width,
@@ -55,6 +56,7 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     }
   };
   if (stored) window.localStorage.setItem('seanchai-theme', stored);
+  if (clickTarget) window.localStorage.setItem('seanchai-click-target', clickTarget);
   // happy-dom announces pushState and replaceState as hash changes, which a browser does not.
   const silent = [];
   for (const method of ['pushState', 'replaceState']) {

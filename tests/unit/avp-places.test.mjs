@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { markDetails, namePlaces, placeRoute, tokenPlace } from '../../src/avp-places.ts';
+import { fallbackPlace, markDetails, namePlaces, placeRoute, tokenPlace } from '../../src/avp-places.ts';
+import { resolveClickTarget } from '../../src/click-target.ts';
 import { correctedRow, printedRow } from '../../src/printed-row.ts';
 
 const doc = { id: 'd', sections: [{ section: '16.4.7', page: 86, title: 'AVP Y' }, { section: '20.5', page: 172, title: 'AVP Table' }] };
@@ -117,6 +118,28 @@ test('a click\'s place: a value\'s row, a cell\'s Details, a link\'s own, and a 
   assert.deepEqual(tokenPlace({ text: 'Q', avp: 'Q' }, lines, doc, '6'), { document: 'd', position: { section: '6', page: null, name: 'Q', exact: true, occurrence: true } });
   assert.equal(tokenPlace({ text: 'Q', avp: 'Q' }, lines, doc, undefined), undefined);
   assert.equal(tokenPlace({ text: 'plain' }, lines, doc, '6'), undefined);
+});
+
+test('a name\'s click goes to the place chosen, Details unless Definition, and falls back on the other', () => {
+  const lines = file();
+  const { definition, details: described } = namePlaces(lines[0].tokens[0], lines, doc);
+  for (const token of [lines[0].tokens[0], lines[2].tokens[0]]) {
+    assert.deepEqual(tokenPlace(token, lines, doc, '6'), { ...described, of: 'details' });
+    assert.deepEqual(fallbackPlace(token, lines, doc), { ...definition, of: 'definition' });
+    assert.deepEqual(tokenPlace(token, lines, doc, '6', 'definition'), { ...definition, of: 'definition' });
+    assert.deepEqual(fallbackPlace(token, lines, doc, 'definition'), { ...described, of: 'details' });
+  }
+  const only = lines[4].tokens[0];
+  assert.deepEqual(tokenPlace(only, lines, doc, '6'), { document: 'd', target: { ...here, name: 'Z' }, of: 'definition' }, 'a name with no Details goes to its Definition');
+  assert.equal(fallbackPlace(only, lines, doc), undefined);
+  assert.equal(fallbackPlace({ text: '16.4.7', source: { section: '16.4.7', page: 129 }, details }, lines, doc), undefined, 'a cell has one place');
+});
+
+test('a stored click target is Definition only if it says so', () => {
+  assert.equal(resolveClickTarget('definition'), 'definition');
+  assert.equal(resolveClickTarget('details'), 'details');
+  assert.equal(resolveClickTarget(null), 'details');
+  assert.equal(resolveClickTarget('both'), 'details');
 });
 
 test('a place\'s route takes the view to its line, the pane to its position, keeps this document\'s raw text and a switched-off pane', () => {

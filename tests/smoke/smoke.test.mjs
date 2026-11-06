@@ -729,7 +729,7 @@ test('a rule of the theme\'s border stands between the strip\'s right-hand contr
   for (const theme of ['light', 'dark']) {
     if (theme === 'dark') await page.locator('.theme-toggle').click();
     const { colour, controls, strip } = await rules();
-    assert.equal(controls.length, 3);
+    assert.equal(controls.length, 4);
     assert.equal(controls[0].width, '0px');
     for (const control of controls.slice(1)) assert.deepEqual([control.width, control.colour], ['1px', colour]);
     assert.equal(new Set(controls.map(control => control.height)).size, 1, 'rules of one height');
@@ -738,7 +738,7 @@ test('a rule of the theme\'s border stands between the strip\'s right-hand contr
   await done();
   const narrow = await open('#29153-j00', { viewport: { width: 390, height: 780 } });
   const shown = await narrow.page.evaluate(() => [...document.querySelectorAll('#controls > *')].filter(node => !node.hidden).map(node => getComputedStyle(node).borderLeftWidth));
-  assert.deepEqual(shown, ['0px', '1px'], 'Source is hidden, Raw and the uses control keep the one rule');
+  assert.deepEqual(shown, ['0px', '1px', '1px'], 'Source is hidden, Raw and the two click controls keep their rules');
   await narrow.done();
 });
 

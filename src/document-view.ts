@@ -1,3 +1,5 @@
+import { readClickTarget, writeClickTarget } from './click-target.ts';
+import type { ClickTarget } from './click-target.ts';
 import { clickAction, nameTitle } from './clicks.ts';
 import type { ClickAction, ClickContext } from './clicks.ts';
 import { sourceHref } from './data.ts';
@@ -6,13 +8,13 @@ import { compactComment } from './comments.ts';
 import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
-import { markDetails, placeRoute, tokenPlace } from './avp-places.ts';
+import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
 import type { AvpPopup } from './avp-popup.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line, RawDocument } from './types.ts';
-import { valueKindTitle, valueRowAt, valueTables } from './values.ts';
+import { valueRowAt, valueTables, valueTableTitle } from './values.ts';
 import type { ValueRow } from './values.ts';
 
 export interface ViewServices {
@@ -51,7 +53,7 @@ function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
 /** Until a pointer or focus comes to a name and its title is worked out for the pane as it then is. */
 const paneless: ClickContext = { paneShows: () => false, paneOn: false, uses: false };
 
-function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine, lines: HighlightedLine[], doc: Document, site: Site): Node {
+function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine, lines: HighlightedLine[], doc: Document, site: Site, prefer: ClickTarget): Node {
   let node: HTMLElement | undefined;
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
   if (token.target) node = link(token.text, { ...token.target, name: token.target.name ?? token.avp });
@@ -63,12 +65,12 @@ function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine
   if (token.scope) node.classList.add(token.scope);
   if (token.avp) node.dataset.avp = token.avp;
   if (token.valueRow) node.classList.add('value-name');
-  if (token.avp || token.valueRow) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined), paneless);
+  if (token.avp || token.valueRow) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined, prefer), paneless, fallbackPlace(token, lines, doc, prefer));
   if (token.avp || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
 
-function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLPreElement {
+function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer: ClickTarget): HTMLPreElement {
   const pre = element('pre');
   let correction = 0;
   lines.forEach((line, lineIndex) => {
@@ -84,7 +86,7 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site): HTMLP
         const node = correctionNode(token, reason, `correction-${doc.id}-${correction++}`);
         node.dataset.token = String(index);
         row.append(node);
-      } else row.append(tokenNode(token, index, line, lines, doc, site));
+      } else row.append(tokenNode(token, index, line, lines, doc, site, prefer));
     });
     pre.append(row);
   });
@@ -95,10 +97,7 @@ type SectionLink = (section: string) => HTMLAnchorElement;
 
 /** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
 function tablesNote(lines: Line[], section: string): string {
-  return valueTables(lines).filter(table => table.section === section).map(table => {
-    const list = table.featureListId === null ? '' : ` list ${table.featureListId}`;
-    return `${valueKindTitle(table.kind)}${list}${table.application ? ` (${table.application})` : ''} (${table.rows.length})`;
-  }).join(', ');
+  return valueTables(lines).filter(table => table.section === section).map(table => `${valueTableTitle(table)} (${table.rows.length})`).join(', ');
 }
 
 function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
@@ -162,6 +161,29 @@ function renderDiagnostics(panels: { title: string; count: number; list: HTMLEle
   };
   for (const entry of entries) entry.toggle.onclick = () => setOpen(entry, entry.panel.hidden === true);
   return { toggles, bodies: entries.map(entry => entry.panel), open: (index: number) => setOpen(entries[index], true) };
+}
+
+/** The choice of a name's place a click goes to first, kept for every document and tab. */
+function renderClickTarget(current: ClickTarget, onChange: (target: ClickTarget) => void): HTMLElement {
+  const group = element('div', 'Click goes to', 'click-target');
+  group.setAttribute('role', 'radiogroup');
+  group.setAttribute('aria-label', 'Click goes to');
+  group.title = 'What a click or alt-click on a name goes to where it has both; right-click offers both';
+  for (const [target, label] of [['definition', 'Definition'], ['details', 'Details']] as const) {
+    // A radio before its word, where a box follows a toggle's: each is told from the other.
+    const option = element('label', label, 'visibility-toggle');
+    const input = element('input');
+    input.type = 'radio';
+    input.name = 'click-target';
+    input.value = target;
+    // What the browser would restore on a reload is the stored choice's to say.
+    input.autocomplete = 'off';
+    input.checked = target === current;
+    input.onchange = () => { if (input.checked) onChange(target); };
+    option.prepend(input);
+    group.append(option);
+  }
+  return group;
 }
 
 /** How far below the top edge a jump leaves a line. */
@@ -228,19 +250,20 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     controls.append(toggle);
   }
   const usesToggle = element('label', 'Click shows uses ', 'visibility-toggle uses-toggle');
-  usesToggle.title = 'Plain click lists where a name is used instead of showing its definition';
+  usesToggle.title = 'Plain click lists where a name is used instead of going to it';
   const usesInput = element('input');
   usesInput.type = 'checkbox';
   // Each document starts with it off, whatever the browser would restore on a reload.
   usesInput.autocomplete = 'off';
   usesInput.checked = false;
   usesToggle.append(usesInput);
-  controls.append(usesToggle);
+  let prefer = readClickTarget();
+  controls.append(usesToggle, renderClickTarget(prefer, target => { prefer = target; writeClickTarget(target); }));
   const workspace = element('div');
   workspace.id = 'workspace';
   pane.mount(workspace, doc);
   if (pane.toggle) controls.append(pane.toggle);
-  const pre = renderLines(lines, doc, site);
+  const pre = renderLines(lines, doc, site, prefer);
   documentPane.append(pre);
   rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
   sectionRows = rows.filter(row => row.dataset.section);
@@ -273,7 +296,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
   const showUses = (node: HTMLElement) => popup.show({
-    token: tokenOf(node), doc, raw: Boolean(raw), lines, opener: node, documentPane,
+    token: tokenOf(node), doc, raw: Boolean(raw), lines, fileLines, opener: node, documentPane,
     recordJump: services.recordJump,
     jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
   });
@@ -284,7 +307,8 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     paneOn: pane.switchedOn,
     uses: usesInput.checked,
   });
-  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node));
+  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer);
+  const fallbackOf = (node: HTMLElement) => fallbackPlace(tokenOf(node), lines, doc, prefer);
 
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') { showUses(node); return; }
@@ -304,7 +328,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     if (correction) { toggleCorrection(correction, tokenOf(correction.parentElement!)); return; }
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
-    const action = clickAction(tokenOf(node), placeOf(node), event, clickContext());
+    const action = clickAction(tokenOf(node), placeOf(node), event, clickContext(), fallbackOf(node));
     if (action.type === 'browser') return;
     event.preventDefault();
     perform(action, node);
@@ -326,7 +350,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   for (const type of ['mouseover', 'focusin']) {
     pre.addEventListener(type, event => {
       const node = nameAt(event.target);
-      if (node) node.title = nameTitle(tokenOf(node), placeOf(node), clickContext());
+      if (node) node.title = nameTitle(tokenOf(node), placeOf(node), clickContext(), fallbackOf(node));
     });
   }
 

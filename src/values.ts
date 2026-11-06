@@ -21,6 +21,8 @@ export interface ValueTable {
   application: string | null;
   section: string;
   page: number | null;
+  /** Index into the lines of its `; Type:` line. */
+  line: number;
   rows: ValueRow[];
 }
 
@@ -30,7 +32,7 @@ export interface ValueTable {
  */
 export interface ValueToken extends Token { valueRow?: ValueRow; details?: SourcePosition }
 
-const lineText = (line: Line) => line.tokens.filter(token => !token.correction && token.kind !== 'comment').map(token => token.text).join('').trimEnd();
+export const lineText = (line: Line) => line.tokens.filter(token => !token.correction && token.kind !== 'comment').map(token => token.text).join('').trimEnd();
 const rowText = /^("?)(.+?)\1\s*=\s*(\d+)\s*(?:;\s*([^;]*?))?\s*(?:;;.*)?$/;
 const header = /^; ([\w-]+): (.*)$/;
 
@@ -41,7 +43,7 @@ function readTables(lines: Line[]): ValueTable[] {
   lines.forEach((line, index) => {
     const text = lineText(line);
     if (text.startsWith('; Type:')) {
-      table = text === '; Type: Value Table' ? { kind: 'bits', avp: null, featureListId: null, application: null, section: line.section ?? '', page: null, rows: [] } : undefined;
+      table = text === '; Type: Value Table' ? { kind: 'bits', avp: null, featureListId: null, application: null, section: line.section ?? '', page: null, line: index, rows: [] } : undefined;
       inBody = false;
       if (table) tables.push(table);
       return;
@@ -103,4 +105,6 @@ export const valueKinds: { kind: ValueKind; title: string; row: string }[] = [
   { kind: 'features', title: 'Features', row: 'Feature bit' },
 ];
 export const valueKindTitle = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.title;
+/** What a table lists, told from the others of its clause: "Bits", "Features list 1 (S6a/S6d)". */
+export const valueTableTitle = (table: ValueTable) => `${valueKindTitle(table.kind)}${table.featureListId === null ? '' : ` list ${table.featureListId}`}${table.application ? ` (${table.application})` : ''}`;
 export const valueRowLabel = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.row;

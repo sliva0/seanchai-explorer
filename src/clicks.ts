@@ -27,8 +27,19 @@ export type ClickAction =
  * the pane alone, and an alt-click both. Where the pane cannot read the place all that can happen is the view's jump.
  * A link to the source alone is left to the browser then, whose new tab its markup asks for. Nothing of an alt-click
  * is left to the browser, and only the uses control makes a click list a name; otherwise that is a right-click's.
+ * A name's `fallback`, its other place, is gone to where the gesture can do less with `place`: nothing, or for an
+ * alt-click the pane alone.
  */
-export function clickAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext): ClickAction {
+export function clickAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext, fallback?: Place): ClickAction {
+  const action = placeAction(token, place, event, context);
+  if (!fallback || !short(action, event)) return action;
+  const instead = placeAction(token, fallback, event, context);
+  return short(instead, event) ? action : instead;
+}
+
+const short = (action: ClickAction, event: ClickModifiers) => action.type === 'browser' || (event.altKey && action.type === 'pane');
+
+function placeAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext): ClickAction {
   if (event.ctrlKey || event.metaKey || event.shiftKey) return { type: 'browser' };
   if (!event.altKey && context.uses && (token.avp || token.valueRow)) return { type: 'uses' };
   if (!place) return { type: 'browser' };
@@ -42,19 +53,19 @@ const PLAIN_CLICK: ClickModifiers = { altKey: false, ctrlKey: false, metaKey: fa
 
 /** What an action does for a name, in a tooltip's words. */
 function saying(token: ValueToken, action: ClickAction, context: ClickContext): string {
-  if (action.type === 'pane') return token.valueRow ? 'source row in pane' : action.place.position?.occurrence ? 'find in pane' : 'definition in pane';
+  if (action.type === 'pane') return token.valueRow ? 'source row in pane' : action.place.position?.occurrence ? 'find in pane' : `${action.place.of ?? 'definition'} in pane`;
   if (action.type === 'both') {
-    if (context.paneOn && context.paneShows(action.place.document)) return `${token.valueRow ? 'source row' : 'definition'} in both`;
-    return token.valueRow ? 'go to its row' : 'go to definition';
+    if (context.paneOn && context.paneShows(action.place.document)) return `${token.valueRow ? 'source row' : action.place.of ?? 'definition'} in both`;
+    return token.valueRow ? 'go to its row' : `go to ${action.place.of ?? 'definition'}`;
   }
   return token.source ? 'source in new tab' : '';
 }
 
 /** A name's tooltip as things stand: what a click does, what an alt-click does if that differs, and the way to its uses. A value's popup is its table instead. */
-export function nameTitle(token: ValueToken, place: Place | undefined, context: ClickContext): string {
+export function nameTitle(token: ValueToken, place: Place | undefined, context: ClickContext, fallback?: Place): string {
   const popup = token.valueRow ? 'its table' : 'uses';
-  const plain = clickAction(token, place, PLAIN_CLICK, context);
-  const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context), context);
+  const plain = clickAction(token, place, PLAIN_CLICK, context, fallback);
+  const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context, fallback), context);
   const listing = plain.type === 'uses';
   const click = listing ? '' : saying(token, plain, context);
   return [

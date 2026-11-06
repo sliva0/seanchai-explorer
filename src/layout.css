@@ -24,6 +24,7 @@ ul { margin: 0; padding: 0; list-style: none; }
 #controls > a { min-width: 9ch; line-height: var(--control-height); text-align: right; }
 /* A rule on the left of each, so a hidden one leaves none behind. */
 #controls > * + * { padding-left: var(--space-3); border-left: 1px solid var(--ui-border-strong); }
+.click-target { display: inline-flex; align-items: center; gap: var(--space-2); white-space: nowrap; }
 .section-control { display: flex; flex: 1 1 auto; align-items: center; min-width: 0; }
 .section-control .disclosure { flex: none; }
 /* Takes what the row has spare and asks for none, so the strip is as tall with or without it. */
@@ -187,7 +188,8 @@ mark { border-radius: 2px; background: var(--mark-bg); color: var(--mark-fg); }
 .popup-actions .control, .popup-place .control { height: 1.375rem; }
 .popup-places { display: grid; flex: none; grid-template-columns: max-content minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-1) var(--space-2); }
 .popup-places:not(:has(.pane-action)) { grid-template-columns: max-content minmax(0, 1fr) auto; }
-.popup-place { display: contents; }
+.popup-place, .popup-tables { display: contents; }
+.popup-identity { flex: none; }
 .place-where { min-width: 0; overflow-wrap: anywhere; }
 .view-action { grid-column: 3; }
 .view-action:hover { text-decoration: none; }
