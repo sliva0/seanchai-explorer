@@ -1,3 +1,5 @@
+import { commandFacts, emptyIndex } from './commands.ts';
+import type { CommandIndex } from './commands.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, Line, RawDocument, Search } from './types.ts';
 import { interfacesOf } from './interfaces.ts';
@@ -179,11 +181,16 @@ export interface Site {
   held(id: string): Document | undefined;
   loadRaw(id: string): Promise<RawDocument>;
   loadSearch(): Promise<Search>;
+  /** The corpus's commands, an empty index where the build derived none. */
+  loadCommands(): Promise<CommandIndex>;
+  /** That index once loaded, which a document's view waits for. */
+  commands(): CommandIndex | undefined;
 }
 
-/** A value table's rows link as other table rows do from the moment a file is read. */
+/** A value table's rows and a command's names link as other names do from the moment a file is read. */
 function marked<T extends { lines: Line[] }>(file: T): T {
   valueTables(file.lines);
+  commandFacts(file.lines);
   return file;
 }
 
@@ -192,6 +199,8 @@ export function createSite(index: Index): Site {
   const editions = olderEditions(index.documents);
   const cache = new Map<string, Promise<unknown>>();
   const held = new Map<string, Document>();
+  let commands: CommandIndex | undefined;
+  let commandsLoading: Promise<CommandIndex> | undefined;
   function cached<T>(path: string): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
     if (!result) {
@@ -216,6 +225,10 @@ export function createSite(index: Index): Site {
     held: id => held.get(id),
     loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
     loadSearch: () => cached<Search>('search.json'),
+    loadCommands: () => commandsLoading ??= loadJSON<CommandIndex>('commands.json')
+      .catch(() => emptyIndex(SCHEMA_VERSION))
+      .then(index => commands = index),
+    commands: () => commands,
   };
 }
 

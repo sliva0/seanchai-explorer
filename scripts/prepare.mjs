@@ -1,9 +1,10 @@
 // Fills public/ for a build: node scripts/prepare.mjs [--self-hosted] [--any-schema]. See README.md.
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readFile, rename, rm } from 'node:fs/promises';
+import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import { commandIndex } from '../src/commands.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
 
 const project = fileURLToPath(new URL('../', import.meta.url));
@@ -43,6 +44,11 @@ if (problem) {
   await rm(temporary, { recursive: true, force: true });
   throw new Error(problem);
 }
+
+// What a command's popup says of the corpus, small enough to fetch with a document where search.json is not.
+const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
+const documents = await Promise.all(index.documents.map(async doc => ({ id: doc.id, lines: (await read(doc.path)).lines })));
+await writeFile(path.join(temporary, 'commands.json'), JSON.stringify(commandIndex(documents, index.schema_version)));
 
 await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });

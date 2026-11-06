@@ -188,7 +188,11 @@ mark { border-radius: 2px; background: var(--mark-bg); color: var(--mark-fg); }
 .popup-actions .control, .popup-place .control { height: 1.375rem; }
 .popup-places { display: grid; flex: none; grid-template-columns: max-content minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-1) var(--space-2); }
 .popup-places:not(:has(.pane-action)) { grid-template-columns: max-content minmax(0, 1fr) auto; }
-.popup-place, .popup-tables { display: contents; }
+.popup-place, .popup-tables, .popup-group { display: contents; }
+.popup-group-title { grid-column: 1 / -1; margin-top: var(--space-1); }
+/* A command's grid is the popup's list: it gives way and scrolls where the popup is full. */
+.command-places { flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.place-differs > span:first-child, .place-differs .place-where { color: var(--ui-muted); }
 .popup-identity { flex: none; }
 .place-where { min-width: 0; overflow-wrap: anywhere; }
 .view-action { grid-column: 3; }

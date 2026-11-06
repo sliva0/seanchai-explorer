@@ -834,3 +834,31 @@ test('the arrows sit left of the title, in one row', { skip }, async () => {
     await done();
   }
 });
+
+test('a command\'s abbreviation is a name: its popup is compact, in the targets\' grid, and a click goes to its block', { skip }, async () => {
+  const fetched = [];
+  const { page, done } = await open('#29061-6f0', {}, async page => page.on('request', request => fetched.push(new URL(request.url()).pathname)));
+  assert.ok(fetched.includes('/data/commands.json'), 'the index comes with the document');
+  assert.ok(!fetched.includes('/data/search.json'), 'search data does not');
+  const abbreviation = page.locator('pre button[data-command="265 answer"]', { hasText: 'AAA' });
+  await abbreviation.click({ button: 'right' });
+  const popup = page.locator('.avp-popup');
+  assert.equal(await popup.locator('.popup-title strong').textContent(), 'AA-Answer (AAA)');
+  assert.deepEqual(await popup.locator('.popup-identity p').allTextContents(), ['Code 265 · Answer · PXY', 'Application-ID 16777223 · Gmb · from 17, not the header']);
+  const look = await popup.evaluate(node => {
+    const box = node.getBoundingClientRect();
+    const jumps = [...node.querySelectorAll('.view-action')].map(jump => jump.getBoundingClientRect().left);
+    const labels = [...node.querySelectorAll('.popup-place > span:first-child')].map(label => label.textContent);
+    return { width: box.width, height: box.height, inside: box.top >= 0 && box.bottom <= innerHeight, jumps, labels, selfScrolls: node.scrollHeight > node.clientHeight };
+  });
+  assert.deepEqual(look.labels, ['Definition:', 'Request:']);
+  assert.equal(new Set(look.jumps).size, 1, `one column of Jump to: ${look.jumps}`);
+  assert.ok(look.width <= 80 * 8 && look.height <= 22 * 16, JSON.stringify(look));
+  assert.equal(look.inside, true);
+  assert.equal(look.selfScrolls, false);
+  await page.keyboard.press('Escape');
+  await abbreviation.click();
+  await page.waitForSelector('.target-line');
+  assert.equal(await page.locator('.target-line').getAttribute('data-line'), '43', 'the public pane cannot read the PDF, so both go to the block');
+  await done();
+});

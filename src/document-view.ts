@@ -2,6 +2,7 @@ import { readClickTarget, writeClickTarget } from './click-target.ts';
 import type { ClickTarget } from './click-target.ts';
 import { clickAction, nameTitle } from './clicks.ts';
 import type { ClickAction, ClickContext } from './clicks.ts';
+import { commandKey } from './commands.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { compactComment } from './comments.ts';
@@ -59,14 +60,16 @@ function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine
   if (token.target) node = link(token.text, { ...token.target, name: token.target.name ?? token.avp });
   else if (source) node = externalLink(token.text, source.href);
   else if (token.scope.startsWith('markup.underline.link')) node = externalLink(token.text, token.text);
-  else if (token.avp) node = element('button', token.text, 'avp-name');
+  else if (token.avp || token.command) node = element('button', token.text, 'avp-name');
   else if (!token.scope) return document.createTextNode(token.text);
   else node = element('span', token.text);
   if (token.scope) node.classList.add(token.scope);
   if (token.avp) node.dataset.avp = token.avp;
+  if (token.command) node.dataset.command = commandKey(token.command);
   if (token.valueRow) node.classList.add('value-name');
-  if (token.avp || token.valueRow) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined, prefer), paneless, fallbackPlace(token, lines, doc, prefer));
-  if (token.avp || token.target || token.source) node.dataset.token = String(index);
+  const commands = site.commands();
+  if (token.avp || token.valueRow || token.command) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined, prefer, commands), paneless, fallbackPlace(token, lines, doc, prefer, commands));
+  if (token.avp || token.command || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
 
@@ -300,15 +303,15 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     recordJump: services.recordJump,
     jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
   });
-  const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], .value-name');
+  const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], [data-command], .value-name');
   const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
   const clickContext = (): ClickContext => ({
     paneShows: document => pane.shows(site.summary(document)),
     paneOn: pane.switchedOn,
     uses: usesInput.checked,
   });
-  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer);
-  const fallbackOf = (node: HTMLElement) => fallbackPlace(tokenOf(node), lines, doc, prefer);
+  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer, site.commands());
+  const fallbackOf = (node: HTMLElement) => fallbackPlace(tokenOf(node), lines, doc, prefer, site.commands());
 
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') { showUses(node); return; }

@@ -1,6 +1,10 @@
 import { avpIdentities, avpTables } from './avp-facts.ts';
 import type { AvpIdentity } from './avp-facts.ts';
 import { namePlaces, placeRoute } from './avp-places.ts';
+import { allCommands, blockPlace, commandOf, definitionsOf, partnerOf, registryRows, rowPlace, tablePlace, tablesOf } from './command-places.ts';
+import type { Command } from './command-places.ts';
+import { commandKey, isRequest } from './commands.ts';
+import type { CommandRef } from './commands.ts';
 import type { Place } from './avp-places.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
@@ -82,11 +86,11 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
    * A target of a name and the two ways to it: both panels, then the pane alone. Each is there only if the place is in
    * that medium. With no way to it in the pane, its label is the publisher's copy at that place, if there is one.
    */
-  function placeRow(label: string, className: string, place: Place, { doc, raw }: PopupRequest) {
+  function placeRow(label: string, className: string, place: Place, { doc, raw }: PopupRequest, said?: string) {
     const summary = site.summary(place.document);
     if (!summary) return undefined;
     const section = place.position?.section ?? place.target?.section ?? '';
-    const where = place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · ');
+    const where = said ?? (place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · '));
     const row = element('div', undefined, `popup-place ${className}`);
     row.append(element('span', `${label}:`));
     const inPane = pane.shows(summary);
@@ -209,9 +213,102 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     buttons[active].scrollIntoView?.({ block: 'nearest' });
   }
 
+  /** "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none. */
+  function commandIdentity(command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope'>): string[] {
+    const head = [`Code ${command.code}`, isRequest(command) ? 'Request' : 'Answer', command.flags.join(', ')].filter(Boolean).join(' · ');
+    if (command.application === null) return [head, 'No Application-ID: the header prints none'];
+    const from = command.header === null && command.scope ? `from ${command.scope.section}, not the header` : '';
+    return [head, [`Application-ID ${command.application}`, command.scope?.name ?? '', from].filter(Boolean).join(' · ')];
+  }
+
+  /** What tells a definition from the one the popup is of: its name where that is another, its code and application where they are. */
+  function difference(other: Command, command: Command | undefined): string {
+    const application = other.application === null ? 'no Application-ID' : `Application-ID ${other.application}${other.scope?.name ? ` ${other.scope.name}` : ''}`;
+    return [
+      other.section,
+      !command || other.name !== command.name ? other.name : '',
+      command && other.code !== command.code ? `code ${other.code}` : '',
+      command && other.application !== command.application ? application : '',
+    ].filter(Boolean).join(' · ');
+  }
+
+  /** A run of rows in the targets' grid, under its title and count if `titled`, left out when it has none. */
+  function group(title: string, className: string, rows: (HTMLElement | undefined)[], titled = true) {
+    const kept = rows.filter(row => row !== undefined);
+    if (!kept.length) return [];
+    const node = element('div', undefined, `popup-group ${className}`);
+    node.setAttribute('role', 'group');
+    node.setAttribute('aria-label', title);
+    if (titled) {
+      const heading = element('div', undefined, 'popup-group-title');
+      heading.append(...counted(title, kept.length));
+      node.append(heading);
+    }
+    node.append(...kept);
+    return [node];
+  }
+
+  /**
+   * A command's popup: what its header says, its block, the other half, its tables and registry row, and every other
+   * document printing it, then those printing its name for another command. The corpus's are the index's, which the
+   * document's view has waited for; what is in this file is read from the lines the view shows.
+   */
+  function showCommand(ref: CommandRef, request: PopupRequest) {
+    const { doc, fileLines, opener } = request;
+    const index = site.commands();
+    const command = commandOf(ref, doc, index);
+    const name = command?.name ?? ref.name;
+    const abbreviation = command ? command.abbreviation : ref.abbreviation;
+    const heading = abbreviation ? `${name} (${abbreviation})` : name;
+    const { panel, closeButton } = open(heading, opener);
+    panel.dataset.command = commandKey(ref);
+    opener.classList.add('avp-current');
+    const identity = element('div', undefined, 'popup-identity');
+    identity.append(...(command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(text => element('p', text)));
+    panel.append(identity);
+    const all = allCommands(fileLines, doc, index);
+    const label = (place: Place) => site.summary(place.document) ? site.label(site.summary(place.document)!) : place.document;
+    const rows: HTMLElement[] = [];
+    const add = (...found: (HTMLElement | undefined)[]) => rows.push(...found.filter(row => row !== undefined));
+    if (command) {
+      add(placeRow('Definition', 'place-definition', blockPlace(command, doc), request));
+      const partner = partnerOf(command, all);
+      if (partner) {
+        const place = blockPlace(partner, doc);
+        const where = [partner.document === doc.id ? '' : label(place), partner.section, partner.abbreviation ?? partner.name].filter(Boolean).join(' · ');
+        add(placeRow(isRequest(partner) ? 'Request' : 'Answer', 'place-partner', place, request, where));
+      }
+      add(...group('Tables', 'popup-tables', tablesOf(command, fileLines, doc).map(table =>
+        placeRow('AVP table', 'place-table', tablePlace(table, doc), request, [table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · '))), false));
+    }
+    add(...registryRows(ref, fileLines, doc, index).map(row => {
+      const place = rowPlace(row, doc);
+      return placeRow('Registry', 'place-registry', place, request, [row.document === doc.id ? '' : label(place), row.section, row.table && `table ${row.table}`].filter(Boolean).join(' · '));
+    }));
+    const otherRow = (other: Command, className: string, mark = '') => {
+      const place = blockPlace(other, doc);
+      return placeRow(`${mark}${label(place)}`, className, place, request, difference(other, command));
+    };
+    if (command) {
+      const { same, differing } = definitionsOf(command, all);
+      add(...group('Other definitions', 'popup-others', same.map(other => otherRow(other, 'place-other'))));
+      add(...group('Same name, other command', 'popup-differing', differing.map(other => otherRow(other, 'place-other place-differs', '≠ '))));
+    } else {
+      const printed = all.filter(other => other.code === ref.code && isRequest(other) === ref.request);
+      add(...group('Definitions', 'popup-others', printed.map(other => otherRow(other, 'place-other'))));
+    }
+    if (rows.length) {
+      const places = element('div', undefined, 'popup-places command-places');
+      places.append(...rows);
+      panel.append(places);
+    }
+    place(panel, closeButton, opener);
+  }
+
   function show(request: PopupRequest) {
     const { token, doc, lines, opener, documentPane, recordJump, jumpTo } = request;
     if (token.valueRow) { showValue(token.valueRow, request); return; }
+    if (token.command) { showCommand(token.command, request); return; }
     const name = token.avp!;
     const { panel, closeButton } = open(`Uses of ${name}`, opener);
     const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;

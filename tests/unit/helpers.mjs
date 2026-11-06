@@ -1,9 +1,17 @@
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
+import { commandIndex } from '../../src/commands.ts';
 
 export const fixture = new URL('../fixtures/export/', import.meta.url);
 export const readFixture = async file => JSON.parse(await readFile(new URL(file, fixture), 'utf8'));
 const grammar = new URL('../../syntax/dad.tmLanguage.json', import.meta.url);
+
+/** The `commands.json` prepare would derive from the fixture, which the fixture leaves to it. */
+async function commandsOfFixture() {
+  const index = await readFixture('index.json');
+  const documents = await Promise.all(index.documents.map(async doc => ({ id: doc.id, lines: (await readFixture(doc.path)).lines })));
+  return commandIndex(documents, index.schema_version);
+}
 
 /** A self-hosted variant of the fixture: every ETSI document has a local PDF. */
 function asSelfHosted(data) {
@@ -19,9 +27,9 @@ const globals = ['window', 'document', 'location', 'history', 'localStorage', 's
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
  * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source,
  * `session` is what the tab's storage already holds, `clickTarget` the stored place a click on a name goes to first,
- * and `prepare` runs on the page before it starts.
+ * `commands` whether the build derived a command index, and `prepare` runs on the page before it starts.
  */
-export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, clickTarget, session = {}, prepare = () => {}, text, transform = (_path, data) => data } = {}) {
+export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, clickTarget, session = {}, prepare = () => {}, text, commands = true, transform = (_path, data) => data } = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
     width,
@@ -46,6 +54,7 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     fetched.push(parsed.hostname === 'localhost' ? path : parsed.href);
     if (path === 'syntax/dad.tmLanguage.json') return { ok: true, json: async () => JSON.parse(await readFile(grammar, 'utf8')) };
     const file = new URL(path.replace(/^data\//, ''), fixture);
+    if (path === 'data/commands.json' && commands) return { ok: true, json: async () => transform(path, await commandsOfFixture()) };
     try {
       if (path.endsWith('.txt')) return { ok: true, text: async () => text ?? readFile(file, 'utf8') };
       const data = JSON.parse(await readFile(file, 'utf8'));

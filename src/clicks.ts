@@ -41,7 +41,7 @@ const short = (action: ClickAction, event: ClickModifiers) => action.type === 'b
 
 function placeAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext): ClickAction {
   if (event.ctrlKey || event.metaKey || event.shiftKey) return { type: 'browser' };
-  if (!event.altKey && context.uses && (token.avp || token.valueRow)) return { type: 'uses' };
+  if (!event.altKey && context.uses && (token.avp || token.valueRow || token.command)) return { type: 'uses' };
   if (!place) return { type: 'browser' };
   const inPane = context.paneShows(place.document);
   if (!inPane && token.source && !token.target) return { type: event.altKey ? 'new-tab' : 'browser' };
@@ -61,9 +61,12 @@ function saying(token: ValueToken, action: ClickAction, context: ClickContext): 
   return token.source ? 'source in new tab' : '';
 }
 
-/** A name's tooltip as things stand: what a click does, what an alt-click does if that differs, and the way to its uses. A value's popup is its table instead. */
+/**
+ * A name's tooltip as things stand: what a click does, what an alt-click does if that differs, and the way to its uses.
+ * A value's popup is its table instead, and a command's what it is and where else it is printed.
+ */
 export function nameTitle(token: ValueToken, place: Place | undefined, context: ClickContext, fallback?: Place): string {
-  const popup = token.valueRow ? 'its table' : 'uses';
+  const popup = token.valueRow ? 'its table' : token.command ? 'its definitions' : 'uses';
   const plain = clickAction(token, place, PLAIN_CLICK, context, fallback);
   const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context, fallback), context);
   const listing = plain.type === 'uses';

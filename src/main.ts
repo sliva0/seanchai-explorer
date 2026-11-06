@@ -278,7 +278,8 @@ try {
           status.setAttribute('role', 'status');
           content.replaceChildren(status);
         }, 150);
-        const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined]).finally(() => clearTimeout(loading));
+        // The command index comes with the first document, for its commands' names to know where they go.
+        const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined, site.loadCommands()]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         content.className = 'document-view';
         view = renderDocument(content, services, doc, raw);

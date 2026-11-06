@@ -144,3 +144,14 @@ test('a name goes where its place says, details or definition, and to its other 
   assert.deepEqual(clickAction(rowName, unlined, alt, reads(), nowhere), { type: 'pane', place: unlined }, 'nor with a fallback no better');
   assert.deepEqual(clickAction(rowName, unlined, plain, reads({ uses: true }), definition), { type: 'uses' });
 });
+
+test('a command\'s name goes to its block by the same rule, lists by the control, and its popup is its definitions', () => {
+  const command = { text: 'ACA', command: { code: 271, request: false, name: 'Accounting-Answer', abbreviation: 'ACA' } };
+  const block = { document: 'rfc6733', position: { section: '9.7.2', page: 128, name: 'Accounting-Answer' }, target: { document: 'rfc6733', section: '9.7.2', name: 'Accounting-Answer' }, line: 261, of: 'definition' };
+  assert.deepEqual(clickAction(command, block, plain, reads()), { type: 'pane', place: block });
+  assert.deepEqual(clickAction(command, block, alt, reads()), { type: 'both', place: block });
+  assert.deepEqual(clickAction(command, block, plain, reads({ uses: true })), { type: 'uses' });
+  assert.equal(nameTitle(command, block, reads()), 'Click: definition in pane · Alt-click: definition in both · Right-click: its definitions');
+  assert.equal(nameTitle(command, block, reads({ uses: true })), 'Click or right-click: its definitions · Alt-click: definition in both');
+  assert.equal(clickAction(command, undefined, plain, reads()).type, 'browser', 'a registry half no document prints goes nowhere');
+});

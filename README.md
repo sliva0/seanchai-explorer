@@ -21,7 +21,7 @@ publishers. The site holds no Python and reads only what `seanchai export` write
 |---|---|
 | Click | its definition in the source pane alone, which opens if it was switched off; with the control in the document's strip on, where it is used |
 | Alt-click | its definition in the text and the pane |
-| Right-click, the menu key | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden |
+| Right-click, the menu key | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is and where else it is printed, each place offering the same two |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
 A definition is the row of the first AVP table listing the name, or the clause its link
@@ -31,6 +31,16 @@ the place (a public build's PDFs, a document in no format it reads, a narrow win
 click does what an alt-click does, and the popup offers only `Jump to`. A value's name
 goes to its row the same way, and a `; Section:` or `; Page:` link to its clause, or with
 no pane to the publisher's copy in a new tab.
+
+A command is a name too: its name and abbreviation in its `; Type: Message` block, a
+Command Codes registry row's two halves, and a per-command column of an AVP table, as TS
+32.299's ACR to CCA, where the document defines a command of that abbreviation. Its
+definition is its block, a registry half's the block of its code in the document the row
+cites. It has no Details: a command's block stands in the clause that describes it, and
+a procedure clause using it elsewhere is told by no name the corpus records. Its popup says what its header does, the application and where the id
+comes from when the header prints none, and offers the other half, its tables, its
+registry row, every other document printing it by code, application and half, and apart
+from them those printing its name for another command.
 
 ## Keyboard
 
@@ -121,6 +131,12 @@ npm test
 
 `--any-schema` lets through an export of another schema version, which `npm run build`
 refuses until the types are regenerated.
+
+Prepare also writes `public/data/commands.json`, which `src/commands.ts` derives from the
+export's documents: every command block and Command Codes registry row, about 130 kB,
+which a command's popup needs from documents not loaded and which `search.json` holds
+only inside 8 MB the document pages never fetch. It comes with the first document, and a
+build without it leaves a popup with what the open document says.
 
 ## Interface names
 

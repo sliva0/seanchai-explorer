@@ -35,3 +35,16 @@ test('prepare uses the export\'s grammar, the fallback when it has none, and lea
     await rm(exported, { recursive: true, force: true });
   }
 });
+
+test('prepare derives the command index from the export\'s documents, beside them', async () => {
+  const exported = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
+  prepare(exported);
+  const index = JSON.parse(await readFile(path.join(root, 'public/data/commands.json'), 'utf8'));
+  const search = JSON.parse(await readFile(path.join(exported, 'search.json'), 'utf8'));
+  assert.equal(index.schema_version, search.schema_version);
+  assert.equal(index.commands.length, search.entries.filter(entry => entry.kind === 'command').length);
+  assert.deepEqual(index.commands.find(command => command.document === '29061-6f0' && command.name === 'AA-Answer'), {
+    document: '29061-6f0', name: 'AA-Answer', abbreviation: 'AAA', section: '17.6.2', page: 83, line: 43, code: 265, flags: ['PXY'],
+    header: null, application: 16777223, scope: { name: 'Gmb', section: '17' },
+  });
+});

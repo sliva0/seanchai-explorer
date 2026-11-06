@@ -7,7 +7,7 @@ import type { DocumentSummary } from './types.ts';
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
 const MAX_INTERFACES_WIDTH = 24;
 
-const FOOTER_HELP = 'Click an AVP name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where it is used.';
+const FOOTER_HELP = 'Click an AVP or command name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where an AVP is used or where else a command is printed.';
 
 function byName(a: DocumentSummary, b: DocumentSummary) {
   return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
