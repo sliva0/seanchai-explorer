@@ -4,7 +4,8 @@ import type { CommandIndex } from './commands.ts';
 import { routeFor } from './navigation.ts';
 import type { SourcePosition } from './navigation.ts';
 import type { Document, Line, Target } from './types.ts';
-import type { ValueToken } from './values.ts';
+import { lineText } from './values.ts';
+import type { ValueRow, ValueToken } from './values.ts';
 
 /**
  * Somewhere a token can send the two panels. `position` is where the source pane goes in this document;
@@ -34,11 +35,23 @@ function describedAt(line: Line, name: ValueToken, document: string): { cell?: V
 /**
  * Marks the tokens of AVP table rows with their Details: the row in the clause describing the AVP, or the clause
  * itself where it has no such table. A row whose table stands in that clause has only its Definition, its own `source`.
+ * A `Reused AVPs` block with no `; Table:` is the origin a clause's prose states: there is no row to find, and its
+ * row's place and Details are that clause.
  */
 export function markDetails(lines: Line[], doc: Pick<Document, 'id' | 'sections'>) {
+  let stated = false;
   for (const line of lines) {
+    const text = lineText(line);
+    if (text.startsWith('; Type:')) stated = text === '; Type: Reused AVPs';
+    else if (text.startsWith('; Table:')) stated = false;
     const name: ValueToken | undefined = line.tokens.find(token => token.avp && token.source?.row);
     if (!name) continue;
+    if (stated) {
+      const clause: SourcePosition = { section: name.source!.section, page: name.source!.page };
+      name.source = clause;
+      name.details = clause;
+      continue;
+    }
     const { cell, place } = describedAt(line, name, doc.id);
     if (!place?.section || place.document !== doc.id || place.section === name.source!.section) continue;
     const page = doc.sections.find(section => section.section === place.section)?.page ?? null;
@@ -53,15 +66,18 @@ interface FileIndex { rows: Map<string, Row[]>; anchors: Set<string> }
 
 const indexes = new WeakMap<Line[], FileIndex>();
 
-/** A file's AVP table rows by name, and the clauses it has a line for. Read once, since a pointer passing over a name asks again. */
+/**
+ * A file's AVP table rows by name, a clause's stated origins among them, and the clauses it has a line for.
+ * Read once, since a pointer passing over a name asks again.
+ */
 function fileIndex(lines: Line[]): FileIndex {
   let index = indexes.get(lines);
   if (index) return index;
   index = { rows: new Map(), anchors: new Set() };
   for (const [line, { tokens, anchor }] of lines.entries()) {
     if (anchor) index.anchors.add(anchor);
-    for (const token of tokens) {
-      if (!token.avp || !token.source?.row) continue;
+    for (const token of tokens as ValueToken[]) {
+      if (!token.avp || !(token.source?.row || token.details)) continue;
       const rows = index.rows.get(token.avp);
       if (rows) rows.push({ token, line });
       else index.rows.set(token.avp, [{ token, line }]);
@@ -100,12 +116,21 @@ function nameOrder(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, 
   return [prefer, other(prefer)].flatMap(of => places[of] ? [{ ...places[of], of }] : []);
 }
 
+/** Where a result code's origin lists it: its row in the clause its `from` links to, in the pane as in the view. */
+export function originPlace(row: ValueRow): Place | undefined {
+  const target = row.origin?.target;
+  if (!target?.section) return undefined;
+  return { document: target.document, position: { section: target.section, page: null, name: row.name, row: true, value: row.value, titled: true }, target: { ...target, name: row.name } };
+}
+
 /**
  * Where a click on a token goes: a name to the place chosen for it, its Details or its Definition, else to the other;
- * a value's name to its row, a command's to its block, any other link to its Details or its own place.
+ * a value's name to its row, its origin to the row there, a command's to its block, any other link to its Details
+ * or its own place.
  */
 export function tokenPlace(token: ValueToken, lines: Line[], doc: Pick<Document, 'id'>, section: string | undefined, prefer: ClickTarget = 'details', commands?: CommandIndex): Place | undefined {
   if (token.valueRow) return { document: doc.id, position: token.source!, target: { ...token.target!, name: token.valueRow.name } };
+  if (token.originOf) return originPlace(token.originOf);
   if (token.command) return nameOrder(token, lines, doc, prefer, commands)[0];
   if (token.avp) {
     return nameOrder(token, lines, doc, prefer)[0] ?? (section ? { document: doc.id, position: { section, page: null, name: token.avp, exact: true, occurrence: true } } : undefined);

@@ -3,7 +3,7 @@ import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
 import { interfacesOf } from './interfaces.ts';
 import { routeFor } from './navigation.ts';
-import { filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
+import { definitions, filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
 import type { DocumentSummary, SearchEntry, Target } from './types.ts';
@@ -80,7 +80,8 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
   const panel = element('article', undefined, isApproximate(group) ? 'search-entry approximate' : 'search-entry');
   const line = element('div', undefined, 'entry-line');
   // Where the documents using it find it is said once; a document says so only where it differs.
-  const usual = usualDefinition(entries);
+  const defined = definitions(entries, id => site.summary(id), site.index.documents);
+  const usual = usualDefinition(entries, defined);
   const title = element('strong');
   const nameLink = link('', usual ?? entryTarget(entries[0]));
   nameLink.append(...mark(group.name));
@@ -111,12 +112,14 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
     const doc = site.summary(entry.document);
     const label = doc ? docInFamily(site.label(doc), doc) : entry.document;
     const { target } = entry;
-    const own = target?.document === entry.document;
+    // A value another document defines has its row here, and its definition there.
+    const definition = defined.get(entry);
+    const own = definition?.document === entry.document;
     const detail: (string | HTMLElement)[][] = facts.differing(entry).map(fact => [fact]);
     if (entry.name !== group.name) detail.unshift(['as ', ...mark(entry.name)]);
     // Twice in one document, only its clause tells which.
     if (target?.section && entry.kind !== 'value' && perDocument.get(entry.document)! > 1) detail.push([target.section]);
-    if (usual && own && target.document !== usual.document) detail.push(['defines it']);
+    if (usual && own && definition.document !== usual.document) detail.push(['defines it']);
     if (entry.across_releases) {
       // Which edition stands in for a citation is the point here, so its version stays.
       const crossing = entry.across_releases;
@@ -127,7 +130,7 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
     const anchor = link(entry.kind === 'value' && target ? `${label} · ${target.section}` : label, entryTarget(entry));
     anchor.title = [identityLabel(entry), entry.data_type, target?.section && `${labelOf(target.document)} ${target.section}`].filter(Boolean).join(' · ');
     item.append(withDetail(anchor, detail));
-    if (target && !own && target.document !== usual?.document) item.append(' → ', link(labelOf(target.document), target));
+    if (definition && !own && definition.document !== usual?.document) item.append(' → ', link(labelOf(definition.document), definition));
     return { doc, node: item };
   })));
   return panel;

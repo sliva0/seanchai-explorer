@@ -43,3 +43,12 @@ test('an AVP\'s tables: its value tables and its Enumerated AVP block, in file o
   assert.deepEqual(avpTables(await fresh('rfc7944'), 'DRMP'), [{ name: 'DRMP', section: '9.1', page: 12, line: 13 }]);
   assert.deepEqual(avpTables(lines, 'Congestion-Location-Id'), []);
 });
+
+test('a note the export reads as a comment, as the * [ AVP ] wildcard\'s, leaves the table going on', () => {
+  const lines = file(...head, '; Type: AVP Table', '; Section: 7.1', '; Columns: Name Code Type Must', 'A 258 Unsigned32 M');
+  lines.push({ tokens: [{ text: ';; AVP * - Grouped - ; the * [ AVP ] wildcard', kind: 'comment' }, { text: '\n' }] });
+  lines.push({ tokens: [{ text: ";; deleted: AVP table row 'X' (a.py#b)", kind: 'correction-note', correction: 'a.py#b' }, { text: '\n' }] });
+  lines.push(...file('B 30 UTF8String M', '', 'C 31 UTF8String M'));
+  assert.deepEqual(avpIdentities([{ lines, name: 'B' }]), [{ code: 30, type: 'UTF8String' }]);
+  assert.deepEqual(avpIdentities([{ lines, name: 'C' }]), [], 'a blank line still ends it');
+});

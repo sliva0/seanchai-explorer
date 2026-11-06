@@ -7,6 +7,8 @@ export interface ValueRow {
   value: number;
   /** A feature's M or O. */
   mark: string | null;
+  /** The document a result code's row says defines it, and the clause listing the code there. */
+  origin: { reference: string; target: Target | null } | null;
   /** Index into the lines. */
   line: number;
   target: Target | null;
@@ -28,14 +30,20 @@ export interface ValueTable {
 }
 
 /**
- * A token of a value table's row: `valueRow` on its name, and what a row's clause links to says the row too.
- * `details` is on an AVP table row's name and Section cell, where the clause describing the AVP is another than the table's.
+ * A token of a value table's row: `valueRow` on its name, `originOf` on its `from` document, and what a row's clause
+ * links to says the row too.
+ * `details` is on an AVP table row's name and Section cell, where the clause describing the AVP is another than the table's,
+ * and on the name of a row a clause's prose states.
  * `command` is on a command's name or abbreviation, and on a table's column for it.
  */
-export interface ValueToken extends Token { valueRow?: ValueRow; details?: SourcePosition; command?: CommandRef }
+export interface ValueToken extends Token { valueRow?: ValueRow; originOf?: ValueRow; details?: SourcePosition; command?: CommandRef }
 
 export const lineText = (line: Line) => line.tokens.filter(token => !token.correction && token.kind !== 'comment').map(token => token.text).join('').trimEnd();
 const rowText = /^("?)(.+?)\1\s*=\s*(\d+)\s*(?:;\s*([^;]*?))?\s*(?:;;.*)?$/;
+// A row's tail: a clause or a mark, then a result code's `from` document.
+const tailText = /^(.*?)(?:(?:^|\s+)from (\S+))?$/;
+/** A line of whitespace alone: a `;;` note or a corrected-away row reads as nothing, and is no blank line. */
+export const blankLine = (line: Line) => line.tokens.every(token => !token.text.trim());
 const header = /^; ([\w-]+): (.*)$/;
 
 function readTables(lines: Line[]): ValueTable[] {
@@ -65,7 +73,7 @@ function readTables(lines: Line[]): ValueTable[] {
     const row = text.match(rowText);
     if (!row) {
       // A blank line ends the block, a `;;` comment or a corrected-away row stays inside it.
-      if (inBody && !text) table = undefined;
+      if (inBody && blankLine(line)) table = undefined;
       return;
     }
     inBody = true;
@@ -74,8 +82,14 @@ function readTables(lines: Line[]): ValueTable[] {
     const value = Number(row[3]);
     const position: SourcePosition = { section: clause?.source?.section ?? table.section, page: clause?.source?.page ?? table.page, name, row: true, value, ...(table.kind === 'result-codes' ? { titled: true } : {}) };
     const nameToken = line.tokens.find(token => token.target && !token.avp) as ValueToken | undefined;
-    const current: ValueRow = { name, value, mark: row[4] && !clause ? row[4] : null, line: index, target: nameToken?.target ?? null, position, table };
+    const [, rest, reference] = (row[4] ?? '').match(tailText)!;
+    const originToken = reference ? line.tokens.find(token => token !== nameToken && token.target && token.text === reference) as ValueToken | undefined : undefined;
+    // A link out of the file lands on the row there, as a link to the row here does.
+    if (originToken) originToken.target = { ...originToken.target!, name };
+    const origin = reference ? { reference, target: originToken?.target ?? null } : null;
+    const current: ValueRow = { name, value, mark: rest && !clause ? rest : null, origin, line: index, target: nameToken?.target ?? null, position, table };
     table.rows.push(current);
+    if (originToken) originToken.originOf = current;
     if (clause) clause.source = position;
     if (nameToken) {
       nameToken.valueRow = current;

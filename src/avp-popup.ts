@@ -1,6 +1,6 @@
 import { avpIdentities, avpTables } from './avp-facts.ts';
 import type { AvpIdentity } from './avp-facts.ts';
-import { namePlaces, placeRoute } from './avp-places.ts';
+import { namePlaces, originPlace, placeRoute } from './avp-places.ts';
 import { allCommands, blockPlace, commandOf, definitionsOf, partnerOf, registryRows, rowPlace, tablePlace, tablesOf } from './command-places.ts';
 import type { Command } from './command-places.ts';
 import { commandKey, isRequest } from './commands.ts';
@@ -94,7 +94,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const row = element('div', undefined, `popup-place ${className}`);
     row.append(element('span', `${label}:`));
     const inPane = pane.shows(summary);
-    const href = !inPane && place.position ? sourceHref(doc, place.position, site.mode) : null;
+    const href = !inPane && place.position ? sourceHref(summary, place.position, site.mode) : null;
     const whereNode = href ? externalLink(where, href.href) : element('span', where);
     whereNode.classList.add('place-where');
     row.append(whereNode);
@@ -138,8 +138,18 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     return { identities, tables: tables.filter(row => row !== undefined) };
   }
 
-  /** A value table's name: what its number is of, and the table around it, whose rows go to the source too. */
-  function showValue(row: ValueRow, { doc, opener, documentPane, recordJump, jumpTo }: PopupRequest) {
+  /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
+  function originLabel({ origin }: ValueRow): string {
+    const summary = origin?.target && site.summary(origin.target.document);
+    return summary ? site.label(summary) : origin?.reference ?? '';
+  }
+
+  /**
+   * A value table's name: what its number is of, the document defining a result code another document defines, and
+   * the table around it, whose rows go to the source too.
+   */
+  function showValue(row: ValueRow, request: PopupRequest) {
+    const { doc, opener, documentPane, recordJump, jumpTo } = request;
     const inPane = pane.shows(doc);
     const { panel, closeButton } = open(row.name, opener);
     panel.dataset.value = row.name;
@@ -168,6 +178,15 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       else source.append(where);
     }
     panel.append(source);
+    if (row.origin) {
+      const origin = originPlace(row);
+      const found = origin && placeRow('Defined in', 'place-origin', origin, request, [originLabel(row), origin.target!.section].join(' · '));
+      if (found) {
+        const places = element('div', undefined, 'popup-places');
+        places.append(found);
+        panel.append(places);
+      } else panel.append(element('p', `Defined in ${row.origin.reference}`, 'value-origin'));
+    }
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span');
     count.style.minWidth = `${`Row ${table.rows.length}/${table.rows.length}`.length}ch`;
@@ -198,7 +217,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
     table.rows.forEach((item, index) => {
-      const button = element('button', `${item.value} · ${item.name}${item.mark ? ` · ${item.mark}` : ''}`, 'usage-link');
+      const button = element('button', [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(item)}`].filter(Boolean).join(' · '), 'usage-link');
       button.onclick = () => select(index);
       buttons.push(button);
       list.append(button);

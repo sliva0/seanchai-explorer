@@ -1,5 +1,5 @@
 import type { Line } from './types.ts';
-import { lineText } from './values.ts';
+import { blankLine, lineText } from './values.ts';
 import type { ValueToken } from './values.ts';
 
 /** A `; Type: Message` block: a command as its file prints it. `line` is its `; Type:` line. */
@@ -147,7 +147,7 @@ function readCommands(lines: Line[]): CommandFacts {
     }
     if (!block) return;
     if (!text.trim()) {
-      if (block.body) { finish(); block = undefined; }
+      if (block.body && blankLine(line)) { finish(); block = undefined; }
       return;
     }
     if (field && !block.body) {

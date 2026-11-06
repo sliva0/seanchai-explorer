@@ -3,7 +3,7 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const documents = ['29061-6f0', '29109-j00', '29153-j00', '29217-j00', 'rfc7944'];
+const documents = ['29061-6f0', '29109-j00', '29153-j00', '29217-j00', '29283-j00', '29329-j10', 'rfc7944'];
 const from = path.resolve(process.argv[2] ?? 'public/data');
 const to = fileURLToPath(new URL('../tests/fixtures/export/', import.meta.url));
 const read = async file => JSON.parse(await readFile(path.join(from, file), 'utf8'));

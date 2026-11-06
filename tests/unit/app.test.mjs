@@ -1699,3 +1699,73 @@ test('a build with no command index still gives a command its block and partner,
     assert.equal(page.fetched.filter(path => path === 'data/commands.json').length, 1);
   } finally { await page.close(); }
 });
+
+test('self-hosted: a result code\'s origin goes to its row there, the pane alone on a click and both on alt', async () => {
+  const page = await boot({ hash: '#29283-j00', mode: 'self-hosted' });
+  try {
+    const { document, window } = page;
+    const name = rowOf(document, 'DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED');
+    const origin = [...name.closest('.dad-line').querySelectorAll('a')].find(node => node.textContent === 'TS29.329');
+    assert.equal(origin.getAttribute('href'), '#29329-j10/6.2.2.1?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED');
+    assert.match(origin.className, /spec-ref/);
+    const before = window.location.hash;
+    click(page, origin);
+    await settle();
+    assert.equal(window.location.hash.split('?')[0], before.split('?')[0], 'the text stays where it is');
+    const pane = new URL(frameSrc(document));
+    assert.match(pane.searchParams.get('file'), /29329-j10\.pdf$/);
+    const params = new URLSearchParams(pane.hash.slice(1));
+    assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'titled', 'value', 'page'].map(key => [key, params.get(key)])), { search: '6.2.2.1', name: 'DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED', row: '1', titled: '1', value: '5100', page: '16' });
+    click(page, origin, { altKey: true });
+    await settle();
+    assert.ok(window.location.hash.startsWith('#29329-j10/6.2.2.1?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED&source=29329-j10&'));
+    assert.ok(document.querySelector('.target-line').textContent.startsWith('DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED'), 'the view on its row there');
+  } finally { await page.close(); }
+});
+
+test('a value\'s popup says the document defining it, both ways to its row there, or only its name where the corpus lacks it', async () => {
+  const page = await boot({ hash: '#29283-j00', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    rightClick(page, rowOf(document, 'DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED'));
+    await settle();
+    let popup = document.querySelector('.avp-popup');
+    const origin = popup.querySelector('.place-origin');
+    assert.equal(origin.querySelector('span').textContent, 'Defined in:');
+    assert.equal(origin.querySelector('.place-where').textContent, 'TS 29.329 · 6.2.2.1');
+    assert.match(origin.querySelector('a.view-action').getAttribute('href'), /^#29329-j10\/6\.2\.2\.1\?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED&source=29329-j10&sourceSection=6\.2\.2\.1&/);
+    assert.ok(origin.querySelector('.pane-action'));
+    assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '5100 · DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED · from TS 29.329');
+    origin.querySelector('.pane-action').click();
+    await settle();
+    assert.match(new URL(frameSrc(document)).searchParams.get('file'), /29329-j10\.pdf$/);
+    rightClick(page, rowOf(document, 'DIAMETER_ERROR_USER_UNKNOWN'));
+    await settle();
+    popup = document.querySelector('.avp-popup');
+    assert.equal(popup.querySelector('.place-origin'), null);
+    assert.equal(popup.querySelector('.value-origin').textContent, 'Defined in TS29.229');
+    assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '5001 · DIAMETER_ERROR_USER_UNKNOWN · from TS29.229');
+  } finally { await page.close(); }
+});
+
+test('self-hosted: a row of a clause\'s stated origin is no row to find: its use goes to the clause, as its name\'s Details do', async () => {
+  const page = await boot({ hash: '#29329-j10', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+    const line = [...document.querySelectorAll('.dad-line[data-section="6.3.9"]')].find(node => node.querySelector('[data-avp="Server-Name"]'));
+    const name = line.querySelector('[data-avp="Server-Name"]');
+    click(page, name);
+    await settle();
+    assert.deepEqual(Object.fromEntries(['search', 'page'].map(key => [key, pane().get(key)])), { search: '6.3.9', page: '21' }, 'the clause its table row points to');
+    rightClick(page, name);
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.equal(popup.querySelector('.place-details .place-where').textContent, '6.3.9');
+    popup.querySelector('.usage-link[aria-current]').click();
+    await settle();
+    assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'exact', 'page'].map(key => [key, pane().get(key)])), { search: '6.3.9', name: 'Server-Name', row: null, exact: '1', page: '21' }, 'the name in the clause\'s prose');
+    const section = [...document.querySelectorAll('#diagnostic-sections li')].find(item => item.dataset.section === '6.3.9');
+    assert.match(section.textContent, /Reused AVPs Server-Name/);
+  } finally { await page.close(); }
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fallbackPlace, markDetails, namePlaces, placeRoute, tokenPlace } from '../../src/avp-places.ts';
+import { fallbackPlace, markDetails, namePlaces, originPlace, placeRoute, tokenPlace } from '../../src/avp-places.ts';
 import { resolveClickTarget } from '../../src/click-target.ts';
 import { correctedRow, printedRow } from '../../src/printed-row.ts';
 
@@ -162,4 +162,40 @@ test('Details of a renamed row keep the spelling its table\'s raw row holds', ()
   assert.equal(correctedRow(corrected, position), true);
   assert.equal(printedRow(corrected, raw, position), 'Bad-Name');
   assert.equal(correctedRow(corrected, { section: '16.4.7', name: 'A' }), false);
+});
+
+test('a Reused AVPs block with no table is a clause\'s prose: its row goes to the clause, which is the name\'s Details', () => {
+  const header = (...texts) => texts.map(text => ({ section: '6.3.9', tokens: [{ text: `${text}\n` }] }));
+  const origin = { document: '29229', section: '6.3.3' };
+  const stated = () => ({ section: '6.3.9', tokens: [name('Server-Name', '6.3.9', origin), { text: '  ' }, { text: 'TS29.229', target: { ...origin, name: 'Server-Name' } }] });
+  const lines = [
+    { anchor: '6.3.9', section: '6.3.9', tokens: [{ text: '; Type: Reused AVPs\n' }] }, ...header('; Section: 6.3.9', '; Page: 21', '; Columns: Name From'), stated(),
+    ...header('', '', '; Type: Reused AVPs', '; Section: 6.3', '; Table: 6.3/2', '; Columns: Name From'), stated(),
+    { section: '6.4', tokens: [{ text: 'Server-Name', avp: 'Server-Name', target: origin }] },
+  ];
+  markDetails(lines, doc);
+  const clause = { section: '6.3.9', page: 129 };
+  const [row] = lines[4].tokens;
+  assert.deepEqual(row.source, clause, 'no row to look for');
+  assert.deepEqual(row.details, clause);
+  assert.deepEqual(lines[11].tokens[0].source, { section: '6.3.9', page: 129, name: 'Server-Name', row: true }, 'a table\'s row stays a row');
+  assert.equal(lines[11].tokens[0].details, undefined);
+  const expected = {
+    definition: { document: '29229', target: { ...origin, name: 'Server-Name' } },
+    details: { document: 'd', position: clause, target: { document: 'd', section: '6.3.9', name: 'Server-Name' } },
+  };
+  assert.deepEqual(namePlaces(lines[12].tokens[0], lines, doc), expected, 'a use elsewhere');
+  assert.deepEqual(namePlaces(row, lines, doc), expected, 'its row');
+  markDetails(lines, doc);
+  assert.deepEqual(row.source, clause, 'marked once');
+});
+
+test('a result code\'s origin goes to its row in the document defining it, the pane at the row and the view on it', () => {
+  const target = { document: '29229', section: '6.2.2.1', name: 'DIAMETER_ERROR_USER_UNKNOWN' };
+  const row = { name: 'DIAMETER_ERROR_USER_UNKNOWN', value: 5001, origin: { reference: 'TS29.229', target } };
+  const place = { document: '29229', position: { section: '6.2.2.1', page: null, name: row.name, row: true, value: 5001, titled: true }, target };
+  assert.deepEqual(originPlace(row), place);
+  assert.deepEqual(tokenPlace({ text: 'TS29.229', target, originOf: row }, [], doc, '7.4'), place);
+  assert.equal(originPlace({ ...row, origin: { reference: 'TS99.999', target: null } }), undefined);
+  assert.match(placeRoute(place, doc, true), /^#29229\/6\.2\.2\.1\?name=DIAMETER_ERROR_USER_UNKNOWN&source=29229&sourceSection=6\.2\.2\.1&sourceName=DIAMETER_ERROR_USER_UNKNOWN&row=1&titled=1&value=5001$/, 'another document\'s text is never raw');
 });

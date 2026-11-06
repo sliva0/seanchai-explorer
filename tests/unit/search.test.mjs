@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { ALL_WORDS, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, interfaceSpans, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
+import { ALL_WORDS, definitions, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, interfaceSpans, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
 import { boot, readFixture } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -640,5 +640,39 @@ test('where documents using a name find it is said once, and at a document only 
     assert.deepEqual(lines('Zzthree'), [['TS 29.001', 'TS 29.002'], ['RFC 9001 (defines it)']]);
     assert.deepEqual(lines('Zztwice'), [['RFC 9001 (4)', 'RFC 9001 (7)']]);
     assert.equal(entry('Zztwice').querySelector('.entry-facts').textContent, '· 0:1 · Unsigned32', 'all define their own');
+  } finally { await page.close(); }
+});
+
+test('a value another document defines is defined there, at its row of that document\'s release, and one defining its own says so', async () => {
+  const documents = [
+    summaryOf('use-19', '3GPP', 'TS29.001', 19), summaryOf('use-11', '3GPP', 'TS29.001', 11), summaryOf('def-19', '3GPP', 'TS29.229', 19), summaryOf('def-11', '3GPP', 'TS29.229', 11),
+    summaryOf('own', '3GPP', 'TS29.272', 19),
+  ];
+  const value = (name, document, section, defined_in) => ({ name, kind: 'value', document, identity: { kind: 'value', value_kind: 'result-codes', avp: 'Experimental-Result-Code', value: 5001, feature_list_id: null, application: null }, wireshark_name: null, abbreviation: null, data_type: null, across_releases: null, defined_in, target: { document, section } });
+  const entries = [
+    value('ZZ_ERROR_USER_UNKNOWN', 'use-19', '7.4.3.2', ['TS29.229']), value('ZZ_ERROR_USER_UNKNOWN', 'use-11', '7.4.3.2', ['TS29.229']),
+    value('ZZ_ERROR_USER_UNKNOWN', 'def-19', '6.2.2.1', ['TS29.229']), value('ZZ_ERROR_USER_UNKNOWN', 'def-11', '6.2.2.9', ['TS29.229']),
+    value('ZZ_ERROR_USER_UNKNOWN', 'own', '7.4.3.1', ['TS29.272']),
+    value('ZZ_ERROR_RENAMED', 'use-19', '7.4.3.9', ['TS29.229']),
+  ];
+  const summary = id => documents.find(doc => doc.id === id);
+  // One name's entries, as a group holds them.
+  const defined = new Map([...definitions(entries.slice(0, 5), summary, documents), ...definitions(entries.slice(5), summary, documents)]);
+  assert.deepEqual(defined.get(entries[0]), { document: 'def-19', section: '6.2.2.1', name: 'ZZ_ERROR_USER_UNKNOWN' });
+  assert.deepEqual(defined.get(entries[1]), { document: 'def-11', section: '6.2.2.9', name: 'ZZ_ERROR_USER_UNKNOWN' }, 'its own release\'s');
+  assert.equal(defined.get(entries[2]), entries[2].target);
+  assert.equal(defined.get(entries[4]), entries[4].target);
+  assert.deepEqual(defined.get(entries[5]), { document: 'def-19', section: null }, 'an origin listing it under another name is its newest edition');
+  const page = await boot({ hash: '#search?q=ZZ_ERROR', transform: withCorpus(documents, entries) });
+  try {
+    const { document } = page;
+    const entry = name => [...document.querySelectorAll('.search-result-codes .search-entry')].find(node => node.querySelector('strong').textContent === name);
+    const facts = entry('ZZ_ERROR_USER_UNKNOWN').querySelector('.entry-facts');
+    assert.equal(facts.textContent, "· Result code 5001 of Experimental-Result-Code · defined in TS29.229");
+    assert.equal(facts.querySelector('a').getAttribute('href'), '#def-19/6.2.2.1?name=ZZ_ERROR_USER_UNKNOWN');
+    const lines = [...entry('ZZ_ERROR_USER_UNKNOWN').querySelectorAll('.entry-document')].map(line => line.textContent);
+    assert.deepEqual(lines, [
+      'TS29.001 · 7.4.3.2', 'TS29.001 Rel-11 · 7.4.3.2 → TS29.229 Rel-11', 'TS29.229 · 6.2.2.1', 'TS29.229 Rel-11 · 6.2.2.9 (defines it)', 'TS29.272 · 7.4.3.1 (defines it)',
+    ], 'a re-use says where it differs from the usual origin, as an AVP\'s does');
   } finally { await page.close(); }
 });

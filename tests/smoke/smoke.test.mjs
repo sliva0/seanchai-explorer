@@ -84,6 +84,44 @@ test('public, desktop: a value row: search groups it, its link marks the row, it
   await done();
 });
 
+test('public, desktop: a result code another document defines links to its row there, and its popup and search say so', { skip }, async () => {
+  const { page, done } = await open('#29283-j00');
+  const line = page.locator('.dad-line', { hasText: /^DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED\s+= 5100 ; 7\.4\.3\.3\s+from TS29\.329/ });
+  const origin = line.locator('a', { hasText: 'TS29.329' });
+  assert.equal(await origin.getAttribute('href'), '#29329-j10/6.2.2.1?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED');
+  const looks = await line.evaluate(node => {
+    const from = [...node.querySelectorAll('span')].find(span => span.textContent === 'from');
+    const link = [...node.querySelectorAll('a')].find(anchor => anchor.textContent === 'TS29.329');
+    return { from: from && getComputedStyle(from).fontWeight, linked: link.className };
+  });
+  assert.equal(looks.from, '700', 'the grammar\'s keyword');
+  assert.match(looks.linked, /spec-ref/, 'and its reference');
+  await line.locator('.value-name').click({ button: 'right' });
+  const row = page.locator('.avp-popup .place-origin');
+  assert.equal(await row.locator('.place-where').textContent(), 'TS 29.329 · 6.2.2.1');
+  assert.equal(await row.locator('.pane-action').count(), 0, 'a PDF\'s pane is a placeholder, so only the text\'s way');
+  const box = await page.locator('.avp-popup').evaluate(popup => ({ width: popup.getBoundingClientRect().width, scrolls: popup.scrollHeight > popup.clientHeight }));
+  assert.ok(box.width <= 80 * 8 && !box.scrolls, JSON.stringify(box));
+  await page.keyboard.press('Escape');
+  await origin.click();
+  await page.waitForSelector('.target-line');
+  assert.match(await page.locator('.target-line').textContent(), /^DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED\s+= 5100 ; 6\.2\.2\.1/);
+  await page.goto(`${base}#search?q=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED`);
+  const facts = page.locator('.search-result-codes .entry-facts').first();
+  await facts.waitFor();
+  assert.match(await facts.textContent(), /· defined in TS 29\.329$/);
+  assert.equal(await facts.locator('a').getAttribute('href'), '#29329-j10/6.2.2.1?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED');
+  await done();
+});
+
+test('public, desktop: a clause\'s stated origin is a block of its own, its row the clause\'s, and the wildcard\'s note no row', { skip }, async () => {
+  const { page, done } = await open('#29329-j10/6.3.9');
+  const lines = await page.locator('.dad-line[data-section="6.3.9"]').evaluateAll(nodes => nodes.map(node => [node.textContent.trimEnd(), node.classList.contains('table-row')]));
+  assert.deepEqual(lines.slice(0, 5), [['; Type: Reused AVPs', false], ['; Section: 6.3.9', false], ['; Page: 21', false], ['; Columns: Name   From', false], ['Server-Name       TS29.229', true]]);
+  assert.match(await page.locator('.section-crumb').textContent(), /^6\.3\.9 · Reused AVPs Server-Name$/);
+  await done();
+});
+
 test('after a reload the uses control is off, only a right-click lists a name, and alt goes to its definition', { skip }, async () => {
   const { page, done } = await open('#29061-6f0');
   const control = page.locator('.uses-toggle input');

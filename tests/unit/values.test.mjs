@@ -61,6 +61,54 @@ test('a row\'s comment stays inside the table; a blank line and the next block e
   assert.deepEqual(table.rows.map(row => [row.name, row.value]), [['One', 0], ['Two words', 1]]);
 });
 
+test('a result code another document defines: its clause, its origin linking to the row there, and no mark', async () => {
+  const { lines } = await fresh('29283-j00');
+  const rows = valueTables(lines).flatMap(table => table.rows);
+  const row = rows.find(row => row.name === 'DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED');
+  assert.equal(row.mark, null);
+  assert.equal(row.position.section, '7.4.3.3');
+  assert.deepEqual(row.origin, { reference: 'TS29.329', target: { document: '29329-j10', section: '6.2.2.1', name: row.name } });
+  const origin = lines[row.line].tokens.find(token => token.text === 'TS29.329');
+  assert.equal(origin.originOf, row);
+  assert.equal(origin.target, row.origin.target, 'the link names the row');
+  assert.equal(lines[row.line].tokens.find(token => token.valueRow), lines[row.line].tokens[0], 'the name stays the row\'s');
+  const own = valueTables((await fresh('29329-j10')).lines).flatMap(table => table.rows);
+  assert.equal(own.find(row => row.name === 'DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED').origin, null);
+  assert.equal(own.find(row => row.name === 'DIAMETER_ERROR_TOO_MUCH_DATA').origin.reference, 'TS29.229');
+});
+
+test('an origin with no clause is no mark, nor one whose document the export cannot link', () => {
+  const line = text => ({ section: '7', tokens: [{ text: `${text}\n` }] });
+  const name = (text, ...rest) => ({ section: '7', tokens: [{ text, target: { document: 'd', section: '7' } }, ...rest, { text: '\n' }] });
+  const lines = [
+    line('; Type: Value Table'), line('; AVP: Result-Code'), line('; Kind: result-codes'), line('; Section: 7'),
+    name('DIAMETER_USER_UNKNOWN', { text: ' = 5030 ; from ' }, { text: 'RFC8506', target: { document: 'rfc8506', section: '9.1' } }),
+    name('DIAMETER_ELSEWHERE', { text: ' = 5031 ; ' }, { text: '7.2', source: { section: '7.2', page: 4 } }, { text: '  from TS99.999' }),
+    line(''),
+    line('; Type: Value Table'), line('; AVP: Supported-Features'), line('; Kind: features'), line('; Section: 8'),
+    name('Feature', { text: ' = 0 ; M' }),
+  ];
+  const [codes, features] = valueTables(lines);
+  assert.deepEqual(codes.rows.map(row => [row.mark, row.origin]), [
+    [null, { reference: 'RFC8506', target: { document: 'rfc8506', section: '9.1', name: 'DIAMETER_USER_UNKNOWN' } }],
+    [null, { reference: 'TS99.999', target: null }],
+  ]);
+  assert.deepEqual(codes.rows.map(row => row.position.section), ['7', '7.2'], 'the first one\'s place is the table\'s');
+  assert.deepEqual(features.rows.map(row => [row.mark, row.origin]), [['M', null]]);
+});
+
+test('a note the export reads as a comment, as the * [ AVP ] wildcard\'s, stays inside the table', () => {
+  const line = text => ({ section: '1', tokens: [{ text: `${text}\n` }] });
+  const name = (text, rest) => ({ section: '1', tokens: [{ text, target: { document: 'd', section: '1' } }, { text: `${rest}\n` }] });
+  const lines = [
+    line('; Type: Value Table'), line('; AVP: A'), line('; Kind: bits'), line('; Section: 1'),
+    name('One', ' = 0'), { section: '1', tokens: [{ text: ';; AVP * - - - - Grouped - - - - ; the * [ AVP ] wildcard', kind: 'comment' }, { text: '\n' }] },
+    { section: '1', tokens: [{ text: ";; deleted: row 'X' (a.py#b)", kind: 'correction-note', correction: 'a.py#b' }, { text: '\n' }] },
+    name('Two', ' = 1'),
+  ];
+  assert.deepEqual(valueTables(lines)[0].rows.map(row => row.name), ['One', 'Two']);
+});
+
 test('a corrected row is looked up in the raw mirror as a table row is', () => {
   const lines = (name, correction) => {
     const list = [
@@ -98,4 +146,10 @@ test('the exported grammar colours a row\'s name, number and clause or mark, and
   assert.equal(scopeOf(from, 'RFC6733'), 'entity.name.tag.spec-ref.dad');
   const type = reprint.find(line => line.tokens.map(token => token.text).join('') === '; Type: Reprinted AVP\n');
   assert.equal(scopeOf(type, 'Reprinted AVP'), 'storage.type.section.dad');
+  const origin = (await scoped('29283-j00')).find(line => line.tokens[0].text === 'DIAMETER_ERROR_USER_UNKNOWN');
+  assert.equal(scopeOf(origin, '7.4.3.2'), 'string.unquoted.enum-note.dad');
+  assert.equal(origin.tokens.find(token => token.text === 'from').scope, 'keyword.other.from.dad');
+  const reference = origin.tokens.find(token => token.text === 'TS29.229');
+  assert.equal(reference.scope, 'entity.name.tag.spec-ref.dad');
+  assert.equal(reference.target.document, '29229-j10', 'the origin stays a link of its own');
 });

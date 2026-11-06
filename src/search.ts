@@ -387,11 +387,36 @@ export function groupFacts(entries: SearchEntry[]): GroupFacts {
   };
 }
 
+type Definition = SearchEntry['target'];
+type Referenced = (id: string) => Pick<DocumentSummary, 'reference' | 'release'> | undefined;
+
+/**
+ * Where each entry's name is defined: its target, but a value's in the document its `defined_in` names, whose own
+ * entry for the name is its row there, of the citing document's release where several editions list it. A value
+ * whose origin lists it under no such name has that document's newest edition, with no clause.
+ */
+export function definitions(entries: SearchEntry[], summary: Referenced, documents: Pick<DocumentSummary, 'id' | 'reference' | 'release'>[] = []): Map<SearchEntry, Definition> {
+  const reference = (id: string) => summary(id)?.reference;
+  const defines = (entry: SearchEntry) => entry.defined_in.includes(reference(entry.document) ?? '');
+  return new Map(entries.map(entry => {
+    if (entry.kind !== 'value' || !entry.target || !entry.defined_in.length || defines(entry)) return [entry, entry.target];
+    const origin = entry.defined_in[0];
+    const release = summary(entry.document)?.release;
+    const own = entries.filter(other => other.target && reference(other.document) === origin && defines(other));
+    const found = own.find(other => summary(other.document)?.release === release) ?? own[0];
+    if (found) return [entry, { ...found.target!, name: found.name }];
+    const held = documents.filter(doc => doc.reference === origin).toSorted(newest)[0];
+    return [entry, held ? { document: held.id, section: null } : null];
+  }));
+}
+
 /** Where most of the documents using a name but not defining it find it; none if all define their own. */
-export function usualDefinition(entries: SearchEntry[]): SearchEntry['target'] | undefined {
+export function usualDefinition(entries: SearchEntry[], defined?: Map<SearchEntry, Definition>): Definition | undefined {
   const uses = new Map<string, number>();
-  let usual: SearchEntry['target'] | undefined;
-  for (const { document, target } of entries) {
+  let usual: Definition | undefined;
+  for (const entry of entries) {
+    const { document } = entry;
+    const target = defined ? defined.get(entry) : entry.target;
     if (!target || target.document === document) continue;
     const count = (uses.get(target.document) ?? 0) + 1;
     uses.set(target.document, count);

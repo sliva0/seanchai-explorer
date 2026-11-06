@@ -26,11 +26,15 @@ publishers. The site holds no Python and reads only what `seanchai export` write
 
 A definition is the row of the first AVP table listing the name, or the clause its link
 names where that is another document's or there is no row. Details are the clause that
-row points to, and are left out where it points nowhere else. Where the pane cannot read
+row points to, and are left out where it points nowhere else. A row of a `Reused AVPs`
+block with no `; Table:`, an origin a clause's prose states, is that clause, which is its
+name's Details. Where the pane cannot read
 the place (a public build's PDFs, a document in no format it reads, a narrow window) a
 click does what an alt-click does, and the popup offers only `Jump to`. A value's name
 goes to its row the same way, and a `; Section:` or `; Page:` link to its clause, or with
-no pane to the publisher's copy in a new tab.
+no pane to the publisher's copy in a new tab. A result code's `from` document goes to the
+code's row there, and its popup says the code is defined there; search says where most
+documents listing a code find it, and which define their own.
 
 A command is a name too: its name and abbreviation in its `; Type: Message` block, a
 Command Codes registry row's two halves, and a per-command column of an AVP table, as TS

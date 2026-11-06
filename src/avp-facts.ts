@@ -1,5 +1,5 @@
 import type { DataType, Line } from './types.ts';
-import { lineText, valueTables } from './values.ts';
+import { blankLine, lineText, valueTables } from './values.ts';
 import type { ValueTable } from './values.ts';
 
 /** What a file says an AVP is. A field it does not say is left out. */
@@ -52,7 +52,7 @@ function readFacts(lines: Line[]): Facts {
       return;
     }
     if (!text.trim()) {
-      if (block.body) block = undefined;
+      if (block.body && blankLine(line)) block = undefined;
       return;
     }
     if (field && !block.body) { block.fields.set(field[1], field[2]); return; }

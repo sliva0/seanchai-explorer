@@ -287,21 +287,23 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       void site.loadRaw(doc.id).then(raw => printedRow(doc, raw, position), () => null)
         .then(printed => place(printed ? { ...position, printed } : position));
     },
-    /** Moves the pane alone to a place, switching it on: to a position in `doc`, or to a target's clause in whichever document has it. */
+    /** Moves the pane alone to a place, switching it on: to its position, or to a target's clause, in whichever document has it. */
     async showPlace(place: Place, doc: Document) {
-      if (place.position) {
+      const generation = ++request;
+      const held = place.document === doc.id ? doc : await site.loadDocument(place.document);
+      if (generation !== request) return;
+      const { position } = place;
+      if (position) {
+        const known = held.sections.find(section => section.section === position.section);
         setVisible(true);
-        this.show({ ...doc.sections.find(section => section.section === place.position!.section), ...place.position }, doc, true);
+        this.show({ ...known, ...position, page: position.page ?? known?.page ?? null }, held, true);
         return;
       }
       const target = place.target!;
-      const generation = ++request;
-      const held = await site.loadDocument(target.document);
-      if (generation !== request) return;
-      const position = held.sections.find(section => section.section === target.section) ?? held.sections[0];
-      if (!position) return;
+      const clause = held.sections.find(section => section.section === target.section) ?? held.sections[0];
+      if (!clause) return;
       setVisible(true);
-      this.show({ ...position, name: target.name }, held, true);
+      this.show({ ...clause, name: target.name }, held, true);
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };
