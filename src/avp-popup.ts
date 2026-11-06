@@ -198,7 +198,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const buttons: HTMLButtonElement[] = [];
     let active = table.rows.indexOf(row);
     const nameNode = (index: number) => documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
-    const mark = (index: number) => {
+    // Opening only shows where the row is: the pane moves when a row is chosen, not from under what it was sent to.
+    const mark = (index: number, follow = true) => {
       active = index;
       count.textContent = `Row ${active + 1}/${table.rows.length}`;
       for (const node of documentPane.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
@@ -206,7 +207,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       for (const button of buttons) button.removeAttribute('aria-current');
       buttons[active].setAttribute('aria-current', 'location');
       buttons[active].scrollIntoView?.({ block: 'nearest' });
-      if (pane.readsDocument()) pane.show(table.rows[active].position, doc, true);
+      if (follow && pane.readsDocument()) pane.show(table.rows[active].position, doc, true);
     };
     const select = (index: number) => {
       recordJump();
@@ -227,7 +228,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     rowsTitle.append(...counted('Table', table.rows.length));
     rows.append(rowsTitle, list);
     panel.append(rows);
-    mark(active);
+    mark(active, false);
     place(panel, closeButton, opener);
     buttons[active].scrollIntoView?.({ block: 'nearest' });
   }

@@ -1234,6 +1234,27 @@ test('self-hosted: a value name and its clause drive the pane to the row, and th
   } finally { await page.close(); }
 });
 
+test('self-hosted: opening a value\'s popup leaves the pane where it was, and choosing a row moves it', async () => {
+  const page = await boot({ hash: '#29217-j00', mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1)).get('name');
+    const doc = await readFixture('documents/29217-j00.json');
+    const { valueTables } = await import('../../src/values.ts');
+    const [first, second] = valueTables(doc.lines).find(table => table.kind === 'bits').rows;
+    click(page, rowOf(document, first.name));
+    await settle();
+    assert.equal(pane(), first.name);
+    rightClick(page, rowOf(document, second.name));
+    await settle();
+    assert.equal(document.querySelector('.avp-popup').dataset.value, second.name);
+    assert.equal(pane(), first.name, 'the popup opening moves nothing');
+    document.querySelector('.avp-popup .usage-link[aria-current]').click();
+    await settle();
+    assert.equal(pane(), second.name);
+  } finally { await page.close(); }
+});
+
 test('self-hosted: a link to a row opens the pane there and survives a reload of its route', async () => {
   const page = await boot({ hash: '#29061-6f0/17.8.2?name=DIAMETER_ERROR_SERVICE_AREA', mode: 'self-hosted' });
   try {
