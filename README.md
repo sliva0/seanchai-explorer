@@ -79,26 +79,43 @@ permission. So there are two builds, and the plain one is the safe one:
 
 Self-hosted output is for an organisation's own use behind its own access control.
 
-## Prerequisites
+## Building
 
-Node 24 or newer and npm. An export comes from one of:
+Node 24 or newer with npm, and [uv](https://docs.astral.sh/uv/). Nothing else: the
+build runs the released `seanchai` from PyPI through `uvx`.
 
-- a Seanchaí checkout, used through `uv` with Python 3.14: this repository at
-  `.local/seanchai-explorer` inside it, or anywhere with `SEANCHAI_ROOT` set;
-- a `seanchai` command on `PATH`, under Python 3.12 or newer
-  (`uv pip install "seanchai[corpus]"`). That export is complete except for what
-  needs `seanchai corpus download`: Wireshark's AVP names from
-  `specifications/wireshark`, and the RFC texts from `specifications/rfc`, without
-  which RFCs are fetched from rfc-editor.org in the browser;
-- a directory exported earlier, named by `SEANCHAI_EXPORT`.
+```sh
+npm ci
+npm run build               # the public site, in dist/
+```
+
+A self-hosted site also ships the source documents, which are downloaded once, about
+200 MB, into `specifications/` here:
+
+```sh
+npm ci
+npm run sources             # download the PDFs, RFC texts and Wireshark's dictionary
+npm run build:self-hosted   # the site with its sources, in dist/
+npm run preview             # serve dist/
+```
+
+A public build uses `specifications/` too if it is there, for Wireshark's AVP names in
+search and for the RFC texts, which the browser otherwise fetches from rfc-editor.org.
+
+Which `seanchai` runs is the first of:
+
+1. a Seanchaí checkout, through `uv run`: the one named by `SEANCHAI_ROOT`, or the one
+   this repository is inside at `.local/seanchai-explorer`;
+2. a `seanchai` command on `PATH`, which needs the `extract` extra for `npm run sources`;
+3. the PyPI release, through `uvx`.
 
 ## Environment
 
 | Variable | Meaning |
 |---|---|
-| `SEANCHAI_ROOT` | The Seanchaí checkout to run. Default: `../..` if that is one, otherwise `seanchai` from `PATH`. |
-| `SEANCHAI_SPECIFICATIONS` | A `seanchai corpus download` directory. Default: `specifications/` in the checkout. Optional for a public build, in which `--specifications` and `--wireshark` are passed only if the directories exist. |
-| `SEANCHAI_EXPORT` | A prebuilt export to use instead of running Python. Its mode must match the build's. |
+| `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the release. |
+| `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
+| `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 
 ## Commands
 
@@ -108,6 +125,7 @@ npm run dev:self-hosted     # with the PDFs and viewer
 npm run build               # public build in dist/
 npm run build:self-hosted   # self-hosted build in dist/
 npm run preview             # serve dist/
+npm run sources             # download the source documents for a self-hosted build
 npm run check               # type check
 
 npm test                    # unit tests over tests/fixtures/export; no build, no export
@@ -175,11 +193,9 @@ change an entry:
 `seanchai[corpus]`, exports, builds in public mode, checks no PDF is in `dist/`, and
 publishes with the Pages actions. Pages must be set to deploy from GitHub Actions.
 
-The PyPI install works once the packages are published. Until then the workflow falls
-back to installing both workspace packages from
-`git+https://github.com/sliva0/seanchai` at `main`. Set the repository variable
-`SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of a manual run, to build from a
-given ref instead of PyPI.
+Set the repository variable `SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of a
+manual run, to build from a ref of `https://github.com/sliva0/seanchai` instead of
+PyPI.
 
 ## License
 

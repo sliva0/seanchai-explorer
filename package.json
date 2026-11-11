@@ -17,6 +17,7 @@
     "test": "node --max-old-space-size=1024 --test --test-timeout=120000 tests/unit/*.test.mjs",
     "test:build": "node --test --test-concurrency=1 tests/build/*.test.mjs",
     "test:smoke": "node --test tests/smoke/*.test.mjs",
+    "sources": "node scripts/sources.mjs",
     "types": "node scripts/generate-types.mjs",
     "fixture": "node scripts/make-fixture.mjs",
     "preview": "vite preview"

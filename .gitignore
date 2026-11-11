@@ -8,5 +8,6 @@ public/syntax/
 public/pdfjs/
 .data-tmp/
 /export/
+/specifications/
 .smoke-dist/
 .smoke-viewer-dist/

@@ -1,34 +1,23 @@
 // Fills public/ for a build: node scripts/prepare.mjs [--self-hosted] [--any-schema]. See README.md.
-import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { commandIndex } from '../src/commands.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
+import { project, seanchai, specifications } from './seanchai.mjs';
 
-const project = fileURLToPath(new URL('../', import.meta.url));
 const selfHosted = process.argv.includes('--self-hosted');
 const mode = selfHosted ? 'self-hosted' : 'public';
 const data = path.join(project, 'public/data');
 const pdfjsOut = path.join(project, 'public/pdfjs');
 
-const checkout = path.resolve(project, '../..');
-const root = process.env.SEANCHAI_ROOT ? path.resolve(process.env.SEANCHAI_ROOT)
-  : existsSync(path.join(checkout, 'editors/vscode/syntaxes/dad.tmLanguage.json')) ? checkout : null;
-
 function runExport(output) {
-  const specifications = path.resolve(process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root ?? project, 'specifications'));
   const args = ['export', '-o', output];
   if (existsSync(specifications)) args.push('--specifications', specifications);
-  else if (selfHosted) throw new Error(`A self-hosted build needs the source PDFs, and ${specifications} does not exist`);
+  else if (selfHosted) throw new Error(`A self-hosted build needs the source PDFs, and ${specifications} does not exist: run npm run sources`);
   if (selfHosted) args.push('--include-pdfs');
   if (existsSync(path.join(specifications, 'wireshark'))) args.push('--wireshark', path.join(specifications, 'wireshark'));
-  const [command, commandArgs] = root ? ['uv', ['run', '--project', root, 'seanchai', ...args]] : ['seanchai', args];
-  const result = spawnSync(command, commandArgs, { cwd: root ?? project, stdio: 'inherit' });
-  if (result.error?.code === 'ENOENT') throw new Error(`${command} not found: install seanchai, or set SEANCHAI_ROOT or SEANCHAI_EXPORT`);
-  if (result.error) throw result.error;
-  if (result.status !== 0) process.exit(result.status ?? 1);
+  seanchai(args);
 }
 
 const temporary = path.join(project, '.data-tmp');
