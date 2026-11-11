@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { SCHEMA_VERSION } from '../../src/types.ts';
 import { boot, click, readFixture, settle } from './helpers.mjs';
 
 const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
@@ -349,9 +350,9 @@ test('an unknown document and an unsupported export say so, the second before an
     assert.equal(page.document.querySelector('main h1').textContent, 'Document not found');
     assert.equal(page.document.title, 'Document not found — Seanchaí');
   } finally { await page.close(); }
-  const old = await boot({ transform: (_path, data) => ({ ...data, schema_version: 1 }) });
+  const old = await boot({ transform: (_path, data) => ({ ...data, schema_version: SCHEMA_VERSION + 1 }) });
   try {
-    assert.match(old.document.querySelector('main').textContent, /Unsupported export schema 1/);
+    assert.match(old.document.querySelector('main').textContent, new RegExp(`Unsupported export schema ${SCHEMA_VERSION + 1}\\b`));
     assert.deepEqual(old.fetched, ['data/index.json']);
   } finally { await old.close(); }
 });

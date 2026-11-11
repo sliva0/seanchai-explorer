@@ -85,8 +85,9 @@ Node 24 or newer and npm. An export comes from one of:
 
 - a Seanchaí checkout, used through `uv` with Python 3.14: this repository at
   `.local/seanchai-explorer` inside it, or anywhere with `SEANCHAI_ROOT` set;
-- a `seanchai` command on `PATH` (`uv pip install "seanchai[corpus]"`). That export
-  is complete except for what needs `seanchai download`: Wireshark's AVP names from
+- a `seanchai` command on `PATH`, under Python 3.12 or newer
+  (`uv pip install "seanchai[corpus]"`). That export is complete except for what
+  needs `seanchai corpus download`: Wireshark's AVP names from
   `specifications/wireshark`, and the RFC texts from `specifications/rfc`, without
   which RFCs are fetched from rfc-editor.org in the browser;
 - a directory exported earlier, named by `SEANCHAI_EXPORT`.
@@ -96,7 +97,7 @@ Node 24 or newer and npm. An export comes from one of:
 | Variable | Meaning |
 |---|---|
 | `SEANCHAI_ROOT` | The Seanchaí checkout to run. Default: `../..` if that is one, otherwise `seanchai` from `PATH`. |
-| `SEANCHAI_SPECIFICATIONS` | A `seanchai download` directory. Default: `specifications/` in the checkout. Optional for a public build, in which `--specifications` and `--dictionary` are passed only if the directories exist. |
+| `SEANCHAI_SPECIFICATIONS` | A `seanchai corpus download` directory. Default: `specifications/` in the checkout. Optional for a public build, in which `--specifications` and `--wireshark` are passed only if the directories exist. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running Python. Its mode must match the build's. |
 
 ## Commands

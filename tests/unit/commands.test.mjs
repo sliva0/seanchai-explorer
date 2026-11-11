@@ -151,7 +151,7 @@ test('a block is its Definition, here in the pane at its name and in the view at
 });
 
 test('a registry half is the block of its code and half in the document its row cites, and nothing where none prints one', () => {
-  const index = { schema_version: 6, registry: [], commands: [other('29229-j10', { name: 'User-Authorization-Answer', code: 300 }), other('29229-j10', { name: 'User-Authorization-Request', code: 300, flags: ['REQ', 'PXY'], line: 30 })] };
+  const index = { schema_version: 1, registry: [], commands: [other('29229-j10', { name: 'User-Authorization-Answer', code: 300 }), other('29229-j10', { name: 'User-Authorization-Request', code: 300, flags: ['REQ', 'PXY'], line: 30 })] };
   const row = { code: 300, name: 'User-Authorization-Request/-Answer', abbreviation: 'UAR/UAA', section: '5.1', page: 11, line: 6, table: '5.1/1', defined: ['29229-j10'] };
   assert.equal(commandOf({ code: 300, request: true, name: 'User-Authorization-Request', abbreviation: 'UAR', row }, doc, index).line, 30);
   assert.equal(commandOf({ code: 300, request: false, name: 'User-Authorization-Answer', abbreviation: 'UAA', row }, doc, index).name, 'User-Authorization-Answer');
@@ -186,7 +186,7 @@ test('other definitions share code, application and half under any name; the nam
 
 test('this file\'s commands and rows come from its lines, the others\' from the index', () => {
   const lines = file(accounting);
-  const index = { schema_version: 6, commands: [other('rfc6733', { line: 999 }), other('32299-j00')], registry: [{ document: '29230-j30', code: 271, name: 'Accounting', abbreviation: 'ACR/ACA', section: '5.1', page: 11, line: 9, table: null, defined: [] }] };
+  const index = { schema_version: 1, commands: [other('rfc6733', { line: 999 }), other('32299-j00')], registry: [{ document: '29230-j30', code: 271, name: 'Accounting', abbreviation: 'ACR/ACA', section: '5.1', page: 11, line: 9, table: null, defined: [] }] };
   const all = allCommands(lines, doc, index);
   assert.deepEqual(all.map(command => [command.document, command.line]), [['rfc6733', 6], ['rfc6733', 13], ['rfc6733', 20], ['32299-j00', 52]]);
   const [row] = registryRows({ code: 271 }, lines, doc, index);

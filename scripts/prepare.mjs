@@ -23,7 +23,7 @@ function runExport(output) {
   if (existsSync(specifications)) args.push('--specifications', specifications);
   else if (selfHosted) throw new Error(`A self-hosted build needs the source PDFs, and ${specifications} does not exist`);
   if (selfHosted) args.push('--include-pdfs');
-  if (existsSync(path.join(specifications, 'wireshark'))) args.push('--dictionary', path.join(specifications, 'wireshark'));
+  if (existsSync(path.join(specifications, 'wireshark'))) args.push('--wireshark', path.join(specifications, 'wireshark'));
   const [command, commandArgs] = root ? ['uv', ['run', '--project', root, 'seanchai', ...args]] : ['seanchai', args];
   const result = spawnSync(command, commandArgs, { cwd: root ?? project, stdio: 'inherit' });
   if (result.error?.code === 'ENOENT') throw new Error(`${command} not found: install seanchai, or set SEANCHAI_ROOT or SEANCHAI_EXPORT`);

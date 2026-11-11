@@ -1,5 +1,5 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 6;
+export const SCHEMA_VERSION = 1;
 
 export type SeanchaiExport = Index | Search | Document | RawDocument;
 /**
