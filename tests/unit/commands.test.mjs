@@ -30,7 +30,7 @@ function message(lines, index, { line, last, head, name, abbreviation, section, 
     commands: [{ ...at(lines, line + 1, name), ...ref }, { ...at(lines, line + 1, abbreviation, 8 + name.length), ...ref }, { ...at(lines, head, name), ...ref }],
   };
 }
-const scoped = { application: 'Diameter base accounting', stated_in: '9.3', scope: '9.3' };
+const scoped = { application: 'Diameter base accounting', application_clause: '9.3' };
 const named = lines => lines.flatMap((line, at) => line.tokens.filter(token => token.command).map(token => [at, token.text, commandKey(token.command)]));
 
 const accounting = `; Type: Application Scope
@@ -125,11 +125,11 @@ test('a Command Codes row names its request and its answer, by name and abbrevia
 319               "Insert Subscriber Data-Request/Answer"  IDR/IDA        TS29.272
 313               -                                        -              -
 `, { 'TS29.229': { target: { document: '29229-j10' } } });
-  const halves = (line, code, [request, answer], [short, long], [requestName, answerName]) => [
-    { ...at(lines, line, request), code, request: true, name: requestName, abbreviation: short },
-    { ...at(lines, line, answer, lines[line].tokens.map(token => token.text).join('').indexOf('/')), code, request: false, name: answerName, abbreviation: long },
-    { ...at(lines, line, short), code, request: true, name: requestName, abbreviation: short },
-    { ...at(lines, line, long), code, request: false, name: answerName, abbreviation: long },
+  const halves = (line, allocation, code, [request, answer], [short, long], [requestName, answerName]) => [
+    { ...at(lines, line, request), code, request: true, name: requestName, abbreviation: short, allocation },
+    { ...at(lines, line, answer, lines[line].tokens.map(token => token.text).join('').indexOf('/')), code, request: false, name: answerName, abbreviation: long, allocation },
+    { ...at(lines, line, short), code, request: true, name: requestName, abbreviation: short, allocation },
+    { ...at(lines, line, long), code, request: false, name: answerName, abbreviation: long, allocation },
   ];
   const block = {
     type: 'Registry', line: 0, last: 8, section: '5.1', page: 11, fields: { Registry: 'Command Codes', Section: '5.1', Table: '5.1/1', Page: '11', Columns: 'Code Name Abbreviation Defined-In' },
@@ -140,8 +140,8 @@ test('a Command Codes row names its request and its answer, by name and abbrevia
       { line: 8, cells: ['313', '-', '-', '-'], code: 313 },
     ],
     commands: [
-      ...halves(6, 300, ['User-Authorization-Request', 'Answer'], ['UAR', 'UAA'], ['User-Authorization-Request', 'User-Authorization-Answer']),
-      ...halves(7, 319, ['Insert Subscriber Data-Request', 'Answer'], ['IDR', 'IDA'], ['Insert Subscriber Data-Request', 'Insert Subscriber Data-Answer']),
+      ...halves(6, 0, 300, ['User-Authorization-Request', 'Answer'], ['UAR', 'UAA'], ['User-Authorization-Request', 'User-Authorization-Answer']),
+      ...halves(7, 1, 319, ['Insert Subscriber Data-Request', 'Answer'], ['IDR', 'IDA'], ['Insert Subscriber Data-Request', 'Insert Subscriber Data-Answer']),
     ],
   };
   const before = texts(lines);
@@ -159,15 +159,15 @@ test('a Command Codes row names its request and its answer, by name and abbrevia
   assert.equal(answer.name, 'User-Authorization-Answer');
   assert.equal(answer.row, rows[0], 'a half is its row\'s');
   assert.equal(lines[7].tokens.find(token => token.text === 'IDA').command.name, 'Insert Subscriber Data-Answer');
+  assert.equal(lines[7].tokens.find(token => token.text === 'IDA').command.row, rows[1], 'by its allocation, not its line');
 });
 
-test('a bare header\'s application is said from the scope stating its id, one printing an id from the scope naming it', () => {
+test('a command\'s scope is its application and the clause the export cites for it, and none where no scope names it', () => {
   const lines = file('; Type: Message\n; Name: Bare-Request, BRR\n<Bare-Request> ::= < Diameter Header: 1, REQ >\n\n; Type: Message\n; Name: Own-Request, OWR\n<Own-Request> ::= < Diameter Header: 2, REQ, 16777308 >\n\n; Type: Message\n; Name: Unnamed-Request, UNR\n<Unnamed-Request> ::= < Diameter Header: 3, REQ, 7 >\n');
-  const named = { application: 'S7a', stated_in: '7.1.1', scope: '7.2' };
   const blocks = [
-    message(lines, 0, { line: 0, last: 2, head: 2, name: 'Bare-Request', abbreviation: 'BRR', section: '7.2.25.1', command: { code: 1, request: true, flags: ['REQ'], header_application_id: null, application_id: 16777308, ...named } }),
-    message(lines, 1, { line: 4, last: 6, head: 6, name: 'Own-Request', abbreviation: 'OWR', section: '7.2.9', command: { code: 2, request: true, flags: ['REQ'], header_application_id: 16777308, application_id: 16777308, ...named } }),
-    message(lines, 2, { line: 8, last: 10, head: 10, name: 'Unnamed-Request', abbreviation: 'UNR', section: '8.1', command: { code: 3, request: true, flags: ['REQ'], header_application_id: 7, application_id: 7, scope: '8' } }),
+    message(lines, 0, { line: 0, last: 2, head: 2, name: 'Bare-Request', abbreviation: 'BRR', section: '7.2.25.1', command: { code: 1, request: true, flags: ['REQ'], header_application_id: null, application_id: 16777308, application: 'S7a', application_clause: '7.2' } }),
+    message(lines, 1, { line: 4, last: 6, head: 6, name: 'Own-Request', abbreviation: 'OWR', section: '7.2.9', command: { code: 2, request: true, flags: ['REQ'], header_application_id: 16777308, application_id: 16777308, application: 'S7a', application_clause: '7.1.1' } }),
+    message(lines, 2, { line: 8, last: 10, head: 10, name: 'Unnamed-Request', abbreviation: 'UNR', section: '8.1', command: { code: 3, request: true, flags: ['REQ'], header_application_id: 7, application_id: 7 } }),
   ];
   const [bare, own, unnamed] = commandFacts({ lines, blocks }).blocks;
   assert.deepEqual([bare.application, bare.scope], [16777308, { name: 'S7a', section: '7.2' }]);

@@ -1,4 +1,4 @@
-import type { Allocation, Block, Document, TableRow } from './types.ts';
+import type { Allocation, Block, DataType, Document, TableRow } from './types.ts';
 
 /** A file's lines and the `; Type:` blocks the export reads over them: a document, or its raw mirror. */
 export type DadFile = Pick<Document, 'lines' | 'blocks'>;
@@ -42,6 +42,8 @@ export interface AvpRow {
   line: number;
   /** Its Code cell, or its registry row's code. */
   code: number | null;
+  /** The Diameter data type its Type cell prints. */
+  dataType: DataType | null;
   /** The vendor space it places the AVP in, as the export reads its Vendor-ID cell, its V flag or the file's vendor. */
   vendor: number | null;
 }
@@ -52,9 +54,10 @@ export const cell = (row: Pick<AvpRow, 'cells'>, column: string) => row.cells.fi
 function avpRow(block: Block, row: TableRow | Allocation, name: string): AvpRow {
   const columns = block.columns ?? [];
   const cells = columns.map((column, at): [string, string] => [column, row.cells[at]]);
-  const printed = cell({ cells }, 'Code');
-  const code = 'code' in row ? row.code : printed && /^\d+$/.test(printed) ? Number(printed) : null;
-  return { type: block.type, name, section: block.section, table: block.fields.Table ?? null, cells, line: row.line, code, vendor: row.vendor ?? null };
+  return {
+    type: block.type, name, section: block.section, table: block.fields.Table ?? null, cells, line: row.line,
+    code: row.code ?? null, dataType: row.type ?? null, vendor: row.vendor ?? null,
+  };
 }
 
 /** Every row of a file's AVP tables, `Reused AVPs` blocks and AVP Codes registries, in file order. */

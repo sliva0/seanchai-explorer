@@ -50,7 +50,7 @@ test('self-hosted: a command\'s popup says its header, where its application com
 });
 
 test('a header printing its own id says no more, and one printing none with no scope says so', async () => {
-  const unscoped = { header_application_id: null, application_id: null, application: null, stated_in: null, scope: null };
+  const unscoped = { header_application_id: null, application_id: null, application: null, application_clause: null };
   const bare = (path, data) => path !== 'data/documents/29109-j00.json' ? data : {
     ...data,
     lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('303, PXY, 16777221 >', '303, PXY >') })) })),

@@ -105,7 +105,7 @@ function createSplitter(workspace: HTMLElement): HTMLElement {
   };
   divider.tabIndex = 0;
   divider.setAttribute('role', 'separator');
-  divider.setAttribute('aria-label', 'Source pane width');
+  divider.setAttribute('aria-label', 'Text pane width');
   divider.setAttribute('aria-orientation', 'vertical');
   divider.setAttribute('aria-valuemin', '20');
   divider.setAttribute('aria-valuemax', '80');

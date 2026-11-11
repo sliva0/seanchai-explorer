@@ -43,13 +43,12 @@ export interface ValueToken extends Token { valueRow?: ValueRow; originOf?: Valu
 
 /** The value tables of a file. The first reading marks the rows' tokens, so a row links as any table row does. */
 export const valueTables = perFile(({ lines, blocks }) => blocks.filter(block => block.type === 'Value Table').map(block => {
-  const { fields, section, page } = block;
-  const kind = (fields.Kind ?? 'bits') as ValueKind;
-  const head = lines.slice(block.line, block.value_rows?.[0]?.line ?? block.last + 1).flatMap(line => line.tokens);
-  const avp = block.name ? { name: block.name, target: head.find(token => token.avp === block.name)?.target ?? null } : null;
+  const { section, page } = block;
+  // A Value Table block always has its kind.
+  const kind = block.value_kind!;
+  const avp = block.name ? { name: block.name, target: block.avp_target ?? null } : null;
   const table: ValueTable = {
-    kind, avp, featureListId: fields['Feature-List-ID'] === undefined ? null : Number(fields['Feature-List-ID']), application: fields.Application ?? null,
-    section, page, line: block.line, rows: [],
+    kind, avp, featureListId: block.feature_list_id ?? null, application: block.application ?? null, section, page, line: block.line, rows: [],
   };
   for (const row of block.value_rows ?? []) {
     const { name, value, line } = row;

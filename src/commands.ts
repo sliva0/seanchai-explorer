@@ -81,31 +81,34 @@ function mark(line: Line, start: number, end: number, command: CommandRef) {
 function commandBlock(block: Block): CommandBlock | undefined {
   const { command } = block;
   if (!command || !block.name) return undefined;
-  // The clause naming the application: for a bare header the scope stating its id, else the one naming the id it prints.
-  const section = command.header_application_id === null ? command.scope : command.stated_in;
+  const { application, application_clause: section } = command;
   return {
     name: block.name, abbreviation: block.abbreviation ?? null, section: block.section, page: block.page, line: block.line,
     code: command.code, flags: command.flags, header: command.header_application_id, application: command.application_id,
-    scope: command.application && section ? { name: command.application, section } : null,
+    scope: application && section ? { name: application, section } : null,
   };
 }
 
-function codeRows(block: Block): CommandCodeRow[] {
+/** A Command Codes registry's rows, by index into its allocations: none for an allocation of no code or name. */
+function codeRows(block: Block): (CommandCodeRow | undefined)[] {
   if (block.type !== 'Registry' || block.fields.Registry !== 'Command Codes') return [];
-  return (block.allocations ?? []).flatMap(row => row.code === null || !row.name ? [] : [{
+  return (block.allocations ?? []).map(row => row.code === null || !row.name ? undefined : {
     code: row.code, name: row.name, abbreviation: row.abbreviation ?? null, section: block.section, page: block.page, line: row.line,
     table: block.fields.Table ?? null, defined: row.documents ?? [],
-  }]);
+  });
 }
 
 /** A file's commands, registry rows and command tables. The first reading marks the tokens naming them, so a command is a name as an AVP is. */
 export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
   const facts: CommandFacts = { blocks: [], rows: [], tables: [] };
   const byBlock = new Map<number, CommandBlock>();
+  const rowsOf = new Map<Block, (CommandCodeRow | undefined)[]>();
   blocks.forEach((block, index) => {
     const found = commandBlock(block);
     if (found) { facts.blocks.push(found); byBlock.set(index, found); }
-    facts.rows.push(...codeRows(block));
+    const rows = codeRows(block);
+    rowsOf.set(block, rows);
+    facts.rows.push(...rows.filter(row => row !== undefined));
   });
   for (const block of blocks) {
     if ((block.type === 'AVP Table' || block.type === 'Reused AVPs') && block.commands?.length) {
@@ -113,7 +116,7 @@ export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
     }
     for (const span of block.commands ?? []) {
       const found = span.block === null || span.block === undefined ? undefined : byBlock.get(span.block);
-      const row = found ? undefined : facts.rows.find(item => item.line === span.line);
+      const row = span.allocation === null || span.allocation === undefined ? undefined : rowsOf.get(block)?.[span.allocation];
       mark(lines[span.line], span.start, span.end, { code: span.code, request: span.request, name: span.name, abbreviation: span.abbreviation ?? null, ...found ? { block: found } : row ? { row } : {} });
     }
   }

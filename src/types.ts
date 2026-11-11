@@ -259,17 +259,22 @@ export interface Document {
  * - `avp` and `values` for an Enumerated AVP;
  * - `columns` and `rows` for an AVP Table or Reused AVPs block;
  * - `columns`, `allocations` and `reservations` for a Registry;
- * - `value_rows` for a Value Table.
+ * - `value_kind`, `feature_list_id`, `application`, `avp_target` and
+ *   `value_rows` for a Value Table, `avp_target` being where its `; AVP:`
+ *   line links.
  *
  * `commands` marks where its lines name a command.
  */
 export interface Block {
   abbreviation?: string | null;
   allocations?: Allocation[];
+  application?: string | null;
   avp?: AvpHeader | null;
+  avp_target?: Target | null;
   columns?: string[];
   command?: Command | null;
   commands?: CommandSpan[];
+  feature_list_id?: number | null;
   fields: {
     [k: string]: string;
   };
@@ -282,15 +287,16 @@ export interface Block {
   rule?: Rule | null;
   section: string;
   type: string;
+  value_kind?: ValueKind | null;
   value_rows?: ValueRow[];
   values?: EnumEntry[];
 }
 /**
  * A row of a Registry block at `line`, `cells` as a `TableRow`'s. `code`
  * is null where the row prints a placeholder; `name` and `abbreviation` are
- * unquoted, null for a dash. `documents` are the exported documents its
- * Defined-In cell resolves to; `vendor` is an AVP Codes row's, the file's
- * `; Vendor-ID:`.
+ * unquoted, null for a dash. `type` is the Diameter data type its Type
+ * cell prints. `documents` are the exported documents its Defined-In cell
+ * resolves to; `vendor` is an AVP Codes row's, the file's `; Vendor-ID:`.
  */
 export interface Allocation {
   abbreviation?: string | null;
@@ -299,6 +305,7 @@ export interface Allocation {
   documents?: string[];
   line: number;
   name?: string | null;
+  type?: DataType | null;
   vendor?: number | null;
 }
 /**
@@ -312,28 +319,31 @@ export interface AvpHeader {
 /**
  * A Message block's header. `flags` in printed order; `application_id`
  * is the effective id, the header's or for a bare header the one the first
- * Application Scope block covering its clause states (`scope`, that block's
- * clause). `application` names the application, and `stated_in` is the
- * clause of the scope block naming it, as `CommandIdentity` reads them.
+ * Application Scope block covering its clause states. `application` names
+ * the application, as `CommandIdentity` reads it, and `application_clause`
+ * is the clause to cite for it: for a bare header that covering block's,
+ * which states the id, else the clause of the scope block naming it. Both
+ * are null where no scope block names the application.
  */
 export interface Command {
   application?: string | null;
+  application_clause?: string | null;
   application_id: number | null;
   code: number;
   flags: CommandFlag[];
   header_application_id: number | null;
   request: boolean;
-  scope?: string | null;
-  stated_in?: string | null;
 }
 /**
  * Characters `start` to `end` of line `line` name a command: a Message
  * block's name, abbreviation or rule head, a half of a Command Codes row's
  * name or abbreviation, or a table's column for it. `block` indexes the
- * document's Message block for it; a registry half has none.
+ * document's Message block for it; a registry half has none, and
+ * `allocation` indexes its row in its own block's `allocations` instead.
  */
 export interface CommandSpan {
   abbreviation?: string | null;
+  allocation?: number | null;
   block?: number | null;
   code: number;
   end: number;
@@ -355,18 +365,22 @@ export interface Reservation {
 /**
  * A row of an AVP Table or Reused AVPs block at `line`. `cells` are as
  * printed, one per column, quotes kept: `""` is a blank cell, `-` a dash.
- * The rest is what needs more than a cell to read: `name` unquoted, `vendor`
- * the vendor space the row places the AVP in (its Vendor-ID cell, else its V
- * flag read with the file's `; Vendor-ID:`), and `marks` each mark column's
- * marks, unquoted, with no marks for a dash and no entry for a blank cell.
+ * The rest is what needs more than a cell to read: `name` unquoted, `code`
+ * and `type` where the row prints a code and a Diameter data type,
+ * `vendor` the vendor space the row places the AVP in (its Vendor-ID cell,
+ * else its V flag read with the file's `; Vendor-ID:`), and `marks` each
+ * mark column's marks, unquoted, with no marks for a dash and no entry for a
+ * blank cell.
  */
 export interface TableRow {
   cells: string[];
+  code?: number | null;
   line: number;
   marks?: {
     [k: string]: string[];
   };
   name: string;
+  type?: DataType | null;
   vendor?: number | null;
 }
 /**

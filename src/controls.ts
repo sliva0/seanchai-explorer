@@ -37,7 +37,7 @@ export const controlGroups: ControlGroup[] = [
       { keys: ['[d'], does: 'The place before on the list in another document' },
       { keys: [']d'], does: 'The place after on the list in another document' },
       { keys: ['Menu', 'Shift+F10'], does: 'On a name with the focus, what a right-click does' },
-      { keys: ['←', '→'], does: 'On the divider between the panes, narrows or widens the source pane' },
+      { keys: ['←', '→'], does: 'On the divider between the panes, widens or narrows the source pane' },
       { keys: ['Escape'], does: 'Closes a popup, or this help' },
       { keys: ['?'], does: 'Opens this help' },
     ],
@@ -53,7 +53,7 @@ export const controlGroups: ControlGroup[] = [
     title: 'PDF pane',
     note: 'A self-hosted build\'s, with the focus in it.',
     controls: [
-      { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zooms in or out, as Cmd does on a Mac' },
+      { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zooms in or out, with = and _ too, as Cmd does on a Mac' },
       { keys: ['Ctrl+wheel'], does: 'Zooms at the pointer, as a pinch does' },
       { keys: ['Enter'], does: 'In the page box goes to the page, in the find box to the next match' },
     ],

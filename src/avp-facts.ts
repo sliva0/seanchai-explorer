@@ -1,4 +1,4 @@
-import { allAvpRows, byName, cell, perFile } from './blocks.ts';
+import { allAvpRows, byName, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import type { DataType } from './types.ts';
 import { valueTables } from './values.ts';
@@ -10,8 +10,6 @@ export interface AvpIdentity { code?: number; vendor?: number; type?: DataType }
 /** An `Enumerated AVP` block: the names its AVP gives its numbers. `line` is its `; Type:` line. */
 export interface EnumeratedBlock { name: string; section: string; page: number | null; line: number }
 
-const dataTypes = new Set<string>(['OctetString', 'Integer32', 'Integer64', 'Unsigned32', 'Unsigned64', 'Float32', 'Float64', 'Grouped', 'Address', 'Time', 'UTF8String', 'DiameterIdentity', 'DiameterURI', 'Enumerated', 'IPFilterRule', 'QoSFilterRule']);
-
 /** Only what a source says: a field it leaves unsaid is no field. */
 const said = (found: Record<keyof AvpIdentity, number | string | null | undefined>): AvpIdentity =>
   Object.fromEntries(Object.entries(found).filter(([, value]) => value !== undefined && value !== null)) as AvpIdentity;
@@ -22,10 +20,7 @@ const identitiesOf = perFile(file => {
     line: block.line, name: block.rule?.name ?? block.name!,
     identity: said({ code: block.avp.code, vendor: block.avp.vendor_id, type: block.type === 'Enumerated AVP' ? 'Enumerated' : 'Grouped' }),
   }] : []);
-  const rows = allAvpRows(file).map(row => {
-    const printed = cell(row, 'Type');
-    return { line: row.line, name: row.name, identity: said({ code: row.code, vendor: row.vendor, type: printed && dataTypes.has(printed) ? printed : undefined }) };
-  });
+  const rows = allAvpRows(file).map(row => ({ line: row.line, name: row.name, identity: said({ code: row.code, vendor: row.vendor, type: row.dataType }) }));
   const found = [...headers, ...rows].sort((a, b) => a.line - b.line).filter(({ identity }) => Object.keys(identity).length);
   return byName(found.map(({ name, identity }) => [name, identity]));
 });

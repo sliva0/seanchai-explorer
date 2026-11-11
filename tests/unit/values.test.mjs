@@ -7,8 +7,10 @@ import { valueRowAt, valueTables } from '../../src/values.ts';
 import { readFixture } from './helpers.mjs';
 
 const fresh = async id => readFixture(`documents/${id}.json`);
-/** A Value Table block over lines `line` to `last`, as the export writes one: its directives in `fields`, its rows in `value_rows`. */
-const valueBlock = (line, last, fields, value_rows) => ({ type: 'Value Table', line, last, section: fields.Section, page: fields.Page ? Number(fields.Page) : null, fields, name: fields.AVP, value_rows });
+/** A Value Table block over lines `line` to `last`, as the export writes one: its directives in `fields` and its kind read from them, its rows in `value_rows`. */
+const valueBlock = (line, last, fields, value_rows) => ({
+  type: 'Value Table', line, last, section: fields.Section, page: fields.Page ? Number(fields.Page) : null, fields, name: fields.AVP, value_kind: fields.Kind, value_rows,
+});
 const grammar = JSON.parse(await readFile(new URL('../fixtures/export/syntax/dad.tmLanguage.json', import.meta.url), 'utf8'));
 
 test('result codes: the row, its number, its clause and where the source prints it', async () => {
