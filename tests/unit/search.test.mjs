@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ALL_WORDS, definitions, EXACT, filterMentions as filterFolded, foldMentions, groupFacts, identityLabel, indexEntries, INITIALS, interfaceSpans, isApproximate, matchSpans, mentionSpans, ONE_TYPO, PREFIX, searchEntries as searchIndex, searchSpecifications, sortMentions, SUBSEQUENCE, SUBSTRING, TWO_TYPOS, TYPO_IN_WORD, WORD } from '../../src/search.ts';
-import { boot, readFixture } from './helpers.mjs';
+import { absent, boot, readFixture, same } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({ name, kind: 'avp', document: 'a', identity: { kind: 'avp', vendor_id, code }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
 const command = (name, command_code, application_id, more = {}) => ({ name, kind: 'command', document: 'a', identity: { kind: 'command', command_code, application_id, header_application_id: application_id, application: null }, wireshark_name: null, abbreviation: null, defined_in: [], ...more });
@@ -335,7 +335,7 @@ test('the search page shows a section per kind with matches over the fixture, an
     assert.ok(!headings.some(heading => heading.endsWith(' 0')), 'groups without matches are left out');
     assert.ok(document.querySelector('.search-command strong').textContent.includes(named('command').name));
     const input = document.querySelector('.search-form input');
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     input.value = named('application').name;
     input.dispatchEvent(new window.Event('input'));
     assert.match(window.location.hash, /^#search\?q=/);
@@ -359,7 +359,7 @@ test('more shows every remaining entry of its group, and only of that group', as
     assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
     document.querySelector('.search-avp > button').click();
     assert.equal(document.querySelectorAll('.search-avp .search-entry').length, 47);
-    assert.equal(document.querySelector('.search-avp > button'), null);
+    absent(document.querySelector('.search-avp > button'));
     assert.equal(document.querySelectorAll('.search-mentions li').length, 20);
     assert.ok(document.querySelector('.search-mentions > button'));
   } finally { await page.close(); }
@@ -369,7 +369,7 @@ test('a search matching nothing has no headings', async () => {
   const page = await boot({ hash: '#search?q=zzznothing' });
   try {
     const results = page.document.querySelector('#search-results');
-    assert.equal(results.querySelector('h2'), null);
+    absent(results.querySelector('h2'));
     assert.equal(results.textContent, 'No matches.');
   } finally { await page.close(); }
 });
@@ -380,11 +380,11 @@ test('the header links to the index and search, and / is left to the browser', a
     const { document, window } = page;
     assert.deepEqual([...document.querySelectorAll('header nav a')].map(node => [node.textContent, node.getAttribute('href')]), [['Index', '#'], ['Search', '#search']]);
     assert.ok(document.querySelector('header .theme-toggle'));
-    assert.equal(document.querySelector('header input'), null);
+    absent(document.querySelector('header input'));
     assert.equal(document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })), true);
     assert.notEqual(document.activeElement?.tagName, 'INPUT');
     await page.go('#search');
-    assert.equal(document.activeElement, document.querySelector('.search-form input'));
+    same(document.activeElement, document.querySelector('.search-form input'));
   } finally { await page.close(); }
 });
 
@@ -477,7 +477,7 @@ test('the limit counts mentions, and more continues a group it cut', async () =>
     assert.deepEqual(counts(), [['#29153-j00', 15], ['#29109-j00', 5]], 'whole groups fit');
     document.querySelector('.search-mentions > button').click();
     assert.deepEqual(counts(), [['#29153-j00', 15], ['#29109-j00', 5], ['#29061-6f0', 15]]);
-    assert.equal(document.querySelector('.search-mentions > button'), null);
+    absent(document.querySelector('.search-mentions > button'));
   } finally { await page.close(); }
   const cut = await boot({ hash: '#search?q=zzgroup', transform: withMentions([...manyMentions('29153-j00', 25), ...manyMentions('29061-6f0', 3)]) });
   try {
@@ -502,7 +502,7 @@ test('approximate hits are labelled, counted apart, marked, and bring no mention
     const rows = [...document.querySelectorAll('.search-avp .search-entry')];
     assert.deepEqual(rows.map(row => [row.querySelector('strong').textContent, row.classList.contains('approximate')]), [['Zzsesion', false], ['Zzsesion-Extra', false], ['Zzsession-Other', true]]);
     assert.equal(rows[2].querySelector('em').textContent, 'approximate');
-    assert.equal(rows[0].querySelector('em'), null);
+    absent(rows[0].querySelector('em'));
     assert.equal(rows[2].querySelector('strong mark').textContent, 'Zzsession');
     assert.equal(document.querySelector('.search-avp h2').textContent, 'AVPs 2+1 approximate');
     assert.deepEqual([...document.querySelectorAll('.search-mentions li code')].map(node => node.textContent), ['has zzsesion']);
@@ -519,16 +519,16 @@ test('arrow keys walk the input and what is on screen', async () => {
     const { document, window } = page;
     const press = key => document.activeElement.dispatchEvent(new window.KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }));
     const input = document.querySelector('.search-form input');
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     assert.equal(press('ArrowUp'), true, 'nothing above the input');
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     assert.equal(press('ArrowDown'), false);
-    assert.equal(document.activeElement, document.querySelector('.mention-document h3 a'));
+    same(document.activeElement, document.querySelector('.mention-document h3 a'));
     press('ArrowDown');
-    assert.equal(document.activeElement, document.querySelector('.mention-link'));
+    same(document.activeElement, document.querySelector('.mention-link'));
     press('ArrowUp');
     press('ArrowUp');
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     assert.equal(press('a'), true, 'other keys are left alone');
   } finally { await page.close(); }
 });
@@ -541,21 +541,21 @@ test('up and down step between entries by name, left and right within one', asyn
     const input = document.querySelector('.search-form input');
     assert.equal(press('ArrowRight'), true, 'in the input they are the caret\'s');
     assert.equal(press('ArrowLeft'), true);
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     press('ArrowDown');
     const name = document.querySelector('.search-result-codes strong a');
-    assert.equal(document.activeElement, name);
+    same(document.activeElement, name);
     assert.equal(press('ArrowLeft'), true, 'nothing before the name');
-    assert.equal(document.activeElement, name);
+    same(document.activeElement, name);
     press('ArrowRight');
     const links = [...name.closest('.search-entry').querySelectorAll('a[href]')];
-    assert.equal(document.activeElement, links[1]);
+    same(document.activeElement, links[1]);
     assert.ok(links[1].closest('.search-entry') === name.closest('.search-entry'));
     press('ArrowLeft');
-    assert.equal(document.activeElement, name);
+    same(document.activeElement, name);
     press('ArrowRight');
     press('ArrowUp');
-    assert.equal(document.activeElement, input, 'up leaves from any link of the entry');
+    same(document.activeElement, input, 'up leaves from any link of the entry');
     assert.equal(press('ArrowRight'), true);
   } finally { await page.close(); }
 });
@@ -571,14 +571,14 @@ test('down passes an entry\'s many links at once, and comes back to the name', a
     const names = [...document.querySelectorAll('.search-avp strong a')];
     assert.deepEqual(names.map(node => node.textContent), ['Zzwalk', 'Zzwalk-Other']);
     press('ArrowDown');
-    assert.equal(document.activeElement, names[0]);
+    same(document.activeElement, names[0]);
     press('ArrowRight');
     press('ArrowRight');
     assert.ok(document.activeElement.closest('.entry-document'));
     press('ArrowDown');
-    assert.equal(document.activeElement, names[1], 'whichever link it was on');
+    same(document.activeElement, names[1], 'whichever link it was on');
     press('ArrowUp');
-    assert.equal(document.activeElement, names[0]);
+    same(document.activeElement, names[0]);
   } finally { await page.close(); }
 });
 
@@ -599,7 +599,7 @@ test('a name is one entry, with no fold, and its documents inline by publisher i
   try {
     const { document } = page;
     const section = document.querySelector('.search-command');
-    assert.equal(document.querySelector('#search-results details, #search-results summary'), null);
+    absent(document.querySelector('#search-results details, #search-results summary'));
     assert.equal(section.querySelector('h2').textContent, 'Commands 1');
     assert.equal(section.querySelector('.entry-line').textContent, 'Accounting-Answer (ACA)· command 271');
     const families = [...section.querySelectorAll('.entry-families li')].map(item => [item.querySelector('.family').textContent, [...item.querySelectorAll('.family-documents > .entry-document')].map(line => line.textContent)]);

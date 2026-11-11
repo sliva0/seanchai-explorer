@@ -8,7 +8,7 @@
     "node": ">=24"
   },
   "scripts": {
-    "prepare:data": "node scripts/prepare.mjs",
+    "data": "node scripts/prepare.mjs",
     "dev": "node scripts/prepare.mjs && vite --host 127.0.0.1",
     "dev:self-hosted": "node scripts/prepare.mjs --self-hosted && vite --host 127.0.0.1 --mode self-hosted",
     "check": "tsc --noEmit",

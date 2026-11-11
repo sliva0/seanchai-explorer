@@ -1,8 +1,7 @@
 name: Deploy site
 
+# Deploys only when run by hand.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       seanchai_git_ref:
@@ -26,33 +25,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-python@v7
-        with:
-          python-version: '3.14'
+      # With no ref, the build runs the PyPI release through uvx.
       - uses: astral-sh/setup-uv@v7
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
-      # From PyPI, or from the repository's two workspace packages for a given ref
-      # or while no release is published.
-      - name: Install seanchai
+      # With a ref, the build runs the seanchai on PATH: the repository's two workspace packages at that ref.
+      - name: Install seanchai from a ref
+        if: env.SEANCHAI_GIT_REF != ''
         run: |
           uv venv --python 3.14 "$RUNNER_TEMP/seanchai"
-          export VIRTUAL_ENV="$RUNNER_TEMP/seanchai"
-          if [ -n "$SEANCHAI_GIT_REF" ] || ! uv pip install 'seanchai[corpus]'; then
-            ref="${SEANCHAI_GIT_REF:-main}"
-            uv pip install "seanchai @ git+$SEANCHAI_REPOSITORY@$ref" \
-              "seanchai-corpus @ git+$SEANCHAI_REPOSITORY@$ref#subdirectory=packages/seanchai-corpus"
-          fi
-          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
-      - name: Export the corpus
-        run: seanchai export -o export
+          VIRTUAL_ENV="$RUNNER_TEMP/seanchai" uv pip install \
+            "seanchai @ git+$SEANCHAI_REPOSITORY@$SEANCHAI_GIT_REF" \
+            "seanchai-corpus @ git+$SEANCHAI_REPOSITORY@$SEANCHAI_GIT_REF#subdirectory=packages/seanchai-corpus"
+          echo "$RUNNER_TEMP/seanchai/bin" >> "$GITHUB_PATH"
       - run: npm ci
+      - run: npm run check
+      - run: npm test
       - name: Build the public site
         run: npm run build
-        env:
-          SEANCHAI_EXPORT: export
       - name: Check no PDF is published
         run: |
           if find dist -iname '*.pdf' | grep .; then exit 1; fi

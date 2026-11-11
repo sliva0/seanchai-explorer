@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
 import { commandIndex } from '../../src/commands.ts';
@@ -122,3 +123,16 @@ export async function settle() {
 }
 
 export const click = (page, node, init = {}) => node.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+
+// A failed assert.equal prints its operands, and printing a DOM node walks the whole document: these compare nodes
+// with === and name a node only by its tag, id and class.
+const named = node => node?.nodeType === 1 ? `<${node.localName}${node.id ? `#${node.id}` : ''}${node.getAttribute('class') ? `.${node.getAttribute('class').trim().split(/\s+/).join('.')}` : ''}>`
+  : node?.nodeType ? node.nodeName : String(node);
+/** Asserts there is no node: `node` is null. */
+export const absent = (node, message) => assert.ok(node === null, message ?? `expected no node, found ${named(node)}`);
+/** Asserts there is a node: `node` is neither null nor undefined. */
+export const present = (node, message) => assert.ok(node !== null && node !== undefined, message ?? `expected a node, found ${named(node)}`);
+/** Asserts `actual` is the node `expected`. */
+export const same = (actual, expected, message) => assert.ok(actual === expected, message ?? `expected ${named(expected)}, found ${named(actual)}`);
+/** Asserts `actual` is not the node `other`. */
+export const notSame = (actual, other, message) => assert.ok(actual !== other, message ?? `expected another node than ${named(other)}`);

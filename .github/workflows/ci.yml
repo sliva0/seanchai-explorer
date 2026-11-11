@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # The build runs the released seanchai through uvx.
+      - uses: astral-sh/setup-uv@v7
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      # No specifications/ is downloaded: the tests needing it skip.
+      - run: npm run test:build
+      - name: Install Chromium
+        run: |
+          npx playwright-core install --with-deps --no-shell chromium
+          echo "CHROMIUM=$(node -p "require('playwright-core').chromium.executablePath()")" >> "$GITHUB_ENV"
+      - run: npm run test:smoke

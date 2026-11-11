@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SCHEMA_VERSION } from '../../src/types.ts';
-import { boot, click, readFixture, settle } from './helpers.mjs';
+import { absent, boot, click, notSame, present, readFixture, same, settle } from './helpers.mjs';
 
 const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
 const frameSrc = document => document.querySelector('iframe')?.getAttribute('src');
@@ -16,7 +16,7 @@ test('public: a PDF gets the pane and its toggle, with a placeholder for the vie
   try {
     const { document } = page;
     const pageNumber = await sectionPage('29153-j00', '5.1');
-    assert.equal(document.querySelector('iframe'), null);
+    absent(document.querySelector('iframe'));
     assert.equal(document.querySelector('.source-toggle input').checked, true);
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
     assert.equal(document.querySelectorAll('#source-pane').length, 1);
@@ -59,7 +59,7 @@ test('public: a name defined in an RFC goes to the pane and leaves the main view
     const source = new URL(frameSrc(document));
     assert.equal(source.pathname, '/rfc.html');
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('query'), name.dataset.avp);
-    assert.equal(document.querySelector('.source-placeholder'), null);
+    absent(document.querySelector('.source-placeholder'));
     assert.ok(document.querySelector('.source-document').textContent.startsWith('RFC 7944'));
     // Walking this document's own names has nothing to show, so the RFC stays.
     rightClick(page, name);
@@ -101,10 +101,10 @@ test('public: a pane restored to a placeholder gives way to an RFC and comes bac
     assert.ok(document.querySelector('main h1').textContent.startsWith('3GPP TS 29.153'));
     click(page, nameLink(document, '#rfc7944'));
     await settle();
-    assert.equal(document.querySelector('.source-placeholder'), null);
+    absent(document.querySelector('.source-placeholder'));
     assert.equal(new URL(frameSrc(document)).pathname, '/rfc.html');
     await page.go(shared);
-    assert.equal(document.querySelector('iframe'), null);
+    absent(document.querySelector('iframe'));
     assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.217/);
   } finally { await page.close(); }
 });
@@ -338,7 +338,7 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
     await page.go('#29153-j00?raw=1');
     assert.ok([...document.querySelectorAll('#controls a')].some(a => a.textContent === 'Corrected'));
     assert.ok(document.querySelector('pre .raw-warning'));
-    assert.equal(document.querySelector('pre .correction-toggle'), null);
+    absent(document.querySelector('pre .correction-toggle'));
     const url = [...document.querySelectorAll('pre a')].find(a => a.textContent.startsWith('https://'));
     assert.equal(url.target, '_blank');
   } finally { await page.close(); }
@@ -375,9 +375,9 @@ test('the index lists releases newest first with pinned ones folded, and version
   const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
   try {
     const { document } = page;
-    assert.equal(document.querySelector('main h1'), null);
+    absent(document.querySelector('main h1'));
     assert.match(document.querySelector('main').lastElementChild.textContent, /^Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build$/);
-    assert.equal(document.querySelector('.demo-badge'), null);
+    absent(document.querySelector('.demo-badge'));
     assert.deepEqual([...document.querySelectorAll('main section > h2, .pinned-release > summary')].map(node => node.textContent), [
       '3GPP · Release 18',
       '3GPP · Release 11',
@@ -474,7 +474,7 @@ test('a uses popup names a Definition\'s document without publisher or version',
       const row = document.querySelector('.avp-popup .place-definition');
       assert.match(row.querySelector('.place-where').textContent, label);
       assert.ok(row.querySelector('.view-action').getAttribute('href').startsWith(href), 'and goes there');
-      assert.equal(document.querySelector('.avp-popup .place-details'), null, 'no Details are made from its link');
+      absent(document.querySelector('.avp-popup .place-details'), 'no Details are made from its link');
     }
   } finally { await page.close(); }
 });
@@ -581,7 +581,7 @@ test('self-hosted: the popup gives each target both panels first and the pane al
     assert.match(definition.querySelector('a').getAttribute('href'), /^#29061-6f0\/17\.7\?name=TMGI&source=29061-6f0&sourceSection=17\.7&.*&line=\d+$/);
     click(page, details.querySelector('a'));
     await settle();
-    assert.equal(document.querySelector('.avp-popup'), null, 'moving the view closes it');
+    absent(document.querySelector('.avp-popup'), 'moving the view closes it');
     assert.equal(paneAt(document).get('search'), '17.7.2');
     assert.ok(window.location.hash.startsWith('#29061-6f0/17.7.2?'));
     assert.equal(jumps(), 1);
@@ -635,7 +635,7 @@ test('the popup shows one target where a row\'s clause is its table\'s', async (
     await settle();
     const popup = document.querySelector('.avp-popup');
     assert.equal(popup.querySelector('.place-definition .place-where').textContent, '17.7');
-    assert.equal(popup.querySelector('.place-details'), null);
+    absent(popup.querySelector('.place-details'));
   } finally { await page.close(); }
 });
 
@@ -647,7 +647,7 @@ test('public: the popup has only the view\'s way to a target, under the publishe
     rightClick(page, name);
     await settle();
     const definition = document.querySelector('.avp-popup .place-definition');
-    assert.equal(definition.querySelector('button'), null);
+    absent(definition.querySelector('button'));
     assert.equal(definition.querySelector('.view-action').textContent, 'Jump to');
     assert.match(definition.querySelector('.place-where').href, /etsi\.org.*#page=\d+$/);
     document.querySelector('.avp-popup .popup-title button').click();
@@ -668,7 +668,7 @@ test('a Details clause the view has no line for has only its way to the pane', a
     await settle();
     const details = document.querySelector('.avp-popup .place-details');
     assert.ok(details.querySelector('.pane-action'));
-    assert.equal(details.querySelector('.view-action'), null);
+    absent(details.querySelector('.view-action'));
   } finally { await page.close(); }
 });
 
@@ -684,13 +684,13 @@ test('a Definition in a document the pane has no reader for is only the view\'s,
     rightClick(page, name);
     await settle();
     const definition = document.querySelector('.avp-popup .place-definition');
-    assert.equal(definition.querySelector('button'), null);
+    absent(definition.querySelector('button'));
     assert.ok(definition.querySelector('.view-action'));
     document.querySelector('.avp-popup .popup-title button').click();
     click(page, name);
     await settle();
     assert.ok(window.location.hash.startsWith('#rfc7944/'));
-    assert.equal(document.querySelector('#source-pane'), null, 'and its own page has no pane');
+    absent(document.querySelector('#source-pane'), 'and its own page has no pane');
   } finally { await page.close(); }
 });
 
@@ -699,8 +699,8 @@ test('self-hosted: a click goes to a name\'s Details by default, and the strip\'
   try {
     const { document, window } = page;
     const control = document.querySelector('.click-target');
-    assert.equal(control.previousElementSibling, document.querySelector('.uses-toggle'));
-    assert.equal(control.nextElementSibling, document.querySelector('.source-toggle'), 'beside the pane\'s toggle');
+    same(control.previousElementSibling, document.querySelector('.uses-toggle'));
+    same(control.nextElementSibling, document.querySelector('.source-toggle'), 'beside the pane\'s toggle');
     assert.equal(control.getAttribute('role'), 'radiogroup');
     assert.deepEqual([...control.querySelectorAll('label')].map(label => label.textContent.trim()), ['Definition', 'Details']);
     const chosen = () => control.querySelector('input:checked').value;
@@ -775,7 +775,7 @@ test('self-hosted: a name\'s popup says its code, vendor and type, and gives its
     assert.deepEqual(identities(popup), ['Code 4003 · Vendor-ID 10415 · Unsigned32']);
     assert.equal(popup.firstElementChild.nextElementSibling.className, 'popup-identity', 'under the title');
     assert.deepEqual(tableRows(popup), [['Bits:', '5.3.5', 'Jump to', 'Show on the right']]);
-    assert.equal(popup.querySelector('.popup-tables').closest('.popup-places').querySelector('.place-definition') !== null, true, 'in the targets\' grid, after them');
+    present(popup.querySelector('.popup-tables').closest('.popup-places').querySelector('.place-definition'), 'in the targets\' grid, after them');
     const before = pane(document).scrollTop;
     popup.querySelector('.place-table .pane-action').click();
     await settle();
@@ -786,7 +786,7 @@ test('self-hosted: a name\'s popup says its code, vendor and type, and gives its
     assert.match(jump.getAttribute('href'), /^#29217-j00\/5\.3\.5\?source=29217-j00&sourceSection=5\.3\.5&.*&line=244$/);
     click(page, jump);
     await settle();
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     assert.equal(document.querySelector('.target-line').dataset.line, '244');
     popup = await popupOf(page, [...document.querySelectorAll('pre a[data-avp]')].find(node => node.dataset.avp === 'Experimental-Result-Code'));
     assert.deepEqual(tableRows(popup).map(cells => cells.slice(0, 2)), [['Result codes:', '5.5']]);
@@ -796,7 +796,7 @@ test('self-hosted: a name\'s popup says its code, vendor and type, and gives its
     popup = await popupOf(page, [...document.querySelectorAll('pre [data-avp]')].find(node => node.dataset.avp === 'Feature-List'));
     assert.deepEqual(tableRows(popup).map(cells => cells[0]), ['Features list 1 (Np):']);
     assert.deepEqual(identities(popup), [], 'nothing said of it here');
-    assert.equal(popup.querySelector('.popup-identity'), null);
+    absent(popup.querySelector('.popup-identity'));
   } finally { await page.close(); }
 });
 
@@ -805,7 +805,7 @@ test('a name\'s popup leaves out what it has nothing for, shows an Enumerated AV
   try {
     const popup = await popupOf(page, tmgi(page.document));
     assert.deepEqual(identities(popup), ['Code 900 · Vendor-ID 10415 · OctetString']);
-    assert.equal(popup.querySelector('.popup-tables'), null);
+    absent(popup.querySelector('.popup-tables'));
   } finally { await page.close(); }
   const recoded = (path, data) => path !== 'data/documents/rfc7944.json' ? data : { ...data, lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('header: 301', 'header: 302') })) })) };
   for (const [transform, expected] of [[undefined, ['Code 301 · Enumerated']], [recoded, ['Code 301 · Enumerated', 'Code 302 · Enumerated']]]) {
@@ -857,18 +857,18 @@ test('the uses control lists a name on a plain tap, and Esc returns focus to it'
     const popup = document.querySelector('.avp-popup');
     assert.equal(popup.dataset.avp, name.dataset.avp);
     assert.ok(popup.querySelectorAll('.usage-link').length >= 1);
-    assert.equal(document.activeElement, popup.querySelector('.popup-title button'));
+    same(document.activeElement, popup.querySelector('.popup-title button'));
     document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
-    assert.equal(document.querySelector('.avp-popup'), null);
-    assert.equal(document.activeElement, name);
+    absent(document.querySelector('.avp-popup'));
+    same(document.activeElement, name);
     click(page, name);
     document.querySelector('.avp-popup .popup-title button').click();
-    assert.equal(document.activeElement, name);
+    same(document.activeElement, name);
     click(page, name);
     document.querySelector('.avp-popup .usage-link').click();
     assert.equal(document.querySelectorAll('.avp-current').length, 1);
     document.body.dispatchEvent(new window.PointerEvent('pointerdown', { bubbles: true }));
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     control.click();
     click(page, name);
     await settle();
@@ -891,7 +891,7 @@ test('the uses control is read at click time and starts off on each document', a
     assert.equal(document.querySelector('.uses-toggle input').checked, false);
     click(page, document.querySelector('pre a[data-avp]'));
     await settle();
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
   } finally { await page.close(); }
 });
 
@@ -915,10 +915,10 @@ test('right-click and the context-menu key list a name\'s uses, alt-click goes t
     const line = [...document.querySelectorAll('pre .dad-line')].find(node => !node.querySelector('[data-avp], .value-name'));
     assert.equal(rightClick(page, line), true, 'anywhere else the menu is the browser\'s');
     assert.equal(rightClick(page, document.querySelector('.document-header')), true);
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     click(page, document.querySelector('pre a[data-avp][href^="#rfc7944"]'), { altKey: true });
     await settle();
-    assert.equal(document.querySelector('.avp-popup'), null, 'alt lists nothing');
+    absent(document.querySelector('.avp-popup'), 'alt lists nothing');
     assert.ok(window.location.hash.startsWith('#rfc7944/'), 'the view goes to its definition');
     assert.match(document.querySelector('.source-document').textContent, /^RFC 7944/, 'and the pane');
   } finally { await page.close(); }
@@ -1064,26 +1064,26 @@ test('each route sets its title and heading, and navigation moves focus', async 
   try {
     const { document, window } = page;
     assert.equal(document.title, 'Seanchaí');
-    assert.notEqual(document.activeElement, document.querySelector('main'), 'not on first load');
+    notSame(document.activeElement, document.querySelector('main'), 'not on first load');
     await page.go('#29153-j00');
     assert.equal(document.title, 'TS 29.153 — Seanchaí');
     const heading = document.querySelector('main h1');
     assert.match(heading.textContent, /^3GPP TS 29\.153 V19\.0\.0 — /);
-    assert.equal(document.activeElement, heading);
+    same(document.activeElement, heading);
     await page.go('#29153-j00/5.1');
-    assert.equal(document.activeElement, document.getElementById('section-5.1'));
+    same(document.activeElement, document.getElementById('section-5.1'));
     await page.go('#search');
     assert.equal(document.title, 'Search — Seanchaí');
     assert.equal(document.querySelector('main h1').textContent, 'Search');
-    assert.equal(document.activeElement, document.querySelector('.search-form input'));
+    same(document.activeElement, document.querySelector('.search-form input'));
     await page.go('');
-    assert.equal(document.activeElement, document.querySelector('main'));
+    same(document.activeElement, document.querySelector('main'));
     const skip = document.querySelector('.skip-link');
-    assert.equal(document.querySelector('#app').firstElementChild, skip);
+    same(document.querySelector('#app').firstElementChild, skip);
     await page.go('#29153-j00');
     const before = window.location.hash;
     click(page, skip);
-    assert.equal(document.activeElement, document.querySelector('#document'));
+    same(document.activeElement, document.querySelector('#document'));
     assert.equal(window.location.hash, before);
   } finally { await page.close(); }
 });
@@ -1143,13 +1143,13 @@ test('a mention link marks its line, a later route clears it, and loading says s
     const line = document.querySelector('.target-line');
     assert.equal(line.dataset.line, '12');
     await page.go('#29153-j00/5.1');
-    assert.equal(document.querySelector('.target-line'), null);
+    absent(document.querySelector('.target-line'));
     page.window.location.hash = '#29061-6f0';
     await new Promise(resolve => setTimeout(resolve, 0));
     const status = document.querySelector('main [role="status"]');
     if (status) assert.match(status.textContent, /^Loading TS 29\.061/);
     await settle();
-    assert.equal(document.querySelector('main [role="status"]'), null);
+    absent(document.querySelector('main [role="status"]'));
   } finally { await page.close(); }
 });
 
@@ -1167,7 +1167,7 @@ test('public: an RFC page restores a PDF\'s placeholder beside it from a shared 
   const page = await boot({ hash: '#rfc7944?source=29153-j00&sourceSection=5.1' });
   try {
     const { document } = page;
-    assert.equal(document.querySelector('iframe'), null);
+    absent(document.querySelector('iframe'));
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
     assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.153/);
   } finally { await page.close(); }
@@ -1198,16 +1198,16 @@ test('public: right-click on a value name shows its table, with its AVP and sour
     assert.ok(rowOf(document, 'DIAMETER_ERROR_OUT_OF_RESOURCES').classList.contains('avp-current'));
     assert.ok(!name.classList.contains('avp-current'));
     popup.querySelector('.popup-title button').click();
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     const ctrl = new window.MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
     name.dispatchEvent(ctrl);
     assert.equal(ctrl.defaultPrevented, false, 'a new tab is the browser\'s');
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     click(page, name);
     await settle();
     assert.ok(window.location.hash.startsWith(`${name.getAttribute('href')}?name=DIAMETER_ERROR_SERVICE_AREA&`), 'with only a placeholder, its link is followed');
     assert.ok(document.querySelector('.target-line').contains(name), 'to its row');
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
   } finally { await page.close(); }
 });
 
@@ -1224,14 +1224,14 @@ test('self-hosted: a value name and its clause drive the pane to the row, and th
     await settle();
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'value'].map(key => [key, pane().get(key)])), { search: row.position.section, name: row.name, row: '1', value: String(row.value) });
     assert.match(page.window.location.hash, /sourceName=/);
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
     const codes = valueTables(doc.lines).find(table => table.kind === 'result-codes');
     const code = codes.rows[0];
     const clause = [...document.querySelectorAll(`[data-line="${code.line}"] [data-token]`)].find(node => node.textContent === code.position.section);
     click(page, clause);
     await settle();
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'titled'].map(key => [key, pane().get(key)])), { search: code.position.section, name: code.name, row: '1', titled: '1' });
-    assert.equal(document.querySelector('.avp-popup'), null);
+    absent(document.querySelector('.avp-popup'));
   } finally { await page.close(); }
 });
 
@@ -1264,7 +1264,7 @@ test('self-hosted: a link to a row opens the pane there and survives a reload of
     const pane = new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'titled', 'page'].map(key => [key, pane.get(key)])), { search: '17.8.2', name: 'DIAMETER_ERROR_SERVICE_AREA', row: '1', titled: '1', page: '92' });
     await page.go('#29061-6f0/17.8.2');
-    assert.equal(document.querySelector('.target-line'), null, 'a link to the clause marks no row');
+    absent(document.querySelector('.target-line'), 'a link to the clause marks no row');
   } finally { await page.close(); }
 });
 
@@ -1388,7 +1388,7 @@ test('the keys leave what takes typing alone, and work from a checkbox', async (
     const { document } = page;
     const input = document.querySelector('.search-form input');
     input.focus();
-    assert.equal(document.activeElement, input);
+    same(document.activeElement, input);
     assert.equal(press(page, { key: 'o', ctrlKey: true }, input).defaultPrevented, false);
     press(page, { key: '[' }, input);
     assert.equal(press(page, { key: 'd' }, input).defaultPrevented, false);
@@ -1398,7 +1398,7 @@ test('the keys leave what takes typing alone, and work from a checkbox', async (
     assert.equal(press(page, { key: 'o', ctrlKey: true }, uses).defaultPrevented, true);
     await settle();
     assert.equal(document.querySelector('.search-form input').value, 'DRMP', 'back at the search');
-    assert.notEqual(document.activeElement, document.querySelector('.search-form input'), 'with the keys still walking');
+    notSame(document.activeElement, document.querySelector('.search-form input'), 'with the keys still walking');
     assert.equal(press(page, { key: 'i', ctrlKey: true }).defaultPrevented, true);
     await settle();
     assert.ok(document.querySelector('#document'));
@@ -1411,8 +1411,8 @@ test('the header\'s buttons name their key and target, stay in the tab order at 
     const { document } = page;
     layOut(page);
     assert.deepEqual([...document.querySelectorAll('.jump-button')].map(node => node.textContent), ['‹', '›', '«', '»']);
-    assert.equal(document.querySelector('.document-header').firstElementChild, document.querySelector('.jump-controls'), 'left of the title');
-    assert.equal(document.querySelector('.source-header .jump-controls'), null);
+    same(document.querySelector('.document-header').firstElementChild, document.querySelector('.jump-controls'), 'left of the title');
+    absent(document.querySelector('.source-header .jump-controls'));
     for (const node of document.querySelectorAll('.jump-button')) {
       assert.equal(node.getAttribute('aria-disabled'), 'true');
       assert.equal(node.disabled, false);
@@ -1430,7 +1430,7 @@ test('the header\'s buttons name their key and target, stay in the tab order at 
     await settle();
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'));
     assert.equal(pane(document).scrollTop, 2240);
-    assert.equal(document.activeElement, button(document, 'back'));
+    same(document.activeElement, button(document, 'back'));
     assert.equal(button(document, 'forward').title, 'Forward to RFC 7944 line 1 (Ctrl+I)');
     assert.equal(button(document, 'back').getAttribute('aria-disabled'), 'true');
     button(document, 'back').click();
@@ -1442,7 +1442,7 @@ test('the header\'s buttons name their key and target, stay in the tab order at 
     assert.equal(button(document, 'backDocument').title, 'Back to TS 29.153 line 113 ([d)');
     await follow(page, '#');
     await follow(page, '#search');
-    assert.equal(document.querySelector('.jump-button'), null, 'only a document\'s header has them');
+    absent(document.querySelector('.jump-button'), 'only a document\'s header has them');
     document.activeElement.blur();
     press(page, { key: 'o', altKey: true });
     await settle();
@@ -1562,7 +1562,7 @@ test('the strip names the section at the top of the view, and opens the Sections
     const { title } = (await readFixture('documents/29153-j00.json')).sections.find(entry => entry.section === section);
     const toggle = document.querySelector('.section-control .disclosure');
     assert.deepEqual([...document.querySelectorAll('#diagnostics button')].map(node => node.textContent.split(' ')[0]).slice(0, 3), ['Findings', 'Holes', 'Sections']);
-    assert.equal(toggle.nextElementSibling.firstElementChild, crumb, 'the crumb follows the Sections toggle');
+    same(toggle.nextElementSibling.firstElementChild, crumb, 'the crumb follows the Sections toggle');
     pane(document).scrollTop = Number(row.dataset.line) * 20 - 12;
     pane(document).dispatchEvent(new window.Event('scroll'));
     await new Promise(resolve => setTimeout(resolve, 200));
@@ -1575,7 +1575,7 @@ test('the strip names the section at the top of the view, and opens the Sections
     const current = panel.querySelectorAll('[aria-current]');
     assert.equal(current.length, 1);
     assert.equal(current[0].dataset.section, section);
-    assert.equal(document.activeElement, current[0].querySelector('a'));
+    same(document.activeElement, current[0].querySelector('a'));
     click(page, crumb);
     assert.equal(panel.hidden, false, 'a second click does not close it');
     assert.equal(panel.querySelectorAll('[aria-current]').length, 1);
@@ -1764,7 +1764,7 @@ test('a value\'s popup says the document defining it, both ways to its row there
     rightClick(page, rowOf(document, 'DIAMETER_ERROR_USER_UNKNOWN'));
     await settle();
     popup = document.querySelector('.avp-popup');
-    assert.equal(popup.querySelector('.place-origin'), null);
+    absent(popup.querySelector('.place-origin'));
     assert.equal(popup.querySelector('.value-origin').textContent, 'Defined in TS29.229');
     assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '5001 · DIAMETER_ERROR_USER_UNKNOWN · from TS29.229');
   } finally { await page.close(); }
@@ -1807,7 +1807,7 @@ test('a name\'s popup says how the line opened on uses it, the flags its row set
     assert.deepEqual(texts(popup, '.popup-row-title'), ['AVP Table 6.3.1'], 'the row\'s table, opened away from it');
     assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M, V'], 'no empty columns, no P');
     assert.match(popup.querySelector('.popup-flags td').title, /^M must be set\. Mandatory/);
-    assert.equal(popup.querySelector('.popup-facts'), null, 'Encrypt is not shown');
+    absent(popup.querySelector('.popup-facts'), 'Encrypt is not shown');
     const button = popup.querySelector('.popup-flags-line .popup-key-button');
     const key = popup.querySelector('.popup-key');
     assert.equal(key.hidden, true);

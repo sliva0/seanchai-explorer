@@ -142,7 +142,8 @@ take all the machine's memory. For one file or one test, keep the cap:
 node --max-old-space-size=1024 --test --test-name-pattern='<name>' tests/unit/app.test.mjs
 ```
 
-In a new test, compare a node's text or `=== null`, not the node itself.
+In a test, check a node with `absent`, `present`, `same` or `notSame` from
+`tests/unit/helpers.mjs`, which compare with `===` and print no node, or compare its text.
 
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
 that lacks one. A build copies the export's grammar, or else this one, to the generated
@@ -157,7 +158,7 @@ else. `tests/fixtures/export` is five real documents cut from a real public expo
 After the export changes:
 
 ```sh
-npm run prepare:data -- --any-schema   # or any public export, passed below
+npm run data -- --any-schema   # or any public export, passed below
 npm run fixture             # node scripts/make-fixture.mjs [export-dir], default public/data
 npm run types               # node scripts/generate-types.mjs [schema.json], default the fixture's
 npm test
@@ -189,13 +190,14 @@ change an entry:
 
 ## Deployment
 
-`.github/workflows/pages.yml` deploys to GitHub Pages on a push to `main`: it installs
-`seanchai[corpus]`, exports, builds in public mode, checks no PDF is in `dist/`, and
-publishes with the Pages actions. Pages must be set to deploy from GitHub Actions.
+`.github/workflows/pages.yml` deploys to GitHub Pages only when run by hand: it runs
+`npm run check` and `npm test`, builds in public mode with the PyPI release, checks no
+PDF is in `dist/`, and publishes with the Pages actions. Pages must be set to deploy
+from GitHub Actions. `.github/workflows/ci.yml` runs the checks and every test suite on
+each push and pull request.
 
-Set the repository variable `SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of a
-manual run, to build from a ref of `https://github.com/sliva0/seanchai` instead of
-PyPI.
+Set the repository variable `SEANCHAI_GIT_REF`, or the `seanchai_git_ref` input of the
+run, to build from a ref of `https://github.com/sliva0/seanchai` instead of PyPI.
 
 ## License
 
