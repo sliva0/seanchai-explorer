@@ -72,7 +72,7 @@ export function createCommandPopup(shell: PopupShell, site: Site) {
    * document's view has waited for; what is in this file is read from the lines the view shows.
    */
   function showCommand(ref: CommandRef, request: PopupRequest) {
-    const { doc, file, opener } = request;
+    const { doc, file, opener, documentPane } = request;
     const index = site.commands();
     const command = commandOf(ref, doc, index);
     const name = command?.name ?? ref.name;
@@ -178,7 +178,7 @@ export function createCommandPopup(shell: PopupShell, site: Site) {
       places.append(...rows);
       panel.append(places);
     }
-    shell.place(panel, closeButton, opener);
+    shell.place(panel, closeButton, opener, documentPane);
   }
 
   return showCommand;

@@ -278,10 +278,13 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     return { rows, rule };
   }
 
-  /** `at` is the use a redraw was stepped to. */
-  function show(request: PopupRequest, at?: number) {
-    const { token, doc, lines, opener, documentPane, recordJump, jumpTo } = request;
-    const name = token.avp!;
+  /**
+   * `at` is the use a walk has stepped to, which the popup is then drawn for as if opened on it: its line's "Here:",
+   * rows and Contents, its places, and placed by it. Close and Escape still give the focus back to the name opened on.
+   */
+  function show(opened: PopupRequest, at?: number) {
+    const { doc, lines, opener, documentPane, recordJump, jumpTo } = opened;
+    const name = opened.token.avp!;
     const { panel, closeButton } = shell.open(name, opener);
     const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;
     const seen = new Set<Element>();
@@ -298,18 +301,21 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
             uses.findIndex(node => lineOf(node) === lineOf(opener)),
           );
     if (at !== undefined) uses[active]?.classList.add('avp-current');
+    const here = (at !== undefined && uses[active]) || opener;
+    const token =
+      (here !== opener && lines[Number(lineOf(here).dataset.line)].tokens[Number(here.dataset.token)]) || opened.token;
+    const request: PopupRequest = { ...opened, token };
     panel.dataset.avp = name;
-    shell.loadThenRedraw(token.target?.document, request, active => show(request, active));
+    shell.loadThenRedraw(token.target?.document, request, active => show(opened, active));
     const { identities, tables } = facts(request);
     if (identities.length) {
       const identity = element('div', undefined, 'popup-identity');
       identity.append(...identities.map(text => element('p', text)));
       panel.append(identity);
     }
-    const openedOn = Number(lineOf(opener).dataset.line);
-    const use = useAt(request.file, openedOn, name);
-    const here = useContext(use);
-    if (here) panel.append(here);
+    const use = useAt(request.file, Number(lineOf(here).dataset.line), name);
+    const context = useContext(use);
+    if (context) panel.append(context);
     const { rows: definitionRows, rule } = definitionFacts(request, use);
     if (definitionRows.length) {
       const { button, key } = factsKey(definitionRows.map(({ row }) => row));
@@ -358,16 +364,12 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     panel.append(actions);
     const list = element('div', undefined, 'usage-list');
     const buttons: HTMLButtonElement[] = [];
+    // The text goes to the use, and the popup is drawn again for it, keeping what the reader has done in it.
     const select = (index: number) => {
       if (!uses.length) return;
       recordJump();
       active = (index + uses.length) % uses.length;
-      count.textContent = `.dad ${active + 1}/${uses.length}`;
-      for (const node of uses) node.classList.remove('avp-current');
-      for (const button of buttons) button.removeAttribute('aria-current');
       const node = uses[active];
-      node.classList.add('avp-current');
-      buttons[active].setAttribute('aria-current', 'location');
       buttons[active].scrollIntoView?.({ block: 'nearest' });
       jumpTo(node);
       const line = lineOf(node);
@@ -377,6 +379,7 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       )?.source;
       if (position && pane.readsDocument())
         pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
+      shell.redraw(() => show(opened, active));
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
@@ -390,7 +393,7 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
         .replace(/\s+/g, ' ')
         .trim();
       // The rule a member line is in, as a command is abbreviated: a bare `[ TMGI ]` says nothing of which.
-      const rule = ruleAt(request.file, Number(line.dataset.line));
+      const rule = ruleAt(opened.file, Number(line.dataset.line));
       const inRule = rule && rule.line !== Number(line.dataset.line) ? `${rule.short} · ` : '';
       const button = element('button', `${line.dataset.section ?? ''} · ${inRule}${text}`, 'usage-link');
       button.title = button.textContent!;
@@ -408,7 +411,7 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       if (usages.open) buttons[active]?.scrollIntoView?.({ block: 'nearest' });
     };
     panel.append(usages);
-    shell.place(panel, closeButton, opener);
+    shell.place(panel, closeButton, here, documentPane);
     buttons[active]?.scrollIntoView?.({ block: 'nearest' });
   }
 

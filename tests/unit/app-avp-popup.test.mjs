@@ -7,12 +7,14 @@ import {
   click,
   commandNames,
   identities,
+  notSame,
   pane,
   paneAt,
   popupOf,
   present,
   rightClick,
   same,
+  easing,
   settle,
   tableRows,
   tmgi,
@@ -354,9 +356,12 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     const titles = popup => [...popup.querySelectorAll('.popup-row-title')].map(node => node.textContent);
     assert.ok(!titles(first).includes('AVP Table 9.2 · RFC 7944'), 'RFC 7944 is not loaded yet');
     const next = [...first.querySelectorAll('.popup-actions button')].find(node => node.textContent === 'Next');
-    next.click();
     next.focus();
-    first.querySelector('.popup-uses').open = true;
+    next.click();
+    const stepped = document.querySelector('.avp-popup');
+    notSame(stepped, first, 'drawn again for the use stepped to');
+    assert.equal(document.activeElement.textContent, 'Next');
+    stepped.querySelector('.popup-uses').open = true;
     await settle();
     await settle();
     const popup = document.querySelector('.avp-popup');
@@ -389,6 +394,118 @@ test('a popup drawn again once its document loads leaves a focus outside it wher
     await settle();
     assert.ok(document.querySelector('.avp-popup') !== first, 'drawn again');
     same(document.activeElement, outside);
+  } finally {
+    await page.close();
+  }
+});
+
+/** A page laid out as a browser would for a popup: the text's pane from 100 to 700, lines of 20 pixels, popups 300 by 200. */
+const layOutPopup = page => {
+  const { HTMLElement } = page.window;
+  const box = (top, height, left = 0, width = 100) => ({
+    top,
+    bottom: top + height,
+    left,
+    right: left + width,
+    width,
+    height,
+  });
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.id === 'document') return box(100, 600, 0, 1280);
+    if (this.classList.contains('avp-popup')) return box(0, 200, 0, 300);
+    const line = this.closest('.dad-line');
+    if (!line) return box(0, 0, 0, 0);
+    return box(100 + Number(line.dataset.line) * 20 - this.closest('#document').scrollTop, 20, 40);
+  };
+};
+const frames = () => new Promise(resolve => setTimeout(resolve, 40));
+
+test("a name's popup stays by its name as the text scrolls, and at the text's edge, detached, when the name has left it", async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document } = page;
+    layOutPopup(page);
+    const name = [...document.querySelectorAll('pre [data-avp]')].find(
+      node => node.dataset.avp === 'User-Identity' && node.closest('.dad-line').dataset.line === '24',
+    );
+    const text = pane(document);
+    text.scrollTop = 0;
+    const popup = await popupOf(page, name);
+    const at = () => [parseFloat(popup.style.top), parseFloat(popup.style.left), popup.dataset.detached];
+    assert.deepEqual(at(), [100 + 24 * 20 - 200 - 8, 40, undefined], 'above it, where below does not fit');
+    text.scrollTop = 300;
+    text.dispatchEvent(new page.window.Event('scroll'));
+    await frames();
+    assert.deepEqual(
+      at(),
+      [100 + 24 * 20 - 300 + 20 + 8, 40, undefined],
+      'below it once that fits, the name having moved up',
+    );
+    const list = popup.querySelector('.usage-list');
+    text.scrollTop = 1000;
+    list.dispatchEvent(new page.window.Event('scroll'));
+    await frames();
+    assert.equal(parseFloat(popup.style.top), 100 + 24 * 20 - 300 + 20 + 8, "its own list's scroll moves nothing");
+    text.dispatchEvent(new page.window.Event('scroll'));
+    await frames();
+    assert.deepEqual(at(), [108, 40, 'up'], 'the name scrolled away above: at the top of the text, detached');
+    text.scrollTop = 0;
+    text.dispatchEvent(new page.window.Event('scroll'));
+    await frames();
+    assert.deepEqual(at(), [100 + 24 * 20 - 200 - 8, 40, undefined], 'back by it');
+  } finally {
+    await page.close();
+  }
+});
+
+test("Next and a use in the list draw a name's popup again for the use gone to, keeping its sections, key and focus", async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document, window } = page;
+    layOutPopup(page);
+    const texts = (popup, selector) => [...popup.querySelectorAll(selector)].map(node => node.textContent);
+    const opener = [...document.querySelectorAll('pre [data-avp]')].find(
+      node => node.dataset.avp === 'User-Identity' && node.closest('.dad-line').dataset.line === '24',
+    );
+    opener.focus();
+    let popup = await popupOf(page, opener);
+    assert.match(texts(popup, '.popup-context p')[0], /^Here: in command User-Data-Request/);
+    popup.querySelector('.popup-key-button').click();
+    popup.querySelector('.popup-uses').open = true;
+    const entries = [...popup.querySelectorAll('.usage-link')];
+    const head = entries.findIndex(node => node.textContent.includes('User-Identity ::='));
+    assert.ok(head > 0, texts(popup, '.usage-link').join('\n'));
+    entries[head].focus();
+    entries[head].click();
+    const first = popup;
+    popup = document.querySelector('.avp-popup');
+    notSame(popup, first, 'drawn again');
+    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule, as if opened there');
+    assert.equal(popup.querySelector('.popup-uses').open, true, 'the uses stay open');
+    assert.equal(popup.querySelector('.popup-key').hidden, false, 'the key stays open');
+    assert.equal(popup.querySelectorAll('.usage-link')[head].getAttribute('aria-current'), 'location');
+    same(document.activeElement, popup.querySelectorAll('.usage-link')[head], 'the focus on the entry pressed');
+    assert.match(popup.querySelector('.popup-actions span').textContent, new RegExp(`^\\.dad ${head + 1}/`));
+    const use = document.querySelector('pre .avp-current');
+    assert.equal(use.closest('.dad-line').dataset.line, '318');
+    await easing();
+    await frames();
+    const line = Number(use.closest('.dad-line').dataset.line);
+    const bottom = 100 + line * 20 - pane(document).scrollTop + 20;
+    assert.equal(parseFloat(popup.style.top), bottom + 8, 'below the use gone to, once the text is there');
+    popup.querySelector('.popup-contents').open = false;
+    const next = [...popup.querySelectorAll('.popup-actions button')].find(node => node.textContent === 'Next');
+    next.focus();
+    next.click();
+    popup = document.querySelector('.avp-popup');
+    assert.equal(document.activeElement.textContent, 'Next', 'the focus on Next');
+    assert.ok(popup.contains(document.activeElement));
+    assert.notDeepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.equal(popup.querySelector('.popup-contents')?.open ?? false, false, 'closed as the reader left it');
+    document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
+    absent(document.querySelector('.avp-popup'));
+    same(document.activeElement, opener, 'Escape gives the focus back to the name opened on');
   } finally {
     await page.close();
   }

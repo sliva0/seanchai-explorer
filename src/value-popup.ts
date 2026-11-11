@@ -93,7 +93,9 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
       recordJump();
       mark((index + table.rows.length) % table.rows.length);
       const node = nameNode(active);
-      if (node) jumpTo(node);
+      if (!node) return;
+      jumpTo(node);
+      shell.anchorTo(node);
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
@@ -115,7 +117,7 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
     rows.append(rowsTitle, list);
     panel.append(rows);
     mark(active, false);
-    shell.place(panel, closeButton, opener);
+    shell.place(panel, closeButton, opener, documentPane);
     buttons[active].scrollIntoView?.({ block: 'nearest' });
   }
 

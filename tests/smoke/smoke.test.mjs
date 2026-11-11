@@ -473,6 +473,70 @@ test(
   },
 );
 
+/** Two frames: a popup moved in the next one has been drawn there. */
+const frames = page =>
+  page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+const boxOf = (page, selector) =>
+  page.locator(selector).evaluate(node => {
+    const { top, bottom, left, right } = node.getBoundingClientRect();
+    return { top, bottom, left, right };
+  });
+
+test(
+  "a name's popup moves with its name as the text scrolls, waits at the text's edge when it has left, and Next takes it to the next use",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29329-j10');
+    const name = page.locator('pre .dad-line[data-line="24"] [data-avp="User-Identity"]');
+    await name.click({ button: 'right' });
+    await page.waitForSelector('.avp-popup');
+    await frames(page);
+    const popup = await boxOf(page, '.avp-popup');
+    const at = await name.evaluate(node => node.getBoundingClientRect().top);
+    await page.locator('#document').evaluate(node => {
+      node.scrollTop += 60;
+    });
+    await frames(page);
+    const moved = await boxOf(page, '.avp-popup');
+    near((await name.evaluate(node => node.getBoundingClientRect().top)) - at, -60, 'the name moved');
+    near(moved.top - popup.top, -60, 'the popup with it');
+    near(moved.left, popup.left, 'not sideways');
+    await page.locator('#document').evaluate(node => {
+      node.scrollTop = node.scrollHeight;
+    });
+    await frames(page);
+    const text = await boxOf(page, '#document');
+    const away = await boxOf(page, '.avp-popup');
+    assert.ok(away.top >= text.top && away.bottom <= 800 && away.left >= 0 && away.right <= 1280, JSON.stringify(away));
+    near(away.top, text.top + 8, 'at the top of the text');
+    assert.equal(await page.locator('.avp-popup').getAttribute('data-detached'), 'up');
+    await page.locator('#document').evaluate(node => {
+      node.scrollTop = 0;
+    });
+    await frames(page);
+    assert.equal(await page.locator('.avp-popup').getAttribute('data-detached'), null, 'by its name again');
+    await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
+    assert.match(
+      await page.locator('.avp-popup .popup-context p').first().textContent(),
+      /^Here: in command Profile-Update-Request/,
+    );
+    assert.equal(await page.evaluate(() => document.activeElement?.textContent), 'Next', 'the focus stays on Next');
+    // The text's eased move to the use, which the popup follows.
+    await page.waitForTimeout(400);
+    await frames(page);
+    const use = await boxOf(page, 'pre .avp-current');
+    const beside = await boxOf(page, '.avp-popup');
+    assert.equal(await page.locator('pre .avp-current').evaluate(node => node.closest('.dad-line').dataset.line), '88');
+    assert.ok(
+      Math.abs(beside.top - use.bottom - 8) <= 1 || Math.abs(beside.bottom - use.top + 8) <= 1,
+      `${JSON.stringify(beside)} beside ${JSON.stringify(use)}`,
+    );
+    await page.keyboard.press('Escape');
+    assert.equal(await name.evaluate(node => node === document.activeElement), true, 'the focus back on the name');
+    await done();
+  },
+);
+
 test('the uses popup is compact, monospace, sized to content, and has one scrollbar', { skip }, async () => {
   const { page, done } = await open('#29153-j00');
   await page.locator('.uses-toggle input').check();

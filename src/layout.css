@@ -823,6 +823,31 @@ mark {
   box-shadow: 0 4px 16px var(--ui-shadow);
   font: var(--text-xs)/1.4 var(--mono);
 }
+/* Its name scrolled out of the text's view: a dashed edge, and the side the name went to marked. */
+.avp-popup[data-detached] {
+  border-style: dashed;
+  border-color: var(--ui-border-strong);
+}
+.avp-popup[data-detached="up"] {
+  box-shadow:
+    inset 0 2px var(--ui-link),
+    0 4px 16px var(--ui-shadow);
+}
+.avp-popup[data-detached="down"] {
+  box-shadow:
+    inset 0 -2px var(--ui-link),
+    0 4px 16px var(--ui-shadow);
+}
+.avp-popup[data-detached="left"] {
+  box-shadow:
+    inset 2px 0 var(--ui-link),
+    0 4px 16px var(--ui-shadow);
+}
+.avp-popup[data-detached="right"] {
+  box-shadow:
+    inset -2px 0 var(--ui-link),
+    0 4px 16px var(--ui-shadow);
+}
 .avp-popup p {
   margin: 0;
   overflow-wrap: anywhere;
@@ -915,16 +940,23 @@ mark {
   align-items: center;
   gap: var(--space-1);
 }
-/* The table's own columns, unruled: muted headings over the bits. */
+/* A ruled grid, its columns kept apart by strong dividers: muted headings on a band over the bits. */
 .popup-flags {
+  border: 1px solid var(--ui-border-strong);
   border-collapse: collapse;
 }
 .popup-flags th,
 .popup-flags td {
-  padding: 0 1.5ch 0 0;
+  padding: 1px 1ch;
   text-align: left;
 }
+.popup-flags th + th,
+.popup-flags td + td {
+  border-left: 1px solid var(--ui-border-strong);
+}
 .popup-flags th {
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
   color: var(--ui-muted);
   font-weight: normal;
 }
