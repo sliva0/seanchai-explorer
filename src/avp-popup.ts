@@ -12,6 +12,7 @@ import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, externalLink, link } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
+import { attempt } from './notice.ts';
 import type { SourcePane } from './source-pane.ts';
 import type { Document, Line } from './types.ts';
 import { valueRowLabel, valueTableTitle } from './values.ts';
@@ -52,8 +53,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   }
 
   document.addEventListener('keydown', event => { if (event.key === 'Escape') close(true); });
+  // A notice can be the popup's own, as a Retry of what it loads, which would have nothing to redraw if this closed it.
   document.addEventListener('pointerdown', event => {
-    if (popup && !popup.contains(event.target as Node)) close();
+    if (popup && !popup.contains(event.target as Node) && !(event.target as Element).closest?.('.notices')) close();
   });
 
   /** The heading and the close button: what any popup opens with. */
@@ -120,7 +122,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       const button = element('button', 'Show on the right', 'control pane-action');
       button.type = 'button';
       button.title = 'Moves only the source pane on the right, and opens it if it is hidden';
-      button.onclick = () => void pane.showPlace(place, doc).catch(console.error);
+      button.onclick = () => pane.openPlace(place, doc);
       row.append(button);
     }
     return row;
@@ -143,8 +145,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
    * stepped to, the sections opened, where it stands and what in it has the focus.
    */
   function loadThenRedraw(id: string | undefined, { doc, opener }: PopupRequest, redraw: (active?: number) => void) {
-    if (!id || id === doc.id || site.held(id) || !site.summary(id)) return;
-    site.loadDocument(id).then(() => {
+    const summary = id && id !== doc.id && !site.held(id) ? site.summary(id) : undefined;
+    if (!summary) return;
+    attempt(`Could not load ${site.label(summary)} for the popup`, () => site.loadDocument(summary.id).then(() => {
       const old = popup;
       if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
       const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
@@ -159,7 +162,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       panel.style.top = top;
       panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
       if (focused) [...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused)?.focus({ preventScroll: true });
-    }).catch(console.error);
+    }));
   }
 
   /**

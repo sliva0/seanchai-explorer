@@ -3,6 +3,7 @@ import { openSite, paneKind, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
 import type { DocumentView } from './document-view.ts';
+import { createHelp } from './help.ts';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
 import { renderIndex } from './index-view.ts';
@@ -12,10 +13,12 @@ import type { JumpEntry, JumpWalk } from './jump-list.ts';
 import { createChords, keyWalk, takesTyping } from './keys.ts';
 import { pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
+import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
+import { session } from './storage.ts';
 import { initTheme } from './theme.ts';
 import type { Line } from './types.ts';
 
@@ -28,7 +31,10 @@ searchLink.href = '#search';
 nav.append(indexLink, searchLink);
 const themeButton = element('button', undefined, 'control theme-toggle');
 themeButton.type = 'button';
-header.append(nav, themeButton);
+const help = createHelp();
+const headerActions = element('div', undefined, 'header-actions');
+headerActions.append(help.button, themeButton);
+header.append(nav, headerActions);
 const content = element('main');
 content.id = 'content';
 content.tabIndex = -1;
@@ -40,6 +46,7 @@ skipLink.onclick = event => {
   (content.querySelector<HTMLElement>('#document') ?? content).focus();
 };
 document.querySelector('#app')!.replaceChildren(skipLink, header, content);
+noticeRegion();
 
 let pane: SourcePane | undefined;
 const theme = initTheme(value => {
@@ -83,7 +90,6 @@ try {
   // The position is put back by the route, not by the browser after it.
   history.scrollRestoration = 'manual';
 
-  const session = () => sessionStorage;
   const positions = createPositionStore(session);
   const jumps = createJumpList(session, document => !document || document === 'search' || Boolean(site.summary(document)));
   const jumpControls = createJumpControls(walk);
@@ -236,11 +242,17 @@ try {
     else if (fresh && saved && !parsed.section) current.restore(saved.top, saved.offset);
   }
 
+  let shownPage: string | undefined;
+
   async function show(arrival: Arrival) {
     const { place } = arrival;
     popup.close();
     const generation = ++request;
     const parsed = parseRoute(location.hash);
+    // A failure on a page left behind is no longer the reader's, and its Retry would act on a page not shown.
+    const page = pageOf(parsed);
+    if (page !== shownPage) clearNotices();
+    shownPage = page;
     if (!parsed.document) {
       leaveDocument('index-view');
       setTitle();

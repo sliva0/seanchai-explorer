@@ -1,7 +1,9 @@
 import * as pdfjs from 'pdfjs-dist';
 import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+import { attempt, noticeRegion, notifyFailure } from './notice.ts';
 import { createSectionNavigator, matchOnRow } from './pdf-navigation.ts';
+import { readStored, writeStored } from './storage.ts';
 import { initTheme } from './theme.ts';
 import { restoreZoom, showZoom, zoomStep, zoomSteps } from './zoom.ts';
 import type { Outline } from './pdf-navigation.ts';
@@ -10,6 +12,7 @@ import './theme.css';
 import './viewer.css';
 
 initTheme();
+noticeRegion();
 
 pdfjs.GlobalWorkerOptions.workerSrc = worker;
 const container = document.querySelector<HTMLDivElement>('#viewerContainer')!;
@@ -50,8 +53,7 @@ const find = document.querySelector<HTMLInputElement>('#find')!;
 const matches = document.querySelector<HTMLOutputElement>('#matches')!;
 const outlinePane = document.querySelector<HTMLElement>('#outline')!;
 const chapters = document.querySelector<HTMLInputElement>('#chapters')!;
-let showChapters = true;
-try { showChapters = localStorage.getItem('seanchai-outline') !== 'hidden'; } catch {}
+let showChapters = readStored('outline') !== 'hidden';
 function setChapters(visible: boolean) {
   showChapters = visible;
   outlinePane.hidden = !visible;
@@ -60,7 +62,7 @@ function setChapters(visible: boolean) {
 }
 chapters.onchange = () => {
   setChapters(chapters.checked);
-  try { localStorage.setItem('seanchai-outline', showChapters ? 'visible' : 'hidden'); } catch {}
+  writeStored('outline', showChapters ? 'visible' : 'hidden');
 };
 let navigator: ReturnType<typeof createSectionNavigator> | undefined;
 let ready = false;
@@ -220,6 +222,9 @@ eventBus.on('pagesinit', () => {
   }).catch(error => { container.textContent = String(error); });
 });
 const documentFile = new URLSearchParams(location.search).get('file');
+// The frame is named by the page holding it; the document is named for its file, for a tab of its own.
+const fileName = documentFile?.split(/[?#]/)[0].split('/').filter(Boolean).at(-1);
+if (fileName) document.title = `${fileName} — Seanchaí`;
 function report(type: string, data: object) {
   if (window.parent !== window) window.parent.postMessage({ type, file: documentFile, ...data }, location.origin);
 }
@@ -257,7 +262,7 @@ async function settleOnRow(generation: number) {
 eventBus.on('updatefindmatchescount', updateMatches);
 eventBus.on('updatefindcontrolstate', (event: Parameters<typeof updateMatches>[0] & { state: number }) => {
   updateMatches(event);
-  if (event.state !== FindState.PENDING) void settleOnRow(navigation).catch(console.error);
+  if (event.state !== FindState.PENDING) settleOnRow(navigation).catch(error => notifyFailure('Could not find the row on its page', error, renavigate));
 });
 function manual() { navigation++; findStart = undefined; rowTarget = undefined; }
 let pendingFind: { query: string; previous: boolean } | undefined;
@@ -273,10 +278,8 @@ document.querySelector<HTMLButtonElement>('#find-previous')!.onclick = () => run
 document.querySelector<HTMLButtonElement>('#find-next')!.onclick = () => runFind({ query: find.value, previous: false });
 function goToPageInput() { manual(); if (ready) viewer.scrollPageIntoView({ pageNumber: Math.max(1, Math.min(viewer.pagesCount, Number(page.value) || 1)) }); }
 page.onchange = goToPageInput;
-function rememberZoom() {
-  try { localStorage.setItem('seanchai-zoom', zoom.value); } catch {}
-}
-try { restoreZoom(zoom, localStorage.getItem('seanchai-zoom')); } catch {}
+const rememberZoom = () => writeStored('zoom', zoom.value);
+restoreZoom(zoom, readStored('zoom'));
 zoom.onchange = () => { viewer.currentScaleValue = zoom.value; rememberZoom(); };
 function stepZoom(direction: 1 | -1, origin?: [number, number]) {
   if (!ready) return;
@@ -311,7 +314,9 @@ document.querySelector<HTMLFormElement>('#toolbar')!.onsubmit = event => {
   runFind({ query: find.value, previous: false });
 };
 find.oninput = () => { manual(); automaticFind = false; wholeWord = false; search(find.value); };
-window.addEventListener('hashchange', () => { void navigate().catch(console.error); });
+/** Goes to the place the hash names again, which also settles on its row again. */
+function renavigate() { attempt('Could not go to the place in the PDF', navigate); }
+window.addEventListener('hashchange', renavigate);
 
 Object.assign(window, {
   PDFViewerApplication: {

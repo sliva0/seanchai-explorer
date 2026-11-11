@@ -317,7 +317,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     if (action.type === 'uses') { showUses(node); return; }
     popup.close();
     // Nothing moves in the view when the pane alone does, so the jump list has nothing to keep.
-    if (action.type === 'pane') void pane.showPlace(action.place, doc).catch(console.error);
+    if (action.type === 'pane') pane.openPlace(action.place, doc);
     else if (action.type === 'both') services.navigate(placeRoute(action.place, doc, Boolean(raw), !pane.switchedOn));
     else if (action.type === 'new-tab') {
       const anchor = node.closest('a');

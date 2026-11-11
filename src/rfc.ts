@@ -12,6 +12,9 @@ const lines: RfcLine[] = [];
 const spans: HTMLElement[] = [];
 let marked: number[] = [];
 const rawFile = new URLSearchParams(location.search).get('file');
+// Opened in a tab of its own, as the pane's link to the text does, the page is named for its RFC.
+const rfcNumber = rawFile?.match(/rfc(\d+)\.txt$/i)?.[1];
+if (rfcNumber) document.title = `RFC ${rfcNumber} — Seanchaí`;
 let lastPage = 0;
 let pending = 0;
 function reportPage() {

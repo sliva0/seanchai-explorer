@@ -3,12 +3,17 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="The text of an RFC, as the Seanchaí explorer shows it beside the corpus." />
+    <!-- One colour, the stored theme's: theme.ts sets it, as the page follows no OS scheme. -->
+    <meta name="theme-color" content="#e8e4d9" />
+    <link rel="icon" href="/src/favicon.svg" type="image/svg+xml" />
     <script>try{var t=localStorage.getItem('seanchai-theme')}catch(e){}document.documentElement.dataset.theme=t==='dark'?'dark':'light'</script>
     <title>Seanchaí</title>
     <link rel="stylesheet" href="/src/theme.css" />
     <link rel="stylesheet" href="/src/rfc.css" />
   </head>
   <body>
+    <noscript><p>This RFC reader needs JavaScript.</p></noscript>
     <main id="rfc"></main>
     <script type="module" src="/src/rfc.ts"></script>
   </body>

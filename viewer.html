@@ -3,10 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="A specification's PDF, as a self-hosted Seanchaí explorer shows it beside the corpus." />
+    <!-- One colour, the stored theme's: theme.ts sets it, as the page follows no OS scheme. -->
+    <meta name="theme-color" content="#e8e4d9" />
+    <link rel="icon" href="/src/favicon.svg" type="image/svg+xml" />
     <script>try{var t=localStorage.getItem('seanchai-theme')}catch(e){}document.documentElement.dataset.theme=t==='dark'?'dark':'light'</script>
     <title>Seanchaí</title>
   </head>
   <body>
+    <noscript><p>This PDF viewer needs JavaScript.</p></noscript>
     <form id="toolbar">
       <label id="chapters-toggle" class="visibility-toggle pending">Chapters <input id="chapters" type="checkbox" aria-controls="outline" checked /></label>
       <label>Page <input id="page" class="control" type="number" min="1" value="1" /></label>

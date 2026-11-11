@@ -6,7 +6,9 @@ body, #app, #workspace, #content.document-view { overflow: clip; }
 /* Header */
 header { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); height: 2.25rem; padding: 0 var(--space-3); border-bottom: 1px solid var(--ui-border); background: var(--ui-chrome); }
 nav { display: flex; gap: var(--space-2); }
+.header-actions { display: flex; align-items: center; gap: var(--space-2); }
 .theme-toggle { min-width: 8ch; }
+.help-toggle { min-width: var(--control-height); padding: 0; }
 .skip-link { position: absolute; z-index: 200; top: -4rem; left: var(--space-2); padding: var(--space-1) var(--space-3); border: 1px solid var(--ui-border); border-radius: var(--radius); background: var(--ui-bg); }
 .skip-link:focus { top: var(--space-1); }
 
@@ -237,3 +239,20 @@ mark { border-radius: 2px; background: var(--mark-bg); color: var(--mark-fg); }
 .usage-link:hover { background: var(--ui-hover); }
 .usage-link[aria-current] { background: var(--ui-selected); box-shadow: inset 2px 0 var(--ui-link); }
 .avp-popup p .usage-link { display: inline; width: auto; }
+
+/* Help: under the header at its right, over the page, as tall as the window leaves it. */
+.help-dialog { position: fixed; z-index: 120; top: calc(2.25rem + var(--space-2)); right: var(--space-3); width: min(68ch, calc(100vw - 2 * var(--space-3))); max-height: calc(100dvh - 2.25rem - 2 * var(--space-3)); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: var(--space-2) var(--space-3) var(--space-3); border: 1px solid var(--ui-border); border-radius: var(--radius); background: var(--ui-raised); box-shadow: 0 4px 16px var(--ui-shadow); font: var(--text-xs)/1.5 var(--sans); }
+.help-dialog[hidden] { display: none; }
+.help-dialog:focus { outline: none; }
+.help-dialog h2 { margin: 0; font: 600 var(--text-md)/1.4 var(--sans); }
+.help-dialog h3 { margin: var(--space-3) 0 var(--space-1); padding-bottom: var(--space-1); border-bottom: 1px solid var(--ui-divider); font: 600 var(--text-xs)/1.4 var(--mono); }
+.help-note { margin: 0 0 var(--space-1); color: var(--ui-muted); }
+.help-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--space-1) var(--space-3); margin: 0; }
+.help-list dt { display: flex; flex-wrap: wrap; align-content: start; gap: var(--space-1); max-width: 24ch; }
+.help-list dd { margin: 0; }
+.help-list kbd { padding: 0 var(--space-1); border: 1px solid var(--ui-border-strong); border-radius: var(--radius); background: var(--ui-surface); font: var(--text-xs)/1.5 var(--mono); white-space: nowrap; }
+/* A phone's width: each key over what it does. */
+@media (max-width: 480px) {
+  .help-list { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .help-list dt { max-width: none; margin-top: var(--space-2); }
+}

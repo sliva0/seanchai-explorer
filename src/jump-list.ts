@@ -1,3 +1,6 @@
+import { readStoredJSON, writeStored } from './storage.ts';
+import type { Store } from './storage.ts';
+
 /** A place to come back to: where its page was scrolled, and the route that shows it. Index and search have no lines, only `offset` pixels. */
 export interface JumpEntry {
   /** A document's id, `search`, or empty for the index. */
@@ -9,10 +12,6 @@ export interface JumpEntry {
 }
 
 export type JumpWalk = 'back' | 'forward' | 'backDocument' | 'forwardDocument';
-
-type Store = Pick<Storage, 'getItem' | 'setItem'>;
-
-const KEY = 'seanchai-jumps';
 
 function isEntry(value: JumpEntry): boolean {
   return typeof value?.document === 'string' && typeof value.hash === 'string' && Number.isFinite(value.top) && Number.isFinite(value.offset);
@@ -34,19 +33,17 @@ export function createJumpList(store: () => Store, available: (document: string)
   let entries: JumpEntry[] = [];
   let index = 0;
 
-  try {
-    const saved = JSON.parse(store().getItem(KEY) ?? 'null');
-    if (Array.isArray(saved?.entries) && saved.entries.every(isEntry)) {
-      entries = saved.entries.slice(-cap);
-      index = Number.isInteger(saved.index) ? Math.min(Math.max(saved.index, 0), entries.length) : entries.length;
-    }
-  } catch {}
+  const saved = readStoredJSON('jumps', store) as { entries?: unknown; index?: unknown } | null;
+  if (Array.isArray(saved?.entries) && saved.entries.every(isEntry)) {
+    entries = saved.entries.slice(-cap);
+    index = typeof saved.index === 'number' && Number.isInteger(saved.index) ? Math.min(Math.max(saved.index, 0), entries.length) : entries.length;
+  }
 
   function commit(next: JumpEntry[], at: number) {
     const excess = Math.max(0, next.length - cap);
     entries = next.slice(excess);
     index = Math.max(0, at - excess);
-    try { store().setItem(KEY, JSON.stringify({ entries, index })); } catch {}
+    writeStored('jumps', JSON.stringify({ entries, index }), store);
   }
 
   /** The list with `here` written in, and where `here` is on it. */

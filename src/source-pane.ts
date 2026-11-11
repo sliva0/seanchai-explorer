@@ -3,6 +3,7 @@ import { docSubject, docTitle, docVersioned, dataURL, isPdfURL, paneFile, paneKi
 import type { Site } from './data.ts';
 import { element, externalLink } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
+import { attempt } from './notice.ts';
 import { correctedRow, printedRow } from './printed-row.ts';
 import type { Document, DocumentSummary } from './types.ts';
 
@@ -304,6 +305,11 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       if (!clause) return;
       setVisible(true);
       this.show({ ...clause, name: target.name }, held, true);
+    },
+    /** `showPlace` for the reader's click: a document that fails to load is said, with a Retry. */
+    openPlace(place: Place, doc: Document) {
+      const summary = site.summary(place.document);
+      attempt(`Could not load ${summary ? site.label(summary) : place.document} for the source pane`, () => this.showPlace(place, doc));
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };
