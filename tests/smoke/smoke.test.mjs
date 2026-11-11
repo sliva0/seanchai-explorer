@@ -54,8 +54,7 @@ async function open(hash, options = {}, prepare = async () => {}) {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(String(error)));
-  // With no icon declared, the browser asks for one at the default path.
-  page.on('console', message => { if (message.type() === 'error' && !message.location().url.endsWith('/favicon.ico')) errors.push(message.text()); });
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await prepare(page);
   await page.goto(base + hash);
   await page.waitForSelector('main h1, main #document, main.index-view');

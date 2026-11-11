@@ -23,6 +23,9 @@ function asSelfHosted(data) {
 
 let boots = 0;
 const globals = ['window', 'document', 'location', 'history', 'localStorage', 'sessionStorage', 'matchMedia', 'fetch', 'innerWidth', 'innerHeight', 'HTMLElement', 'Element', 'Node', 'requestAnimationFrame', 'cancelAnimationFrame'];
+// An eased scroll is ended by one of node's own timers, which can fire after its page has closed and given the globals
+// back: with nothing between pages for it to cancel, it cancels nothing.
+globalThis.cancelAnimationFrame ??= () => {};
 
 /**
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
@@ -136,3 +139,52 @@ export const present = (node, message) => assert.ok(node !== null && node !== un
 export const same = (actual, expected, message) => assert.ok(actual === expected, message ?? `expected ${named(expected)}, found ${named(actual)}`);
 /** Asserts `actual` is not the node `other`. */
 export const notSame = (actual, other, message) => assert.ok(actual !== other, message ?? `expected another node than ${named(other)}`);
+
+// Shared by the app-*.test.mjs files, which boot the whole site.
+
+/** The first name in the text whose link starts with `href`. */
+export const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
+/** Where the source pane's frame points, or null without a frame or before it is loaded. */
+export const frameSrc = document => document.querySelector('iframe')?.getAttribute('src');
+/** The parameters the source pane's reader was given in its frame's hash. */
+export const paneAt = document => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
+/** A right-click on `node`; false if the page took it over. */
+export const rightClick = (page, node) => node.dispatchEvent(new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+/** TS 29.061's TMGI table row name. */
+export const tmgi = document => [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
+/** The names a command `key` such as `265 answer` is printed as in the text. */
+export const commandNames = (document, key) => [...document.querySelectorAll(`pre [data-command="${key}"]`)];
+
+/** Right-clicks `node` and returns the popup it opens. */
+export const popupOf = async (page, node) => {
+  rightClick(page, node);
+  await settle();
+  return page.document.querySelector('.avp-popup');
+};
+/** A popup's identity lines. */
+export const identities = popup => [...popup.querySelectorAll('.popup-identity p')].map(line => line.textContent);
+/** A popup's value table rows, as their cells' text. */
+export const tableRows = popup => [...popup.querySelectorAll('.popup-tables .place-table')].map(row => [...row.children].map(node => node.textContent));
+
+// A page laid out as a browser would, for what the view reads back: lines of 20 pixels under a pane at the top of the window.
+export const layOut = page => {
+  const { HTMLElement } = page.window;
+  const rect = HTMLElement.prototype.getBoundingClientRect;
+  HTMLElement.prototype.getBoundingClientRect = function () {
+    if (this.id === 'document') return { top: 0, bottom: 500 };
+    if (!this.classList.contains('dad-line')) return rect.call(this);
+    const top = Number(this.dataset.line) * 20 - this.closest('#document').scrollTop;
+    return { top, bottom: top + 20 };
+  };
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 1e7; } });
+};
+/** A keydown on `target`, the body by default; returns the event to see whether it was taken. */
+export const press = (page, init, target = page.document.body) => {
+  const event = new page.window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
+  target.dispatchEvent(event);
+  return event;
+};
+/** The document view's scrolling pane. */
+export const pane = document => document.querySelector('#document');
+/** Waits out a smooth scroll. */
+export const easing = () => new Promise(resolve => setTimeout(resolve, 320));
