@@ -130,11 +130,6 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
   const identityText = ({ code, vendor, type }: AvpIdentity) =>
     [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? ''].filter(Boolean).join(' · ');
 
-  /**
-   * What the files at hand say a name is, and the tables of its numbers: this one's, and the one its link names if
-   * that has been loaded already. A table here is gone to in the pane at its first row, a result code's at its clause,
-   * an `Enumerated AVP` block as Details are; one in another document at its clause there.
-   */
   /** The files at hand for a name: the one its link names if that has been loaded, then this one. */
   function filesOf({ token, doc, fileLines }: PopupRequest) {
     const name = token.avp!;
@@ -144,13 +139,34 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
 
   /**
    * The document a popup reads from but has not loaded, as a definition's or a command's: loaded, then the popup drawn
-   * again with it, if the popup is still the one open on `opener`.
+   * again with it, if the popup is still the one open on `opener`. What has been done in it since is kept: the use
+   * stepped to, the sections opened, where it stands and what in it has the focus.
    */
-  function loadThenRedraw(id: string | undefined, { doc, opener }: PopupRequest, redraw: () => void) {
+  function loadThenRedraw(id: string | undefined, { doc, opener }: PopupRequest, redraw: (active?: number) => void) {
     if (!id || id === doc.id || site.held(id) || !site.summary(id)) return;
-    site.loadDocument(id).then(() => { if (popup?.isConnected && openerNode === opener && opener.isConnected) redraw(); }).catch(console.error);
+    site.loadDocument(id).then(() => {
+      const old = popup;
+      if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
+      const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
+      const focused = old.contains(document.activeElement) ? key(document.activeElement!) : undefined;
+      const opened = new Map([...old.querySelectorAll('details')].map(node => [node.className, node.open]));
+      const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
+      const { left, top } = old.style;
+      redraw(active < 0 ? undefined : active);
+      const panel = popup as HTMLElement | undefined;
+      if (!panel || panel === old) return;
+      for (const node of panel.querySelectorAll('details')) node.open = opened.get(node.className) ?? node.open;
+      panel.style.top = top;
+      panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
+      if (focused) [...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused)?.focus({ preventScroll: true });
+    }).catch(console.error);
   }
 
+  /**
+   * What the files at hand say a name is, and the tables of its numbers: this one's, and the one its link names if
+   * that has been loaded already. A table here is gone to in the pane at its first row, a result code's at its clause,
+   * an `Enumerated AVP` block as Details are; one in another document at its clause there.
+   */
   function facts(request: PopupRequest) {
     const { doc } = request;
     const files = filesOf(request);
@@ -470,7 +486,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const identity = element('div', undefined, 'popup-identity');
     identity.append(...(command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(text => element('p', text)));
     panel.append(identity);
-    const blockLines = command && (command.document === doc.id ? doc.lines : site.held(command.document)?.lines);
+    // This file's as the view shows them: a raw view's rule is the one the raw lines print.
+    const blockLines = command && (command.document === doc.id ? fileLines : site.held(command.document)?.lines);
     loadThenRedraw(command?.document, request, () => showCommand(ref, request));
     const rule = blockLines && ruleAt(blockLines, command.line);
     if (rule?.members.length) panel.append(contents(rule, false, 'AVPs'));
@@ -513,7 +530,8 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     place(panel, closeButton, opener);
   }
 
-  function show(request: PopupRequest) {
+  /** `at` is the use a redraw was stepped to. */
+  function show(request: PopupRequest, at?: number) {
     const { token, doc, lines, opener, documentPane, recordJump, jumpTo } = request;
     if (token.valueRow) { showValue(token.valueRow, request); return; }
     if (token.command) { showCommand(token.command, request); return; }
@@ -526,9 +544,10 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       seen.add(lineOf(node));
       return true;
     });
-    let active = Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
+    let active = at !== undefined && at < uses.length ? at : Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
+    if (at !== undefined) uses[active]?.classList.add('avp-current');
     panel.dataset.avp = name;
-    loadThenRedraw(token.target?.document, request, () => show(request));
+    loadThenRedraw(token.target?.document, request, active => show(request, active));
     const { identities, tables } = facts(request);
     if (identities.length) {
       const identity = element('div', undefined, 'popup-identity');

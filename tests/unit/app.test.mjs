@@ -1844,3 +1844,38 @@ test('a name\'s popup says how the line opened on uses it, the flags its row set
     assert.deepEqual(texts(popup.querySelector('.popup-row'), '.popup-flags th, .popup-flags td'), ['Must not', 'V']);
   } finally { await page.close(); }
 });
+
+test('a popup drawn again once its document loads keeps the use stepped to, the opened uses and the focus', async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document } = page;
+    rightClick(page, [...document.querySelectorAll('pre [data-avp]')].find(node => node.dataset.avp === 'DRMP' && node.closest('.dad-line').dataset.line === '16'));
+    const first = document.querySelector('.avp-popup');
+    const titles = popup => [...popup.querySelectorAll('.popup-row-title')].map(node => node.textContent);
+    assert.ok(!titles(first).includes('AVP Table 9.2 · RFC 7944'), 'RFC 7944 is not loaded yet');
+    const next = [...first.querySelectorAll('.popup-actions button')].find(node => node.textContent === 'Next');
+    next.click();
+    next.focus();
+    first.querySelector('.popup-uses').open = true;
+    await settle();
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.ok(popup !== first, 'drawn again');
+    assert.equal(titles(popup)[0], 'AVP Table 9.2 · RFC 7944');
+    assert.match(popup.querySelector('.popup-actions span').textContent, /^\.dad 2\//);
+    assert.equal(popup.querySelectorAll('.usage-link')[1].getAttribute('aria-current'), 'location');
+    assert.equal(popup.querySelector('.popup-uses').open, true);
+    assert.equal(document.activeElement.textContent, 'Next');
+    assert.equal(document.querySelectorAll('pre .avp-current').length, 1);
+  } finally { await page.close(); }
+});
+
+test('a raw view\'s command popup lists the members its raw rule prints', async () => {
+  const page = await boot({ hash: '#29061-6f0?raw=1' });
+  try {
+    const popup = await popupOf(page, commandNames(page.document, '258 answer')[0]);
+    const members = [...popup.querySelectorAll('.contents-list code')].map(node => node.textContent);
+    assert.ok(members.includes('* [ Redirected-Host ]'), members.join());
+    assert.ok(!members.includes('* [ Redirect-Host ]'));
+  } finally { await page.close(); }
+});

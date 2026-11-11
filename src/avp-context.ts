@@ -62,12 +62,12 @@ const fullText = (line: Line) => line.tokens.filter(token => !token.correction).
 
 /**
  * RFC 6733 3.2: no qualifier is exactly one of a fixed or required member and at most one of an optional one; a
- * qualifier's missing min is 0 and missing max unbounded, and a fixed or required member is there at least once.
+ * qualifier's missing min is 0, or 1 on a required member, which is there at least once, and its missing max unbounded.
  */
 export function bounds(presence: Presence, minText: string | undefined, maxText: string | undefined, qualified: boolean) {
   let min = qualified ? (minText ? Number(minText) : 0) : presence === 'optional' ? 0 : 1;
   const max = qualified ? (maxText ? Number(maxText) : null) : 1;
-  if (presence !== 'optional') min = Math.max(1, min);
+  if (presence === 'required') min = Math.max(1, min);
   return { min, max };
 }
 
@@ -210,6 +210,8 @@ export function printed({ name, presence, qualifier }: Member): string {
 /** "Optional [ ] · may be present, in any position · any number of times". */
 export function presenceText(item: Member): string {
   const { label, brackets, meaning } = presenceWords[item.presence];
+  // `0*1 < ICV >`: a fixed member a qualifier lets be absent keeps only its position.
+  if (item.presence === 'fixed' && item.min === 0) return [`${label} ${brackets}`, 'may be present, at this position in the order', countText(item)].join(' · ');
   return [`${label} ${brackets}`, meaning, countText(item)].join(' · ');
 }
 
@@ -231,7 +233,6 @@ const mBit = (row: AvpRow): FlagRule | undefined => {
   return value === 'must' || value === 'must not' ? value : undefined;
 };
 
-/** A row's M and V bits in that order, each with the rule its columns give it and what the bit means. */
 /** The rules a row's columns give its M and V bits, as the table prints them less its empty columns: `[['must', ['V']], ['must not', ['M']]]`. */
 export function flagTable(row: AvpRow): [FlagRule, string[]][] {
   const rules = flagRules(row);
@@ -249,6 +250,7 @@ export function encryptOf(row: AvpRow): string | undefined {
   return value === undefined ? undefined : cellText(value);
 }
 
+/** A row's M and V bits in that order, each with the rule its columns give it and what the bit means. */
 export function flagRules(row: AvpRow): { bit: string; rule: FlagRule; meaning: string }[] {
   const found = new Map<string, FlagRule>();
   for (const [column, rule] of flagColumns) {

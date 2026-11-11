@@ -14,7 +14,7 @@
     "check": "tsc --noEmit",
     "build": "node scripts/prepare.mjs && tsc --noEmit && vite build && node scripts/check-public.mjs",
     "build:self-hosted": "node scripts/prepare.mjs --self-hosted && tsc --noEmit && vite build --mode self-hosted",
-    "test": "node --test tests/unit/*.test.mjs",
+    "test": "node --max-old-space-size=1024 --test --test-timeout=120000 tests/unit/*.test.mjs",
     "test:build": "node --test --test-concurrency=1 tests/build/*.test.mjs",
     "test:smoke": "node --test tests/smoke/*.test.mjs",
     "types": "node scripts/generate-types.mjs",

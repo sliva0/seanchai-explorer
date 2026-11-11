@@ -115,6 +115,17 @@ npm run test:build          # one real build per mode, overwrites public/data an
 npm run test:smoke          # headless Chromium over a fixture build, and row links over a held PDF and RFC; CHROMIUM=path to choose the browser
 ```
 
+Run the unit tests through `npm test`, which caps each test process's heap at 1 GB and
+its time at two minutes. A failed assertion prints its operands, and printing a DOM node
+walks the whole document: without the cap, one failing `assert.equal(node, null)` can
+take all the machine's memory. For one file or one test, keep the cap:
+
+```sh
+node --max-old-space-size=1024 --test --test-name-pattern='<name>' tests/unit/app.test.mjs
+```
+
+In a new test, compare a node's text or `=== null`, not the node itself.
+
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
 that lacks one. A build copies the export's grammar, or else this one, to the generated
 `public/syntax/` and never changes this one. `npm run fixture` refreshes it, and the

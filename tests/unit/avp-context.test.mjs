@@ -26,7 +26,8 @@ test('a member says its rule, its brackets and how many of it there may be', asy
 test('qualifiers count as RFC 6733 says', () => {
   const cases = [['optional', '', '', false, 'at most once'], ['optional', '', '', true, 'any number of times'], ['optional', '', '2', true, 'at most 2 times'],
     ['optional', '2', '2', true, 'exactly 2 times'], ['required', '', '1', true, 'exactly once'], ['required', '1', '', true, 'once or more'],
-    ['optional', '2', '5', true, '2 to 5 times'], ['fixed', '', '', false, 'exactly once']];
+    ['optional', '2', '5', true, '2 to 5 times'], ['fixed', '', '', false, 'exactly once'], ['fixed', '0', '1', true, 'at most once'], ['fixed', '', '', true, 'any number of times'],
+    ['required', '0', '', true, 'once or more']];
   for (const [presence, min, max, qualified, expected] of cases) assert.equal(countText(bounds(presence, min, max, qualified)), expected, `${min}*${max} ${presence}`);
 });
 
