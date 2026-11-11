@@ -14,9 +14,13 @@ const pdfjsOut = path.join(project, 'public/pdfjs');
 function runExport(output) {
   const args = ['export', '-o', output];
   if (existsSync(specifications)) args.push('--specifications', specifications);
-  else if (selfHosted) throw new Error(`A self-hosted build needs the source PDFs, and ${specifications} does not exist: run npm run sources`);
+  else if (selfHosted)
+    throw new Error(
+      `A self-hosted build needs the source PDFs, and ${specifications} does not exist: run npm run sources`,
+    );
   if (selfHosted) args.push('--include-pdfs');
-  if (existsSync(path.join(specifications, 'wireshark'))) args.push('--wireshark', path.join(specifications, 'wireshark'));
+  if (existsSync(path.join(specifications, 'wireshark')))
+    args.push('--wireshark', path.join(specifications, 'wireshark'));
   seanchai(args);
 }
 
@@ -27,8 +31,12 @@ else runExport(temporary);
 
 const index = JSON.parse(await readFile(path.join(temporary, 'index.json'), 'utf8'));
 const anySchema = process.argv.includes('--any-schema');
-const problem = !anySchema && index.schema_version !== SCHEMA_VERSION ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
-  : index.mode !== mode ? `A ${mode} build cannot use a ${index.mode} export` : null;
+const problem =
+  !anySchema && index.schema_version !== SCHEMA_VERSION
+    ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
+    : index.mode !== mode
+      ? `A ${mode} build cannot use a ${index.mode} export`
+      : null;
 if (problem) {
   await rm(temporary, { recursive: true, force: true });
   throw new Error(problem);
@@ -46,7 +54,10 @@ await rename(temporary, data);
 // The export's grammar is the one to use; the committed fallback is for an export without one.
 const grammar = path.join(data, 'syntax/dad.tmLanguage.json');
 await mkdir(path.join(project, 'public/syntax'), { recursive: true });
-await cp(existsSync(grammar) ? grammar : path.join(project, 'syntax/dad.tmLanguage.json'), path.join(project, 'public/syntax/dad.tmLanguage.json'));
+await cp(
+  existsSync(grammar) ? grammar : path.join(project, 'syntax/dad.tmLanguage.json'),
+  path.join(project, 'public/syntax/dad.tmLanguage.json'),
+);
 
 await rm(pdfjsOut, { recursive: true, force: true });
 if (selfHosted) {

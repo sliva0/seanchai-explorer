@@ -41,6 +41,8 @@ jobs:
             "seanchai-corpus @ git+$SEANCHAI_REPOSITORY@$SEANCHAI_GIT_REF#subdirectory=packages/seanchai-corpus"
           echo "$RUNNER_TEMP/seanchai/bin" >> "$GITHUB_PATH"
       - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm run check
       - run: npm test
       # The same checks as ci.yml, on the tree being published.

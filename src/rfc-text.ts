@@ -3,7 +3,8 @@ import type { NameMatch, RowFound } from './table-row.ts';
 
 export function rfcPages(text: string) {
   return text.split('\f').map((text, index) => ({
-    text, page: index + 1,
+    text,
+    page: index + 1,
     lines: text.split(/(?<=\n)/).map(text => {
       const heading = text.match(/^((?:\d+|[A-Z])(?:\.\d+[A-Za-z]*)*)\.?\s+\S/);
       return { text, section: heading && !/\.{3}|…/.test(text) ? heading[1] : null };
@@ -11,7 +12,11 @@ export function rfcPages(text: string) {
   }));
 }
 
-export interface RfcLine { text: string; section: string | null; page: number }
+export interface RfcLine {
+  text: string;
+  section: string | null;
+  page: number;
+}
 
 /** Reads the name cell at the start of a table line, on from `column`; null if the line does not carry on the name. */
 function nameCell(line: string, match: NameMatch, column: string) {
@@ -48,28 +53,48 @@ function rowBetween(lines: RfcLine[], match: NameMatch, start: number, end: numb
  * The lines of the table row named `name` in a section, as first and last index, however the ASCII table wraps the name.
  * Only the section is searched: the same name in another table is not its row.
  */
-export function rowLines(lines: RfcLine[], name: string, section: string, page: number, match = exactName(name)): [number, number] | null {
+export function rowLines(
+  lines: RfcLine[],
+  name: string,
+  section: string,
+  page: number,
+  match = exactName(name),
+): [number, number] | null {
   if (!normalizeName(name)) return null;
   let start = lines.findIndex(line => line.section === section && line.page >= page);
   if (start < 0) start = lines.findIndex(line => line.section === section);
   let end = lines.length;
-  if (start < 0) start = Math.max(0, lines.findIndex(line => line.page >= page));
+  if (start < 0)
+    start = Math.max(
+      0,
+      lines.findIndex(line => line.page >= page),
+    );
   else {
-    const after = lines.findIndex((line, index) => index > start && line.section && line.section !== section && !line.section.startsWith(`${section}.`));
+    const after = lines.findIndex(
+      (line, index) =>
+        index > start && line.section && line.section !== section && !line.section.startsWith(`${section}.`),
+    );
     if (after >= 0) end = after;
   }
   return rowBetween(lines, match, start, end);
 }
 
 /** Of every place `at` finds in the document, the one nearest `page`. */
-function nearest(lines: RfcLine[], page: number, at: (index: number) => [number, number] | null): [number, number] | null {
+function nearest(
+  lines: RfcLine[],
+  page: number,
+  at: (index: number) => [number, number] | null,
+): [number, number] | null {
   let best: [number, number] | null = null;
   let distance = Infinity;
   for (let index = 0; index < lines.length; index++) {
     const found = at(index);
     if (!found) continue;
     const away = Math.abs(lines[index].page - page);
-    if (away < distance) { distance = away; best = found; }
+    if (away < distance) {
+      distance = away;
+      best = found;
+    }
     index = found[1];
   }
   return best;
@@ -80,7 +105,14 @@ function nearest(lines: RfcLine[], page: number, at: (index: number) => [number,
  * the source prints, misprinted, a result code's own clause, else the nearest table holding it, the clause named
  * after it, or a format naming it.
  */
-export function locateRow(lines: RfcLine[], name: string, section: string, page: number, printed?: string, titled = false): { lines: [number, number]; found: RowFound } | null {
+export function locateRow(
+  lines: RfcLine[],
+  name: string,
+  section: string,
+  page: number,
+  printed?: string,
+  titled = false,
+): { lines: [number, number]; found: RowFound } | null {
   if (!normalizeName(name)) return null;
   const inSection = rowLines(lines, name, section, page);
   if (inSection) return { lines: inSection, found: 'row' };
@@ -99,9 +131,13 @@ export function locateRow(lines: RfcLine[], name: string, section: string, page:
     });
     if (other) return { lines: other, found: 'other-table' };
   }
-  const clause = nearest(lines, page, index => lines[index].section && titleNames(lines[index].text.replace(/^\S+\s+/, ''), name) ? [index, index] : null);
+  const clause = nearest(lines, page, index =>
+    lines[index].section && titleNames(lines[index].text.replace(/^\S+\s+/, ''), name) ? [index, index] : null,
+  );
   if (clause) return { lines: clause, found: 'clause' };
   const pattern = namePattern(name);
-  const format = nearest(lines, page, index => /^\s*[\d*]*\s*[[<{]/.test(lines[index].text) && pattern.test(lines[index].text) ? [index, index] : null);
+  const format = nearest(lines, page, index =>
+    /^\s*[\d*]*\s*[[<{]/.test(lines[index].text) && pattern.test(lines[index].text) ? [index, index] : null,
+  );
   return format && { lines: format, found: 'format' };
 }

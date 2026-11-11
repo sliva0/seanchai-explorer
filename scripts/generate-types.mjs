@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { compile } from 'json-schema-to-typescript';
 
-const banner = '// Generated from the export\'s schema.json by scripts/generate-types.mjs. Do not edit.\n';
+const banner = "// Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.\n";
 
 // Pydantic titles every property, which the compiler would turn into one alias per field.
 function withoutPropertyTitles(node) {
@@ -16,9 +16,12 @@ function withoutPropertyTitles(node) {
 }
 
 export async function generateTypes(schema) {
-  const version = schema.$defs.Index.properties.schema_version.const ?? schema.$defs.Index.properties.schema_version.minimum;
+  const version =
+    schema.$defs.Index.properties.schema_version.const ?? schema.$defs.Index.properties.schema_version.minimum;
   const body = await compile(withoutPropertyTitles(schema), 'SeanchaiExport', {
-    bannerComment: '', additionalProperties: false, style: { singleQuote: true },
+    bannerComment: '',
+    additionalProperties: false,
+    style: { singleQuote: true },
   });
   return `${banner}export const SCHEMA_VERSION = ${version};\n\n${body}`;
 }

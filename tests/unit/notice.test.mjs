@@ -7,7 +7,11 @@ async function logged(run) {
   const errors = [];
   const original = console.error;
   console.error = error => errors.push(String(error));
-  try { await run(); } finally { console.error = original; }
+  try {
+    await run();
+  } finally {
+    console.error = original;
+  }
   return errors;
 }
 
@@ -49,8 +53,14 @@ test('a failed pane load says what failed, is logged, and its Retry loads it', a
     retry.click();
     await page.settle();
     assert.equal(notices().length, 0);
-    assert.match(document.querySelector('.source-document').textContent, /^RFC 7944/, 'the retry did what the click asked');
-  } finally { await page.close(); }
+    assert.match(
+      document.querySelector('.source-document').textContent,
+      /^RFC 7944/,
+      'the retry did what the click asked',
+    );
+  } finally {
+    await page.close();
+  }
 });
 
 test('a notice is dismissed by its button, gives the focus back, and goes when the page is left', async () => {
@@ -79,7 +89,9 @@ test('a notice is dismissed by its button, gives the focus back, and goes when t
     assert.equal(document.querySelectorAll('#notices .notice').length, 1);
     await page.go('#search');
     assert.equal(document.querySelectorAll('#notices .notice').length, 0);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a definition the popup loads on demand says so when it fails, and its Retry redraws the popup', async () => {
@@ -94,7 +106,9 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     });
     assert.ok(document.querySelector('.avp-popup') !== null);
     assert.ok(errors.includes('Error: offline'), errors.join());
-    const notice = [...document.querySelectorAll('#notices .notice')].find(node => /for the popup/.test(node.textContent));
+    const notice = [...document.querySelectorAll('#notices .notice')].find(node =>
+      /for the popup/.test(node.textContent),
+    );
     assert.match(notice.textContent, /^Could not load RFC 7944 for the popup\./);
     offline.on = false;
     const popup = document.querySelector('.avp-popup');
@@ -103,9 +117,18 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     assert.ok(document.querySelector('.avp-popup') === popup, 'a press on the notice leaves the popup open');
     retry.click();
     await page.settle();
-    assert.ok(document.querySelector('.avp-popup') !== null && document.querySelector('.avp-popup') !== popup, 'drawn again with the document');
-    assert.equal([...document.querySelectorAll('#notices .notice')].filter(node => /for the popup/.test(node.textContent)).length, 0);
-  } finally { offline.on = false; await page.close(); }
+    assert.ok(
+      document.querySelector('.avp-popup') !== null && document.querySelector('.avp-popup') !== popup,
+      'drawn again with the document',
+    );
+    assert.equal(
+      [...document.querySelectorAll('#notices .notice')].filter(node => /for the popup/.test(node.textContent)).length,
+      0,
+    );
+  } finally {
+    offline.on = false;
+    await page.close();
+  }
 });
 
 test('a load failing once its page has been left is logged and says nothing on the next page', async () => {
@@ -113,15 +136,31 @@ test('a load failing once its page has been left is logged and says nothing on t
   try {
     const { attempt, clearNotices } = await import('../../src/notice.ts');
     const notices = () => page.document.querySelectorAll('#notices .notice').length;
-    const pending = () => { let fail; return [new Promise((_, reject) => { fail = reject; }), () => fail(new Error('late'))]; };
+    const pending = () => {
+      let fail;
+      return [
+        new Promise((_, reject) => {
+          fail = reject;
+        }),
+        () => fail(new Error('late')),
+      ];
+    };
     const [left, failLeft] = pending();
     attempt('Could not load it', () => left);
     clearNotices();
-    const errors = await logged(async () => { failLeft(); await page.settle(); });
+    const errors = await logged(async () => {
+      failLeft();
+      await page.settle();
+    });
     assert.deepEqual([errors, notices()], [['Error: late'], 0]);
     const [shown, failShown] = pending();
     attempt('Could not load it', () => shown);
-    await logged(async () => { failShown(); await page.settle(); });
+    await logged(async () => {
+      failShown();
+      await page.settle();
+    });
     assert.equal(notices(), 1, 'on the page that asked, it is said');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });

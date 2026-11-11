@@ -50,7 +50,9 @@ function createShell(site: Site, pane: SourcePane) {
     openerNode = undefined;
   }
 
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') close(true); });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape') close(true);
+  });
   // A notice can be the popup's own, as a Retry of what it loads, which would have nothing to redraw if this closed it.
   document.addEventListener('pointerdown', event => {
     if (popup && !popup.contains(event.target as Node) && !(event.target as Element).closest?.('.notices')) close();
@@ -102,7 +104,8 @@ function createShell(site: Site, pane: SourcePane) {
     const summary = site.summary(place.document);
     if (!summary) return undefined;
     const section = place.position?.section ?? place.target?.section ?? '';
-    const where = said ?? (place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · '));
+    const where =
+      said ?? (place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · '));
     const row = element('div', undefined, `popup-place ${className}`);
     row.append(element('span', `${label}:`));
     const inPane = pane.shows(summary);
@@ -113,7 +116,9 @@ function createShell(site: Site, pane: SourcePane) {
     if (place.target) {
       const anchor = element('a', 'Jump to', 'control view-action');
       anchor.href = placeRoute(place, doc, raw);
-      anchor.title = inPane ? 'Moves the text on the left and the source pane on the right' : 'Moves the text to this place';
+      anchor.title = inPane
+        ? 'Moves the text on the left and the source pane on the right'
+        : 'Moves the text to this place';
       row.append(anchor);
     }
     if (inPane) {
@@ -134,25 +139,35 @@ function createShell(site: Site, pane: SourcePane) {
   function loadThenRedraw(id: string | undefined, { doc, opener }: PopupRequest, redraw: (active?: number) => void) {
     const summary = id && id !== doc.id && !site.held(id) ? site.summary(id) : undefined;
     if (!summary) return;
-    attempt(`Could not load ${site.label(summary)} for the popup`, () => site.loadDocument(summary.id).then(() => {
-      const old = popup;
-      if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
-      const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
-      const inside = old.contains(document.activeElement);
-      const focused = inside ? key(document.activeElement!) : undefined;
-      const opened = new Map([...old.querySelectorAll('details')].map(node => [node.className, node.open]));
-      const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
-      const { left, top } = old.style;
-      redrawing = true;
-      try { redraw(active < 0 ? undefined : active); } finally { redrawing = false; }
-      const panel = popup as HTMLElement | undefined;
-      if (!panel || panel === old) return;
-      for (const node of panel.querySelectorAll('details')) node.open = opened.get(node.className) ?? node.open;
-      panel.style.top = top;
-      panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
-      // The focus the old popup held goes to the same control in the new one, or to Close; one outside stays outside.
-      if (inside) ([...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused) ?? panel.querySelector<HTMLElement>('.popup-title button'))?.focus({ preventScroll: true });
-    }));
+    attempt(`Could not load ${site.label(summary)} for the popup`, () =>
+      site.loadDocument(summary.id).then(() => {
+        const old = popup;
+        if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
+        const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
+        const inside = old.contains(document.activeElement);
+        const focused = inside ? key(document.activeElement!) : undefined;
+        const opened = new Map([...old.querySelectorAll('details')].map(node => [node.className, node.open]));
+        const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
+        const { left, top } = old.style;
+        redrawing = true;
+        try {
+          redraw(active < 0 ? undefined : active);
+        } finally {
+          redrawing = false;
+        }
+        const panel = popup as HTMLElement | undefined;
+        if (!panel || panel === old) return;
+        for (const node of panel.querySelectorAll('details')) node.open = opened.get(node.className) ?? node.open;
+        panel.style.top = top;
+        panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
+        // The focus the old popup held goes to the same control in the new one, or to Close; one outside stays outside.
+        if (inside)
+          (
+            [...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused) ??
+            panel.querySelector<HTMLElement>('.popup-title button')
+          )?.focus({ preventScroll: true });
+      }),
+    );
   }
 
   return { open, place, close, placeRow, loadThenRedraw };

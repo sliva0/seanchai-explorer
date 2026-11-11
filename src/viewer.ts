@@ -25,8 +25,12 @@ let wholeWord = false;
 // Where a navigation's find starts, whatever the pane has scrolled to by the time it runs.
 let findStart: number | undefined;
 class FindLinkService extends PDFLinkService {
-  override get page() { return findStart ?? firstVisiblePage(); }
-  override set page(value: number) { if (!automaticFind) super.page = value; }
+  override get page() {
+    return findStart ?? firstVisiblePage();
+  }
+  override set page(value: number) {
+    if (!automaticFind) super.page = value;
+  }
 }
 const findLinkService = new FindLinkService({ eventBus });
 class FindController extends PDFFindController {
@@ -35,12 +39,15 @@ class FindController extends PDFFindController {
   }
   // pdf.js joins a name a table wraps as "3GPP-SGSN-" over "Address" into 3GPP-SGSNAddress, which its own match misses.
   override match(query: string | string[], pageContent: string, pageIndex: number) {
-    if (typeof query !== 'string' || !(wholeWord || /[_-]/.test(query))) return super.match(query, pageContent, pageIndex);
-    const parts = query.split(/[\s_-]+/).map(part => part.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+    if (typeof query !== 'string' || !(wholeWord || /[_-]/.test(query)))
+      return super.match(query, pageContent, pageIndex);
+    const parts = query.split(/[\s_-]+/).map(part => part.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&'));
     const body = parts.join('[\\s_-]*');
     // A whole name: "Load" is not "Load-Type", nor "3GPP-User-Location-Info" the start of "3GPP-User-Location-Info-Time".
     const pattern = new RegExp(wholeWord ? `(?<![\\p{L}\\p{N}_-])${body}(?![\\p{L}\\p{N}_-])` : body, 'giu');
-    return [...pageContent.matchAll(pattern)].filter(found => found[0]).map(found => ({ index: found.index, length: found[0].length }));
+    return [...pageContent.matchAll(pattern)]
+      .filter(found => found[0])
+      .map(found => ({ index: found.index, length: found[0].length }));
   }
 }
 const findController = new FindController({ eventBus, linkService: findLinkService });
@@ -108,21 +115,31 @@ new ResizeObserver(() => {
     if (!ready || !width || !height) return;
     viewer.update();
     scheduleCounter();
-    const fits = zoom.value === 'page-width' ? width !== paneWidth : zoom.value === 'page-fit' && (width !== paneWidth || height !== paneHeight);
+    const fits =
+      zoom.value === 'page-width'
+        ? width !== paneWidth
+        : zoom.value === 'page-fit' && (width !== paneWidth || height !== paneHeight);
     paneWidth = width;
     paneHeight = height;
     if (!fits) return;
     // Rescaling redraws the pages: once a dragged splitter stops, and not for a height a fit to width ignores.
     clearTimeout(rescale);
-    rescale = setTimeout(() => { if (zoom.value === 'page-width' || zoom.value === 'page-fit') viewer.currentScaleValue = zoom.value; }, 150);
+    rescale = setTimeout(() => {
+      if (zoom.value === 'page-width' || zoom.value === 'page-fit') viewer.currentScaleValue = zoom.value;
+    }, 150);
   });
 }).observe(container);
 
 function search(query: string, again = false, previous = false) {
   eventBus.dispatch('find', {
-    source: window, type: again ? 'again' : '', query,
-    caseSensitive: false, entireWord: wholeWord, highlightAll: true,
-    findPrevious: previous, matchDiacritics: false,
+    source: window,
+    type: again ? 'again' : '',
+    query,
+    caseSensitive: false,
+    entireWord: wholeWord,
+    highlightAll: true,
+    findPrevious: previous,
+    matchDiacritics: false,
   });
 }
 
@@ -193,10 +210,21 @@ async function navigate() {
   rowTarget = undefined;
   printedAs = undefined;
   wholeWord = Boolean(name);
-  const destination = section && params.get('exact') !== '1' ? await navigator.locate(section, hint, () => generation === navigation, name, row, params.get('printed') ?? undefined, {
-    ...(params.get('titled') === '1' ? { titled: true } : {}),
-    ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
-  }) : null;
+  const destination =
+    section && params.get('exact') !== '1'
+      ? await navigator.locate(
+          section,
+          hint,
+          () => generation === navigation,
+          name,
+          row,
+          params.get('printed') ?? undefined,
+          {
+            ...(params.get('titled') === '1' ? { titled: true } : {}),
+            ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
+          },
+        )
+      : null;
   if (generation !== navigation) return;
   if (destination?.query && destination.query !== name) {
     printedAs = { name: name!, query: destination.query };
@@ -206,24 +234,35 @@ async function navigate() {
   else viewer.scrollPageIntoView({ pageNumber: hint });
   automaticFind = params.get('match') !== '1';
   findStart = destination?.pageNumber ?? hint;
-  if (row && destination?.destArray[0] === null) rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
+  if (row && destination?.destArray[0] === null)
+    rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
   search(find.value, params.get('match') === '1');
-  selectOutline([...outlinePane.querySelectorAll('a')].find(anchor => {
-    const title = anchor.textContent?.replace(/\s+/g, ' ').trim();
-    return title === section || title?.startsWith(`${section} `);
-  }));
+  selectOutline(
+    [...outlinePane.querySelectorAll('a')].find(anchor => {
+      const title = anchor.textContent?.replace(/\s+/g, ' ').trim();
+      return title === section || title?.startsWith(`${section} `);
+    }),
+  );
 }
 
 eventBus.on('pagesinit', () => {
   ready = true;
   viewer.currentScaleValue = zoom.value;
-  void navigate().then(() => {
-    if (pendingFind) { const query = pendingFind; pendingFind = undefined; runFind(query); }
-  }).catch(error => { container.textContent = String(error); });
+  void navigate()
+    .then(() => {
+      if (pendingFind) {
+        const query = pendingFind;
+        pendingFind = undefined;
+        runFind(query);
+      }
+    })
+    .catch(error => {
+      container.textContent = String(error);
+    });
 });
 const documentFile = new URLSearchParams(location.search).get('file');
 // The frame is named by the page holding it; the document is named for its file, for a tab of its own.
-const fileName = documentFile?.split(/[?#]/)[0].split('/').filter(Boolean).at(-1);
+const fileName = documentFile?.split(/[?#]/)[0].split('/').findLast(Boolean);
 if (fileName) document.title = `${fileName} — Seanchaí`;
 function report(type: string, data: object) {
   if (window.parent !== window) window.parent.postMessage({ type, file: documentFile, ...data }, location.origin);
@@ -241,7 +280,10 @@ eventBus.on('scalechanging', () => {
 function updateMatches({ matchesCount }: { matchesCount?: { current: number; total: number } }) {
   if (!matchesCount) return;
   matches.textContent = `${matchesCount.current} / ${matchesCount.total}`;
-  report('seanchai-pdf-matches', { query: find.value === printedAs?.query ? printedAs.name : find.value, ...matchesCount });
+  report('seanchai-pdf-matches', {
+    query: find.value === printedAs?.query ? printedAs.name : find.value,
+    ...matchesCount,
+  });
 }
 /** The find selects a page's first match, which may be a mention above the row: moves on to the row's own. */
 async function settleOnRow(generation: number) {
@@ -262,25 +304,42 @@ async function settleOnRow(generation: number) {
 eventBus.on('updatefindmatchescount', updateMatches);
 eventBus.on('updatefindcontrolstate', (event: Parameters<typeof updateMatches>[0] & { state: number }) => {
   updateMatches(event);
-  if (event.state !== FindState.PENDING) settleOnRow(navigation).catch(error => notifyFailure('Could not find the row on its page', error, renavigate));
+  if (event.state !== FindState.PENDING)
+    settleOnRow(navigation).catch(error => notifyFailure('Could not find the row on its page', error, renavigate));
 });
-function manual() { navigation++; findStart = undefined; rowTarget = undefined; }
+function manual() {
+  navigation++;
+  findStart = undefined;
+  rowTarget = undefined;
+}
 let pendingFind: { query: string; previous: boolean } | undefined;
 function runFind(data: { query: string; previous: boolean }) {
-  if (!ready) { pendingFind = data; return; }
+  if (!ready) {
+    pendingFind = data;
+    return;
+  }
   manual();
   automaticFind = false;
   if (data.query !== find.value) wholeWord = false;
   find.value = data.query;
   search(data.query, true, data.previous);
 }
-document.querySelector<HTMLButtonElement>('#find-previous')!.onclick = () => runFind({ query: find.value, previous: true });
-document.querySelector<HTMLButtonElement>('#find-next')!.onclick = () => runFind({ query: find.value, previous: false });
-function goToPageInput() { manual(); if (ready) viewer.scrollPageIntoView({ pageNumber: Math.max(1, Math.min(viewer.pagesCount, Number(page.value) || 1)) }); }
+document.querySelector<HTMLButtonElement>('#find-previous')!.onclick = () =>
+  runFind({ query: find.value, previous: true });
+document.querySelector<HTMLButtonElement>('#find-next')!.onclick = () =>
+  runFind({ query: find.value, previous: false });
+function goToPageInput() {
+  manual();
+  if (ready)
+    viewer.scrollPageIntoView({ pageNumber: Math.max(1, Math.min(viewer.pagesCount, Number(page.value) || 1)) });
+}
 page.onchange = goToPageInput;
 const rememberZoom = () => writeStored('zoom', zoom.value);
 restoreZoom(zoom, readStored('zoom'));
-zoom.onchange = () => { viewer.currentScaleValue = zoom.value; rememberZoom(); };
+zoom.onchange = () => {
+  viewer.currentScaleValue = zoom.value;
+  rememberZoom();
+};
 function stepZoom(direction: 1 | -1, origin?: [number, number]) {
   if (!ready) return;
   const next = zoomStep(zoomSteps, viewer.currentScale, direction);
@@ -292,15 +351,22 @@ document.querySelector<HTMLButtonElement>('#zoom-out')!.onclick = () => stepZoom
 document.querySelector<HTMLButtonElement>('#zoom-in')!.onclick = () => stepZoom(1);
 // A wheel's notch is one step; a touchpad's pinch, many small deltas, has to add up to one.
 let wheelDelta = 0;
-window.addEventListener('wheel', event => {
-  if (!event.ctrlKey) return;
-  event.preventDefault();
-  const delta = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? event.deltaY : event.deltaY * 40;
-  wheelDelta = wheelDelta * delta < 0 ? delta : wheelDelta + delta;
-  if (Math.abs(wheelDelta) < 40) return;
-  stepZoom(wheelDelta < 0 ? 1 : -1, container.contains(event.target as Node) ? [event.clientX, event.clientY] : undefined);
-  wheelDelta = 0;
-}, { passive: false });
+window.addEventListener(
+  'wheel',
+  event => {
+    if (!event.ctrlKey) return;
+    event.preventDefault();
+    const delta = event.deltaMode === WheelEvent.DOM_DELTA_PIXEL ? event.deltaY : event.deltaY * 40;
+    wheelDelta = wheelDelta * delta < 0 ? delta : wheelDelta + delta;
+    if (Math.abs(wheelDelta) < 40) return;
+    stepZoom(
+      wheelDelta < 0 ? 1 : -1,
+      container.contains(event.target as Node) ? [event.clientX, event.clientY] : undefined,
+    );
+    wheelDelta = 0;
+  },
+  { passive: false },
+);
 window.addEventListener('keydown', event => {
   if (!event.ctrlKey && !event.metaKey) return;
   const direction = event.key === '+' || event.key === '=' ? 1 : event.key === '-' || event.key === '_' ? -1 : 0;
@@ -310,19 +376,36 @@ window.addEventListener('keydown', event => {
 });
 document.querySelector<HTMLFormElement>('#toolbar')!.onsubmit = event => {
   event.preventDefault();
-  if (document.activeElement === page) { goToPageInput(); return; }
+  if (document.activeElement === page) {
+    goToPageInput();
+    return;
+  }
   runFind({ query: find.value, previous: false });
 };
-find.oninput = () => { manual(); automaticFind = false; wholeWord = false; search(find.value); };
+find.oninput = () => {
+  manual();
+  automaticFind = false;
+  wholeWord = false;
+  search(find.value);
+};
 /** Goes to the place the hash names again, which also settles on its row again. */
-function renavigate() { attempt('Could not go to the place in the PDF', navigate); }
+function renavigate() {
+  attempt('Could not go to the place in the PDF', navigate);
+}
 window.addEventListener('hashchange', renavigate);
 
 Object.assign(window, {
   PDFViewerApplication: {
-    get page() { return displayedPage; },
-    set page(value: number) { manual(); viewer.scrollPageIntoView({ pageNumber: value }); },
-    findController, eventBus, pdfViewer: viewer,
+    get page() {
+      return displayedPage;
+    },
+    set page(value: number) {
+      manual();
+      viewer.scrollPageIntoView({ pageNumber: value });
+    },
+    findController,
+    eventBus,
+    pdfViewer: viewer,
   },
 });
 
@@ -334,8 +417,12 @@ try {
   const base = new URL(import.meta.env.BASE_URL, location.href);
   const asset = (directory: string) => new URL(`pdfjs/${directory}/`, base).href;
   const pdf = await pdfjs.getDocument({
-    url: url.href, cMapUrl: asset('cmaps'), cMapPacked: true,
-    standardFontDataUrl: asset('standard_fonts'), wasmUrl: asset('wasm'), iccUrl: asset('iccs'),
+    url: url.href,
+    cMapUrl: asset('cmaps'),
+    cMapPacked: true,
+    standardFontDataUrl: asset('standard_fonts'),
+    wasmUrl: asset('wasm'),
+    iccUrl: asset('iccs'),
   }).promise;
   page.max = String(pdf.numPages);
   document.querySelector('#pages')!.textContent = `/ ${pdf.numPages}`;
@@ -350,4 +437,6 @@ try {
   viewer.setDocument(pdf);
   linkService.setDocument(pdf);
   findLinkService.setDocument(pdf);
-} catch (error) { container.textContent = String(error); }
+} catch (error) {
+  container.textContent = String(error);
+}

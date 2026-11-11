@@ -34,7 +34,13 @@ export interface CommandCodeRow {
 }
 
 /** An AVP table with a column per command, TS 32.299's ACR to CCA. `line` is its `; Type:` line. */
-export interface CommandTable { section: string; page: number | null; line: number; table: string | null; columns: string[] }
+export interface CommandTable {
+  section: string;
+  page: number | null;
+  line: number;
+  table: string | null;
+  columns: string[];
+}
 
 /** The command a token names: this file's block, or a registry row's half, by its code and which half. */
 export interface CommandRef {
@@ -46,17 +52,30 @@ export interface CommandRef {
   row?: CommandCodeRow;
 }
 
-export interface CommandFacts { blocks: CommandBlock[]; rows: CommandCodeRow[]; tables: CommandTable[] }
+export interface CommandFacts {
+  blocks: CommandBlock[];
+  rows: CommandCodeRow[];
+  tables: CommandTable[];
+}
 
 /** A command as the corpus index has it: a block and its document. */
-export interface IndexedCommand extends CommandBlock { document: string }
-export interface IndexedCodeRow extends CommandCodeRow { document: string }
+export interface IndexedCommand extends CommandBlock {
+  document: string;
+}
+export interface IndexedCodeRow extends CommandCodeRow {
+  document: string;
+}
 /** `commands.json`, which prepare derives from the export's documents for what one document cannot say of a command. */
-export interface CommandIndex { schema_version: number; commands: IndexedCommand[]; registry: IndexedCodeRow[] }
+export interface CommandIndex {
+  schema_version: number;
+  commands: IndexedCommand[];
+  registry: IndexedCodeRow[];
+}
 
 export const isRequest = (command: Pick<CommandBlock, 'flags'>) => command.flags.includes('REQ');
 /** What tells a command's names on a page from another's: `271 answer`. */
-export const commandKey = (ref: Pick<CommandRef, 'code' | 'request'>) => `${ref.code} ${ref.request ? 'request' : 'answer'}`;
+export const commandKey = (ref: Pick<CommandRef, 'code' | 'request'>) =>
+  `${ref.code} ${ref.request ? 'request' : 'answer'}`;
 
 /**
  * Marks `start` to `end` of a line as naming a command: the token spelling just that, or a plain token holding it,
@@ -68,9 +87,16 @@ function mark(line: Line, start: number, end: number, command: CommandRef) {
     const stop = at + token.text.length;
     if (start >= at && end <= stop) {
       if (token.kind || token.correction) return;
-      if (start === at && end === stop) { (token as ValueToken).command = command; return; }
+      if (start === at && end === stop) {
+        (token as ValueToken).command = command;
+        return;
+      }
       if (token.target || token.source || token.avp) return;
-      const parts: ValueToken[] = [{ text: token.text.slice(0, start - at) }, { text: token.text.slice(start - at, end - at), command }, { text: token.text.slice(end - at) }];
+      const parts: ValueToken[] = [
+        { text: token.text.slice(0, start - at) },
+        { text: token.text.slice(start - at, end - at), command },
+        { text: token.text.slice(end - at) },
+      ];
       line.tokens.splice(index, 1, ...parts.filter(part => part.text));
       return;
     }
@@ -83,8 +109,15 @@ function commandBlock(block: Block): CommandBlock | undefined {
   if (!command || !block.name) return undefined;
   const { application, application_clause: section } = command;
   return {
-    name: block.name, abbreviation: block.abbreviation ?? null, section: block.section, page: block.page, line: block.line,
-    code: command.code, flags: command.flags, header: command.header_application_id, application: command.application_id,
+    name: block.name,
+    abbreviation: block.abbreviation ?? null,
+    section: block.section,
+    page: block.page,
+    line: block.line,
+    code: command.code,
+    flags: command.flags,
+    header: command.header_application_id,
+    application: command.application_id,
     scope: application && section ? { name: application, section } : null,
   };
 }
@@ -92,10 +125,20 @@ function commandBlock(block: Block): CommandBlock | undefined {
 /** A Command Codes registry's rows, by index into its allocations: none for an allocation of no code or name. */
 function codeRows(block: Block): (CommandCodeRow | undefined)[] {
   if (block.type !== 'Registry' || block.fields.Registry !== 'Command Codes') return [];
-  return (block.allocations ?? []).map(row => row.code === null || !row.name ? undefined : {
-    code: row.code, name: row.name, abbreviation: row.abbreviation ?? null, section: block.section, page: block.page, line: row.line,
-    table: block.fields.Table ?? null, defined: row.documents ?? [],
-  });
+  return (block.allocations ?? []).map(row =>
+    row.code === null || !row.name
+      ? undefined
+      : {
+          code: row.code,
+          name: row.name,
+          abbreviation: row.abbreviation ?? null,
+          section: block.section,
+          page: block.page,
+          line: row.line,
+          table: block.fields.Table ?? null,
+          defined: row.documents ?? [],
+        },
+  );
 }
 
 /** A file's commands, registry rows and command tables. The first reading marks the tokens naming them, so a command is a name as an AVP is. */
@@ -105,19 +148,35 @@ export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
   const rowsOf = new Map<Block, (CommandCodeRow | undefined)[]>();
   blocks.forEach((block, index) => {
     const found = commandBlock(block);
-    if (found) { facts.blocks.push(found); byBlock.set(index, found); }
+    if (found) {
+      facts.blocks.push(found);
+      byBlock.set(index, found);
+    }
     const rows = codeRows(block);
     rowsOf.set(block, rows);
     facts.rows.push(...rows.filter(row => row !== undefined));
   });
   for (const block of blocks) {
     if ((block.type === 'AVP Table' || block.type === 'Reused AVPs') && block.commands?.length) {
-      facts.tables.push({ section: block.section, page: block.page, line: block.line, table: block.fields.Table ?? null, columns: block.commands.map(span => span.abbreviation!) });
+      facts.tables.push({
+        section: block.section,
+        page: block.page,
+        line: block.line,
+        table: block.fields.Table ?? null,
+        columns: block.commands.map(span => span.abbreviation!),
+      });
     }
     for (const span of block.commands ?? []) {
       const found = span.block === null || span.block === undefined ? undefined : byBlock.get(span.block);
-      const row = span.allocation === null || span.allocation === undefined ? undefined : rowsOf.get(block)?.[span.allocation];
-      mark(lines[span.line], span.start, span.end, { code: span.code, request: span.request, name: span.name, abbreviation: span.abbreviation ?? null, ...found ? { block: found } : row ? { row } : {} });
+      const row =
+        span.allocation === null || span.allocation === undefined ? undefined : rowsOf.get(block)?.[span.allocation];
+      mark(lines[span.line], span.start, span.end, {
+        code: span.code,
+        request: span.request,
+        name: span.name,
+        abbreviation: span.abbreviation ?? null,
+        ...(found ? { block: found } : row ? { row } : {}),
+      });
     }
   }
   return facts;
@@ -136,4 +195,8 @@ export function commandIndex(documents: (DadFile & { id: string })[], schemaVers
 }
 
 /** An index with nothing in it, for an export no index was derived from. */
-export const emptyIndex = (schemaVersion: number): CommandIndex => ({ schema_version: schemaVersion, commands: [], registry: [] });
+export const emptyIndex = (schemaVersion: number): CommandIndex => ({
+  schema_version: schemaVersion,
+  commands: [],
+  registry: [],
+});

@@ -31,14 +31,18 @@ test('the page starts light whatever the OS says, and keeps what the toggle chos
     page.window.dispatchEvent(new page.window.StorageEvent('storage', { key: 'seanchai-theme', newValue: 'dark' }));
     assert.equal(root.dataset.theme, 'dark');
     await settle();
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a stored theme applies on load, and the three pages carry a pre-paint script ignoring the OS', async () => {
   const page = await boot({ system: 'light', stored: 'dark' });
   try {
     assert.equal(page.document.documentElement.dataset.theme, 'dark');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
   for (const file of ['index.html', 'rfc.html', 'viewer.html']) {
     const html = await readFile(new URL(`../../${file}`, import.meta.url), 'utf8');
     assert.match(html, /<head>[\s\S]*seanchai-theme[\s\S]*<\/head>/, file);
@@ -49,7 +53,8 @@ test('a stored theme applies on load, and the three pages carry a pre-paint scri
 /** Tokens of a theme, each resolved to [r, g, b, alpha]. The dark block overrides the light one. */
 async function palette(theme) {
   const css = await readFile(new URL('../../src/theme.css', import.meta.url), 'utf8');
-  const blocks = theme === 'dark' ? [/:root \{([^}]*)\}/, /:root\[data-theme="dark"\] \{([^}]*)\}/] : [/:root \{([^}]*)\}/];
+  const blocks =
+    theme === 'dark' ? [/:root \{([^}]*)\}/, /:root\[data-theme="dark"\] \{([^}]*)\}/] : [/:root \{([^}]*)\}/];
   const tokens = {};
   for (const block of blocks) {
     for (const [, name, value] of css.match(block)[1].matchAll(/(--[\w-]+):\s*([^;]+);/g)) {
@@ -63,19 +68,29 @@ async function palette(theme) {
   return tokens;
 }
 
-const over = ([r, g, b, alpha], base) => [r, g, b].map((value, index) => value * alpha + base[index] * (1 - alpha)).concat(1);
-const luminance = color => color.slice(0, 3).map(value => value / 255).map(value => value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4)
-  .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
+const over = ([r, g, b, alpha], base) =>
+  [r, g, b].map((value, index) => value * alpha + base[index] * (1 - alpha)).concat(1);
+const luminance = color =>
+  color
+    .slice(0, 3)
+    .map(value => value / 255)
+    .map(value => (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4))
+    .reduce((sum, value, index) => sum + value * [0.2126, 0.7152, 0.0722][index], 0);
 const contrast = (first, second) => {
-  const [high, low] = [luminance(first), luminance(second)].sort((a, b) => b - a);
+  const [high, low] = [luminance(first), luminance(second)].toSorted((a, b) => b - a);
   return (high + 0.05) / (low + 0.05);
 };
 
-test('a token\'s tint stays nearer the light paper than any highlight, and the dark theme has none', async () => {
+test("a token's tint stays nearer the light paper than any highlight, and the dark theme has none", async () => {
   const light = await palette('light');
   const dark = await palette('dark');
   const paper = light['--ui-bg'];
-  const distance = name => Math.max(...over(light[name], paper).slice(0, 3).map((value, index) => Math.abs(value - paper[index])));
+  const distance = name =>
+    Math.max(
+      ...over(light[name], paper)
+        .slice(0, 3)
+        .map((value, index) => Math.abs(value - paper[index])),
+    );
   const tints = Object.keys(light).filter(name => name.startsWith('--syntax-') && name.endsWith('-bg'));
   assert.equal(tints.length, 8);
   const faintest = Math.min(...['--mark-bg', '--target-bg', '--ui-selected', '--ui-selection'].map(distance));
@@ -87,7 +102,10 @@ test('a token\'s tint stays nearer the light paper than any highlight, and the d
 });
 
 // What the dark filter in viewer.css makes of a PDF's white paper and black text.
-const pdfPage = { light: { paper: [255, 255, 255, 1], text: [0, 0, 0, 1] }, dark: { paper: [27, 26, 25, 1], text: [239, 235, 228, 1] } };
+const pdfPage = {
+  light: { paper: [255, 255, 255, 1], text: [0, 0, 0, 1] },
+  dark: { paper: [27, 26, 25, 1], text: [239, 235, 228, 1] },
+};
 
 for (const theme of ['light', 'dark']) {
   test(`the ${theme} palette keeps text at 4.5:1 and what marks a control or a row at 3:1 on all it lies on`, async () => {

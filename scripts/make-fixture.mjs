@@ -24,7 +24,10 @@ await write('search.json', {
 });
 await cp(path.join(from, 'schema.json'), path.join(to, 'schema.json'));
 await cp(path.join(from, 'syntax'), path.join(to, 'syntax'), { recursive: true });
-await cp(path.join(from, 'syntax/dad.tmLanguage.json'), fileURLToPath(new URL('../syntax/dad.tmLanguage.json', import.meta.url)));
+await cp(
+  path.join(from, 'syntax/dad.tmLanguage.json'),
+  fileURLToPath(new URL('../syntax/dad.tmLanguage.json', import.meta.url)),
+);
 for (const doc of index.documents.filter(doc => wanted.has(doc.id))) {
   await cp(path.join(from, doc.path), path.join(to, doc.path));
   await cp(path.join(from, doc.raw), path.join(to, doc.raw));

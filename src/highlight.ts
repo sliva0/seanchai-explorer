@@ -8,10 +8,17 @@ interface Pattern {
   patterns?: Pattern[];
   captures?: Record<string, Pattern>;
 }
-export interface Grammar extends Pattern { repository: Record<string, Pattern> }
+export interface Grammar extends Pattern {
+  repository: Record<string, Pattern>;
+}
 
-export interface HighlightedToken extends ValueToken { scope: string }
-export interface HighlightedLine extends Line { decoration: string; tokens: HighlightedToken[] }
+export interface HighlightedToken extends ValueToken {
+  scope: string;
+}
+export interface HighlightedLine extends Line {
+  decoration: string;
+  tokens: HighlightedToken[];
+}
 
 const supportedKeys = new Set(['include', 'name', 'match', 'patterns', 'captures', 'comment']);
 
@@ -21,7 +28,8 @@ function checkPattern(pattern: Pattern, where: string) {
     if (!supportedKeys.has(key)) throw new Error(`Unsupported grammar key "${key}" at ${where}`);
   }
   pattern.patterns?.forEach((child, index) => checkPattern(child, `${where}.patterns[${index}]`));
-  for (const [group, capture] of Object.entries(pattern.captures ?? {})) checkPattern(capture, `${where}.captures[${group}]`);
+  for (const [group, capture] of Object.entries(pattern.captures ?? {}))
+    checkPattern(capture, `${where}.captures[${group}]`);
 }
 
 export function createHighlighter(grammar: Grammar) {
@@ -29,9 +37,13 @@ export function createHighlighter(grammar: Grammar) {
   for (const [name, pattern] of Object.entries(grammar.repository ?? {})) checkPattern(pattern, `repository.${name}`);
   const cache = new Map<string, RegExp>();
   function rules(patterns: Pattern[]): Pattern[] {
-    return patterns.flatMap(pattern => pattern.include
-      ? rules([grammar.repository[pattern.include.replace(/^#/, '')]])
-      : pattern.match ? [pattern] : rules(pattern.patterns ?? []));
+    return patterns.flatMap(pattern =>
+      pattern.include
+        ? rules([grammar.repository[pattern.include.replace(/^#/, '')]])
+        : pattern.match
+          ? [pattern]
+          : rules(pattern.patterns ?? []),
+    );
   }
   function scan(text: string, patterns: Pattern[], begin: number, end: number, scopes: string[]) {
     const candidates = rules(patterns);
@@ -41,10 +53,19 @@ export function createHighlighter(grammar: Grammar) {
       let chosen: { rule: Pattern; match: RegExpExecArray } | undefined;
       for (const rule of candidates) {
         let regex = cache.get(rule.match!);
-        if (!regex) { regex = new RegExp(rule.match!, 'gd'); cache.set(rule.match!, regex); }
+        if (!regex) {
+          regex = new RegExp(rule.match!, 'gd');
+          cache.set(rule.match!, regex);
+        }
         regex.lastIndex = position;
         const match = regex.exec(bounded);
-        if (match && match.index < end && match.index + match[0].length <= end && (!chosen || match.index < chosen.match.index)) chosen = { rule, match };
+        if (
+          match &&
+          match.index < end &&
+          match.index + match[0].length <= end &&
+          (!chosen || match.index < chosen.match.index)
+        )
+          chosen = { rule, match };
       }
       if (!chosen) return;
       const { rule, match } = chosen;
@@ -68,8 +89,10 @@ export function createHighlighter(grammar: Grammar) {
       const scopes = Array<string>(fullText.length).fill('');
       scan(text, grammar.patterns ?? [], 0, text.length, scopes);
       const decoration = [];
-      if (/^; Columns:/.test(text)) { inTable = true; row = 0; }
-      else if (inTable) {
+      if (text.startsWith('; Columns:')) {
+        inTable = true;
+        row = 0;
+      } else if (inTable) {
         if (!text.trim()) inTable = false;
         else if (!text.startsWith(';;')) {
           decoration.push('table-row');

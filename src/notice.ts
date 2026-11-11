@@ -40,7 +40,10 @@ export function notifyFailure(what: string, error: unknown, retry?: () => void) 
   if (retry) {
     const again = element('button', 'Retry', 'control');
     again.type = 'button';
-    again.onclick = () => { remove(); retry(); };
+    again.onclick = () => {
+      remove();
+      retry();
+    };
     notice.append(again);
   }
   const dismiss = element('button', '×', 'control notice-dismiss');

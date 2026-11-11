@@ -11,7 +11,9 @@ function renderGroup({ title, note, controls }: ControlGroup): HTMLElement {
   for (const { keys, does } of controls) {
     const term = element('dt');
     // "or" between the ways is for a screen reader; on screen the keys stand apart.
-    keys.forEach((key, index) => term.append(...index ? [element('span', ' or ', 'sr-only')] : [], element('kbd', key)));
+    keys.forEach((key, index) =>
+      term.append(...(index ? [element('span', ' or ', 'sr-only')] : []), element('kbd', key)),
+    );
     list.append(term, element('dd', does));
   }
   section.append(list);
@@ -89,9 +91,20 @@ export function createHelp() {
       close();
     } else if (event.key === 'Tab') keepFocus(event);
   });
-  button.onclick = () => { if (dialog.hidden) open(); else close(); };
+  button.onclick = () => {
+    if (dialog.hidden) open();
+    else close();
+  };
   document.addEventListener('keydown', event => {
-    if (event.defaultPrevented || event.key !== '?' || event.ctrlKey || event.altKey || event.metaKey || takesTyping(document.activeElement)) return;
+    if (
+      event.defaultPrevented ||
+      event.key !== '?' ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      takesTyping(document.activeElement)
+    )
+      return;
     event.preventDefault();
     open();
   });
@@ -104,5 +117,12 @@ export function createHelp() {
     if (!dialog.hidden && !dialog.contains(event.target as Node)) dialog.focus({ preventScroll: true });
   });
 
-  return { button, open, close, get isOpen() { return !dialog.hidden; } };
+  return {
+    button,
+    open,
+    close,
+    get isOpen() {
+      return !dialog.hidden;
+    },
+  };
 }

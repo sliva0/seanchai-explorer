@@ -6,7 +6,13 @@ const memory = () => {
   const items = new Map();
   return { getItem: key => items.get(key) ?? null, setItem: (key, value) => items.set(key, value) };
 };
-const at = (document, top = 0, offset = 0, line) => ({ document, top, offset, ...(line === undefined ? {} : { line }), hash: `#${document}?top=${top}` });
+const at = (document, top = 0, offset = 0, line) => ({
+  document,
+  top,
+  offset,
+  ...(line === undefined ? {} : { line }),
+  hash: `#${document}?top=${top}`,
+});
 const list = (store = memory(), available) => createJumpList(() => store, available);
 const names = jumps => jumps.entries.map(entry => `${entry.document}${entry.top}`);
 
@@ -51,7 +57,14 @@ test('an identical place collapses with the one before it, and a walk does not l
   jumps.push(at('a', 1, 1, 9));
   jumps.push(at('a', 1, 1, 9));
   assert.deepEqual(names(jumps), ['a1', 'a1', 'a1']);
-  assert.deepEqual(jumps.entries.map(entry => [entry.offset, entry.line]), [[0, undefined], [1, undefined], [1, 9]]);
+  assert.deepEqual(
+    jumps.entries.map(entry => [entry.offset, entry.line]),
+    [
+      [0, undefined],
+      [1, undefined],
+      [1, 9],
+    ],
+  );
   assert.deepEqual(jumps.walk('back', at('a', 1, 1, 9)), at('a', 1, 1), 'from the last, the one before it');
   const tip = list();
   tip.push(at('a', 1));
@@ -86,7 +99,9 @@ test('the list and the way along it survive a reload; a broken store is an empty
     broken.setItem('seanchai-jumps', stored);
     assert.deepEqual(list(broken).entries, []);
   }
-  const refused = createJumpList(() => { throw new Error('denied'); });
+  const refused = createJumpList(() => {
+    throw new Error('denied');
+  });
   refused.push(at('a', 1));
   assert.deepEqual(refused.walk('back', at('a', 2)), at('a', 1), 'without storage it still works for the page');
   const outOfRange = memory();
@@ -107,7 +122,7 @@ test('a document that is gone is stepped over each way, and a list of only those
   assert.equal(none.walk('back', at('a', 1)), undefined);
 });
 
-test('a document\'s walk skips the current document, lands at the end of a run each way, and is a round trip', () => {
+test("a document's walk skips the current document, lands at the end of a run each way, and is a round trip", () => {
   const jumps = list();
   for (const place of [at('a', 1), at('a', 2), at('b', 1), at('b', 2), at('c', 1)]) jumps.push(place);
   assert.deepEqual(jumps.walk('backDocument', at('c', 2)), at('b', 2), 'past the rest of c');
@@ -116,7 +131,11 @@ test('a document\'s walk skips the current document, lands at the end of a run e
   assert.deepEqual(jumps.walk('forwardDocument', at('a', 2)), at('b', 2));
   assert.deepEqual(jumps.walk('forwardDocument', at('b', 2)), at('c', 2));
   assert.equal(jumps.walk('forwardDocument', at('c', 2)), undefined);
-  assert.deepEqual(jumps.walk('back', at('c', 2)), at('c', 1), 'the same list: a plain walk still stops in the document');
+  assert.deepEqual(
+    jumps.walk('back', at('c', 2)),
+    at('c', 1),
+    'the same list: a plain walk still stops in the document',
+  );
 });
 
 test('peek says where a walk would land and leaves the list as it is', () => {

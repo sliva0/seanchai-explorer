@@ -3,36 +3,59 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="description" content="A specification's PDF, as a self-hosted Seanchaí explorer shows it beside the corpus." />
+    <meta
+      name="description"
+      content="A specification's PDF, as a self-hosted Seanchaí explorer shows it beside the corpus."
+    />
     <!-- One colour, the stored theme's: theme.ts sets it, as the page follows no OS scheme. -->
     <meta name="theme-color" content="#e8e4d9" />
     <link rel="icon" href="/src/favicon.svg" type="image/svg+xml" />
-    <script>try{var t=localStorage.getItem('seanchai-theme')}catch(e){}document.documentElement.dataset.theme=t==='dark'?'dark':'light'</script>
+    <script>
+      try {
+        var t = localStorage.getItem('seanchai-theme');
+      } catch (e) {}
+      document.documentElement.dataset.theme = t === 'dark' ? 'dark' : 'light';
+    </script>
     <title>Seanchaí</title>
   </head>
   <body>
     <noscript><p>This PDF viewer needs JavaScript.</p></noscript>
     <form id="toolbar">
-      <label id="chapters-toggle" class="visibility-toggle pending">Chapters <input id="chapters" type="checkbox" aria-controls="outline" checked /></label>
+      <label id="chapters-toggle" class="visibility-toggle pending"
+        >Chapters <input id="chapters" type="checkbox" aria-controls="outline" checked
+      /></label>
       <label>Page <input id="page" class="control" type="number" min="1" value="1" /></label>
       <span id="pages"></span>
       <div id="zoom-controls">
         <label for="zoom">Zoom</label>
         <button id="zoom-out" class="control" type="button" aria-label="Zoom out" title="Zoom out">−</button>
-        <select id="zoom" class="control"><option value="page-width">Width</option><option value="page-fit">Page</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option></select>
+        <select id="zoom" class="control">
+          <option value="page-width">Width</option>
+          <option value="page-fit">Page</option>
+          <option value="0.5">50%</option>
+          <option value="0.75">75%</option>
+          <option value="1">100%</option>
+          <option value="1.5">150%</option>
+          <option value="2">200%</option>
+          <option value="3">300%</option>
+        </select>
         <button id="zoom-in" class="control" type="button" aria-label="Zoom in" title="Zoom in">+</button>
       </div>
       <div id="find-controls">
         <label><span class="sr-only">Find</span><input id="find" class="control" type="search" /></label>
         <button class="control" type="submit">Find</button>
-        <button id="find-previous" class="control" type="button" aria-label="Previous match" title="Previous match">↑</button>
+        <button id="find-previous" class="control" type="button" aria-label="Previous match" title="Previous match">
+          ↑
+        </button>
         <button id="find-next" class="control" type="button" aria-label="Next match" title="Next match">↓</button>
         <output id="matches"></output>
       </div>
     </form>
     <div id="pdf-workspace">
       <aside id="outline" hidden></aside>
-      <div id="page-pane"><div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div></div>
+      <div id="page-pane">
+        <div id="viewerContainer"><div id="viewer" class="pdfViewer"></div></div>
+      </div>
     </div>
     <script type="module" src="/src/viewer.ts"></script>
   </body>

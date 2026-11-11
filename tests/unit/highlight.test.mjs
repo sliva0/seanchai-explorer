@@ -11,9 +11,13 @@ const scopeFor = (line, text) => line.tokens.find(token => token.text === text)?
 
 test('viewer uses the editor grammar for directives, presence, enums, types, flags and references', () => {
   const lines = highlight([
-    line('; Type: Message'), line('; Bases: RFC6733'),
-    line('        < Session-Id >'), line('        { Origin-Host }'), line('      * [ Proxy-Info ] ; bold ; strikethrough'),
-    line('Mode ::= < Enumerated AVP header: 10 10415 >'), line('    Active = 1'),
+    line('; Type: Message'),
+    line('; Bases: RFC6733'),
+    line('        < Session-Id >'),
+    line('        { Origin-Host }'),
+    line('      * [ Proxy-Info ] ; bold ; strikethrough'),
+    line('Mode ::= < Enumerated AVP header: 10 10415 >'),
+    line('    Active = 1'),
     line('; Columns: Name   Code   Type   Must   From'),
     line('Mode   10   Enumerated   M,V   RFC6733'),
     line('Other   11   UTF8String   -   RFC6733'),
@@ -35,7 +39,11 @@ test('viewer uses the editor grammar for directives, presence, enums, types, fla
 });
 
 test('void values highlight like reserved ones, single or ranged', () => {
-  const [reserved, single, ranged] = highlight([line('    ; RESERVED = 5'), line('    ; VOID = 5'), line('    ; VOID = 6-7')]);
+  const [reserved, single, ranged] = highlight([
+    line('    ; RESERVED = 5'),
+    line('    ; VOID = 5'),
+    line('    ; VOID = 6-7'),
+  ]);
   assert.equal(scopeFor(reserved, '; RESERVED'), 'keyword.other.reserved.dad');
   assert.equal(scopeFor(reserved, '5'), 'constant.numeric.dad');
   assert.equal(scopeFor(single, '; VOID'), 'keyword.other.void.dad');
@@ -48,23 +56,44 @@ test('void values highlight like reserved ones, single or ranged', () => {
 
 test('a grammar rule the scanner cannot run is refused rather than ignored', () => {
   const empty = { patterns: [], repository: {} };
-  assert.doesNotThrow(() => createHighlighter({ ...empty, patterns: [{ comment: 'note', match: 'x', name: 'y', captures: { 1: { name: 'z' } } }] }));
-  assert.throws(() => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b' }] }), /"begin" at patterns\[0\]/);
-  assert.throws(() => createHighlighter({ ...empty, repository: { block: { patterns: [{ match: 'x', while: 'y' }] } } }), /"while" at repository\.block\.patterns\[0\]/);
-  assert.throws(() => createHighlighter({ ...empty, patterns: [{ match: 'x', captures: { 1: { contentName: 'y' } } }] }), /"contentName" at patterns\[0\]\.captures\[1\]/);
+  assert.doesNotThrow(() =>
+    createHighlighter({
+      ...empty,
+      patterns: [{ comment: 'note', match: 'x', name: 'y', captures: { 1: { name: 'z' } } }],
+    }),
+  );
+  assert.throws(
+    () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b' }] }),
+    /"begin" at patterns\[0\]/,
+  );
+  assert.throws(
+    () => createHighlighter({ ...empty, repository: { block: { patterns: [{ match: 'x', while: 'y' }] } } }),
+    /"while" at repository\.block\.patterns\[0\]/,
+  );
+  assert.throws(
+    () => createHighlighter({ ...empty, patterns: [{ match: 'x', captures: { 1: { contentName: 'y' } } }] }),
+    /"contentName" at patterns\[0\]\.captures\[1\]/,
+  );
 });
 
 test('comment and correction-note tokens keep their kind and are not split by the grammar', () => {
-  const [row] = highlight([{ tokens: [
-    { text: 'Mode ' },
-    { text: ';; plain 1 note', kind: 'comment' },
-    { text: ';; inserted: (TS.py#x)', kind: 'correction-note', correction: 'TS.py#x' },
-    { text: '\n' },
-  ] }]);
-  assert.deepEqual(row.tokens.filter(token => token.kind).map(token => [token.text, token.scope]), [
-    [';; plain 1 note', 'comment'],
-    [';; inserted: (TS.py#x)', 'correction-note'],
+  const [row] = highlight([
+    {
+      tokens: [
+        { text: 'Mode ' },
+        { text: ';; plain 1 note', kind: 'comment' },
+        { text: ';; inserted: (TS.py#x)', kind: 'correction-note', correction: 'TS.py#x' },
+        { text: '\n' },
+      ],
+    },
   ]);
+  assert.deepEqual(
+    row.tokens.filter(token => token.kind).map(token => [token.text, token.scope]),
+    [
+      [';; plain 1 note', 'comment'],
+      [';; inserted: (TS.py#x)', 'correction-note'],
+    ],
+  );
 });
 
 test('syntax splitting preserves corpus bytes and every navigation or correction annotation', async () => {
@@ -73,9 +102,16 @@ test('syntax splitting preserves corpus bytes and every navigation or correction
     const { lines: original } = JSON.parse(await readFile(new URL(file, directory), 'utf8'));
     const highlighted = highlight(original);
     for (let i = 0; i < original.length; i++) {
-      assert.equal(highlighted[i].tokens.map(token => token.text).join(''), original[i].tokens.map(token => token.text).join(''));
-      const annotations = tokens => tokens.filter(token => token.target || token.source || token.correction)
-        .flatMap(token => [...token.text].map(text => JSON.stringify([text, token.target, token.source, token.correction])));
+      assert.equal(
+        highlighted[i].tokens.map(token => token.text).join(''),
+        original[i].tokens.map(token => token.text).join(''),
+      );
+      const annotations = tokens =>
+        tokens
+          .filter(token => token.target || token.source || token.correction)
+          .flatMap(token =>
+            [...token.text].map(text => JSON.stringify([text, token.target, token.source, token.correction])),
+          );
       assert.deepEqual(annotations(highlighted[i].tokens), annotations(original[i].tokens));
     }
   }

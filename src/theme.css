@@ -73,84 +73,224 @@
   scrollbar-color: var(--ui-scrollbar) transparent;
 }
 :root[data-theme="dark"] {
-    color-scheme: dark;
-    --ui-bg: #1b1a18;
-    --ui-fg: #e4e1da;
-    --ui-surface: #242320;
-    --ui-chrome: #2c2a27;
-    --ui-raised: #33312d;
-    --ui-border: #413f39;
-    --ui-border-strong: #7f7b70;
-    --ui-link: #8fc0fa;
-    --ui-link-hover: #bcd9fc;
-    --ui-hover: #36342f;
-    --ui-selected: #27405f;
-    --ui-selection: rgb(143 192 250 / 30%);
-    --ui-muted: #aaa69b;
-    --ui-divider: #2e2c29;
-    --ui-divider-hover: #55708f;
-    --ui-stripe: rgb(255 245 225 / 3.5%);
-    --ui-scrollbar: #5a574f;
-    --ui-shadow: rgb(0 0 0 / 55%);
-    --pdf-surround: #2c2a27;
-    --corrected-bg: #292433;
-    --warning-bg: #3a2818;
-    --warning: #ec9f5a;
-    --mark-bg: #dfb453;
-    --mark-fg: #1f1700;
-    --target-bg: #3b3115;
-    --target-edge: #e8ba4e;
-    --target-flash: #7d6420;
-    --find-bg: rgb(232 186 78 / 28%);
-    --find-current-bg: rgb(255 140 50 / 26%);
-    --find-current-edge: #ffb066;
-    --syntax-keyword: #d8d8ea;
-    --syntax-type: #98d4d4;
-    --syntax-number: #e9bf8b;
-    --syntax-reference: #dfb4f3;
-    --syntax-fixed: #ffaf94;
-    --syntax-required: #9dd8a9;
-    --syntax-optional: #a7cced;
-    --syntax-fixed-strong: #ffc9ad;
-    --syntax-required-strong: #aef1bb;
-    --syntax-optional-strong: #b9e4ff;
-    --syntax-string: #eab7c6;
-    /* Light text holds its contrast here, and backgrounds would only break a dense line into patches. */
-    --syntax-keyword-bg: transparent;
-    --syntax-type-bg: transparent;
-    --syntax-number-bg: transparent;
-    --syntax-reference-bg: transparent;
-    --syntax-fixed-bg: transparent;
-    --syntax-required-bg: transparent;
-    --syntax-optional-bg: transparent;
-    --syntax-string-bg: transparent;
+  color-scheme: dark;
+  --ui-bg: #1b1a18;
+  --ui-fg: #e4e1da;
+  --ui-surface: #242320;
+  --ui-chrome: #2c2a27;
+  --ui-raised: #33312d;
+  --ui-border: #413f39;
+  --ui-border-strong: #7f7b70;
+  --ui-link: #8fc0fa;
+  --ui-link-hover: #bcd9fc;
+  --ui-hover: #36342f;
+  --ui-selected: #27405f;
+  --ui-selection: rgb(143 192 250 / 30%);
+  --ui-muted: #aaa69b;
+  --ui-divider: #2e2c29;
+  --ui-divider-hover: #55708f;
+  --ui-stripe: rgb(255 245 225 / 3.5%);
+  --ui-scrollbar: #5a574f;
+  --ui-shadow: rgb(0 0 0 / 55%);
+  --pdf-surround: #2c2a27;
+  --corrected-bg: #292433;
+  --warning-bg: #3a2818;
+  --warning: #ec9f5a;
+  --mark-bg: #dfb453;
+  --mark-fg: #1f1700;
+  --target-bg: #3b3115;
+  --target-edge: #e8ba4e;
+  --target-flash: #7d6420;
+  --find-bg: rgb(232 186 78 / 28%);
+  --find-current-bg: rgb(255 140 50 / 26%);
+  --find-current-edge: #ffb066;
+  --syntax-keyword: #d8d8ea;
+  --syntax-type: #98d4d4;
+  --syntax-number: #e9bf8b;
+  --syntax-reference: #dfb4f3;
+  --syntax-fixed: #ffaf94;
+  --syntax-required: #9dd8a9;
+  --syntax-optional: #a7cced;
+  --syntax-fixed-strong: #ffc9ad;
+  --syntax-required-strong: #aef1bb;
+  --syntax-optional-strong: #b9e4ff;
+  --syntax-string: #eab7c6;
+  /* Light text holds its contrast here, and backgrounds would only break a dense line into patches. */
+  --syntax-keyword-bg: transparent;
+  --syntax-type-bg: transparent;
+  --syntax-number-bg: transparent;
+  --syntax-reference-bg: transparent;
+  --syntax-fixed-bg: transparent;
+  --syntax-required-bg: transparent;
+  --syntax-optional-bg: transparent;
+  --syntax-string-bg: transparent;
 }
 /* Above pdf.js's own :root { color-scheme: light dark }, which a build loads after this file. */
-:root[data-theme="light"] { color-scheme: light; }
-::selection { background: var(--ui-selection); }
-* { box-sizing: border-box; }
-a { color: var(--ui-link); text-decoration: none; text-underline-offset: 2px; }
-a:hover { color: var(--ui-link-hover); text-decoration: underline; }
-button, input, select { font: inherit; }
-:focus-visible { outline: 2px solid var(--ui-link); outline-offset: 1px; }
-.control { display: inline-flex; align-items: center; justify-content: center; gap: var(--space-1); height: var(--control-height); padding: 0 var(--space-2); border: 1px solid var(--ui-border-strong); border-radius: var(--radius); color: var(--ui-link); background: var(--ui-bg); font: var(--text-xs)/1 var(--mono); text-decoration: none; white-space: nowrap; cursor: pointer; }
-.control:hover { border-color: var(--ui-link); color: var(--ui-link-hover); background: var(--ui-hover); }
-input.control { justify-content: start; color: var(--ui-fg); cursor: text; }
-input.control:hover { background: var(--ui-bg); color: var(--ui-fg); }
-.visibility-toggle { display: inline-flex; align-items: center; gap: var(--space-1); height: var(--control-height); cursor: pointer; user-select: none; white-space: nowrap; }
-.visibility-toggle[hidden] { display: none; }
-.visibility-toggle input { width: 13px; height: 13px; margin: 0; flex: none; accent-color: var(--ui-link); }
-.visibility-toggle:hover { color: var(--ui-link-hover); }
-.count { display: inline-block; min-width: 2.5ch; padding: 0 0.3em; border-radius: var(--radius); color: var(--ui-muted); background: var(--ui-divider); font-size: 0.6875rem; font-weight: 400; line-height: 1.4; text-align: center; }
-summary { display: block; list-style: none; cursor: pointer; }
-summary::-webkit-details-marker { display: none; }
-summary::before, .disclosure::before { content: ''; display: inline-block; flex: none; width: 0.45em; height: 0.6em; margin-inline: 0.2em 0.35em; background: var(--ui-muted); clip-path: polygon(0 0, 100% 50%, 0 100%); }
-details[open] > summary::before, .disclosure[aria-expanded="true"]::before { rotate: 90deg; }
-.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+::selection {
+  background: var(--ui-selection);
+}
+* {
+  box-sizing: border-box;
+}
+a {
+  color: var(--ui-link);
+  text-decoration: none;
+  text-underline-offset: 2px;
+}
+a:hover {
+  color: var(--ui-link-hover);
+  text-decoration: underline;
+}
+button,
+input,
+select {
+  font: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--ui-link);
+  outline-offset: 1px;
+}
+.control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--radius);
+  color: var(--ui-link);
+  background: var(--ui-bg);
+  font: var(--text-xs)/1 var(--mono);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.control:hover {
+  border-color: var(--ui-link);
+  color: var(--ui-link-hover);
+  background: var(--ui-hover);
+}
+input.control {
+  justify-content: start;
+  color: var(--ui-fg);
+  cursor: text;
+}
+input.control:hover {
+  background: var(--ui-bg);
+  color: var(--ui-fg);
+}
+.visibility-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: var(--control-height);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.visibility-toggle[hidden] {
+  display: none;
+}
+.visibility-toggle input {
+  width: 13px;
+  height: 13px;
+  margin: 0;
+  flex: none;
+  accent-color: var(--ui-link);
+}
+.visibility-toggle:hover {
+  color: var(--ui-link-hover);
+}
+.count {
+  display: inline-block;
+  min-width: 2.5ch;
+  padding: 0 0.3em;
+  border-radius: var(--radius);
+  color: var(--ui-muted);
+  background: var(--ui-divider);
+  font-size: 0.6875rem;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: center;
+}
+summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+summary::before,
+.disclosure::before {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 0.45em;
+  height: 0.6em;
+  margin-inline: 0.2em 0.35em;
+  background: var(--ui-muted);
+  clip-path: polygon(0 0, 100% 50%, 0 100%);
+}
+details[open] > summary::before,
+.disclosure[aria-expanded="true"]::before {
+  rotate: 90deg;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 /* Notices: what failed, at the foot of any page, over what is there until dismissed. The strip lets clicks through. */
-.notices { position: fixed; z-index: 150; right: var(--space-3); bottom: var(--space-3); left: var(--space-3); display: flex; flex-direction: column; align-items: flex-end; gap: var(--space-1); pointer-events: none; }
-.notice { display: flex; align-items: center; gap: var(--space-2); max-width: min(72ch, 100%); padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3); border: 1px solid var(--ui-border); border-radius: var(--radius); color: var(--ui-fg); background: var(--warning-bg); box-shadow: inset 3px 0 var(--warning), 0 4px 16px var(--ui-shadow); font: var(--text-xs)/1.4 var(--mono); pointer-events: auto; }
-.notice p { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
-.notice-detail { color: var(--ui-muted); }
-.notice .control { flex: none; }
-.notice-dismiss { width: var(--control-height); padding: 0; font-size: var(--text-md); }
+.notices {
+  position: fixed;
+  z-index: 150;
+  right: var(--space-3);
+  bottom: var(--space-3);
+  left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  pointer-events: none;
+}
+.notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  max-width: min(72ch, 100%);
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius);
+  color: var(--ui-fg);
+  background: var(--warning-bg);
+  box-shadow:
+    inset 3px 0 var(--warning),
+    0 4px 16px var(--ui-shadow);
+  font: var(--text-xs)/1.4 var(--mono);
+  pointer-events: auto;
+}
+.notice p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.notice-detail {
+  color: var(--ui-muted);
+}
+.notice .control {
+  flex: none;
+}
+.notice-dismiss {
+  width: var(--control-height);
+  padding: 0;
+  font-size: var(--text-md);
+}

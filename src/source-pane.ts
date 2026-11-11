@@ -1,5 +1,15 @@
 import type { Place } from './avp-places.ts';
-import { docSubject, docTitle, docVersioned, dataURL, isPdfURL, paneFile, paneKind, paneURL, publisherURL } from './data.ts';
+import {
+  docSubject,
+  docTitle,
+  docVersioned,
+  dataURL,
+  isPdfURL,
+  paneFile,
+  paneKind,
+  paneURL,
+  publisherURL,
+} from './data.ts';
 import type { Site } from './data.ts';
 import { element, externalLink } from './dom.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
@@ -60,7 +70,9 @@ function createPaneHeader(source: boolean): HTMLElement {
 
 function updatePaneHeader(header: HTMLElement, doc: DocumentSummary, position: SourcePosition, site: Site) {
   // The source's bar is the narrower one in a split, and the two share a row: a third line would move the text below.
-  header.querySelector('h1, h2')!.textContent = header.classList.contains('source-header') ? [docVersioned(doc), docSubject(doc)].filter(Boolean).join(' — ') : docTitle(doc);
+  header.querySelector('h1, h2')!.textContent = header.classList.contains('source-header')
+    ? [docVersioned(doc), docSubject(doc)].filter(Boolean).join(' — ')
+    : docTitle(doc);
   const kind = paneKind(doc, site.mode);
   // The PDF viewer shows its own page; the indicator is for panes without one.
   const page = header.querySelector('.source-page');
@@ -87,7 +99,8 @@ function fillPlaceholder(panel: HTMLElement, doc: DocumentSummary, position: Sou
   const reason = element('p', `The PDF of ${docVersioned(doc)} cannot be shown here for licensing reasons.`);
   const url = publisherURL(doc, position);
   const publisher = element('p');
-  if (url) publisher.append(externalLink(`Open at ${hostName(url)}${position.page ? `, p. ${position.page}` : ''}`, url.href));
+  if (url)
+    publisher.append(externalLink(`Open at ${hostName(url)}${position.page ? `, p. ${position.page}` : ''}`, url.href));
   const selfHost = element('p');
   selfHost.append(externalLink('Self-host Seanchaí Explorer to read PDFs beside the corpus', selfHostingGuide));
   panel.replaceChildren(reason, publisher, selfHost);
@@ -124,7 +137,7 @@ function createSplitter(workspace: HTMLElement): HTMLElement {
     frame ||= requestAnimationFrame(() => {
       frame = 0;
       const rect = workspace.getBoundingClientRect();
-      set((pointerX - grabbedAt - rect.left) * 100 / (rect.width - divider.offsetWidth));
+      set(((pointerX - grabbedAt - rect.left) * 100) / (rect.width - divider.offsetWidth));
     });
   };
   divider.onpointerup = event => divider.releasePointerCapture(event.pointerId);
@@ -165,12 +178,18 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
 
   function refreshHeaders() {
     if (!mounted) return;
-    updatePaneHeader(mounted.documentHeader, mounted.doc, selected?.doc.id === mounted.doc.id ? selected.position : mounted.position, site);
+    updatePaneHeader(
+      mounted.documentHeader,
+      mounted.doc,
+      selected?.doc.id === mounted.doc.id ? selected.position : mounted.position,
+      site,
+    );
     if (mounted.sourceHeader && selected) updatePaneHeader(mounted.sourceHeader, selected.doc, selected.position, site);
   }
 
   function postTheme(frame: HTMLIFrameElement) {
-    if (frame.src && new URL(frame.src, location.href).origin === location.origin) frame.contentWindow?.postMessage({ type: 'seanchai-theme', theme: currentTheme() }, location.origin);
+    if (frame.src && new URL(frame.src, location.href).origin === location.origin)
+      frame.contentWindow?.postMessage({ type: 'seanchai-theme', theme: currentTheme() }, location.origin);
   }
 
   /** The one place the pane is shown, hidden and given a source to load. */
@@ -195,15 +214,25 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
 
   window.addEventListener('message', event => {
     const frame = mounted?.frame;
-    if (event.origin !== location.origin || !frame?.contentWindow || event.source !== frame.contentWindow || !selected) return;
+    if (event.origin !== location.origin || !frame?.contentWindow || event.source !== frame.contentWindow || !selected)
+      return;
     if (event.data?.file !== paneFile(selected.doc, site.mode)) return;
-    if ((event.data.type === 'seanchai-pdf-page' || event.data.type === 'seanchai-source-page') && Number.isInteger(event.data.page) && event.data.page > 0 && event.data.page !== selected.position.page) {
+    if (
+      (event.data.type === 'seanchai-pdf-page' || event.data.type === 'seanchai-source-page') &&
+      Number.isInteger(event.data.page) &&
+      event.data.page > 0 &&
+      event.data.page !== selected.position.page
+    ) {
       selected.position = { ...selected.position, page: event.data.page, exact: true };
       refreshHeaders();
       onChange();
     }
     // The viewer reports its own find for the position too, and every count of a search.
-    if (event.data.type === 'seanchai-pdf-matches' && typeof event.data.query === 'string' && event.data.query !== (selected.position.name ?? selected.position.section)) {
+    if (
+      event.data.type === 'seanchai-pdf-matches' &&
+      typeof event.data.query === 'string' &&
+      event.data.query !== (selected.position.name ?? selected.position.section)
+    ) {
       selected.position = { ...selected.position, name: event.data.query, exact: true };
       onChange();
     }
@@ -260,8 +289,12 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       mounted = undefined;
       selected = undefined;
     },
-    get toggle() { return mounted?.toggle; },
-    get switchedOn() { return switchedOn; },
+    get toggle() {
+      return mounted?.toggle;
+    },
+    get switchedOn() {
+      return switchedOn;
+    },
     /** The pane is showing, and a position in the mounted document can go to it. */
     readsDocument: () => isOpen() && readsMounted(),
     /** The pane can read this document here, switched on or not. A place in one it cannot is only the view's to go to. */
@@ -284,8 +317,16 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
         if (moved) onChange();
       };
       // The source prints a renamed row under its raw name.
-      if (!position.row || !doc.raw || position.exact || !correctedRow(doc, position)) { place(position); return; }
-      void site.loadRaw(doc.id).then(raw => printedRow(doc, raw, position), () => null)
+      if (!position.row || !doc.raw || position.exact || !correctedRow(doc, position)) {
+        place(position);
+        return;
+      }
+      void site
+        .loadRaw(doc.id)
+        .then(
+          raw => printedRow(doc, raw, position),
+          () => null,
+        )
         .then(printed => place(printed ? { ...position, printed } : position));
     },
     /** Moves the pane alone to a place, switching it on: to its position, or to a target's clause, in whichever document has it. */
@@ -309,11 +350,15 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     /** `showPlace` for the reader's click: a document that fails to load is said, with a Retry. */
     openPlace(place: Place, doc: Document) {
       const summary = site.summary(place.document);
-      attempt(`Could not load ${summary ? site.label(summary) : place.document} for the source pane`, () => this.showPlace(place, doc));
+      attempt(`Could not load ${summary ? site.label(summary) : place.document} for the source pane`, () =>
+        this.showPlace(place, doc),
+      );
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };
     },
-    postTheme() { if (mounted?.frame) postTheme(mounted.frame); },
+    postTheme() {
+      if (mounted?.frame) postTheme(mounted.frame);
+    },
   };
 }

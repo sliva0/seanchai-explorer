@@ -4,7 +4,10 @@ import { correctedRow, printedRow } from '../../src/printed-row.ts';
 
 const row = (section, name, note) => ({
   section,
-  tokens: [{ avp: name, source: { name, page: 1, row: true, section }, text: name }, ...(note ? [{ correction: note, kind: 'correction-note', text: `;; (${note})` }] : [])],
+  tokens: [
+    { avp: name, source: { name, page: 1, row: true, section }, text: name },
+    ...(note ? [{ correction: note, kind: 'correction-note', text: `;; (${note})` }] : []),
+  ],
 });
 const corrections = {
   rename: { kind: 'correction', reason: 'misspelt' },
@@ -16,25 +19,40 @@ const corrections = {
 const doc = {
   corrections,
   lines: [
-    row('5.2.3.1', 'QoS-Capability'), row('5.2.3.1', 'Service-Selection'), row('5.2.3.1', 'QoS-Capability'),
-    row('5.2.3.1', 'Acct-Interim-Interval', 'rename'), row('5.2.3.1', 'Auth-Request-Type'), row('5.2.3.1', 'Subscription-Id', 'type'),
-    row('5.2.3.1', 'MME-Name', 'added'), row('5.2.3.1', 'User-Name'),
+    row('5.2.3.1', 'QoS-Capability'),
+    row('5.2.3.1', 'Service-Selection'),
+    row('5.2.3.1', 'QoS-Capability'),
+    row('5.2.3.1', 'Acct-Interim-Interval', 'rename'),
+    row('5.2.3.1', 'Auth-Request-Type'),
+    row('5.2.3.1', 'Subscription-Id', 'type'),
+    row('5.2.3.1', 'MME-Name', 'added'),
+    row('5.2.3.1', 'User-Name'),
     row('6.5', 'ProSe-App-Code-Suffix-Range', 'rename'),
     row('7', 'Dropped-Before', 'rename'),
   ],
 };
 const raw = {
   lines: [
-    row('5.2.3.1', 'QoS-Capability'), row('5.2.3.1', 'Service-Selection'), row('5.2.3.1', 'QoS-Capability'),
-    row('5.2.3.1', 'Accounting-Interim-Interval'), row('5.2.3.1', 'Auth-Request-Type'), row('5.2.3.1', 'Subscription-ID'),
+    row('5.2.3.1', 'QoS-Capability'),
+    row('5.2.3.1', 'Service-Selection'),
+    row('5.2.3.1', 'QoS-Capability'),
+    row('5.2.3.1', 'Accounting-Interim-Interval'),
+    row('5.2.3.1', 'Auth-Request-Type'),
+    row('5.2.3.1', 'Subscription-ID'),
     row('5.2.3.1', 'User-Name'),
     row('6.5', 'ProSe-Application-Code-Suffix-Range'),
   ],
 };
 
 test('a renamed row pairs with the raw row at its place, whatever stands twice', () => {
-  assert.equal(printedRow(doc, raw, { section: '5.2.3.1', name: 'Acct-Interim-Interval' }), 'Accounting-Interim-Interval');
-  assert.equal(printedRow(doc, raw, { section: '6.5', name: 'ProSe-App-Code-Suffix-Range' }), 'ProSe-Application-Code-Suffix-Range');
+  assert.equal(
+    printedRow(doc, raw, { section: '5.2.3.1', name: 'Acct-Interim-Interval' }),
+    'Accounting-Interim-Interval',
+  );
+  assert.equal(
+    printedRow(doc, raw, { section: '6.5', name: 'ProSe-App-Code-Suffix-Range' }),
+    'ProSe-Application-Code-Suffix-Range',
+  );
 });
 
 test('inserted rows, unchanged names, and rows the raw mirror lacks have no other spelling', () => {

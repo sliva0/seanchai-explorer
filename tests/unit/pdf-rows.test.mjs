@@ -1,12 +1,23 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { clauseOnPage, formatOnPage, headingOnPage, looseRowOnPage, matchOnRow, mentionOnPage, rowOnPage, valueRowOnPage } from '../../src/pdf-navigation.ts';
+import {
+  clauseOnPage,
+  formatOnPage,
+  headingOnPage,
+  looseRowOnPage,
+  matchOnRow,
+  mentionOnPage,
+  rowOnPage,
+  valueRowOnPage,
+} from '../../src/pdf-navigation.ts';
 
 // Text items captured from the ETSI PDFs, of Release 18 for most: [str, x, y, width, height], in content order. Layouts, kept as captured.
 const pages = JSON.parse(await readFile(new URL('../fixtures/pdf-rows.json', import.meta.url), 'utf8'));
-const items = (doc, page) => pages.find(entry => entry.doc === doc && entry.page === page).items
-  .map(([str, x, y, width, height]) => ({ str, transform: [1, 0, 0, 1, x, y], width, height, hasEOL: false }));
+const items = (doc, page) =>
+  pages
+    .find(entry => entry.doc === doc && entry.page === page)
+    .items.map(([str, x, y, width, height]) => ({ str, transform: [1, 0, 0, 1, x, y], width, height, hasEOL: false }));
 const top = (y, height = 9) => y + height + 10;
 
 test('names on one line and wrapped over the AVP code column are rows, whatever the wrap', () => {
@@ -149,7 +160,12 @@ test('a mention beside the name, on its line, does not take the selection from i
   // TS 29.153 table 5.4.1.1: "Load" and "The AVP used to convey load information", heights differing in the last bits.
   const page = [
     { str: 'Load', transform: [1, 0, 0, 1, 93.6, 654.9], height: 9, hasEOL: false },
-    { str: 'The AVP used to convey load information', transform: [1, 0, 0, 1, 253.4, 654.9], height: 9.00001, hasEOL: true },
+    {
+      str: 'The AVP used to convey load information',
+      transform: [1, 0, 0, 1, 253.4, 654.9],
+      height: 9.00001,
+      hasEOL: true,
+    },
   ];
   assert.equal(matchOnRow(page, [0, 'LoadThe AVP used to convey '.length], 654.9 + 9.00001 + 10), 0);
 });
@@ -178,7 +194,7 @@ test('a feature table: the name after the feature bit, with M/O and a descriptio
   assert.equal(valueRowOnPage(page, 'Rel9', 0), null);
 });
 
-test('a page\'s two tables repeating names: the number tells their rows apart', () => {
+test("a page's two tables repeating names: the number tells their rows apart", () => {
   const page = items('29468-i00', 27);
   assert.equal(valueRowOnPage(page, 'System error', 5), top(633.2));
   assert.equal(valueRowOnPage(page, 'No Traffic', 6), top(612));
@@ -186,7 +202,7 @@ test('a page\'s two tables repeating names: the number tells their rows apart', 
   assert.equal(valueRowOnPage(page, 'No Traffic', 7), top(331.4));
 });
 
-test('the end of another row\'s wrapped name is told by its number', () => {
+test("the end of another row's wrapped name is told by its number", () => {
   assert.equal(valueRowOnPage(items('29272-i70', 102), 'requested', 3), null);
   assert.equal(valueRowOnPage(items('29272-i70', 125), 'Allowed', 3), null);
 });

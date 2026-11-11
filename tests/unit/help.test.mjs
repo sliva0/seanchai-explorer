@@ -40,21 +40,46 @@ test('the "?" control beside the theme toggle opens a labelled modal dialog with
     button.click();
     assert.equal(help.hidden, true, 'the control again closes it');
     assert.ok(document.activeElement === button, 'and the focus comes back');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('it lists every control of controls.ts, the README\'s keys among them', async () => {
+test("it lists every control of controls.ts, the README's keys among them", async () => {
   const page = await boot();
   try {
     const { document } = page;
     toggle(document).click();
     const help = dialog(document);
-    assert.deepEqual([...help.querySelectorAll('h3')].map(node => node.textContent), controlGroups.map(group => group.title));
-    const terms = [...help.querySelectorAll('dt')].map(node => [...node.querySelectorAll('kbd')].map(key => key.textContent));
-    assert.deepEqual(terms, controlGroups.flatMap(group => group.controls.map(control => control.keys)));
-    for (const key of ['Click', 'Alt-click', 'Right-click', 'Ctrl+O', 'Alt+O', '[j', 'Ctrl+I', 'Alt+I', ']j', '[d', ']d']) assert.ok(terms.flat().includes(key), key);
+    assert.deepEqual(
+      [...help.querySelectorAll('h3')].map(node => node.textContent),
+      controlGroups.map(group => group.title),
+    );
+    const terms = [...help.querySelectorAll('dt')].map(node =>
+      [...node.querySelectorAll('kbd')].map(key => key.textContent),
+    );
+    assert.deepEqual(
+      terms,
+      controlGroups.flatMap(group => group.controls.map(control => control.keys)),
+    );
+    for (const key of [
+      'Click',
+      'Alt-click',
+      'Right-click',
+      'Ctrl+O',
+      'Alt+O',
+      '[j',
+      'Ctrl+I',
+      'Alt+I',
+      ']j',
+      '[d',
+      ']d',
+    ])
+      assert.ok(terms.flat().includes(key), key);
     assert.match(help.querySelector('dt').nextElementSibling.textContent, /source pane/);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('? opens it but not while typing, Escape closes it and gives the focus back, a click outside closes it', async () => {
@@ -64,7 +89,7 @@ test('? opens it but not while typing, Escape closes it and gives the focus back
     const input = document.querySelector('.search-form input');
     input.focus();
     assert.equal(press(page, { key: '?' }, input).defaultPrevented, false);
-    assert.equal(dialog(document).hidden, true, 'a ? typed in the box is the box\'s');
+    assert.equal(dialog(document).hidden, true, "a ? typed in the box is the box's");
     const theme = document.querySelector('.theme-toggle');
     theme.focus();
     assert.equal(press(page, { key: '?' }, theme).defaultPrevented, true);
@@ -78,11 +103,15 @@ test('? opens it but not while typing, Escape closes it and gives the focus back
     press(page, { key: '?', ctrlKey: true }, theme);
     assert.equal(dialog(document).hidden, true, 'with a modifier it is not the help');
     press(page, { key: '?' }, theme);
-    dialog(document).querySelector('h3').dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
+    dialog(document)
+      .querySelector('h3')
+      .dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
     assert.equal(dialog(document).hidden, false, 'a click inside keeps it');
     document.querySelector('main').dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
     assert.equal(dialog(document).hidden, true);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the focus stays in the dialog while it is open', async () => {
@@ -106,7 +135,9 @@ test('the focus stays in the dialog while it is open', async () => {
     close.click();
     assert.equal(help.hidden, true);
     assert.ok(document.activeElement === toggle(document));
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the chords still walk with the help closed, wait while it is open, and the popup keeps its own Escape', async () => {
@@ -140,10 +171,12 @@ test('the chords still walk with the help closed, wait while it is open, and the
     assert.equal(dialog(document).hidden, false);
     press(page, { key: 'Escape' }, document.activeElement);
     assert.equal(dialog(document).hidden, true);
-    assert.ok(document.querySelector('.avp-popup') === popup, 'the help\'s Escape is its own');
+    assert.ok(document.querySelector('.avp-popup') === popup, "the help's Escape is its own");
     assert.ok(popup.contains(document.activeElement), 'the focus is back in the popup');
     press(page, { key: 'Escape' }, document.activeElement);
-    assert.ok(document.querySelector('.avp-popup') === null, 'the popup\'s Escape still closes it');
+    assert.ok(document.querySelector('.avp-popup') === null, "the popup's Escape still closes it");
     assert.ok(document.activeElement === name);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });

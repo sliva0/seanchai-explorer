@@ -12,6 +12,9 @@
     "dev": "node scripts/prepare.mjs && vite --host 127.0.0.1",
     "dev:self-hosted": "node scripts/prepare.mjs --self-hosted && vite --host 127.0.0.1 --mode self-hosted",
     "check": "tsc --noEmit",
+    "lint": "oxlint src scripts tests vite.config.ts",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "build": "node scripts/prepare.mjs && tsc --noEmit && vite build && node scripts/check-public.mjs",
     "build:self-hosted": "node scripts/prepare.mjs --self-hosted && tsc --noEmit && vite build --mode self-hosted",
     "test": "node --max-old-space-size=1024 --test --test-timeout=120000 tests/unit/*.test.mjs",
@@ -26,6 +29,8 @@
     "ajv": "^8.20.0",
     "happy-dom": "^21.0.4",
     "json-schema-to-typescript": "^16.0.0",
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
     "playwright-core": "^1.64.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.5"

@@ -6,10 +6,25 @@ import type { Citation, Target } from './types.ts';
  * `titled` a row whose section is its own clause, as a result code's is, so the clause is where to go when no row reads as it;
  * `value` the number a value table's row can print beside its name, which tells apart a page's tables repeating names.
  */
-export interface SourcePosition extends Citation { exact?: boolean; occurrence?: boolean; printed?: string; titled?: boolean; value?: number }
-export interface PaneState { document: string; position: SourcePosition }
+export interface SourcePosition extends Citation {
+  exact?: boolean;
+  occurrence?: boolean;
+  printed?: string;
+  titled?: boolean;
+  value?: number;
+}
+export interface PaneState {
+  document: string;
+  position: SourcePosition;
+}
 /** `line` is a line to point at, `top` the line a view was left scrolled to. */
-export interface RouteOptions { raw?: boolean; source?: PaneState; line?: number; top?: number; paneHidden?: boolean }
+export interface RouteOptions {
+  raw?: boolean;
+  source?: PaneState;
+  line?: number;
+  top?: number;
+  paneHidden?: boolean;
+}
 export interface Route extends RouteOptions {
   document: string;
   section: string;
@@ -59,7 +74,9 @@ function parseSource(params: URLSearchParams): PaneState | undefined {
       ...(params.get('occurrence') === '1' ? { occurrence: true } : {}),
       ...(params.get('row') === '1' ? { row: true } : {}),
       ...(params.get('titled') === '1' ? { titled: true } : {}),
-      ...(params.has('value') && Number.isInteger(Number(params.get('value'))) ? { value: Number(params.get('value')) } : {}),
+      ...(params.has('value') && Number.isInteger(Number(params.get('value')))
+        ? { value: Number(params.get('value')) }
+        : {}),
     },
   };
 }
@@ -75,7 +92,10 @@ export function parseRoute(hash: string): Route {
     };
     const source = parseSource(params);
     return {
-      document, section, raw: params.get('raw') === '1', query: params.get('q') ?? '',
+      document,
+      section,
+      raw: params.get('raw') === '1',
+      query: params.get('q') ?? '',
       ...(params.has('name') ? { name: params.get('name')! } : {}),
       ...lineNumber('line'),
       ...lineNumber('top'),

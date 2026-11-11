@@ -54,7 +54,15 @@ function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
 /** Until a pointer or focus comes to a name and its title is worked out for the pane as it then is. */
 const paneless: ClickContext = { paneShows: () => false, paneOn: false, uses: false };
 
-function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine, lines: HighlightedLine[], doc: Document, site: Site, prefer: ClickTarget): Node {
+function tokenNode(
+  token: HighlightedToken,
+  index: number,
+  line: HighlightedLine,
+  lines: HighlightedLine[],
+  doc: Document,
+  site: Site,
+  prefer: ClickTarget,
+): Node {
   let node: HTMLElement | undefined;
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
   if (token.target) node = link(token.text, { ...token.target, name: token.target.name ?? token.avp });
@@ -68,7 +76,13 @@ function tokenNode(token: HighlightedToken, index: number, line: HighlightedLine
   if (token.command) node.dataset.command = commandKey(token.command);
   if (token.valueRow) node.classList.add('value-name');
   const commands = site.commands();
-  if (token.avp || token.valueRow || token.command) node.title = nameTitle(token, tokenPlace(token, lines, doc, line.section ?? undefined, prefer, commands), paneless, fallbackPlace(token, lines, doc, prefer, commands));
+  if (token.avp || token.valueRow || token.command)
+    node.title = nameTitle(
+      token,
+      tokenPlace(token, lines, doc, line.section ?? undefined, prefer, commands),
+      paneless,
+      fallbackPlace(token, lines, doc, prefer, commands),
+    );
   if (token.avp || token.command || token.target || token.source) node.dataset.token = String(index);
   return node;
 }
@@ -80,7 +94,10 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer
     const row = element('span', undefined, `dad-line ${line.decoration}`.trim());
     row.dataset.line = String(lineIndex);
     if (line.section) row.dataset.section = line.section;
-    if (line.warning) { row.classList.add('raw-warning'); row.title = 'Modified in corrected view'; }
+    if (line.warning) {
+      row.classList.add('raw-warning');
+      row.title = 'Modified in corrected view';
+    }
     if (line.anchor) row.id = `section-${line.anchor}`;
     if (line.tokens.some(token => token.correction)) row.classList.add('corrected-line');
     line.tokens.forEach((token, index) => {
@@ -100,7 +117,10 @@ type SectionLink = (section: string) => HTMLAnchorElement;
 
 /** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
 function tablesNote(doc: Document, section: string): string {
-  return valueTables(doc).filter(table => table.section === section).map(table => `${valueTableTitle(table)} (${table.rows.length})`).join(', ');
+  return valueTables(doc)
+    .filter(table => table.section === section)
+    .map(table => `${valueTableTitle(table)} (${table.rows.length})`)
+    .join(', ');
 }
 
 function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
@@ -119,7 +139,10 @@ function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
 function renderFindings(doc: Document, sectionLink: SectionLink): HTMLElement {
   const list = element('ul');
   for (const finding of doc.findings) {
-    const item = element('li', `${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `);
+    const item = element(
+      'li',
+      `${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `,
+    );
     if (finding.section) item.append(sectionLink(finding.section));
     list.append(item);
   }
@@ -129,7 +152,10 @@ function renderFindings(doc: Document, sectionLink: SectionLink): HTMLElement {
 function renderHoles(doc: Document, sectionLink: SectionLink): HTMLElement {
   const list = element('ul');
   for (const hole of doc.holes) {
-    const item = element('li', `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `);
+    const item = element(
+      'li',
+      `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `,
+    );
     if (hole.section) item.append(sectionLink(hole.section));
     list.append(item);
   }
@@ -154,7 +180,7 @@ function renderDiagnostics(panels: { title: string; count: number; list: HTMLEle
     toggles.append(toggle);
     return { toggle, panel };
   });
-  const setOpen = (entry: typeof entries[number], opening: boolean) => {
+  const setOpen = (entry: (typeof entries)[number], opening: boolean) => {
     for (const other of entries) {
       other.panel.hidden = true;
       other.toggle.setAttribute('aria-expanded', 'false');
@@ -172,7 +198,10 @@ function renderClickTarget(current: ClickTarget, onChange: (target: ClickTarget)
   group.setAttribute('role', 'radiogroup');
   group.setAttribute('aria-label', 'Click goes to');
   group.title = 'What a click or alt-click on a name goes to where it has both; right-click offers both';
-  for (const [target, label] of [['definition', 'Definition'], ['details', 'Details']] as const) {
+  for (const [target, label] of [
+    ['definition', 'Definition'],
+    ['details', 'Details'],
+  ] as const) {
     // A radio before its word, where a box follows a toggle's: each is told from the other.
     const option = element('label', label, 'visibility-toggle');
     const input = element('input');
@@ -182,7 +211,9 @@ function renderClickTarget(current: ClickTarget, onChange: (target: ClickTarget)
     // What the browser would restore on a reload is the stored choice's to say.
     input.autocomplete = 'off';
     input.checked = target === current;
-    input.onchange = () => { if (input.checked) onChange(target); };
+    input.onchange = () => {
+      if (input.checked) onChange(target);
+    };
     option.prepend(input);
     group.append(option);
   }
@@ -225,7 +256,12 @@ export interface DocumentView {
   valueRow(section: string, name: string): ValueRow | undefined;
 }
 
-export function renderDocument(container: HTMLElement, services: ViewServices, doc: Document, raw: RawDocument | undefined): DocumentView {
+export function renderDocument(
+  container: HTMLElement,
+  services: ViewServices,
+  doc: Document,
+  raw: RawDocument | undefined,
+): DocumentView {
   const { site, pane, popup } = services;
   const file = raw ?? doc;
   markDetails(file, doc);
@@ -240,13 +276,17 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   let rows: HTMLElement[] = [];
   let sectionRows: HTMLElement[] = [];
   /** The section a jump to it leaves at the top of the view, where its line sits below the margin and the end of the last section still shows above. */
-  const currentSection = () => topRow(sectionRows, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
+  const currentSection = () =>
+    topRow(sectionRows, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
   if (doc.raw) {
     const toggle = element('a', raw ? 'Corrected' : 'Raw');
     const refresh = () => {
       const route = parseRoute(location.hash);
       const section = currentSection() ?? route.section;
-      toggle.href = routeFor({ document: doc.id, section: section || null, name: section === route.section ? route.name : undefined }, { raw: !raw, source: route.source, paneHidden: route.paneHidden });
+      toggle.href = routeFor(
+        { document: doc.id, section: section || null, name: section === route.section ? route.name : undefined },
+        { raw: !raw, source: route.source, paneHidden: route.paneHidden },
+      );
     };
     refresh();
     for (const type of ['click', 'auxclick', 'contextmenu']) toggle.addEventListener(type, refresh);
@@ -261,7 +301,13 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   usesInput.checked = false;
   usesToggle.append(usesInput);
   let prefer = readClickTarget();
-  controls.append(usesToggle, renderClickTarget(prefer, target => { prefer = target; writeClickTarget(target); }));
+  controls.append(
+    usesToggle,
+    renderClickTarget(prefer, target => {
+      prefer = target;
+      writeClickTarget(target);
+    }),
+  );
   const workspace = element('div');
   workspace.id = 'workspace';
   pane.mount(workspace, doc);
@@ -297,24 +343,37 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   tools.append(toggles, controls, ...bodies);
   container.replaceChildren(tools, workspace);
 
-  const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
-  const showUses = (node: HTMLElement) => popup.show({
-    token: tokenOf(node), doc, raw: Boolean(raw), lines, file, opener: node, documentPane,
-    recordJump: services.recordJump,
-    jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
-  });
-  const nameAt = (target: EventTarget | null) => (target as Element).closest<HTMLElement>('[data-avp], [data-command], .value-name');
+  const tokenOf = (node: HTMLElement) =>
+    lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
+  const showUses = (node: HTMLElement) =>
+    popup.show({
+      token: tokenOf(node),
+      doc,
+      raw: Boolean(raw),
+      lines,
+      file,
+      opener: node,
+      documentPane,
+      recordJump: services.recordJump,
+      jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
+    });
+  const nameAt = (target: EventTarget | null) =>
+    (target as Element).closest<HTMLElement>('[data-avp], [data-command], .value-name');
   const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
   const clickContext = (): ClickContext => ({
     paneShows: document => pane.shows(site.summary(document)),
     paneOn: pane.switchedOn,
     uses: usesInput.checked,
   });
-  const placeOf = (node: HTMLElement) => tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer, site.commands());
+  const placeOf = (node: HTMLElement) =>
+    tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer, site.commands());
   const fallbackOf = (node: HTMLElement) => fallbackPlace(tokenOf(node), lines, doc, prefer, site.commands());
 
   function perform(action: ClickAction, node: HTMLElement) {
-    if (action.type === 'uses') { showUses(node); return; }
+    if (action.type === 'uses') {
+      showUses(node);
+      return;
+    }
     popup.close();
     // Nothing moves in the view when the pane alone does, so the jump list has nothing to keep.
     if (action.type === 'pane') pane.openPlace(action.place, doc);
@@ -328,7 +387,10 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
   pre.addEventListener('click', event => {
     const target = event.target as Element;
     const correction = target.closest<HTMLButtonElement>('.correction-toggle');
-    if (correction) { toggleCorrection(correction, tokenOf(correction.parentElement!)); return; }
+    if (correction) {
+      toggleCorrection(correction, tokenOf(correction.parentElement!));
+      return;
+    }
     const node = target.closest<HTMLElement>('[data-token]');
     if (!node) return;
     const action = clickAction(tokenOf(node), placeOf(node), event, clickContext(), fallbackOf(node));
@@ -384,10 +446,15 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     const panel = bodies[sectionsPanel];
     open(sectionsPanel);
     for (const node of panel.querySelectorAll('[aria-current]')) node.removeAttribute('aria-current');
-    const item = [...panel.querySelectorAll<HTMLElement>('li')].find(node => node.dataset.section === crumb.dataset.section);
+    const item = [...panel.querySelectorAll<HTMLElement>('li')].find(
+      node => node.dataset.section === crumb.dataset.section,
+    );
     if (!item) return;
     item.setAttribute('aria-current', 'location');
-    panel.scrollTop += item.getBoundingClientRect().top - panel.getBoundingClientRect().top - (panel.clientHeight - item.offsetHeight) / 2;
+    panel.scrollTop +=
+      item.getBoundingClientRect().top -
+      panel.getBoundingClientRect().top -
+      (panel.clientHeight - item.offsetHeight) / 2;
     item.querySelector('a')?.focus({ preventScroll: true });
   };
 
@@ -400,19 +467,33 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
     }, 150);
   };
   let frame = 0;
-  documentPane.addEventListener('scroll', () => {
-    frame ||= requestAnimationFrame(() => {
-      frame = 0;
-      if (documentPane.isConnected) showCrumb();
-    });
-    restLater();
-  }, { passive: true });
+  documentPane.addEventListener(
+    'scroll',
+    () => {
+      frame ||= requestAnimationFrame(() => {
+        frame = 0;
+        if (documentPane.isConnected) showCrumb();
+      });
+      restLater();
+    },
+    { passive: true },
+  );
   // A reader who has started scrolling should not be scrolled.
-  for (const type of ['wheel', 'touchstart', 'pointerdown']) documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
+  for (const type of ['wheel', 'touchstart', 'pointerdown'])
+    documentPane.addEventListener(type, () => scroller.stop(), { passive: true });
   // A walk's keys are no scrolling, and must read where the move was going, not where it had got to.
-  documentPane.addEventListener('keydown', event => { if (!event.ctrlKey && !event.altKey && !event.metaKey) scroller.stop(); }, { passive: true });
+  documentPane.addEventListener(
+    'keydown',
+    event => {
+      if (!event.ctrlKey && !event.altKey && !event.metaKey) scroller.stop();
+    },
+    { passive: true },
+  );
 
-  function jumpTo(target: HTMLElement, { smooth, flash: flashes, margin = JUMP_MARGIN }: { smooth: boolean; flash: boolean; margin?: number }) {
+  function jumpTo(
+    target: HTMLElement,
+    { smooth, flash: flashes, margin = JUMP_MARGIN }: { smooth: boolean; flash: boolean; margin?: number },
+  ) {
     scroller.to(scrollTopFor(documentPane, target, margin), smooth, () => {
       const row = target.closest<HTMLElement>('.dad-line');
       if (flashes && row) flash(row);

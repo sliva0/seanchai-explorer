@@ -5,8 +5,16 @@ import type { NameMatch, RowFound } from './table-row.ts';
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
 /** `query` is the text to find there when it is not the name asked for, `found` how a row link got there. */
 /** What a row knows of its place: `titled` that its section is its own clause, subclauses and all, `value` the number printed beside it. */
-export interface RowClue { titled?: boolean; value?: number }
-export interface Destination { pageNumber: number; destArray: unknown[]; query?: string; found?: RowFound }
+export interface RowClue {
+  titled?: boolean;
+  value?: number;
+}
+export interface Destination {
+  pageNumber: number;
+  destArray: unknown[];
+  query?: string;
+  found?: RowFound;
+}
 
 function textLines(items: TextContent['items']) {
   const lines: { y: number; items: { text: string; x: number; end: number; height: number }[] }[] = [];
@@ -14,13 +22,27 @@ function textLines(items: TextContent['items']) {
     if (!('str' in item) || !item.str.trim()) continue;
     const y = item.transform[5];
     let line = lines.find(line => Math.abs(line.y - y) < 2);
-    if (!line) { line = { y, items: [] }; lines.push(line); }
-    line.items.push({ text: item.str.trim(), x: item.transform[4], end: item.transform[4] + item.width, height: item.height });
+    if (!line) {
+      line = { y, items: [] };
+      lines.push(line);
+    }
+    line.items.push({
+      text: item.str.trim(),
+      x: item.transform[4],
+      end: item.transform[4] + item.width,
+      height: item.height,
+    });
   }
-  return lines.sort((a, b) => b.y - a.y).map(line => {
-    line.items.sort((a, b) => a.x - b.x);
-    return { ...line, text: line.items.map(item => item.text).join(' '), top: line.y + Math.max(...line.items.map(item => item.height)) + 10 };
-  });
+  return lines
+    .toSorted((a, b) => b.y - a.y)
+    .map(line => {
+      line.items.sort((a, b) => a.x - b.x);
+      return {
+        ...line,
+        text: line.items.map(item => item.text).join(' '),
+        top: line.y + Math.max(...line.items.map(item => item.height)) + 10,
+      };
+    });
 }
 
 /** Items of a line joined where they touch, so a run of text split by a font change stays one table cell. */
@@ -28,15 +50,27 @@ function lineCells(items: { text: string; x: number; end: number }[]) {
   const cells: { text: string; x: number; end: number }[] = [];
   for (const item of items) {
     const last = cells.at(-1);
-    if (last && item.x - last.end < 3) { last.text += `${item.x - last.end > 1 ? ' ' : ''}${item.text}`; last.end = Math.max(last.end, item.end); }
-    else cells.push({ ...item });
+    if (last && item.x - last.end < 3) {
+      last.text += `${item.x - last.end > 1 ? ' ' : ''}${item.text}`;
+      last.end = Math.max(last.end, item.end);
+    } else cells.push({ ...item });
   }
   return cells;
 }
 
-export function headingOnPage(items: TextContent['items'], section: string, width: number, name?: string): number | null {
+export function headingOnPage(
+  items: TextContent['items'],
+  section: string,
+  width: number,
+  name?: string,
+): number | null {
   for (const line of textLines(items)) {
-    if ((line.text === section || line.text.startsWith(`${section} `)) && line.items[0].x < width / 4 && !/\.{3}|…/.test(line.text) && (!name || normalizeName(line.text).includes(normalizeName(name)))) {
+    if (
+      (line.text === section || line.text.startsWith(`${section} `)) &&
+      line.items[0].x < width / 4 &&
+      !/\.{3}|…/.test(line.text) &&
+      (!name || normalizeName(line.text).includes(normalizeName(name)))
+    ) {
       return line.top;
     }
   }
@@ -80,7 +114,8 @@ function findRow(items: TextContent['items'], match: NameMatch) {
     }
     // "3GPP-SGSN-" goes on below it: that is 3GPP-SGSN-Address, not 3GPP-SGSN.
     if (!match.whole(column) || open) continue;
-    const inColumn = (line: typeof lines[number]) => line.cells.some(other => other.x < first.end && other.end > first.x);
+    const inColumn = (line: (typeof lines)[number]) =>
+      line.cells.some(other => other.x < first.end && other.end > first.x);
     const beside = lines.filter((line, index) => {
       if (line.y < lines[i].y + 2 * height && line.y > lines[last].y - 2 * height) return true;
       // A tall row's other cells can start well above or end well below the name, up to the next cell in its column.
@@ -88,7 +123,8 @@ function findRow(items: TextContent['items'], match: NameMatch) {
       return (index < i || index > last) && between.length <= tallRow && !between.some(inColumn);
     });
     // Cells touch where a name fills its column.
-    if (evidence || beside.some(line => rowEvidence.test(line.cells.find(other => other.x > right - 3)?.text ?? ''))) return { top: lines[i].top, text };
+    if (evidence || beside.some(line => rowEvidence.test(line.cells.find(other => other.x > right - 3)?.text ?? '')))
+      return { top: lines[i].top, text };
   }
   return null;
 }
@@ -103,11 +139,17 @@ const valueNumber = /^(?:bit\s*)?\d+$/i;
  */
 function findValueRow(items: TextContent['items'], match: NameMatch, value?: number) {
   const lines = textLines(items).map(line => ({ ...line, cells: lineCells(line.items) }));
-  const pageText = items.map(item => 'str' in item ? item.str : '').join(' ');
+  const pageText = items.map(item => ('str' in item ? item.str : '')).join(' ');
   return valueRowBeside(lines, pageText, match, 0, value) ?? valueRowBeside(lines, pageText, match, 1, value);
 }
 
-function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: ReturnType<typeof lineCells> })[], pageText: string, match: NameMatch, reach: number, value?: number) {
+function valueRowBeside(
+  lines: (ReturnType<typeof textLines>[number] & { cells: ReturnType<typeof lineCells> })[],
+  pageText: string,
+  match: NameMatch,
+  reach: number,
+  value?: number,
+) {
   for (let i = 0; i < lines.length; i++) {
     for (const first of lines[i].cells) {
       let column = normalizeName(nameText(first.text));
@@ -127,10 +169,15 @@ function valueRowBeside(lines: (ReturnType<typeof textLines>[number] & { cells: 
         last = j;
       }
       if (!match.whole(column)) continue;
-      const left = (line: typeof lines[number]) => line.cells[0] !== first && line.cells[0].end <= first.x + 3 && valueNumber.test(line.cells[0].text) && (value === undefined || Number(line.cells[0].text.replace(/\D/g, '')) === value);
+      const left = (line: (typeof lines)[number]) =>
+        line.cells[0] !== first &&
+        line.cells[0].end <= first.x + 3 &&
+        valueNumber.test(line.cells[0].text) &&
+        (value === undefined || Number(line.cells[0].text.replace(/\D/g, '')) === value);
       // A description beside a wrapped name can come between its lines in the page's text: a find can only match the first.
       const found = last === i || namePattern(text).test(pageText) ? text : first.text;
-      if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left)) return { top: lines[i].top, text: found };
+      if (lines.slice(Math.max(0, i - reach), (reach ? last + reach : i) + 1).some(left))
+        return { top: lines[i].top, text: found };
     }
   }
   return null;
@@ -155,7 +202,8 @@ export function looseRowOnPage(items: TextContent['items'], name: string) {
 export function clauseOnPage(items: TextContent['items'], name: string, width: number): number | null {
   for (const line of textLines(items)) {
     const title = line.text.match(/^[A-Z]?\d+[a-z]*(?:\.\d+[A-Za-z]*)*\.?\s+(.+)$/);
-    if (title && line.items[0].x < width / 4 && !/\.{3}|…/.test(line.text) && titleNames(title[1], name)) return line.top;
+    if (title && line.items[0].x < width / 4 && !/\.{3}|…/.test(line.text) && titleNames(title[1], name))
+      return line.top;
   }
   return null;
 }
@@ -193,7 +241,10 @@ export function matchOnRow(items: TextContent['items'], offsets: number[], top: 
     for (; index < offsets.length && offsets[index] < end; index++) {
       const away = Math.abs(item.transform[5] + item.height + 10 - top);
       // Within a line of it is a tie, which the first on the line wins: the name, not a mention beside it.
-      if (away < distance - 1) { distance = away; best = index; }
+      if (away < distance - 1) {
+        distance = away;
+        best = index;
+      }
     }
     position = end;
   }
@@ -208,7 +259,8 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     const array = typeof value === 'string' ? await pdf.getDestination(value) : value;
     if (!array?.length) return null;
     const ref = array[0];
-    const pageNumber = typeof ref === 'number' ? ref + 1 : await pdf.getPageIndex(ref as { num: number; gen: number }) + 1;
+    const pageNumber =
+      typeof ref === 'number' ? ref + 1 : (await pdf.getPageIndex(ref as { num: number; gen: number })) + 1;
     return { pageNumber, destArray: array };
   }
   function find(items: Outline, section: string): Outline[number] | undefined {
@@ -224,7 +276,7 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     const flat = (items: Outline): Outline => items.flatMap(item => [item, ...flat(item.items)]);
     const all = flat(await outline);
     for (const item of all.slice(all.indexOf(bookmark) + 1 + (pastSubclauses ? flat(bookmark.items).length : 0))) {
-      const next = item.dest && await destination(item.dest);
+      const next = item.dest && (await destination(item.dest));
       if (next) return next.pageNumber;
     }
     return null;
@@ -245,49 +297,70 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
    * misprinted, a result code's own clause, else the nearest table holding it, the clause named after it,
    * a format naming it, or a mention.
    */
-  async function locateRow(section: string, hint: number, active: () => boolean, name: string, printed?: string, clue: RowClue = {}): Promise<Destination | null> {
+  async function locateRow(
+    section: string,
+    hint: number,
+    active: () => boolean,
+    name: string,
+    printed?: string,
+    clue: RowClue = {},
+  ): Promise<Destination | null> {
     const bookmark = find(await outline, section);
     if (!active()) return null;
     const fallback = bookmark?.dest ? await destination(bookmark.dest) : null;
     if (fallback) hint = fallback.pageNumber;
     const pageNumbers = Array.from({ length: pdf.numPages }, (_, i) => i + 1);
     // A section's table starts at its heading and stays in the section: the same name in another table comes after it.
-    const end = fallback && bookmark ? await nextBookmarkPage(bookmark, clue.titled) ?? pdf.numPages : pdf.numPages;
-    let inSection = fallback ? pageNumbers.slice(hint - 1, end) : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).reverse()];
+    const end = fallback && bookmark ? ((await nextBookmarkPage(bookmark, clue.titled)) ?? pdf.numPages) : pdf.numPages;
+    let inSection = fallback
+      ? pageNumbers.slice(hint - 1, end)
+      : [...pageNumbers.slice(hint - 1), ...pageNumbers.slice(0, hint - 1).toReversed()];
     const everywhere = pageNumbers.toSorted((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b);
     // A line of running text can start with a clause's number too: a heading naming the row comes first.
-    const heading = (items: TextContent['items'], width: number) => headingOnPage(items, section, width, name) ?? headingOnPage(items, section, width);
+    const heading = (items: TextContent['items'], width: number) =>
+      headingOnPage(items, section, width, name) ?? headingOnPage(items, section, width);
     // A clause can begin under a table listing its AVP: on its heading's page, only what is below the heading is the clause's.
     let clause: { pageNumber: number; top: number } | undefined;
-    for (const pageNumber of clue.titled ? fallback ? [hint] : everywhere : []) {
+    for (const pageNumber of clue.titled ? (fallback ? [hint] : everywhere) : []) {
       if (!active()) return null;
       const { items, width } = await textOf(pageNumber);
       const top = heading(items, width);
-      if (top !== null) { clause = { pageNumber, top }; break; }
+      if (top !== null) {
+        clause = { pageNumber, top };
+        break;
+      }
     }
     // With no bookmarks to end it, the heading's page is all that is known to be the clause.
     if (clause && !fallback) inSection = [clause.pageNumber];
     type Look = (items: TextContent['items'], width: number) => { top: number; text?: string } | null;
-    const row = (key: string): Look => items => {
-      const top = rowOnPage(items, key);
-      return top === null ? null : { top, text: key };
-    };
-    const place = (on: (items: TextContent['items'], width: number) => number | null): Look => (items, width) => {
-      const top = on(items, width);
-      return top === null ? null : { top };
-    };
+    const row =
+      (key: string): Look =>
+      items => {
+        const top = rowOnPage(items, key);
+        return top === null ? null : { top, text: key };
+      };
+    const place =
+      (on: (items: TextContent['items'], width: number) => number | null): Look =>
+      (items, width) => {
+        const top = on(items, width);
+        return top === null ? null : { top };
+      };
     const { titled, value } = clue;
     const steps: [number[], RowFound, Look][] = [
-      ...(value === undefined ? [] : [
-        [inSection, 'row', items => findValueRow(items, exactName(name), value)],
-        [inSection, 'row', items => findValueRow(items, exactName(name))],
-        [inSection, 'loose', items => findValueRow(items, looseName(name))],
-      ] as [number[], RowFound, Look][]),
+      ...(value === undefined
+        ? []
+        : ([
+            [inSection, 'row', items => findValueRow(items, exactName(name), value)],
+            [inSection, 'row', items => findValueRow(items, exactName(name))],
+            [inSection, 'loose', items => findValueRow(items, looseName(name))],
+          ] as [number[], RowFound, Look][])),
       [inSection, 'row', row(name)],
       ...(printed ? [[inSection, 'printed', row(printed)] as [number[], RowFound, Look]] : []),
       [inSection, 'loose', items => looseRowOnPage(items, name)],
       // A clause's description table can number its rows, with the name in the second column.
-      ...(titled && value === undefined ? [[inSection, 'row', items => findValueRow(items, exactName(name))] as [number[], RowFound, Look]] : []),
+      ...(titled && value === undefined
+        ? [[inSection, 'row', items => findValueRow(items, exactName(name))] as [number[], RowFound, Look]]
+        : []),
       // A result code's or an AVP's clause is its place: a table elsewhere mapping the code, or listing the AVP, is not.
       ...(titled ? [[inSection, 'clause', place(heading)] as [number[], RowFound, Look]] : []),
       [everywhere, 'other-table', row(name)],
@@ -296,10 +369,18 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       [everywhere, 'format', place(items => formatOnPage(items, name))],
       [everywhere, 'mention', place(items => mentionOnPage(items, name))],
       // A table naming the attribute in a later column: the spelling it prints is only ever a mention.
-      ...(printed ? [[everywhere, 'mention', items => {
-        const top = mentionOnPage(items, printed);
-        return top === null ? null : { top, text: printed };
-      }] as [number[], RowFound, Look]] : []),
+      ...(printed
+        ? [
+            [
+              everywhere,
+              'mention',
+              items => {
+                const top = mentionOnPage(items, printed);
+                return top === null ? null : { top, text: printed };
+              },
+            ] as [number[], RowFound, Look],
+          ]
+        : []),
     ];
     for (const [order, found, look] of steps) {
       for (const pageNumber of order) {
@@ -307,13 +388,34 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
         const { items, width } = await textOf(pageNumber);
         if (!active()) return null;
         const hit = look(items, width);
-        if (hit && found !== 'clause' && order === inSection && pageNumber === clause?.pageNumber && hit.top >= clause.top) continue;
-        if (hit) return { pageNumber, destArray: [null, { name: 'XYZ' }, null, hit.top, null], found, ...(hit.text ? { query: hit.text } : {}) };
+        if (
+          hit &&
+          found !== 'clause' &&
+          order === inSection &&
+          pageNumber === clause?.pageNumber &&
+          hit.top >= clause.top
+        )
+          continue;
+        if (hit)
+          return {
+            pageNumber,
+            destArray: [null, { name: 'XYZ' }, null, hit.top, null],
+            found,
+            ...(hit.text ? { query: hit.text } : {}),
+          };
       }
     }
     return fallback;
   }
-  async function locate(section: string, hint: number, active = () => true, name?: string, row = false, printed?: string, clue: RowClue = {}): Promise<Destination | null> {
+  async function locate(
+    section: string,
+    hint: number,
+    active = () => true,
+    name?: string,
+    row = false,
+    printed?: string,
+    clue: RowClue = {},
+  ): Promise<Destination | null> {
     const key = JSON.stringify([section, name, row, row ? hint : null, printed, clue]);
     if (destinations.has(key)) return destinations.get(key)!;
     if (row && name) {
@@ -326,11 +428,16 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     let fallback: Destination | null = null;
     if (bookmark?.dest) {
       const result = await destination(bookmark.dest);
-      if (result && (!name || normalizeName(bookmark.title).includes(normalizeName(name)))) { destinations.set(key, result); return result; }
+      if (result && (!name || normalizeName(bookmark.title).includes(normalizeName(name)))) {
+        destinations.set(key, result);
+        return result;
+      }
       fallback = result;
     }
     if (fallback) hint = fallback.pageNumber;
-    const order = Array.from({ length: pdf.numPages }, (_, i) => i + 1).sort((a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b);
+    const order = Array.from({ length: pdf.numPages }, (_, i) => i + 1).toSorted(
+      (a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b,
+    );
     for (const pageNumber of order) {
       if (!active()) return null;
       const { items, width } = await textOf(pageNumber);

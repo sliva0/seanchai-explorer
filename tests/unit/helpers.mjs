@@ -16,13 +16,30 @@ async function commandsOfFixture() {
 
 /** A self-hosted variant of the fixture: every ETSI document has a local PDF. */
 function asSelfHosted(data) {
-  const source = doc => doc.source.kind === 'etsi-pdf' ? { ...doc, source: { ...doc.source, local: `sources/${doc.id}.pdf` } } : doc;
+  const source = doc =>
+    doc.source.kind === 'etsi-pdf' ? { ...doc, source: { ...doc.source, local: `sources/${doc.id}.pdf` } } : doc;
   if (data.documents) return { ...data, mode: 'self-hosted', documents: data.documents.map(source) };
   return data.source ? source(data) : data;
 }
 
 let boots = 0;
-const globals = ['window', 'document', 'location', 'history', 'localStorage', 'sessionStorage', 'matchMedia', 'fetch', 'innerWidth', 'innerHeight', 'HTMLElement', 'Element', 'Node', 'requestAnimationFrame', 'cancelAnimationFrame'];
+const globals = [
+  'window',
+  'document',
+  'location',
+  'history',
+  'localStorage',
+  'sessionStorage',
+  'matchMedia',
+  'fetch',
+  'innerWidth',
+  'innerHeight',
+  'HTMLElement',
+  'Element',
+  'Node',
+  'requestAnimationFrame',
+  'cancelAnimationFrame',
+];
 // An eased scroll is ended by one of node's own timers, which can fire after its page has closed and given the globals
 // back: with nothing between pages for it to cancel, it cancels nothing.
 globalThis.cancelAnimationFrame ??= () => {};
@@ -33,7 +50,22 @@ globalThis.cancelAnimationFrame ??= () => {};
  * `session` is what the tab's storage already holds, `clickTarget` the stored place a click on a name goes to first,
  * `commands` whether the build derived a command index, and `prepare` runs on the page before it starts.
  */
-export async function boot({ hash = '', url, entry = 'main', html = '<div id="app"></div>', width = 1280, mode = 'public', system = 'light', stored, clickTarget, session = {}, prepare = () => {}, text, commands = true, transform = (_path, data) => data } = {}) {
+export async function boot({
+  hash = '',
+  url,
+  entry = 'main',
+  html = '<div id="app"></div>',
+  width = 1280,
+  mode = 'public',
+  system = 'light',
+  stored,
+  clickTarget,
+  session = {},
+  prepare = () => {},
+  text,
+  commands = true,
+  transform = (_path, data) => data,
+} = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
     width,
@@ -46,8 +78,12 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
   window.matchMedia = query => {
     const min = query.match(/min-width: (\d+)px/);
     const state = {
-      get matches() { return min ? window.innerWidth >= Number(min[1]) : system === 'dark'; },
-      addEventListener(_type, listener) { listeners.set(query, [...(listeners.get(query) ?? []), listener]); },
+      get matches() {
+        return min ? window.innerWidth >= Number(min[1]) : system === 'dark';
+      },
+      addEventListener(_type, listener) {
+        listeners.set(query, [...(listeners.get(query) ?? []), listener]);
+      },
       removeEventListener() {},
     };
     return state;
@@ -56,9 +92,11 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     const parsed = new URL(input);
     const path = parsed.pathname.replace(/^\//, '');
     fetched.push(parsed.hostname === 'localhost' ? path : parsed.href);
-    if (path === 'syntax/dad.tmLanguage.json') return { ok: true, json: async () => JSON.parse(await readFile(grammar, 'utf8')) };
+    if (path === 'syntax/dad.tmLanguage.json')
+      return { ok: true, json: async () => JSON.parse(await readFile(grammar, 'utf8')) };
     const file = new URL(path.replace(/^data\//, ''), fixture);
-    if (path === 'data/commands.json' && commands) return { ok: true, json: async () => transform(path, await commandsOfFixture()) };
+    if (path === 'data/commands.json' && commands)
+      return { ok: true, json: async () => transform(path, await commandsOfFixture()) };
     try {
       if (path.endsWith('.txt')) return { ok: true, text: async () => text ?? readFile(file, 'utf8') };
       const data = JSON.parse(await readFile(file, 'utf8'));
@@ -91,7 +129,8 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
   const saved = Object.fromEntries(globals.map(name => [name, globalThis[name]]));
   for (const name of globals) globalThis[name] = window[name];
   globalThis.window = window;
-  await import(`../../src/${entry}.ts?boot=${++boots}`);
+  boots += 1;
+  await import(`../../src/${entry}.ts?boot=${boots}`);
   await settle();
   return {
     window,
@@ -105,13 +144,15 @@ export async function boot({ hash = '', url, entry = 'main', html = '<div id="ap
     resize(next) {
       window.innerWidth = next;
       for (const [query, callbacks] of listeners) {
-        if (query.includes('min-width')) for (const callback of callbacks) callback({ matches: next >= Number(query.match(/\d+/)[0]) });
+        if (query.includes('min-width'))
+          for (const callback of callbacks) callback({ matches: next >= Number(query.match(/\d+/)[0]) });
       }
     },
     setSystem(next) {
       system = next;
       for (const [query, callbacks] of listeners) {
-        if (query.includes('prefers-color-scheme')) for (const callback of callbacks) callback({ matches: next === 'dark' });
+        if (query.includes('prefers-color-scheme'))
+          for (const callback of callbacks) callback({ matches: next === 'dark' });
       }
     },
     async close() {
@@ -125,33 +166,44 @@ export async function settle() {
   for (let i = 0; i < 12; i++) await new Promise(resolve => setTimeout(resolve, 5));
 }
 
-export const click = (page, node, init = {}) => node.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
+export const click = (page, node, init = {}) =>
+  node.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
 
 // A failed assert.equal prints its operands, and printing a DOM node walks the whole document: these compare nodes
 // with === and name a node only by its tag, id and class.
-const named = node => node?.nodeType === 1 ? `<${node.localName}${node.id ? `#${node.id}` : ''}${node.getAttribute('class') ? `.${node.getAttribute('class').trim().split(/\s+/).join('.')}` : ''}>`
-  : node?.nodeType ? node.nodeName : String(node);
+const named = node =>
+  node?.nodeType === 1
+    ? `<${node.localName}${node.id ? `#${node.id}` : ''}${node.getAttribute('class') ? `.${node.getAttribute('class').trim().split(/\s+/).join('.')}` : ''}>`
+    : node?.nodeType
+      ? node.nodeName
+      : String(node);
 /** Asserts there is no node: `node` is null. */
 export const absent = (node, message) => assert.ok(node === null, message ?? `expected no node, found ${named(node)}`);
 /** Asserts there is a node: `node` is neither null nor undefined. */
-export const present = (node, message) => assert.ok(node !== null && node !== undefined, message ?? `expected a node, found ${named(node)}`);
+export const present = (node, message) =>
+  assert.ok(node !== null && node !== undefined, message ?? `expected a node, found ${named(node)}`);
 /** Asserts `actual` is the node `expected`. */
-export const same = (actual, expected, message) => assert.ok(actual === expected, message ?? `expected ${named(expected)}, found ${named(actual)}`);
+export const same = (actual, expected, message) =>
+  assert.ok(actual === expected, message ?? `expected ${named(expected)}, found ${named(actual)}`);
 /** Asserts `actual` is not the node `other`. */
-export const notSame = (actual, other, message) => assert.ok(actual !== other, message ?? `expected another node than ${named(other)}`);
+export const notSame = (actual, other, message) =>
+  assert.ok(actual !== other, message ?? `expected another node than ${named(other)}`);
 
 // Shared by the app-*.test.mjs files, which boot the whole site.
 
 /** The first name in the text whose link starts with `href`. */
-export const nameLink = (document, href) => [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
+export const nameLink = (document, href) =>
+  [...document.querySelectorAll('pre a[data-avp]')].find(a => a.getAttribute('href').startsWith(href));
 /** Where the source pane's frame points, or null without a frame or before it is loaded. */
 export const frameSrc = document => document.querySelector('iframe')?.getAttribute('src');
 /** The parameters the source pane's reader was given in its frame's hash. */
 export const paneAt = document => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
 /** A right-click on `node`; false if the page took it over. */
-export const rightClick = (page, node) => node.dispatchEvent(new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
+export const rightClick = (page, node) =>
+  node.dispatchEvent(new page.window.MouseEvent('contextmenu', { bubbles: true, cancelable: true }));
 /** TS 29.061's TMGI table row name. */
-export const tmgi = document => [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
+export const tmgi = document =>
+  [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
 /** The names a command `key` such as `265 answer` is printed as in the text. */
 export const commandNames = (document, key) => [...document.querySelectorAll(`pre [data-command="${key}"]`)];
 
@@ -164,7 +216,8 @@ export const popupOf = async (page, node) => {
 /** A popup's identity lines. */
 export const identities = popup => [...popup.querySelectorAll('.popup-identity p')].map(line => line.textContent);
 /** A popup's value table rows, as their cells' text. */
-export const tableRows = popup => [...popup.querySelectorAll('.popup-tables .place-table')].map(row => [...row.children].map(node => node.textContent));
+export const tableRows = popup =>
+  [...popup.querySelectorAll('.popup-tables .place-table')].map(row => [...row.children].map(node => node.textContent));
 
 // A page laid out as a browser would, for what the view reads back: lines of 20 pixels under a pane at the top of the window.
 export const layOut = page => {
@@ -176,7 +229,12 @@ export const layOut = page => {
     const top = Number(this.dataset.line) * 20 - this.closest('#document').scrollTop;
     return { top, bottom: top + 20 };
   };
-  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', { configurable: true, get() { return 1e7; } });
+  Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
+    configurable: true,
+    get() {
+      return 1e7;
+    },
+  });
 };
 /** A keydown on `target`, the body by default; returns the event to see whether it was taken. */
 export const press = (page, init, target = page.document.body) => {

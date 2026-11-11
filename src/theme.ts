@@ -24,10 +24,13 @@ export function initTheme(onChange?: (theme: Theme) => void) {
     if (event.key === storageKeys.theme || event.key === null) apply(resolveTheme(event.newValue));
   });
   window.addEventListener('message', event => {
-    if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme') apply(resolveTheme(event.data.theme));
+    if (event.origin === location.origin && event.source === window.parent && event.data?.type === 'seanchai-theme')
+      apply(resolveTheme(event.data.theme));
   });
   return {
-    get current() { return current; },
+    get current() {
+      return current;
+    },
     toggle() {
       const next = current === 'light' ? 'dark' : 'light';
       writeStored('theme', next);

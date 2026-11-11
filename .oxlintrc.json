@@ -1,0 +1,47 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
+  },
+  "env": {
+    "builtin": true,
+    "browser": true
+  },
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error"
+  },
+  "ignorePatterns": ["src/types.ts", "tests/fixtures/**", "public/**", "dist/**", "dist-*/**"],
+  "rules": {
+    // tsc checks every default import, and this rule cannot resolve Vite's `?url` imports.
+    "import/default": "off",
+    // A stylesheet is imported for its effect, which Vite bundles.
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    // A helper is written beside the one function using it, for reading, not hoisted for speed.
+    "unicorn/consistent-function-scoping": "off",
+    // A handler is assigned with `on…` where a later one must replace it; addEventListener would add a second.
+    "unicorn/prefer-add-event-listener": "off",
+    // Names follow what they hold, and an inner `line` or `doc` over an outer one is the same kind of thing.
+    "eslint/no-shadow": "off",
+    // Awaits in a loop are sequential on purpose: browser steps in order, PDF pages until the first match.
+    "eslint/no-await-in-loop": "off",
+    // The copies are deliberate: records shared with other readers are never mutated.
+    "oxc/no-map-spread": "off",
+    // A `then` run for its effect needs no value, and TypeScript types what each chain yields.
+    "promise/always-return": "off"
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**", "tests/**", "vite.config.ts"],
+      "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "node"],
+      "env": {
+        "builtin": true,
+        "node": true,
+        "browser": false
+      }
+    }
+  ]
+}

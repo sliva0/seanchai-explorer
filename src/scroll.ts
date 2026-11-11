@@ -22,7 +22,9 @@ export function createScroller(pane: HTMLElement) {
   }
 
   return {
-    get moving() { return Boolean(move); },
+    get moving() {
+      return Boolean(move);
+    },
     /** Goes to `goal` at once, or eased if `smooth` and the reader has not asked for less motion. */
     to(goal: number, smooth: boolean, settled?: () => void) {
       end(true);
@@ -37,15 +39,27 @@ export function createScroller(pane: HTMLElement) {
       const began = performance.now();
       const tick = () => {
         const progress = (performance.now() - began) / DURATION;
-        if (progress >= 1) { end(true); return; }
+        if (progress >= 1) {
+          end(true);
+          return;
+        }
         pane.scrollTop = start + (reachable - start) * ease(progress);
         move!.frame = requestAnimationFrame(tick);
       };
-      move = { goal: reachable, frame: requestAnimationFrame(tick), timer: setTimeout(() => end(true), DURATION + GRACE), settled };
+      move = {
+        goal: reachable,
+        frame: requestAnimationFrame(tick),
+        timer: setTimeout(() => end(true), DURATION + GRACE),
+        settled,
+      };
     },
     /** Ends a move at its goal, for what needs to read where it is going. */
-    finish() { end(true); },
+    finish() {
+      end(true);
+    },
     /** Ends a move where it is, for a reader who has started scrolling. */
-    stop() { end(false); },
+    stop() {
+      end(false);
+    },
   };
 }

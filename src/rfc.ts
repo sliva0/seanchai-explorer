@@ -25,10 +25,17 @@ function reportPage() {
   const number = Number(first?.dataset.page ?? 1);
   if (number !== lastPage) {
     lastPage = number;
-    if (window.parent !== window) window.parent.postMessage({ type: 'seanchai-source-page', file: rawFile, page: number }, location.origin);
+    if (window.parent !== window)
+      window.parent.postMessage({ type: 'seanchai-source-page', file: rawFile, page: number }, location.origin);
   }
 }
-container.addEventListener('scroll', () => { if (!pending) pending = requestAnimationFrame(reportPage); }, { passive: true });
+container.addEventListener(
+  'scroll',
+  () => {
+    if (!pending) pending = requestAnimationFrame(reportPage);
+  },
+  { passive: true },
+);
 function goTo(node: HTMLElement | undefined) {
   if (node) container.scrollTop += node.getBoundingClientRect().top - container.getBoundingClientRect().top - 12;
   requestAnimationFrame(reportPage);
@@ -38,8 +45,18 @@ function navigate() {
   const section = sections.get(params.get('section') ?? '');
   const page = pages.find(page => page.dataset.page === params.get('page'));
   const name = params.get('query')?.trim();
-  const row = params.get('row') === '1' && name ? locateRow(lines, name, params.get('section') ?? '', Number(params.get('page')) || 1, params.get('printed') ?? undefined, params.get('titled') === '1')?.lines : null;
-  goTo(params.get('exact') === '1' ? page : (row && spans[row[0]]) ?? section ?? page ?? pages[0]);
+  const row =
+    params.get('row') === '1' && name
+      ? locateRow(
+          lines,
+          name,
+          params.get('section') ?? '',
+          Number(params.get('page')) || 1,
+          params.get('printed') ?? undefined,
+          params.get('titled') === '1',
+        )?.lines
+      : null;
+  goTo(params.get('exact') === '1' ? page : ((row && spans[row[0]]) ?? section ?? page ?? pages[0]));
   // A name as a whole word: "Load" marks neither "Load-Type" nor "loaded".
   const query = name ? namePattern(name, 'giu', '\\p{L}\\p{N}_-') : null;
   for (const index of marked) {
@@ -75,7 +92,11 @@ window.addEventListener('hashchange', navigate);
 try {
   if (!rawFile) throw new Error('RFC not found');
   const url = new URL(rawFile, location.href);
-  if (url.origin !== location.origin && !(url.protocol === 'https:' && url.hostname === 'www.rfc-editor.org' && /^\/rfc\/rfc\d+\.txt$/.test(url.pathname))) throw new Error('Invalid RFC source');
+  if (
+    url.origin !== location.origin &&
+    !(url.protocol === 'https:' && url.hostname === 'www.rfc-editor.org' && /^\/rfc\/rfc\d+\.txt$/.test(url.pathname))
+  )
+    throw new Error('Invalid RFC source');
   const response = await fetch(url);
   if (!response.ok) throw new Error(String(response.status));
   for (const page of rfcPages(await response.text())) {
@@ -100,4 +121,6 @@ try {
     container.append(block);
   }
   navigate();
-} catch (error) { container.textContent = String(error); }
+} catch (error) {
+  container.textContent = String(error);
+}

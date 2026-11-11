@@ -1,7 +1,12 @@
 import type { Place } from './avp-places.ts';
 import type { ValueToken } from './values.ts';
 
-export interface ClickModifiers { altKey: boolean; ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }
+export interface ClickModifiers {
+  altKey: boolean;
+  ctrlKey: boolean;
+  metaKey: boolean;
+  shiftKey: boolean;
+}
 
 export interface ClickContext {
   /** The pane can read this document here, switched on or not: wide enough, and not a placeholder or an unknown format. */
@@ -30,16 +35,28 @@ export type ClickAction =
  * A name's `fallback`, its other place, is gone to where the gesture can do less with `place`: nothing, or for an
  * alt-click the pane alone.
  */
-export function clickAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext, fallback?: Place): ClickAction {
+export function clickAction(
+  token: ValueToken,
+  place: Place | undefined,
+  event: ClickModifiers,
+  context: ClickContext,
+  fallback?: Place,
+): ClickAction {
   const action = placeAction(token, place, event, context);
   if (!fallback || !short(action, event)) return action;
   const instead = placeAction(token, fallback, event, context);
   return short(instead, event) ? action : instead;
 }
 
-const short = (action: ClickAction, event: ClickModifiers) => action.type === 'browser' || (event.altKey && action.type === 'pane');
+const short = (action: ClickAction, event: ClickModifiers) =>
+  action.type === 'browser' || (event.altKey && action.type === 'pane');
 
-function placeAction(token: ValueToken, place: Place | undefined, event: ClickModifiers, context: ClickContext): ClickAction {
+function placeAction(
+  token: ValueToken,
+  place: Place | undefined,
+  event: ClickModifiers,
+  context: ClickContext,
+): ClickAction {
   if (event.ctrlKey || event.metaKey || event.shiftKey) return { type: 'browser' };
   if (!event.altKey && context.uses && (token.avp || token.valueRow || token.command)) return { type: 'uses' };
   if (!place) return { type: 'browser' };
@@ -53,9 +70,15 @@ const PLAIN_CLICK: ClickModifiers = { altKey: false, ctrlKey: false, metaKey: fa
 
 /** What an action does for a name, in a tooltip's words. */
 function saying(token: ValueToken, action: ClickAction, context: ClickContext): string {
-  if (action.type === 'pane') return token.valueRow ? 'source row in pane' : action.place.position?.occurrence ? 'find in pane' : `${action.place.of ?? 'definition'} in pane`;
+  if (action.type === 'pane')
+    return token.valueRow
+      ? 'source row in pane'
+      : action.place.position?.occurrence
+        ? 'find in pane'
+        : `${action.place.of ?? 'definition'} in pane`;
   if (action.type === 'both') {
-    if (context.paneOn && context.paneShows(action.place.document)) return `${token.valueRow ? 'source row' : action.place.of ?? 'definition'} in both`;
+    if (context.paneOn && context.paneShows(action.place.document))
+      return `${token.valueRow ? 'source row' : (action.place.of ?? 'definition')} in both`;
     return token.valueRow ? 'go to its row' : `go to ${action.place.of ?? 'definition'}`;
   }
   return token.source ? 'source in new tab' : '';
@@ -65,7 +88,12 @@ function saying(token: ValueToken, action: ClickAction, context: ClickContext): 
  * A name's tooltip as things stand: what a click does, what an alt-click does if that differs, and the way to its uses.
  * A value's popup is its table instead, and a command's what it is and where else it is printed.
  */
-export function nameTitle(token: ValueToken, place: Place | undefined, context: ClickContext, fallback?: Place): string {
+export function nameTitle(
+  token: ValueToken,
+  place: Place | undefined,
+  context: ClickContext,
+  fallback?: Place,
+): string {
   const popup = token.valueRow ? 'its table' : token.command ? 'its definitions' : 'uses';
   const plain = clickAction(token, place, PLAIN_CLICK, context, fallback);
   const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context, fallback), context);
@@ -75,5 +103,7 @@ export function nameTitle(token: ValueToken, place: Place | undefined, context: 
     listing ? `Click or right-click: ${popup}` : click && `Click: ${click}`,
     alt && alt !== click && `Alt-click: ${alt}`,
     !listing && `Right-click: ${popup}`,
-  ].filter(Boolean).join(' · ');
+  ]
+    .filter(Boolean)
+    .join(' · ');
 }

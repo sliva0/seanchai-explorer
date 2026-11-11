@@ -81,7 +81,7 @@ try {
   const site = await openSite();
   const grammar = await fetch(siteURL('syntax/dad.tmLanguage.json'));
   if (!grammar.ok) throw new Error(`${grammar.status}: syntax/dad.tmLanguage.json`);
-  const highlighter = createHighlighter(await grammar.json() as Grammar);
+  const highlighter = createHighlighter((await grammar.json()) as Grammar);
   const highlighted = new WeakMap<Line[], HighlightedLine[]>();
   let view: DocumentView | undefined;
   let request = 0;
@@ -91,7 +91,10 @@ try {
   history.scrollRestoration = 'manual';
 
   const positions = createPositionStore(session);
-  const jumps = createJumpList(session, document => !document || document === 'search' || Boolean(site.summary(document)));
+  const jumps = createJumpList(
+    session,
+    document => !document || document === 'search' || Boolean(site.summary(document)),
+  );
   const jumpControls = createJumpControls(walk);
 
   const targetOf = (route: Route) => ({ document: route.document, section: route.section || null, name: route.name });
@@ -105,7 +108,8 @@ try {
     if (parsed.document !== view?.doc.id) return;
     const next = routeFor(targetOf(parsed), { ...parsed, ...options });
     const stale = offset !== undefined && offset !== history.state?.offset;
-    if (next !== location.hash || stale) history.replaceState(stale ? { ...history.state, offset } : history.state, '', next);
+    if (next !== location.hash || stale)
+      history.replaceState(stale ? { ...history.state, offset } : history.state, '', next);
   }
 
   // A place walked to in a document still loading, which a further walk must not take for the top of that document.
@@ -118,7 +122,12 @@ try {
     if (!view && arriving?.document === parsed.document) return arriving;
     if (!view || !position) return { document: parsed.document, top: 0, offset: content.scrollTop, hash: hash || '#' };
     const line = view.pointedLine();
-    return { document: parsed.document, ...position, ...(line === undefined ? {} : { line }), hash: routeFor(targetOf(parsed), { ...parsed, top: position.top }) };
+    return {
+      document: parsed.document,
+      ...position,
+      ...(line === undefined ? {} : { line }),
+      hash: routeFor(targetOf(parsed), { ...parsed, top: position.top }),
+    };
   }
 
   /** Remembers a document's position, and returns the place being left for a walk or a jump to take from it. */
@@ -144,34 +153,51 @@ try {
   /** Puts the route in the browser's history: a new entry for a new page, so that Back steps between documents, the same one for a move within a page. */
   function setRoute(hash: string, state: unknown) {
     const samePage = pageOf(parseRoute(hash)) === pageOf(parseRoute(location.hash));
-    if (samePage) { if ((hash === '#' ? '' : hash) !== location.hash || state) history.replaceState(state, '', hash); }
-    else history.pushState(state, '', hash);
+    if (samePage) {
+      if ((hash === '#' ? '' : hash) !== location.hash || state) history.replaceState(state, '', hash);
+    } else history.pushState(state, '', hash);
   }
 
   /** Walks the jump list. The pane stays as the reader has it, on or off, whatever it was at the place walked to. */
   function walk(walkTo: JumpWalk) {
     const left = leave();
     const entry = jumps.walk(walkTo, left);
-    if (!entry) { showJumps(); return; }
-    const refocus = jumpControls.node.contains(document.activeElement) ? document.activeElement as HTMLElement : undefined;
+    if (!entry) {
+      showJumps();
+      return;
+    }
+    const refocus = jumpControls.node.contains(document.activeElement)
+      ? (document.activeElement as HTMLElement)
+      : undefined;
     const target = parseRoute(entry.hash);
     const inDocument = target.document && target.document !== 'search';
-    const hash = inDocument ? routeFor(targetOf(target), { ...target, paneHidden: !sourcePane.switchedOn }) : entry.hash;
+    const hash = inDocument
+      ? routeFor(targetOf(target), { ...target, paneHidden: !sourcePane.switchedOn })
+      : entry.hash;
     if (pageOf(target) !== pageOf(parseRoute(location.hash))) updateRoute({ top: left.top }, left.offset);
     setRoute(hash, { offset: entry.offset });
     arrived = true;
     void route({ place: entry, refocus });
   }
 
-  const sourcePane = pane = createSourcePane(site, () => theme.current, () => {
-    updateRoute({ source: sourcePane.state, paneHidden: !sourcePane.switchedOn });
-  });
+  const sourcePane = (pane = createSourcePane(
+    site,
+    () => theme.current,
+    () => {
+      updateRoute({ source: sourcePane.state, paneHidden: !sourcePane.switchedOn });
+    },
+  ));
   const popup = createPopups(site, sourcePane);
   const services = {
-    site, pane: sourcePane, popup,
+    site,
+    pane: sourcePane,
+    popup,
     highlight(lines: Line[]) {
       let decorated = highlighted.get(lines);
-      if (!decorated) { decorated = highlighter(lines); highlighted.set(lines, decorated); }
+      if (!decorated) {
+        decorated = highlighter(lines);
+        highlighted.set(lines, decorated);
+      }
       return decorated;
     },
     navigate(hash: string) {
@@ -200,7 +226,8 @@ try {
     event.preventDefault();
     const href = anchor.getAttribute('href')!;
     const target = parseRoute(href);
-    const keepsPaneOff = !sourcePane.switchedOn && target.document && target.document !== 'search' && !target.paneHidden;
+    const keepsPaneOff =
+      !sourcePane.switchedOn && target.document && target.document !== 'search' && !target.paneHidden;
     services.navigate(keepsPaneOff ? routeFor(targetOf(target), { ...target, paneHidden: true }) : href);
   });
   const chords = createChords();
@@ -224,7 +251,11 @@ try {
   }
 
   /** How a route is come to: `smooth` is a jump, which is eased if it stays in the document; `place` a walk back to where a page was left. */
-  interface Arrival { smooth?: boolean; place?: JumpEntry; refocus?: HTMLElement }
+  interface Arrival {
+    smooth?: boolean;
+    place?: JumpEntry;
+    refocus?: HTMLElement;
+  }
 
   async function route(arrival: Arrival = {}) {
     await show(arrival);
@@ -232,12 +263,19 @@ try {
   }
 
   /** Gives a document's view its position: the place walked to, else what the route names, else where it was left. */
-  function position(current: DocumentView, parsed: Route, fresh: boolean, value: ReturnType<DocumentView['valueRow']>, { smooth, place }: Arrival) {
+  function position(
+    current: DocumentView,
+    parsed: Route,
+    fresh: boolean,
+    value: ReturnType<DocumentView['valueRow']>,
+    { smooth, place }: Arrival,
+  ) {
     const pointed = current.pointAtLine(parsed.line ?? value?.line);
     const row = pointed ?? (parsed.section ? current.sectionRow(parsed.section) : undefined);
     const saved = positions.get(pageOf({ document: current.doc.id, raw: current.raw }));
     if (place) current.restore(place.top, place.offset);
-    else if (parsed.top !== undefined) current.restore(parsed.top, history.state?.offset ?? (saved?.top === parsed.top ? saved.offset : undefined));
+    else if (parsed.top !== undefined)
+      current.restore(parsed.top, history.state?.offset ?? (saved?.top === parsed.top ? saved.offset : undefined));
     else if (row) current.jumpTo(row, { smooth: Boolean(smooth) && !fresh, flash: arrived });
     else if (fresh && saved && !parsed.section) current.restore(saved.top, saved.offset);
   }
@@ -264,7 +302,12 @@ try {
     if (parsed.document === 'search') {
       leaveDocument('');
       setTitle('Search');
-      renderSearch(content, site, parsed.query, () => generation === request, { returning: Boolean(place), onReady: () => { if (place) content.scrollTop = place.offset; } });
+      renderSearch(content, site, parsed.query, () => generation === request, {
+        returning: Boolean(place),
+        onReady: () => {
+          if (place) content.scrollTop = place.offset;
+        },
+      });
       if (place) focusHeading();
       return;
     }
@@ -291,7 +334,11 @@ try {
           content.replaceChildren(status);
         }, 150);
         // The command index comes with the first document, for its commands' names to know where they go.
-        const [doc, raw] = await Promise.all([site.loadDocument(meta.id), parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined, site.loadCommands()]).finally(() => clearTimeout(loading));
+        const [doc, raw] = await Promise.all([
+          site.loadDocument(meta.id),
+          parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined,
+          site.loadCommands(),
+        ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         content.className = 'document-view';
         view = renderDocument(content, services, doc, raw);
@@ -311,7 +358,8 @@ try {
         sourcePane.show({ ...known, ...parsed.source.position, page: parsed.source.position.page ?? known?.page }, doc);
       } else if (value) sourcePane.show(value.position, current.doc);
       else {
-        const position = current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];
+        const position =
+          current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];
         if (position) sourcePane.show({ ...position, name: parsed.name }, current.doc);
       }
       if (arrived) {
@@ -334,4 +382,6 @@ try {
     void route({ smooth: true });
   });
   await route();
-} catch (error) { showError(error); }
+} catch (error) {
+  showError(error);
+}

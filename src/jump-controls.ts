@@ -22,7 +22,9 @@ export function createJumpControls(onWalk: (walk: JumpWalk) => void) {
     button.type = 'button';
     button.dataset.walk = spec.walk;
     // Still in the tab order, and its title still says why it does nothing.
-    button.onclick = () => { if (button.getAttribute('aria-disabled') !== 'true') onWalk(spec.walk); };
+    button.onclick = () => {
+      if (button.getAttribute('aria-disabled') !== 'true') onWalk(spec.walk);
+    };
     pairs[index >> 1].append(button);
     return { spec, button };
   });

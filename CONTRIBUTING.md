@@ -17,6 +17,9 @@ npm run preview             # serve dist/
 npm run sources             # download the source documents for a self-hosted build
 npm run data                # fill public/ from an export without building
 npm run check               # type check
+npm run lint                # oxlint over src, scripts, tests and vite.config.ts
+npm run format              # oxfmt: format the tree in place
+npm run format:check        # oxfmt: fail on a file not formatted
 
 npm test                    # unit tests over tests/fixtures/export; no build, no export
 npm run test:build          # one real build per mode, overwrites public/data and dist/
@@ -29,11 +32,16 @@ Run what CI runs, in the order `.github/workflows/ci.yml` runs it:
 
 ```sh
 npm ci
+npm run lint
+npm run format:check
 npm run check
 npm test
 npm run test:build
 npm run test:smoke
 ```
+
+Run `npm run format` before committing, so `npm run format:check` passes. `.oxfmtrc.json`
+and `.oxlintrc.json` hold the settings, and say what each leaves out and why.
 
 CI installs Chromium through `playwright-core` before the smoke tests; locally, set
 `CHROMIUM` to a Chromium or Chrome executable if the tests do not find one. Every

@@ -9,7 +9,7 @@ const steps = [0.5, 1, 1.5];
 async function zoomSelect() {
   const html = await readFile(new URL('../../viewer.html', import.meta.url), 'utf8');
   const { document } = new Window();
-  document.body.innerHTML = html.match(/<select id="zoom".*<\/select>/)[0];
+  document.body.innerHTML = html.match(/<select id="zoom"[\s\S]*?<\/select>/)[0];
   return document.querySelector('#zoom');
 }
 const labels = select => [...select.options].map(option => option.textContent);
@@ -18,8 +18,12 @@ const hidden = select => [...select.options].filter(option => option.hidden).map
 test('the list is short and every scale in it is a step', async () => {
   const select = await zoomSelect();
   assert.deepEqual(labels(select), ['Width', 'Page', '50%', '75%', '100%', '150%', '200%', '300%']);
-  for (const { value } of select.options) if (!value.startsWith('page-')) assert.ok(zoomSteps.includes(Number(value)), value);
-  assert.deepEqual(zoomSteps, zoomSteps.toSorted((a, b) => a - b));
+  for (const { value } of select.options)
+    if (!value.startsWith('page-')) assert.ok(zoomSteps.includes(Number(value)), value);
+  assert.deepEqual(
+    zoomSteps,
+    zoomSteps.toSorted((a, b) => a - b),
+  );
 });
 
 test('a step with no option shows through one hidden option, gone once a listed value is shown', async () => {
@@ -56,7 +60,12 @@ test('a preset the list lacks changes nothing', async () => {
 });
 
 test('a stored zoom comes back if it is an option or a step, as from the longer list before', async () => {
-  for (const [stored, value] of [['page-fit', 'page-fit'], ['1.5', '1.5'], ['1.25', '1.25'], ['0.9', '0.9']]) {
+  for (const [stored, value] of [
+    ['page-fit', 'page-fit'],
+    ['1.5', '1.5'],
+    ['1.25', '1.25'],
+    ['0.9', '0.9'],
+  ]) {
     const select = await zoomSelect();
     restoreZoom(select, stored);
     assert.equal(select.value, value);

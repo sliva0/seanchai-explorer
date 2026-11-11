@@ -1,39 +1,166 @@
-html, body { height: 100%; margin: 0; overflow: hidden; }
-body { display: flex; flex-direction: column; font: var(--text-xs)/1.4 var(--mono); }
-#toolbar { display: flex; flex: none; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); padding: var(--space-1) var(--space-2); border-bottom: 1px solid var(--ui-border); background: var(--ui-surface); }
-#toolbar label { display: inline-flex; align-items: center; gap: var(--space-1); }
-#toolbar .control { padding-inline: var(--space-1); }
-#chapters-toggle[hidden] { display: none; }
-#chapters-toggle.pending { visibility: hidden; }
-#page { width: 7ch; appearance: textfield; }
-#page::-webkit-inner-spin-button, #page::-webkit-outer-spin-button { appearance: none; margin: 0; }
-#pages { min-width: 5ch; }
-#zoom-controls { display: inline-flex; align-items: center; gap: var(--space-1); }
-#zoom-out, #zoom-in, #find-previous, #find-next { width: var(--control-height); }
-#find-controls { display: flex; flex: 1 1 18rem; align-items: center; gap: var(--space-1); min-width: 0; }
-#find-controls label { flex: 1; }
-#find { flex: 1; width: 0; min-width: 6ch; }
-#matches { min-width: 7ch; white-space: nowrap; }
-#pdf-workspace { flex: 1; display: flex; min-height: 0; overflow: hidden; }
-#outline { flex: none; width: 12rem; min-width: 5rem; max-width: 40%; resize: horizontal; padding: var(--space-2); overflow: auto; border-right: 1px solid var(--ui-border); background: var(--ui-surface); font: var(--text-xs)/1.4 var(--sans); overscroll-behavior: contain; scrollbar-width: thin; }
-#outline[hidden] { display: none; }
-#outline ul { margin: 0; padding-left: var(--space-3); list-style: none; }
-#outline > ul { padding-left: 0; }
-#outline li { margin-block: var(--space-1); }
-#outline summary { padding-left: 1em; text-indent: -1em; }
-#outline a { color: var(--ui-fg); text-decoration: none; overflow-wrap: anywhere; }
-#outline a:hover { text-decoration: underline; }
-#outline a[aria-current] { color: var(--ui-link); font-weight: bold; }
-#page-pane { flex: 1; min-width: 0; position: relative; }
-#viewerContainer { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; background: var(--pdf-surround); }
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+body {
+  display: flex;
+  flex-direction: column;
+  font: var(--text-xs)/1.4 var(--mono);
+}
+#toolbar {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+}
+#toolbar label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+#toolbar .control {
+  padding-inline: var(--space-1);
+}
+#chapters-toggle[hidden] {
+  display: none;
+}
+#chapters-toggle.pending {
+  visibility: hidden;
+}
+#page {
+  width: 7ch;
+  appearance: textfield;
+}
+#page::-webkit-inner-spin-button,
+#page::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+#pages {
+  min-width: 5ch;
+}
+#zoom-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+#zoom-out,
+#zoom-in,
+#find-previous,
+#find-next {
+  width: var(--control-height);
+}
+#find-controls {
+  display: flex;
+  flex: 1 1 18rem;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+#find-controls label {
+  flex: 1;
+}
+#find {
+  flex: 1;
+  width: 0;
+  min-width: 6ch;
+}
+#matches {
+  min-width: 7ch;
+  white-space: nowrap;
+}
+#pdf-workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
+}
+#outline {
+  flex: none;
+  width: 12rem;
+  min-width: 5rem;
+  max-width: 40%;
+  resize: horizontal;
+  padding: var(--space-2);
+  overflow: auto;
+  border-right: 1px solid var(--ui-border);
+  background: var(--ui-surface);
+  font: var(--text-xs)/1.4 var(--sans);
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#outline[hidden] {
+  display: none;
+}
+#outline ul {
+  margin: 0;
+  padding-left: var(--space-3);
+  list-style: none;
+}
+#outline > ul {
+  padding-left: 0;
+}
+#outline li {
+  margin-block: var(--space-1);
+}
+#outline summary {
+  padding-left: 1em;
+  text-indent: -1em;
+}
+#outline a {
+  color: var(--ui-fg);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+#outline a:hover {
+  text-decoration: underline;
+}
+#outline a[aria-current] {
+  color: var(--ui-link);
+  font-weight: bold;
+}
+#page-pane {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+#viewerContainer {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--pdf-surround);
+}
 /* Only the canvas is inverted, so what lies over it takes the theme's colours as written. The sepia brings its paper to --ui-bg. */
 @media screen {
-  :root[data-theme="dark"] .pdfViewer { --page-bg-color: var(--ui-bg); }
-  :root[data-theme="dark"] .pdfViewer .page .canvasWrapper { filter: invert(0.9) hue-rotate(180deg) sepia(0.12); }
+  :root[data-theme="dark"] .pdfViewer {
+    --page-bg-color: var(--ui-bg);
+  }
+  :root[data-theme="dark"] .pdfViewer .page .canvasWrapper {
+    filter: invert(0.9) hue-rotate(180deg) sepia(0.12);
+  }
 }
 @media not (forced-colors: active) {
-  .textLayer .highlight { --highlight-bg-color: var(--find-bg); --highlight-selected-bg-color: var(--find-current-bg); }
-  .textLayer .highlight.selected { box-shadow: 0 0 0 1px var(--find-current-edge); }
-  .textLayer ::selection { background: var(--ui-selection); }
+  .textLayer .highlight {
+    --highlight-bg-color: var(--find-bg);
+    --highlight-selected-bg-color: var(--find-current-bg);
+  }
+  .textLayer .highlight.selected {
+    box-shadow: 0 0 0 1px var(--find-current-edge);
+  }
+  .textLayer ::selection {
+    background: var(--ui-selection);
+  }
 }
-@media (max-width: 480px) { #outline { width: 8rem; font-size: 0.6875rem; } }
+@media (max-width: 480px) {
+  #outline {
+    width: 8rem;
+    font-size: 0.6875rem;
+  }
+}

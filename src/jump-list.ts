@@ -14,11 +14,18 @@ export interface JumpEntry {
 export type JumpWalk = 'back' | 'forward' | 'backDocument' | 'forwardDocument';
 
 function isEntry(value: JumpEntry): boolean {
-  return typeof value?.document === 'string' && typeof value.hash === 'string' && Number.isFinite(value.top) && Number.isFinite(value.offset);
+  return (
+    typeof value?.document === 'string' &&
+    typeof value.hash === 'string' &&
+    Number.isFinite(value.top) &&
+    Number.isFinite(value.offset)
+  );
 }
 
 export function sameEntry(a: JumpEntry | undefined, b: JumpEntry): boolean {
-  return a?.document === b.document && a.top === b.top && a.offset === b.offset && a.line === b.line && a.hash === b.hash;
+  return (
+    a?.document === b.document && a.top === b.top && a.offset === b.offset && a.line === b.line && a.hash === b.hash
+  );
 }
 
 export type JumpList = ReturnType<typeof createJumpList>;
@@ -36,7 +43,10 @@ export function createJumpList(store: () => Store, available: (document: string)
   const saved = readStoredJSON('jumps', store) as { entries?: unknown; index?: unknown } | null;
   if (Array.isArray(saved?.entries) && saved.entries.every(isEntry)) {
     entries = saved.entries.slice(-cap);
-    index = typeof saved.index === 'number' && Number.isInteger(saved.index) ? Math.min(Math.max(saved.index, 0), entries.length) : entries.length;
+    index =
+      typeof saved.index === 'number' && Number.isInteger(saved.index)
+        ? Math.min(Math.max(saved.index, 0), entries.length)
+        : entries.length;
   }
 
   function commit(next: JumpEntry[], at: number) {
@@ -58,7 +68,8 @@ export function createJumpList(store: () => Store, available: (document: string)
     const { list, at } = including(here);
     const step = walk === 'back' || walk === 'backDocument' ? -1 : 1;
     const wholeDocument = walk === 'backDocument' || walk === 'forwardDocument';
-    const skipped = (entry: JumpEntry) => !available(entry.document) || sameEntry(entry, here) || (wholeDocument && entry.document === here.document);
+    const skipped = (entry: JumpEntry) =>
+      !available(entry.document) || sameEntry(entry, here) || (wholeDocument && entry.document === here.document);
     let target = at + step;
     while (list[target] && skipped(list[target])) target += step;
     if (!list[target]) return undefined;
@@ -85,7 +96,11 @@ export function createJumpList(store: () => Store, available: (document: string)
       const found = seek(walk, here);
       return found && found.list[found.target];
     },
-    get entries(): readonly JumpEntry[] { return entries; },
-    get index() { return index; },
+    get entries(): readonly JumpEntry[] {
+      return entries;
+    },
+    get index() {
+      return index;
+    },
   };
 }

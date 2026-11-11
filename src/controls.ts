@@ -22,15 +22,21 @@ export const controlGroups: ControlGroup[] = [
     title: 'Mouse, on a name',
     note: 'Where the source pane cannot show the place, a click does what an alt-click does.',
     controls: [
-      { keys: ['Click'], does: 'Its Details or its definition, as "Click goes to" in the document\'s strip says, in the source pane alone, which opens if it was switched off. With "Click shows uses" on, where it is used' },
+      {
+        keys: ['Click'],
+        does: 'Its Details or its definition, as "Click goes to" in the document\'s strip says, in the source pane alone, which opens if it was switched off. With "Click shows uses" on, where it is used',
+      },
       { keys: ['Alt-click'], does: 'The same place in the text and the pane' },
-      { keys: ['Right-click'], does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is and where else it is printed' },
-      { keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'], does: 'The browser\'s' },
+      {
+        keys: ['Right-click'],
+        does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is and where else it is printed',
+      },
+      { keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'], does: "The browser's" },
     ],
   },
   {
     title: 'Keyboard',
-    note: 'The keys wait while the focus is in a text box or a list, and a bracket\'s second key must come within a second.',
+    note: "The keys wait while the focus is in a text box or a list, and a bracket's second key must come within a second.",
     controls: [
       { keys: ['Ctrl+O', 'Alt+O', '[j'], does: 'The place before on the jump list' },
       { keys: ['Ctrl+I', 'Alt+I', ']j'], does: 'The place after on the jump list' },
@@ -51,7 +57,7 @@ export const controlGroups: ControlGroup[] = [
   },
   {
     title: 'PDF pane',
-    note: 'A self-hosted build\'s, with the focus in it.',
+    note: "A self-hosted build's, with the focus in it.",
     controls: [
       { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zooms in or out, with = and _ too, as Cmd does on a Mac' },
       { keys: ['Ctrl+wheel'], does: 'Zooms at the pointer, as a pinch does' },

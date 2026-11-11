@@ -6,7 +6,8 @@ import type { DocumentSummary } from './types.ts';
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
 const MAX_INTERFACES_WIDTH = 24;
 
-const FOOTER_HELP = 'Click an AVP or command name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where an AVP is used or where else a command is printed.';
+const FOOTER_HELP =
+  'Click an AVP or command name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where an AVP is used or where else a command is printed.';
 
 function byName(a: DocumentSummary, b: DocumentSummary) {
   return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
@@ -71,7 +72,7 @@ function renderPublisher(publisher: string, releases: Map<number | null, Documen
   const widest = (text: (doc: DocumentSummary) => string) => Math.max(...docs.map(doc => text(doc).length));
   group.style.setProperty('--number-width', `${widest(doc => rowNumber(doc, site))}ch`);
   group.style.setProperty('--interfaces-width', `${Math.min(MAX_INTERFACES_WIDTH, widest(interfacesOf))}ch`);
-  for (const [release, docs] of [...releases].sort(([a], [b]) => (b ?? -1) - (a ?? -1))) {
+  for (const [release, docs] of [...releases].toSorted(([a], [b]) => (b ?? -1) - (a ?? -1))) {
     group.append(renderRelease(`${publisher}${release ? ` · Release ${release}` : ''}`, docs, site));
   }
   return group;
@@ -82,13 +83,21 @@ export function renderIndex(container: HTMLElement, site: Site) {
   const publishers = new Map<string, Map<number | null, DocumentSummary[]>>();
   for (const doc of site.index.documents) {
     const releases = publishers.get(doc.publisher) ?? new Map<number | null, DocumentSummary[]>();
-    releases.set(doc.release, [...releases.get(doc.release) ?? [], doc]);
+    releases.set(doc.release, [...(releases.get(doc.release) ?? []), doc]);
     publishers.set(doc.publisher, releases);
   }
-  for (const [publisher, releases] of [...publishers].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
+  for (const [publisher, releases] of [...publishers].toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     container.append(renderPublisher(publisher, releases, site));
   }
   container.append(element('p', FOOTER_HELP, 'versions'));
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
-  container.append(element('footer', [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`].filter(Boolean).join(' · '), 'versions'));
+  container.append(
+    element(
+      'footer',
+      [corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
+        .filter(Boolean)
+        .join(' · '),
+      'versions',
+    ),
+  );
 }

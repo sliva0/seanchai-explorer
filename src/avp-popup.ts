@@ -1,4 +1,19 @@
-import { avpRows, bitMeaning, bitRule, columnNotes, encryptOf, flagTable, groupedRules, otherCells, presenceShort, presenceText, printed, rowSaysMore, ruleAt, useAt } from './avp-context.ts';
+import {
+  avpRows,
+  bitMeaning,
+  bitRule,
+  columnNotes,
+  encryptOf,
+  flagTable,
+  groupedRules,
+  otherCells,
+  presenceShort,
+  presenceText,
+  printed,
+  rowSaysMore,
+  ruleAt,
+  useAt,
+} from './avp-context.ts';
 import type { AvpRow, FlagRule, Rule, Use } from './avp-context.ts';
 import { avpIdentities, avpTables } from './avp-facts.ts';
 import type { AvpIdentity } from './avp-facts.ts';
@@ -19,7 +34,14 @@ export function ruleContents(rule: Rule, open: boolean, title: string): HTMLElem
   summary.append(...counted(title, rule.members.length));
   const list = element('div', undefined, 'contents-list');
   for (const item of rule.members) {
-    const note = [presenceShort(item), item.name === 'AVP' && 'any other AVP', item.bold && 'bold', (item.struck || item.strikethrough) && 'struck through'].filter(Boolean).join(' · ');
+    const note = [
+      presenceShort(item),
+      item.name === 'AVP' && 'any other AVP',
+      item.bold && 'bold',
+      (item.struck || item.strikethrough) && 'struck through',
+    ]
+      .filter(Boolean)
+      .join(' · ');
     const code = element('code', printed(item));
     if (item.struck || item.strikethrough) code.classList.add('struck');
     list.append(code, element('span', note, 'fact-note'));
@@ -32,13 +54,18 @@ export function ruleContents(rule: Rule, open: boolean, title: string): HTMLElem
 export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) {
   /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
   const identityText = ({ code, vendor, type }: AvpIdentity) =>
-    [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? ''].filter(Boolean).join(' · ');
+    [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? '']
+      .filter(Boolean)
+      .join(' · ');
 
   /** The files at hand for a name: the one its link names if that has been loaded, then this one. */
   function filesOf({ token, doc, file }: PopupRequest): { file: DadFile; name: string; document: string }[] {
     const name = token.avp!;
     const away = token.target && token.target.document !== doc.id ? site.held(token.target.document) : undefined;
-    return [...away ? [{ file: away, name: token.target!.name ?? name, document: away.id }] : [], { file, name, document: doc.id }];
+    return [
+      ...(away ? [{ file: away, name: token.target!.name ?? name, document: away.id }] : []),
+      { file, name, document: doc.id },
+    ];
   }
 
   /**
@@ -50,17 +77,33 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     const { doc } = request;
     const files = filesOf(request);
     const identities = avpIdentities(files).map(identityText).filter(Boolean);
-    const tables = [...files].reverse().flatMap(({ file, name, document }) => avpTables(file, name).map(table => {
-      const { section, page, line } = table;
-      const position = !('rows' in table) ? { section, page, name, row: true, titled: true } : table.kind === 'result-codes' ? { section, page } : table.rows[0].position;
-      const place: Place = { document, ...document === doc.id ? { position } : {}, target: { document, section }, line };
-      return shell.placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place, request);
-    }));
+    const tables = files.toReversed().flatMap(({ file, name, document }) =>
+      avpTables(file, name).map(table => {
+        const { section, page, line } = table;
+        const position = !('rows' in table)
+          ? { section, page, name, row: true, titled: true }
+          : table.kind === 'result-codes'
+            ? { section, page }
+            : table.rows[0].position;
+        const place: Place = {
+          document,
+          ...(document === doc.id ? { position } : {}),
+          target: { document, section },
+          line,
+        };
+        return shell.placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place, request);
+      }),
+    );
     return { identities, tables: tables.filter(row => row !== undefined) };
   }
 
   let keys = 0;
-  const flagWords: Record<FlagRule, string> = { must: 'must be set', may: 'may be set', 'should not': 'should not be set', 'must not': 'must not be set' };
+  const flagWords: Record<FlagRule, string> = {
+    must: 'must be set',
+    may: 'may be set',
+    'should not': 'should not be set',
+    'must not': 'must not be set',
+  };
   const ruleName = (rule: Rule) => `${rule.kind === 'Message' ? 'command' : rule.kind} ${rule.label}`;
 
   /** What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is. */
@@ -71,11 +114,15 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       const { rule, member } = use;
       node.append(element('p', `Here: in ${ruleName(rule)}${rule.section ? ` · ${rule.section}` : ''}`));
       node.append(element('p', presenceText(member), 'presence'));
-      if (member.bold) node.append(element('p', 'Bold in the source: the document defines or modifies it here', 'fact-note'));
-      if (member.struck) node.append(element('p', 'Struck through in the source, and left out of the rule', 'fact-note'));
+      if (member.bold)
+        node.append(element('p', 'Bold in the source: the document defines or modifies it here', 'fact-note'));
+      if (member.struck)
+        node.append(element('p', 'Struck through in the source, and left out of the rule', 'fact-note'));
       else if (member.strikethrough) node.append(element('p', 'Struck through in the source', 'fact-note'));
     } else if (use.kind === 'head') {
-      node.append(element('p', `Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`));
+      node.append(
+        element('p', `Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`),
+      );
     } else {
       const { row } = use;
       node.append(element('p', `Here: a row of ${[row.type, row.table ?? row.section].filter(Boolean).join(' ')}`));
@@ -83,7 +130,12 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     return node;
   }
 
-  const flagHeading: Record<FlagRule, string> = { must: 'Must', may: 'May', 'should not': 'Should not', 'must not': 'Must not' };
+  const flagHeading: Record<FlagRule, string> = {
+    must: 'Must',
+    may: 'May',
+    'should not': 'Should not',
+    'must not': 'Must not',
+  };
   /** Whether the flags' key is open: it stays as it was left from one popup to the next. */
   let keyOpen = false;
 
@@ -114,11 +166,22 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
    * A row's flags, then its other cells: From, its marks. Its title says which table it is of, but not for the row
    * opened on, which the "Here:" line names. `key`, the "?" button, goes after its flags, or after its first cell.
    */
-  function rowFacts(row: AvpRow, document: string, request: PopupRequest, opened: boolean, key?: HTMLElement): HTMLElement {
+  function rowFacts(
+    row: AvpRow,
+    document: string,
+    request: PopupRequest,
+    opened: boolean,
+    key?: HTMLElement,
+  ): HTMLElement {
     const node = element('div', undefined, 'popup-row');
     const summary = site.summary(document);
     if (!opened) {
-      const where = [[row.type, row.table ?? row.section].filter(Boolean).join(' '), document !== request.doc.id && summary ? site.label(summary) : ''].filter(Boolean).join(' · ');
+      const where = [
+        [row.type, row.table ?? row.section].filter(Boolean).join(' '),
+        document !== request.doc.id && summary ? site.label(summary) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ');
       node.append(element('div', where, 'popup-row-title'));
     }
     const flags = flagsOf(row);
@@ -160,16 +223,28 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
         return text ? [[text, [row.type, row.table ?? row.section].filter(Boolean).join(' ')]] : [];
       });
       if (!found.length) return undefined;
-      return new Set(found.map(([text]) => text)).size === 1 ? found[0][0] : found.map(([text, where]) => `${text} (${where})`).join(', ');
+      return new Set(found.map(([text]) => text)).size === 1
+        ? found[0][0]
+        : found.map(([text, where]) => `${text} (${where})`).join(', ');
     };
     const flagged = rows.some(row => flagTable(row).length);
     if (flagged) for (const [bit, meaning] of Object.entries(bitMeaning)) add(bit, meaning);
     const columns = [...new Set(rows.flatMap(row => otherCells(row).map(([column]) => column)))];
     for (const column of columns) if (columnNotes[column]) add(column, columnNotes[column]);
     const p = said(row => bitRule(row, 'P') && flagWords[bitRule(row, 'P')!]);
-    if (p) add('P', 'Protected, not shown: it was for end-to-end security, which RFC 6733 dropped; it says to leave the bit clear.', p);
+    if (p)
+      add(
+        'P',
+        'Protected, not shown: it was for end-to-end security, which RFC 6733 dropped; it says to leave the bit clear.',
+        p,
+      );
     const encrypt = said(encryptOf);
-    if (encrypt) add('Encrypt', 'Not shown: whether the AVP may be encrypted with RFC 3588 end-to-end security, which RFC 6733 dropped.', encrypt);
+    if (encrypt)
+      add(
+        'Encrypt',
+        'Not shown: whether the AVP may be encrypted with RFC 3588 end-to-end security, which RFC 6733 dropped.',
+        encrypt,
+      );
     key.hidden = !keyOpen;
     const button = element('button', '?', 'control popup-key-button');
     button.type = 'button';
@@ -191,12 +266,14 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     const all = files.flatMap(({ file, name, document }) => avpRows(file, name).map(row => ({ row, document })));
     if (use?.kind === 'row') all.sort((a, b) => Number(b.row === use.row) - Number(a.row === use.row));
     const seen = new Set<string>();
-    const rows = all.filter(({ row }) => {
-      const key = JSON.stringify([row.type, row.cells.filter(([column]) => column !== 'Name')]);
-      if (!rowSaysMore(row) || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(0, 3);
+    const rows = all
+      .filter(({ row }) => {
+        const key = JSON.stringify([row.type, row.cells.filter(([column]) => column !== 'Name')]);
+        if (!rowSaysMore(row) || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 3);
     const rule = use?.kind === 'head' ? use.rule : files.flatMap(({ file, name }) => groupedRules(file, name))[0];
     return { rows, rule };
   }
@@ -213,7 +290,13 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       seen.add(lineOf(node));
       return true;
     });
-    let active = at !== undefined && at < uses.length ? at : Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
+    let active =
+      at !== undefined && at < uses.length
+        ? at
+        : Math.max(
+            0,
+            uses.findIndex(node => lineOf(node) === lineOf(opener)),
+          );
     if (at !== undefined) uses[active]?.classList.add('avp-current');
     panel.dataset.avp = name;
     shell.loadThenRedraw(token.target?.document, request, active => show(request, active));
@@ -231,14 +314,26 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     if (definitionRows.length) {
       const { button, key } = factsKey(definitionRows.map(({ row }) => row));
       const keyed = definitionRows.find(({ row }) => flagTable(row).length) ?? definitionRows[0];
-      for (const item of definitionRows) panel.append(rowFacts(item.row, item.document, request, use?.kind === 'row' && item.row === use.row, item === keyed ? button : undefined));
+      for (const item of definitionRows)
+        panel.append(
+          rowFacts(
+            item.row,
+            item.document,
+            request,
+            use?.kind === 'row' && item.row === use.row,
+            item === keyed ? button : undefined,
+          ),
+        );
       if (key.childElementCount) panel.append(key);
       else button.remove();
     }
     if (rule?.members.length) panel.append(ruleContents(rule, use?.kind === 'head', 'Contents'));
     const { definition, details } = namePlaces(token, lines, doc);
     const places = element('div', undefined, 'popup-places');
-    const rows = [definition && shell.placeRow('Definition', 'place-definition', definition, request), details && shell.placeRow('Details', 'place-details', details, request)];
+    const rows = [
+      definition && shell.placeRow('Definition', 'place-definition', definition, request),
+      details && shell.placeRow('Details', 'place-details', details, request),
+    ];
     places.append(...rows.filter(row => row !== undefined));
     // In the targets' grid, for their columns to line up.
     if (tables.length) {
@@ -250,7 +345,9 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     }
     if (places.childElementCount) panel.append(places);
     // Labels as wide in the facts as in the places below them, for their values to start in one column.
-    const labels = [...panel.querySelectorAll('.popup-facts dt, .popup-places .popup-place > span:first-child')].map(node => node.textContent!.length);
+    const labels = [...panel.querySelectorAll('.popup-facts dt, .popup-places .popup-place > span:first-child')].map(
+      node => node.textContent!.length,
+    );
     if (labels.length) panel.style.setProperty('--popup-label', `${Math.max(...labels)}ch`);
     const actions = element('div', undefined, 'popup-actions');
     const count = element('span', `.dad ${active + 1}/${uses.length}`);
@@ -275,15 +372,23 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       jumpTo(node);
       const line = lineOf(node);
       const position = doc.sections.find(section => section.section === line.dataset.section);
-      const row = lines[Number(line.dataset.line)].tokens.find(token => token.avp === name && token.source?.row)?.source;
-      if (position && pane.readsDocument()) pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
+      const row = lines[Number(line.dataset.line)].tokens.find(
+        token => token.avp === name && token.source?.row,
+      )?.source;
+      if (position && pane.readsDocument())
+        pane.show(row ?? { ...position, name, exact: true, occurrence: true }, doc, true);
     };
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
     uses.forEach((node, index) => {
       const line = lineOf(node);
       // The spacing only aligns the line with its neighbours in the file.
-      const text = lines[Number(line.dataset.line)].tokens.filter(token => !token.kind).map(token => token.text).join('').replace(/\s+/g, ' ').trim();
+      const text = lines[Number(line.dataset.line)].tokens
+        .filter(token => !token.kind)
+        .map(token => token.text)
+        .join('')
+        .replace(/\s+/g, ' ')
+        .trim();
       // The rule a member line is in, as a command is abbreviated: a bare `[ TMGI ]` says nothing of which.
       const rule = ruleAt(request.file, Number(line.dataset.line));
       const inRule = rule && rule.line !== Number(line.dataset.line) ? `${rule.short} · ` : '';
@@ -299,7 +404,9 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
     const usagesTitle = element('summary');
     usagesTitle.append(...counted('Uses', uses.length));
     usages.append(usagesTitle, list);
-    usages.ontoggle = () => { if (usages.open) buttons[active]?.scrollIntoView?.({ block: 'nearest' }); };
+    usages.ontoggle = () => {
+      if (usages.open) buttons[active]?.scrollIntoView?.({ block: 'nearest' });
+    };
     panel.append(usages);
     shell.place(panel, closeButton, opener);
     buttons[active]?.scrollIntoView?.({ block: 'nearest' });

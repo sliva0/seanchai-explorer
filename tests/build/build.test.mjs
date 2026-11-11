@@ -11,10 +11,16 @@ import { rfcPages } from '../../src/rfc-text.ts';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = path.join(root, 'dist');
-const specifications = process.env.SEANCHAI_SPECIFICATIONS ?? path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
+const specifications =
+  process.env.SEANCHAI_SPECIFICATIONS ??
+  path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
 
 function npm(script, env = {}) {
-  const result = spawnSync('npm', ['run', '-s', script], { cwd: root, encoding: 'utf8', env: { ...process.env, ...env } });
+  const result = spawnSync('npm', ['run', '-s', script], {
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
   assert.equal(result.status, 0, `${script}\n${result.stdout}\n${result.stderr}`);
 }
 const json = async file => JSON.parse(await readFile(path.join(dist, 'data', file), 'utf8'));
@@ -54,8 +60,15 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   await checkRfcAnchors(index);
   const grammar = await readFile(path.join(dist, 'data/syntax/dad.tmLanguage.json'));
   assert.deepEqual(await readFile(path.join(dist, 'syntax/dad.tmLanguage.json')), grammar);
-  assert.ok((await readFile(path.join(root, 'syntax/dad.tmLanguage.json'))).equals(grammar), 'syntax/dad.tmLanguage.json is behind the export: run npm run fixture');
-  const check = spawnSync('node', ['scripts/check-public.mjs', fileURLToPath(new URL('fixtures/with-pdf/', import.meta.url))], { cwd: root, encoding: 'utf8' });
+  assert.ok(
+    (await readFile(path.join(root, 'syntax/dad.tmLanguage.json'))).equals(grammar),
+    'syntax/dad.tmLanguage.json is behind the export: run npm run fixture',
+  );
+  const check = spawnSync(
+    'node',
+    ['scripts/check-public.mjs', fileURLToPath(new URL('fixtures/with-pdf/', import.meta.url))],
+    { cwd: root, encoding: 'utf8' },
+  );
   assert.equal(check.status, 1);
   assert.match(check.stderr, /sources\/a\.pdf/);
 });
@@ -74,12 +87,14 @@ test('self-hosted build ships the PDFs, viewer and PDF.js', { skip }, async () =
   }
   assert.ok((await readFile(path.join(dist, 'viewer.html'), 'utf8')).includes('viewerContainer'));
   assert.ok((await readFile(path.join(dist, 'pdfjs/wasm/openjpeg.wasm'))).length > 0);
-  assert.ok(await checkRfcAnchors(index) > 0);
+  assert.ok((await checkRfcAnchors(index)) > 0);
 });
 
 test('a self-hosted export is refused for a public build', { skip }, async () => {
   const result = spawnSync('node', ['scripts/prepare.mjs'], {
-    cwd: root, encoding: 'utf8', env: { ...process.env, SEANCHAI_EXPORT: path.join(dist, 'data') },
+    cwd: root,
+    encoding: 'utf8',
+    env: { ...process.env, SEANCHAI_EXPORT: path.join(dist, 'data') },
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /public build cannot use a self-hosted export/);

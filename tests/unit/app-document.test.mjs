@@ -23,7 +23,9 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
     absent(document.querySelector('pre .correction-toggle'));
     const url = [...document.querySelectorAll('pre a')].find(a => a.textContent.startsWith('https://'));
     assert.equal(url.target, '_blank');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the raw link is worked out when clicked, from the top visible section', async () => {
@@ -46,14 +48,23 @@ test('the raw link is worked out when clicked, from the top visible section', as
     click(page, toggle);
     assert.equal(toggle.getAttribute('href'), `#29153-j00/${rows[visible].dataset.section}?raw=1`);
     window.HTMLElement.prototype.getBoundingClientRect = rect;
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('sections, findings and holes link to their clause in the current view', async () => {
-  const finding = { severity: 'note', rule: 'a-rule', message: 'Said.', section: '5.1', origin: null, accepted_by: null };
+  const finding = {
+    severity: 'note',
+    rule: 'a-rule',
+    message: 'Said.',
+    section: '5.1',
+    origin: null,
+    accepted_by: null,
+  };
   const page = await boot({
     hash: '#29061-6f0',
-    transform: (path, data) => path === 'data/documents/29061-6f0.json' ? { ...data, findings: [finding] } : data,
+    transform: (path, data) => (path === 'data/documents/29061-6f0.json' ? { ...data, findings: [finding] } : data),
   });
   try {
     const { document } = page;
@@ -68,13 +79,22 @@ test('sections, findings and holes link to their clause in the current view', as
     assert.match(holes.querySelector('li a').getAttribute('href'), /^#29061-6f0\/[\d.]+$/);
     await page.go('#29061-6f0?raw=1');
     assert.match(document.querySelector('#diagnostic-sections li a').getAttribute('href'), /\?raw=1$/);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('the strip\'s toggles open one panel at a time, and one with nothing to show stays off', async () => {
+test("the strip's toggles open one panel at a time, and one with nothing to show stays off", async () => {
   const page = await boot({
     hash: '#29061-6f0',
-    transform: (path, data) => path === 'data/documents/29061-6f0.json' ? { ...data, findings: [{ severity: 'warning', rule: 'r', message: 'm', section: '5.1', accepted_by: null }], holes: [] } : data,
+    transform: (path, data) =>
+      path === 'data/documents/29061-6f0.json'
+        ? {
+            ...data,
+            findings: [{ severity: 'warning', rule: 'r', message: 'm', section: '5.1', accepted_by: null }],
+            holes: [],
+          }
+        : data,
   });
   try {
     const { document } = page;
@@ -94,7 +114,9 @@ test('the strip\'s toggles open one panel at a time, and one with nothing to sho
     findings.click();
     assert.equal(panel(findings).hidden, true);
     assert.equal(findings.getAttribute('aria-expanded'), 'false');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a mention link marks its line, a later route clears it, and loading says so', async () => {
@@ -111,10 +133,12 @@ test('a mention link marks its line, a later route clears it, and loading says s
     if (status) assert.match(status.textContent, /^Loading TS 29\.061/);
     await settle();
     absent(document.querySelector('main [role="status"]'));
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('; From: links to the document a reprint comes from, and the block\'s names to theirs', async () => {
+test("; From: links to the document a reprint comes from, and the block's names to theirs", async () => {
   const page = await boot({ hash: '#29109-j00' });
   try {
     const { document, window } = page;
@@ -128,17 +152,30 @@ test('; From: links to the document a reprint comes from, and the block\'s names
     click(page, anchor);
     await settle();
     assert.equal(window.location.hash, '#rfc6733');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('the section list says what a clause\'s value tables hold', async () => {
+test("the section list says what a clause's value tables hold", async () => {
   const page = await boot({ hash: '#29217-j00' });
   try {
     const items = [...page.document.querySelectorAll('.section-list li')].map(item => item.textContent);
-    assert.ok(items.some(item => /Value Table \S+ · Bits \(\d+\)/.test(item)), items.join('\n'));
-    assert.ok(items.some(item => /Value Table Feature-List · Features list \d+ \([^)]+\) \(\d+\)/.test(item)), items.join('\n'));
-    assert.ok(items.some(item => /Value Table \S+ · Result codes \(\d+\)/.test(item)), items.join('\n'));
-  } finally { await page.close(); }
+    assert.ok(
+      items.some(item => /Value Table \S+ · Bits \(\d+\)/.test(item)),
+      items.join('\n'),
+    );
+    assert.ok(
+      items.some(item => /Value Table Feature-List · Features list \d+ \([^)]+\) \(\d+\)/.test(item)),
+      items.join('\n'),
+    );
+    assert.ok(
+      items.some(item => /Value Table \S+ · Result codes \(\d+\)/.test(item)),
+      items.join('\n'),
+    );
+  } finally {
+    await page.close();
+  }
 });
 
 test('the strip names the section at the top of the view, and opens the Sections panel at its entry', async () => {
@@ -152,13 +189,20 @@ test('the strip names the section at the top of the view, and opens the Sections
     const section = row.dataset.section;
     const { title } = (await readFixture('documents/29153-j00.json')).sections.find(entry => entry.section === section);
     const toggle = document.querySelector('.section-control .disclosure');
-    assert.deepEqual([...document.querySelectorAll('#diagnostics button')].map(node => node.textContent.split(' ')[0]).slice(0, 3), ['Findings', 'Holes', 'Sections']);
+    assert.deepEqual(
+      [...document.querySelectorAll('#diagnostics button')].map(node => node.textContent.split(' ')[0]).slice(0, 3),
+      ['Findings', 'Holes', 'Sections'],
+    );
     same(toggle.nextElementSibling.firstElementChild, crumb, 'the crumb follows the Sections toggle');
     pane(document).scrollTop = Number(row.dataset.line) * 20 - 12;
     pane(document).dispatchEvent(new window.Event('scroll'));
     await new Promise(resolve => setTimeout(resolve, 200));
     assert.equal(crumb.textContent, `${section} · ${title}`);
-    assert.match(window.location.hash, new RegExp(`top=${Number(row.dataset.line) - 1}$`), 'and the URL, once it has come to rest');
+    assert.match(
+      window.location.hash,
+      new RegExp(`top=${Number(row.dataset.line) - 1}$`),
+      'and the URL, once it has come to rest',
+    );
     click(page, crumb);
     const panel = document.querySelector('#diagnostic-sections');
     assert.equal(panel.hidden, false);
@@ -172,5 +216,7 @@ test('the strip names the section at the top of the view, and opens the Sections
     assert.equal(panel.querySelectorAll('[aria-current]').length, 1);
     click(page, toggle);
     assert.equal(panel.hidden, true, 'the toggle does');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });

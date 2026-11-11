@@ -34,7 +34,14 @@ export function foldName(name: string): FoldedName {
     starts.push(compact.length);
     compact += word;
   }
-  return { lower, spaced: words.join(' '), compact, starts, initials: words.map(word => word[0]).join(''), digits: digitsOf(compact) };
+  return {
+    lower,
+    spaced: words.join(' '),
+    compact,
+    starts,
+    initials: words.map(word => word[0]).join(''),
+    digits: digitsOf(compact),
+  };
 }
 
 export function foldQuery(query: string): FoldedQuery {
@@ -55,9 +62,10 @@ const MIN_OPEN_ENDED = 7;
 /** A loose subsequence must cover this share of the name, or nearly any long name would hold it. */
 const MIN_COVERAGE = 1 / 3;
 
-export const allowedTypos = (length: number) => length >= 9 ? 2 : length >= 5 ? 1 : 0;
+export const allowedTypos = (length: number) => (length >= 9 ? 2 : length >= 5 ? 1 : 0);
 
-export const allowsFuzzy = (query: FoldedQuery) => query.compact.length >= MIN_FUZZY && query.compact.length <= MAX_FUZZY && /[a-z]/.test(query.compact);
+export const allowsFuzzy = (query: FoldedQuery) =>
+  query.compact.length >= MIN_FUZZY && query.compact.length <= MAX_FUZZY && /[a-z]/.test(query.compact);
 
 const rows = [0, 1, 2].map(() => new Int32Array(MAX_FUZZY + 4));
 
@@ -79,7 +87,8 @@ function distances(query: string, text: string, from: number, limit: number): In
       const a = query.charCodeAt(i - 1);
       const b = text.charCodeAt(from + j - 1);
       let cost = Math.min(previous[j] + 1, row[j - 1] + 1, previous[j - 1] + (a === b ? 0 : 1));
-      if (i > 1 && j > 1 && a === text.charCodeAt(from + j - 2) && query.charCodeAt(i - 2) === b) cost = Math.min(cost, before[j - 2] + 1);
+      if (i > 1 && j > 1 && a === text.charCodeAt(from + j - 2) && query.charCodeAt(i - 2) === b)
+        cost = Math.min(cost, before[j - 2] + 1);
       row[j] = cost;
       if (cost < least) least = cost;
     }
@@ -150,17 +159,20 @@ export function wordPrefixes(query: FoldedQuery, name: FoldedName): Span[] | nul
   const wanted = query.compact;
   if (wanted.length < MIN_FUZZY) return null;
   if (wanted.length < MIN_SPLIT) {
-    return name.starts.length >= wanted.length && name.initials.startsWith(wanted) ? name.starts.slice(0, wanted.length).map(start => [start, start + 1]) : null;
+    return name.starts.length >= wanted.length && name.initials.startsWith(wanted)
+      ? name.starts.slice(0, wanted.length).map(start => [start, start + 1])
+      : null;
   }
   const text = name.compact;
-  const wordEnd = (index: number) => index + 1 < name.starts.length ? name.starts[index + 1] : text.length;
+  const wordEnd = (index: number) => (index + 1 < name.starts.length ? name.starts[index + 1] : text.length);
   function place(position: number, word: number): Span[] | null {
     if (position === wanted.length) return [];
     for (let index = word; index < name.starts.length; index++) {
       const start = name.starts[index];
       const room = wordEnd(index) - start;
       let length = 0;
-      while (length < room && position + length < wanted.length && text[start + length] === wanted[position + length]) length++;
+      while (length < room && position + length < wanted.length && text[start + length] === wanted[position + length])
+        length++;
       for (; length > 0; length--) {
         const rest = place(position + length, index + 1);
         if (rest) return [[start, start + length], ...rest];
@@ -192,5 +204,7 @@ export function spansInName(name: string, spans: Span[]): Span[] {
   for (let index = 0; index < name.length; index++) {
     if (/[a-z0-9]/i.test(name[index])) offsets.push(index);
   }
-  return spans.filter(([start, end]) => end > start && end <= offsets.length).map(([start, end]) => [offsets[start], offsets[end - 1] + 1]);
+  return spans
+    .filter(([start, end]) => end > start && end <= offsets.length)
+    .map(([start, end]) => [offsets[start], offsets[end - 1] + 1]);
 }

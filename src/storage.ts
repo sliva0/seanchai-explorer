@@ -29,15 +29,25 @@ export const session = (): Store => sessionStorage;
 
 /** What is stored under a key, or null where nothing is or storage is blocked. */
 export function readStored(key: StorageKey, store: () => Store = local): string | null {
-  try { return store().getItem(storageKeys[key]); } catch { return null; }
+  try {
+    return store().getItem(storageKeys[key]);
+  } catch {
+    return null;
+  }
 }
 
 /** Stores a value where storage allows it; where it does not, the setting lasts as long as the page. */
 export function writeStored(key: StorageKey, value: string, store: () => Store = local) {
-  try { store().setItem(storageKeys[key], value); } catch {}
+  try {
+    store().setItem(storageKeys[key], value);
+  } catch {}
 }
 
 /** A stored JSON value, or null where it is missing or no longer parses. */
 export function readStoredJSON(key: StorageKey, store: () => Store = local): unknown {
-  try { return JSON.parse(readStored(key, store) ?? 'null'); } catch { return null; }
+  try {
+    return JSON.parse(readStored(key, store) ?? 'null');
+  } catch {
+    return null;
+  }
 }

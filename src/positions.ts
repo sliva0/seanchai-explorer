@@ -2,7 +2,10 @@ import { readStoredJSON, writeStored } from './storage.ts';
 import type { Store } from './storage.ts';
 
 /** A view's scroll: the line at its top edge, and how many pixels of that line are above the edge. */
-export interface ScrollPosition { top: number; offset: number }
+export interface ScrollPosition {
+  top: number;
+  offset: number;
+}
 
 export type PositionStore = ReturnType<typeof createPositionStore>;
 

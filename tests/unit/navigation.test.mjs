@@ -14,8 +14,13 @@ test('section and raw links survive encoding and parsing', () => {
 });
 
 test('a route keeps the pane, raw mode and line it was shared with', () => {
-  const source = { document: '29061-i10', position: { section: '16.4.7', page: 120, name: '3GPP-MS-TimeZone', exact: true, row: true } };
-  const route = parseRoute(routeFor({ document: '29214-i40', section: '5.4.0' }, { raw: true, source, line: 125, top: 90, paneHidden: true }));
+  const source = {
+    document: '29061-i10',
+    position: { section: '16.4.7', page: 120, name: '3GPP-MS-TimeZone', exact: true, row: true },
+  };
+  const route = parseRoute(
+    routeFor({ document: '29214-i40', section: '5.4.0' }, { raw: true, source, line: 125, top: 90, paneHidden: true }),
+  );
   assert.equal(route.raw, true);
   assert.deepEqual(route.source, source);
   assert.equal(route.line, 125);
@@ -24,7 +29,10 @@ test('a route keeps the pane, raw mode and line it was shared with', () => {
 });
 
 test('a source position survives the route whole', () => {
-  const source = { document: '29061-i10', position: { section: '16.4.7', page: 120, name: 'Ns', exact: true, occurrence: true, row: true } };
+  const source = {
+    document: '29061-i10',
+    position: { section: '16.4.7', page: 120, name: 'Ns', exact: true, occurrence: true, row: true },
+  };
   assert.deepEqual(parseRoute(routeFor({ document: '29061-i10' }, { source })).source, source);
   const plain = { document: '29061-i10', position: { section: '16.4.7', page: null } };
   assert.deepEqual(parseRoute(routeFor({ document: '29061-i10' }, { source: plain })).source, plain);

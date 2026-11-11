@@ -5,7 +5,8 @@ import path from 'node:path';
 
 const dist = path.resolve(process.argv[2] ?? 'dist');
 const entries = await readdir(dist, { recursive: true, withFileTypes: true });
-const problems = entries.filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.pdf'))
+const problems = entries
+  .filter(entry => entry.isFile() && entry.name.toLowerCase().endsWith('.pdf'))
   .map(entry => path.relative(dist, path.join(entry.parentPath, entry.name)));
 for (const name of ['viewer.html', 'pdfjs']) if (existsSync(path.join(dist, name))) problems.push(name);
 if (problems.length) {

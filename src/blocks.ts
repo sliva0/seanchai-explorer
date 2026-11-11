@@ -55,17 +55,28 @@ function avpRow(block: Block, row: TableRow | Allocation, name: string): AvpRow 
   const columns = block.columns ?? [];
   const cells = columns.map((column, at): [string, string] => [column, row.cells[at]]);
   return {
-    type: block.type, name, section: block.section, table: block.fields.Table ?? null, cells, line: row.line,
-    code: row.code ?? null, dataType: row.type ?? null, vendor: row.vendor ?? null,
+    type: block.type,
+    name,
+    section: block.section,
+    table: block.fields.Table ?? null,
+    cells,
+    line: row.line,
+    code: row.code ?? null,
+    dataType: row.type ?? null,
+    vendor: row.vendor ?? null,
   };
 }
 
 /** Every row of a file's AVP tables, `Reused AVPs` blocks and AVP Codes registries, in file order. */
-export const allAvpRows = perFile(({ blocks }) => blocks.flatMap(block => {
-  if (block.type === 'AVP Table' || block.type === 'Reused AVPs') return (block.rows ?? []).map(row => avpRow(block, row, row.name));
-  if (block.type === 'Registry' && block.fields.Registry === 'AVP Codes') return (block.allocations ?? []).flatMap(row => row.name ? [avpRow(block, row, row.name)] : []);
-  return [];
-}));
+export const allAvpRows = perFile(({ blocks }) =>
+  blocks.flatMap(block => {
+    if (block.type === 'AVP Table' || block.type === 'Reused AVPs')
+      return (block.rows ?? []).map(row => avpRow(block, row, row.name));
+    if (block.type === 'Registry' && block.fields.Registry === 'AVP Codes')
+      return (block.allocations ?? []).flatMap(row => (row.name ? [avpRow(block, row, row.name)] : []));
+    return [];
+  }),
+);
 
 const avpRowsByName = perFile(file => byName(allAvpRows(file).map(row => [row.name, row])));
 

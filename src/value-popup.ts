@@ -12,7 +12,7 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
   /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
   function originLabel({ origin }: ValueRow): string {
     const summary = origin?.target && site.summary(origin.target.document);
-    return summary ? site.label(summary) : origin?.reference ?? '';
+    return summary ? site.label(summary) : (origin?.reference ?? '');
   }
 
   /**
@@ -51,7 +51,15 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
     panel.append(source);
     if (row.origin) {
       const origin = originPlace(row);
-      const found = origin && shell.placeRow('Defined in', 'place-origin', origin, request, [originLabel(row), origin.target!.section].join(' · '));
+      const found =
+        origin &&
+        shell.placeRow(
+          'Defined in',
+          'place-origin',
+          origin,
+          request,
+          [originLabel(row), origin.target!.section].join(' · '),
+        );
       if (found) {
         const places = element('div', undefined, 'popup-places');
         places.append(found);
@@ -68,7 +76,8 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
     const list = element('div', undefined, 'usage-list');
     const buttons: HTMLButtonElement[] = [];
     let active = table.rows.indexOf(row);
-    const nameNode = (index: number) => documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
+    const nameNode = (index: number) =>
+      documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
     // Opening only shows where the row is: the pane moves when a row is chosen, not from under what it was sent to.
     const mark = (index: number, follow = true) => {
       active = index;
@@ -89,7 +98,13 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
     previous.onclick = () => select(active - 1);
     next.onclick = () => select(active + 1);
     table.rows.forEach((item, index) => {
-      const button = element('button', [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(item)}`].filter(Boolean).join(' · '), 'usage-link');
+      const button = element(
+        'button',
+        [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(item)}`]
+          .filter(Boolean)
+          .join(' · '),
+        'usage-link',
+      );
       button.onclick = () => select(index);
       buttons.push(button);
       list.append(button);

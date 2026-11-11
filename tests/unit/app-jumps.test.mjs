@@ -40,7 +40,9 @@ test('ctrl+o and ctrl+i walk jumps exactly, within a document and between docume
     press(page, { key: 'I', code: 'KeyI', altKey: true });
     await settle();
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the walks skip what is in the document for [d and ]d, [j and ]j are the plain ones, and a chord lapses', async () => {
@@ -55,7 +57,7 @@ test('the walks skip what is in the document for [d and ]d, [j and ]j are the pl
     press(page, { key: '[' });
     assert.equal(press(page, { key: 'd' }).defaultPrevented, true);
     await settle();
-    assert.match(heading(), /^3GPP TS 29\.153/, 'past the RFC\'s other place');
+    assert.match(heading(), /^3GPP TS 29\.153/, "past the RFC's other place");
     press(page, { key: ']' });
     press(page, { key: 'd' });
     await settle();
@@ -68,7 +70,9 @@ test('the walks skip what is in the document for [d and ]d, [j and ]j are the pl
     assert.equal(lapsed.defaultPrevented, false);
     assert.equal(press(page, { key: 'd' }).defaultPrevented, false, 'a d alone is nothing');
     assert.equal(press(page, { key: '[', ctrlKey: true }).defaultPrevented, false);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the keys leave what takes typing alone, and work from a checkbox', async () => {
@@ -91,16 +95,25 @@ test('the keys leave what takes typing alone, and work from a checkbox', async (
     assert.equal(press(page, { key: 'i', ctrlKey: true }).defaultPrevented, true);
     await settle();
     assert.ok(document.querySelector('#document'));
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('the header\'s buttons name their key and target, stay in the tab order at the ends, and keep the focus across documents', async () => {
+test("the header's buttons name their key and target, stay in the tab order at the ends, and keep the focus across documents", async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document } = page;
     layOut(page);
-    assert.deepEqual([...document.querySelectorAll('.jump-button')].map(node => node.textContent), ['‹', '›', '«', '»']);
-    same(document.querySelector('.document-header').firstElementChild, document.querySelector('.jump-controls'), 'left of the title');
+    assert.deepEqual(
+      [...document.querySelectorAll('.jump-button')].map(node => node.textContent),
+      ['‹', '›', '«', '»'],
+    );
+    same(
+      document.querySelector('.document-header').firstElementChild,
+      document.querySelector('.jump-controls'),
+      'left of the title',
+    );
     absent(document.querySelector('.source-header .jump-controls'));
     for (const node of document.querySelectorAll('.jump-button')) {
       assert.equal(node.getAttribute('aria-disabled'), 'true');
@@ -124,19 +137,24 @@ test('the header\'s buttons name their key and target, stay in the tab order at 
     assert.equal(button(document, 'back').getAttribute('aria-disabled'), 'true');
     button(document, 'back').click();
     await settle();
-    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'), 'at the end it does nothing');
+    assert.ok(
+      document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'),
+      'at the end it does nothing',
+    );
     button(document, 'forwardDocument').click();
     await settle();
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
     assert.equal(button(document, 'backDocument').title, 'Back to TS 29.153 line 113 ([d)');
     await follow(page, '#');
     await follow(page, '#search');
-    absent(document.querySelector('.jump-button'), 'only a document\'s header has them');
+    absent(document.querySelector('.jump-button'), "only a document's header has them");
     document.activeElement.blur();
     press(page, { key: 'o', altKey: true });
     await settle();
     assert.ok(document.querySelector('.index-view'), 'the keys work everywhere');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('following a link pushes history only for a new page, and in a page it replaces', async () => {
@@ -146,7 +164,10 @@ test('following a link pushes history only for a new page, and in a page it repl
     const length = window.history.length;
     let pushed = 0;
     const pushState = window.history.pushState.bind(window.history);
-    window.history.pushState = (...args) => { pushed++; pushState(...args); };
+    window.history.pushState = (...args) => {
+      pushed++;
+      pushState(...args);
+    };
     click(page, document.querySelector('.section-list a'));
     await settle();
     assert.match(window.location.hash, /^#29153-j00\//);
@@ -164,7 +185,9 @@ test('following a link pushes history only for a new page, and in a page it repl
     await follow(page, '#29153-j00');
     await follow(page, '#29153-j00?raw=1');
     assert.equal(pushed, 5, 'raw text has its own lines, so it is a page');
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a document comes back where it was left unless its route says otherwise, and raw keeps its own place', async () => {
@@ -177,12 +200,14 @@ test('a document comes back where it was left unless its route says otherwise, a
     await follow(page, '#29153-j00');
     assert.equal(pane(document).scrollTop, 1237);
     await follow(page, '#29153-j00?raw=1');
-    assert.equal(pane(document).scrollTop, 0, 'the raw text\'s lines are not these');
+    assert.equal(pane(document).scrollTop, 0, "the raw text's lines are not these");
     await follow(page, '#');
     await follow(page, '#29153-j00?top=9');
     assert.equal(pane(document).scrollTop, 180, 'a line in the route wins');
     assert.ok(page.window.sessionStorage.getItem('seanchai-positions').includes('"29153-j00"'));
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a second walk before a document has loaded keeps the exact place of the first', async () => {
@@ -199,7 +224,9 @@ test('a second walk before a document has loaded keeps the exact place of the fi
     press(page, { key: 'o', ctrlKey: true });
     await settle();
     assert.equal(pane(document).scrollTop, 1237);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('the index comes back as far down as it was left', async () => {
@@ -214,7 +241,9 @@ test('the index comes back as far down as it was left', async () => {
     await settle();
     assert.ok(document.querySelector('.index-view'));
     assert.equal(content.scrollTop, 300);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
 test('a reload keeps the jump list and the position, and steps over a document no longer in the corpus', async () => {
@@ -236,10 +265,12 @@ test('a reload keeps the jump list and the position, and steps over a document n
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
     assert.equal(pane(document).scrollTop, 204);
     assert.equal(JSON.parse(page.window.sessionStorage.getItem('seanchai-jumps')).index, 0);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });
 
-test('moving the pane alone is no jump, moving both is, and going back moves both back with the reader\'s pane state', async () => {
+test("moving the pane alone is no jump, moving both is, and going back moves both back with the reader's pane state", async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
@@ -275,5 +306,7 @@ test('moving the pane alone is no jump, moving both is, and going back moves bot
     await settle();
     assert.match(window.location.hash, /pane=0/);
     assert.equal(document.querySelector('.source-toggle input').checked, false);
-  } finally { await page.close(); }
+  } finally {
+    await page.close();
+  }
 });

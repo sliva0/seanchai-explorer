@@ -5,8 +5,12 @@ import type { DadFile } from './blocks.ts';
 import type { Document } from './types.ts';
 
 /** A command where some document prints it: a block of the file at hand, or of another as the index has it. */
-export interface Command extends CommandBlock { document: string }
-export interface CodeRow extends CommandCodeRow { document: string }
+export interface Command extends CommandBlock {
+  document: string;
+}
+export interface CodeRow extends CommandCodeRow {
+  document: string;
+}
 
 /**
  * Where a block is: its clause in the pane at its name, and its `; Type:` line in the view. In another document
@@ -15,7 +19,12 @@ export interface CodeRow extends CommandCodeRow { document: string }
 export function blockPlace(command: Command, doc: Pick<Document, 'id'>): Place {
   const target = { document: command.document, section: command.section, name: command.name };
   if (command.document !== doc.id) return { document: command.document, target, line: command.line };
-  return { document: doc.id, position: { section: command.section, page: command.page, name: command.name }, target, line: command.line };
+  return {
+    document: doc.id,
+    position: { section: command.section, page: command.page, name: command.name },
+    target,
+    line: command.line,
+  };
 }
 
 /** A registry row's line, and in the pane its clause at the row's abbreviations, which no other row prints. */
@@ -27,20 +36,38 @@ export function rowPlace(row: CodeRow, doc: Pick<Document, 'id'>): Place {
 }
 
 export function tablePlace(table: CommandTable, doc: Pick<Document, 'id'>): Place {
-  return { document: doc.id, position: { section: table.section, page: table.page }, target: { document: doc.id, section: table.section }, line: table.line };
+  return {
+    document: doc.id,
+    position: { section: table.section, page: table.page },
+    target: { document: doc.id, section: table.section },
+    line: table.line,
+  };
 }
 
 /**
  * The command a token names: its block in this file, or for a registry row's half the block of that code and half
  * in the first document its Defined-In cell links to that prints one.
  */
-export function commandOf(ref: CommandRef, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): Command | undefined {
+export function commandOf(
+  ref: CommandRef,
+  doc: Pick<Document, 'id'>,
+  index: CommandIndex | undefined,
+): Command | undefined {
   if (ref.block) return { document: doc.id, ...ref.block };
-  return ref.row?.defined.flatMap(document => index?.commands.filter(command => command.document === document && command.code === ref.code && isRequest(command) === ref.request) ?? [])[0];
+  return ref.row?.defined.flatMap(
+    document =>
+      index?.commands.filter(
+        command => command.document === document && command.code === ref.code && isRequest(command) === ref.request,
+      ) ?? [],
+  )[0];
 }
 
 /** A command's place to go to: its Definition, the block. A command has no Details, its block's clause being where every document describes it. */
-export function commandPlaces(ref: CommandRef, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): { definition?: Place } {
+export function commandPlaces(
+  ref: CommandRef,
+  doc: Pick<Document, 'id'>,
+  index: CommandIndex | undefined,
+): { definition?: Place } {
   const command = commandOf(ref, doc, index);
   return command ? { definition: blockPlace(command, doc) } : {};
 }
@@ -48,7 +75,7 @@ export function commandPlaces(ref: CommandRef, doc: Pick<Document, 'id'>, index:
 /** Every command the corpus prints: the file at hand's from its own blocks, which the view shows, first; the index's of the others after. */
 export function allCommands(file: DadFile, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): Command[] {
   const here = commandFacts(file).blocks.map(block => ({ document: doc.id, ...block }));
-  return [...here, ...index?.commands.filter(command => command.document !== doc.id) ?? []];
+  return [...here, ...(index?.commands.filter(command => command.document !== doc.id) ?? [])];
 }
 
 const same = (a: Command, b: Command) => a.document === b.document && a.line === b.line;
@@ -61,8 +88,18 @@ const sharedClause = (a: string, b: string) => {
 
 /** The other half in the same document: same code and application, the one in the nearest clause, then the nearest line. */
 export function partnerOf(command: Command, commands: Command[]): Command | undefined {
-  const halves = commands.filter(other => other.document === command.document && other.code === command.code && other.application === command.application && isRequest(other) !== isRequest(command));
-  return halves.sort((a, b) => sharedClause(b.section, command.section) - sharedClause(a.section, command.section) || Math.abs(a.line - command.line) - Math.abs(b.line - command.line))[0];
+  const halves = commands.filter(
+    other =>
+      other.document === command.document &&
+      other.code === command.code &&
+      other.application === command.application &&
+      isRequest(other) !== isRequest(command),
+  );
+  return halves.toSorted(
+    (a, b) =>
+      sharedClause(b.section, command.section) - sharedClause(a.section, command.section) ||
+      Math.abs(a.line - command.line) - Math.abs(b.line - command.line),
+  )[0];
 }
 
 /**
@@ -73,15 +110,30 @@ export function definitionsOf(command: Command, commands: Command[]): { same: Co
   const name = command.name.toLowerCase();
   const others = commands.filter(other => !same(other, command));
   return {
-    same: others.filter(other => other.code === command.code && other.application === command.application && isRequest(other) === isRequest(command)),
-    differing: others.filter(other => other.name.toLowerCase() === name && (other.code !== command.code || other.application !== command.application)),
+    same: others.filter(
+      other =>
+        other.code === command.code &&
+        other.application === command.application &&
+        isRequest(other) === isRequest(command),
+    ),
+    differing: others.filter(
+      other =>
+        other.name.toLowerCase() === name && (other.code !== command.code || other.application !== command.application),
+    ),
   };
 }
 
 /** Its rows in a `Command Codes` registry: this file's from its own blocks, the others' from the index. */
-export function registryRows(command: Pick<Command, 'code'>, file: DadFile, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): CodeRow[] {
+export function registryRows(
+  command: Pick<Command, 'code'>,
+  file: DadFile,
+  doc: Pick<Document, 'id'>,
+  index: CommandIndex | undefined,
+): CodeRow[] {
   const here = commandFacts(file).rows.map(row => ({ document: doc.id, ...row }));
-  return [...here, ...index?.registry.filter(row => row.document !== doc.id) ?? []].filter(row => row.code === command.code);
+  return [...here, ...(index?.registry.filter(row => row.document !== doc.id) ?? [])].filter(
+    row => row.code === command.code,
+  );
 }
 
 /** The tables of this file with a column for the block, which a column names by the first block of its abbreviation. */

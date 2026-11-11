@@ -1,4 +1,13 @@
-import { allowsFuzzy, foldName, foldQuery, looseSubsequence, nameTypos, spansInName, wordPrefixes, wordTypos } from './fuzzy.ts';
+import {
+  allowsFuzzy,
+  foldName,
+  foldQuery,
+  looseSubsequence,
+  nameTypos,
+  spansInName,
+  wordPrefixes,
+  wordTypos,
+} from './fuzzy.ts';
 import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
 import type { DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
@@ -21,13 +30,27 @@ export const SUBSEQUENCE = 9;
 /** Approximate names kept per kind, best first: enough to find a misspelling, too few to bury a section. */
 const MAX_APPROXIMATE = 30;
 
-export interface NameGroup { name: string; kind: Kind; rank: number; entries: SearchEntry[] }
+export interface NameGroup {
+  name: string;
+  kind: Kind;
+  rank: number;
+  entries: SearchEntry[];
+}
 export type EntryResults = Record<Kind, NameGroup[]>;
 export const isApproximate = (group: Pick<NameGroup, 'rank'>) => group.rank >= INITIALS;
 
-interface IndexedEntry { entry: SearchEntry; names: number[]; application: string | null; title: string; group: string }
+interface IndexedEntry {
+  entry: SearchEntry;
+  names: number[];
+  application: string | null;
+  title: string;
+  group: string;
+}
 /** Entries with their names folded once: a query ranks each distinct name, not each entry. */
-export interface EntryIndex { entries: IndexedEntry[]; names: FoldedName[] }
+export interface EntryIndex {
+  entries: IndexedEntry[];
+  names: FoldedName[];
+}
 export type FoldedMention = Mention & { folded: string };
 
 type Releases = Pick<DocumentSummary, 'release'> | undefined;
@@ -77,25 +100,34 @@ export function searchSpecifications(documents: DocumentSummary[], query: string
     const interfaces = doc.interfaces ?? [];
     const byInterface = interfaces.flatMap(name => matchInterface(query, name)?.rank ?? []);
     const text = `${doc.specification} ${doc.title} ${doc.version ?? ''}`.toLowerCase();
-    const byWords = wanted.every(word => text.includes(word) || interfaces.some(name => matchInterface(word, name))) ? [SUBSTRING] : [];
+    const byWords = wanted.every(word => text.includes(word) || interfaces.some(name => matchInterface(word, name)))
+      ? [SUBSTRING]
+      : [];
     const rank = Math.min(...[byNumber ?? []].flat(), ...byInterface, ...byWords);
     if (rank !== Infinity) ranked.push({ doc, rank });
   }
-  return ranked.sort((a, b) => a.rank - b.rank || newest(a.doc, b.doc) || a.doc.id.localeCompare(b.doc.id)).map(item => item.doc);
+  return ranked
+    .toSorted((a, b) => a.rank - b.rank || newest(a.doc, b.doc) || a.doc.id.localeCompare(b.doc.id))
+    .map(item => item.doc);
 }
 
 function rankNumber(entry: SearchEntry, code: number): number | null {
   const identity = entry.identity;
   switch (identity?.kind) {
-    case 'avp': return identity.code === code ? EXACT : null;
-    case 'application': return identity.application_id === code ? EXACT : null;
-    case 'registry': return identity.code === code ? EXACT : null;
+    case 'avp':
+      return identity.code === code ? EXACT : null;
+    case 'application':
+      return identity.application_id === code ? EXACT : null;
+    case 'registry':
+      return identity.code === code ? EXACT : null;
     // A bit's number means nothing without its table.
-    case 'value': return identity.value_kind === 'result-codes' && identity.value === code ? EXACT : null;
+    case 'value':
+      return identity.value_kind === 'result-codes' && identity.value === code ? EXACT : null;
     case 'command':
       if (identity.command_code === code) return EXACT;
       return identity.application_id === code || identity.header_application_id === code ? PREFIX : null;
-    default: return null;
+    default:
+      return null;
   }
 }
 
@@ -118,10 +150,12 @@ function commandTitles(entries: SearchEntry[]): Map<string, string> {
     const counts = spellings.get(key) ?? new Map<string, number>();
     spellings.set(key, counts.set(name, (counts.get(name) ?? 0) + 1));
   }
-  const shortened = (name: string) => /^[A-Z]{2}-/.test(name) ? 1 : 0;
+  const shortened = (name: string) => (/^[A-Z]{2}-/.test(name) ? 1 : 0);
   const titles = new Map<string, string>();
   for (const counts of spellings.values()) {
-    const [title, ...others] = [...counts.keys()].sort((a, b) => shortened(a) - shortened(b) || counts.get(b)! - counts.get(a)! || b.length - a.length);
+    const [title, ...others] = [...counts.keys()].toSorted(
+      (a, b) => shortened(a) - shortened(b) || counts.get(b)! - counts.get(a)! || b.length - a.length,
+    );
     for (const name of others) titles.set(name, title);
   }
   return titles;
@@ -142,11 +176,11 @@ export function indexEntries(entries: SearchEntry[]): EntryIndex {
   return {
     names,
     entries: entries.map(entry => {
-      const title = entry.kind === 'command' ? titles.get(entry.name) ?? entry.name : entry.name;
+      const title = entry.kind === 'command' ? (titles.get(entry.name) ?? entry.name) : entry.name;
       return {
         entry,
         names: [entry.name, entry.wireshark_name, entry.abbreviation].filter(name => name != null).map(nameId),
-        application: entry.identity?.kind === 'command' ? entry.identity.application?.toLowerCase() ?? null : null,
+        application: entry.identity?.kind === 'command' ? (entry.identity.application?.toLowerCase() ?? null) : null,
         title,
         // Each kind of value has a section of its own.
         group: JSON.stringify([entry.kind, entry.identity?.kind === 'value' ? entry.identity.value_kind : null, title]),
@@ -155,7 +189,8 @@ export function indexEntries(entries: SearchEntry[]): EntryIndex {
   };
 }
 
-export const foldMentions = (mentions: Mention[]): FoldedMention[] => mentions.map(mention => ({ ...mention, folded: mention.text.toLowerCase() }));
+export const foldMentions = (mentions: Mention[]): FoldedMention[] =>
+  mentions.map(mention => ({ ...mention, folded: mention.text.toLowerCase() }));
 
 interface Match {
   rank: number;
@@ -241,7 +276,8 @@ function mergeSpans(spans: Span[]): Span[] {
   return merged;
 }
 
-const matchedSpans = (name: string, match: Match): Span[] => match.written ? [match.written] : mergeSpans(spansInName(name, match.spans ?? []));
+const matchedSpans = (name: string, match: Match): Span[] =>
+  match.written ? [match.written] : mergeSpans(spansInName(name, match.spans ?? []));
 
 /** What of a name to mark for a query, as written. */
 export function matchSpans(name: string, query: string): Span[] {
@@ -254,18 +290,26 @@ export function matchSpans(name: string, query: string): Span[] {
  * approximate ones, and the shorter of equals first. A number is matched against
  * what it identifies for each kind, never as part of a name, and is never approximate.
  */
-export function searchEntries(index: EntryIndex, query: string, summary: (id: string) => Releases = () => undefined): EntryResults {
+export function searchEntries(
+  index: EntryIndex,
+  query: string,
+  summary: (id: string) => Releases = () => undefined,
+): EntryResults {
   const results: EntryResults = { avp: [], command: [], application: [], registry: [], value: [] };
   const needle = query.trim().toLowerCase();
   if (!needle) return results;
   const pair = needle.match(/^(\d+)\s*[:/]\s*(\d+)$/);
   const code = /^\d+$/.test(needle) ? Number(needle) : null;
   const numeric = pair !== null || code !== null;
-  const matches = (entry: SearchEntry) => pair ? (matchesPair(entry, Number(pair[1]), Number(pair[2])) ? EXACT : null) : rankNumber(entry, code!);
+  const matches = (entry: SearchEntry) =>
+    pair ? (matchesPair(entry, Number(pair[1]), Number(pair[2])) ? EXACT : null) : rankNumber(entry, code!);
   const folded = foldQuery(query);
   const nameRanks = numeric ? [] : index.names.map(name => matchName(folded, name)?.rank ?? null);
   // Letters merely in order are a last resort: beside anything better they are noise, `class` finding `Client-Address`.
-  if (nameRanks.some(rank => rank !== null && rank < SUBSEQUENCE)) nameRanks.forEach((rank, id) => { if (rank === SUBSEQUENCE) nameRanks[id] = null; });
+  if (nameRanks.some(rank => rank !== null && rank < SUBSEQUENCE))
+    nameRanks.forEach((rank, id) => {
+      if (rank === SUBSEQUENCE) nameRanks[id] = null;
+    });
   // The AVPs a number identifies bring their result codes, whose own numbers it is not.
   const tables = new Set<string>();
   if (numeric) {
@@ -279,7 +323,13 @@ export function searchEntries(index: EntryIndex, query: string, summary: (id: st
     let rank: number | null = null;
     if (numeric) {
       rank = matches(entry);
-      if (rank === null && entry.identity?.kind === 'value' && entry.identity.value_kind === 'result-codes' && tables.has(entry.identity.avp)) rank = SUBSTRING;
+      if (
+        rank === null &&
+        entry.identity?.kind === 'value' &&
+        entry.identity.value_kind === 'result-codes' &&
+        tables.has(entry.identity.avp)
+      )
+        rank = SUBSTRING;
     } else {
       for (const id of item.names) {
         const ranked = nameRanks[id];
@@ -301,7 +351,8 @@ export function searchEntries(index: EntryIndex, query: string, summary: (id: st
     results[group.kind].push(group);
   }
   for (const kind of Object.keys(results) as Kind[]) {
-    const list = results[kind].sort((a, b) => a.rank - b.rank || a.name.length - b.name.length || a.name.localeCompare(b.name));
+    const list = results[kind];
+    list.sort((a, b) => a.rank - b.rank || a.name.length - b.name.length || a.name.localeCompare(b.name));
     const precise = list.findIndex(isApproximate);
     if (precise >= 0) list.length = Math.min(list.length, precise + MAX_APPROXIMATE);
   }
@@ -311,38 +362,55 @@ export function searchEntries(index: EntryIndex, query: string, summary: (id: st
 export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
   const identity = entry.identity;
   switch (identity?.kind) {
-    case 'avp': return `${identity.vendor_id}:${identity.code}`;
-    case 'application': return `Application ${identity.application_id}`;
-    case 'registry': return `${identity.registry} ${identity.code}`;
+    case 'avp':
+      return `${identity.vendor_id}:${identity.code}`;
+    case 'application':
+      return `Application ${identity.application_id}`;
+    case 'registry':
+      return `${identity.registry} ${identity.code}`;
     case 'value': {
       const list = identity.feature_list_id === null ? '' : ` list ${identity.feature_list_id}`;
       const application = identity.application ? ` (${identity.application})` : '';
       return `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}${list}${application}`;
     }
     case 'command': {
-      const application = identity.application_id === null ? '' : ` · application ${identity.application_id}${identity.application ? ` (${identity.application})` : ''}`;
-      const header = identity.header_application_id !== identity.application_id ? ` · header ${identity.header_application_id ?? 'none'}` : '';
+      const application =
+        identity.application_id === null
+          ? ''
+          : ` · application ${identity.application_id}${identity.application ? ` (${identity.application})` : ''}`;
+      const header =
+        identity.header_application_id !== identity.application_id
+          ? ` · header ${identity.header_application_id ?? 'none'}`
+          : '';
       return `Command ${identity.command_code}${application}${header}`;
     }
-    default: return '';
+    default:
+      return '';
   }
 }
 
 /** What is said of an entry, in order; `brief` beside a document's label, where the entry's name is already said. */
-interface Fact { text: string; brief?: string }
+interface Fact {
+  text: string;
+  brief?: string;
+}
 
 function entryFacts(entry: SearchEntry): Fact[] {
   const identity = entry.identity;
   const type = { text: entry.data_type ?? '' };
   switch (identity?.kind) {
-    case 'avp': return [{ text: `${identity.vendor_id}:${identity.code}` }, type];
-    case 'application': return [{ text: `application ${identity.application_id}` }, type];
-    case 'registry': return [{ text: `${identity.registry} ${identity.code}` }, type];
-    case 'value': return [
-      { text: `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}` },
-      { text: identity.feature_list_id === null ? '' : `list ${identity.feature_list_id}` },
-      { text: identity.application ?? '' },
-    ];
+    case 'avp':
+      return [{ text: `${identity.vendor_id}:${identity.code}` }, type];
+    case 'application':
+      return [{ text: `application ${identity.application_id}` }, type];
+    case 'registry':
+      return [{ text: `${identity.registry} ${identity.code}` }, type];
+    case 'value':
+      return [
+        { text: `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}` },
+        { text: identity.feature_list_id === null ? '' : `list ${identity.feature_list_id}` },
+        { text: identity.application ?? '' },
+      ];
     case 'command': {
       const id = identity.application_id === null ? '' : `application ${identity.application_id}`;
       const name = identity.application ?? '';
@@ -351,7 +419,8 @@ function entryFacts(entry: SearchEntry): Fact[] {
         { text: name && id ? `${id} (${name})` : id || name, brief: name.replace(/^Diameter /, '') || id },
       ];
     }
-    default: return [];
+    default:
+      return [];
   }
 }
 
@@ -377,10 +446,12 @@ export function groupFacts(entries: SearchEntry[]): GroupFacts {
   const agreed = Array.from({ length: slots }, (_, slot) => agree(entry => facts.get(entry)![slot].text));
   const headers = !agree(headerFact);
   return {
-    shared: agreed.flatMap((same, slot) => same && facts.get(known[0])![slot].text ? [facts.get(known[0])![slot].text] : []),
+    shared: agreed.flatMap((same, slot) =>
+      same && facts.get(known[0])![slot].text ? [facts.get(known[0])![slot].text] : [],
+    ),
     differing(entry) {
       const own = facts.get(entry) ?? [];
-      const said = own.flatMap((fact, slot) => agreed[slot] ? [] : [fact.brief ?? fact.text]);
+      const said = own.flatMap((fact, slot) => (agreed[slot] ? [] : [fact.brief ?? fact.text]));
       return [...said, headers ? headerFact(entry) : ''].filter(Boolean);
     },
   };
@@ -394,23 +465,33 @@ type Referenced = (id: string) => Pick<DocumentSummary, 'reference' | 'release'>
  * entry for the name is its row there, of the citing document's release where several editions list it. A value
  * whose origin lists it under no such name has that document's newest edition, with no clause.
  */
-export function definitions(entries: SearchEntry[], summary: Referenced, documents: Pick<DocumentSummary, 'id' | 'reference' | 'release'>[] = []): Map<SearchEntry, Definition> {
+export function definitions(
+  entries: SearchEntry[],
+  summary: Referenced,
+  documents: Pick<DocumentSummary, 'id' | 'reference' | 'release'>[] = [],
+): Map<SearchEntry, Definition> {
   const reference = (id: string) => summary(id)?.reference;
   const defines = (entry: SearchEntry) => entry.defined_in.includes(reference(entry.document) ?? '');
-  return new Map(entries.map(entry => {
-    if (entry.kind !== 'value' || !entry.target || !entry.defined_in.length || defines(entry)) return [entry, entry.target];
-    const origin = entry.defined_in[0];
-    const release = summary(entry.document)?.release;
-    const own = entries.filter(other => other.target && reference(other.document) === origin && defines(other));
-    const found = own.find(other => summary(other.document)?.release === release) ?? own[0];
-    if (found) return [entry, { ...found.target!, name: found.name }];
-    const held = documents.filter(doc => doc.reference === origin).toSorted(newest)[0];
-    return [entry, held ? { document: held.id, section: null } : null];
-  }));
+  return new Map(
+    entries.map(entry => {
+      if (entry.kind !== 'value' || !entry.target || !entry.defined_in.length || defines(entry))
+        return [entry, entry.target];
+      const origin = entry.defined_in[0];
+      const release = summary(entry.document)?.release;
+      const own = entries.filter(other => other.target && reference(other.document) === origin && defines(other));
+      const found = own.find(other => summary(other.document)?.release === release) ?? own[0];
+      if (found) return [entry, { ...found.target!, name: found.name }];
+      const held = documents.filter(doc => doc.reference === origin).toSorted(newest)[0];
+      return [entry, held ? { document: held.id, section: null } : null];
+    }),
+  );
 }
 
 /** Where most of the documents using a name but not defining it find it; none if all define their own. */
-export function usualDefinition(entries: SearchEntry[], defined?: Map<SearchEntry, Definition>): Definition | undefined {
+export function usualDefinition(
+  entries: SearchEntry[],
+  defined?: Map<SearchEntry, Definition>,
+): Definition | undefined {
   const uses = new Map<string, number>();
   let usual: Definition | undefined;
   for (const entry of entries) {
@@ -433,7 +514,9 @@ export function sortMentions<T extends Mention>(mentions: T[], summary: (id: str
 export function filterMentions(mentions: FoldedMention[], query: string, names: Set<string>): FoldedMention[] {
   const wanted = words(query);
   if (!wanted.length) return [];
-  return mentions.filter(mention => wanted.every(word => mention.folded.includes(word)) || mention.avps.some(name => names.has(name)));
+  return mentions.filter(
+    mention => wanted.every(word => mention.folded.includes(word)) || mention.avps.some(name => names.has(name)),
+  );
 }
 
 /** What of a mention to mark: the query, or else its words, and any AVP found by it. */
@@ -446,7 +529,9 @@ export function mentionSpans(mention: FoldedMention, query: string, names: Set<s
   needles.push(...mention.avps.filter(name => names.has(name)).map(name => name.toLowerCase()));
   const spans: Span[] = [];
   for (const needle of needles) {
-    for (let at = folded.indexOf(needle); needle && at >= 0; at = folded.indexOf(needle, at + 1)) spans.push([at, at + needle.length]);
+    if (!needle) continue;
+    for (let at = folded.indexOf(needle); at >= 0; at = folded.indexOf(needle, at + 1))
+      spans.push([at, at + needle.length]);
   }
   return mergeSpans(spans);
 }

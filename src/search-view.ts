@@ -2,7 +2,22 @@ import { docAbout, docInFamily, docName, interfacesOf, publisherRank } from './d
 import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
 import { routeFor } from './navigation.ts';
-import { definitions, filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
+import {
+  definitions,
+  filterMentions,
+  foldMentions,
+  groupFacts,
+  identityLabel,
+  indexEntries,
+  interfaceSpans,
+  isApproximate,
+  matchSpans,
+  mentionSpans,
+  searchEntries,
+  searchSpecifications,
+  sortMentions,
+  usualDefinition,
+} from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
 import type { DocumentSummary, SearchEntry, Target } from './types.ts';
@@ -39,7 +54,10 @@ function withDetail(anchor: HTMLAnchorElement, detail: (string | HTMLElement)[][
   return anchor;
 }
 
-interface ListedDocument { doc: DocumentSummary | undefined; node: HTMLElement }
+interface ListedDocument {
+  doc: DocumentSummary | undefined;
+  node: HTMLElement;
+}
 
 /** A row per publisher, in the index's order, with a line per document, keeping a specification's editions together. */
 function renderFamilies(documents: ListedDocument[]): HTMLElement {
@@ -47,11 +65,11 @@ function renderFamilies(documents: ListedDocument[]): HTMLElement {
   for (const { doc, node } of documents) {
     const family = families.get(doc?.publisher ?? 'Other') ?? new Map<string, HTMLElement[]>();
     const specification = doc?.specification ?? '';
-    family.set(specification, [...family.get(specification) ?? [], node]);
+    family.set(specification, [...(family.get(specification) ?? []), node]);
     families.set(doc?.publisher ?? 'Other', family);
   }
   const list = element('ul', undefined, 'entry-families');
-  for (const [publisher, family] of [...families].sort(([a], [b]) => publisherRank(a) - publisherRank(b))) {
+  for (const [publisher, family] of [...families].toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))) {
     const item = element('li');
     const links = element('span', undefined, 'family-documents');
     links.append(...[...family.values()].flat());
@@ -97,41 +115,60 @@ function renderGroup(group: NameGroup, site: Site, query: string): HTMLElement {
   if (said.textContent) line.append(said);
   if (isApproximate(group)) line.append(element('em', 'approximate'));
   panel.append(line);
-  const wireshark = [...new Set(entries.map(entry => entry.wireshark_name).filter(name => name != null && name !== group.name))] as string[];
+  const wireshark = [
+    ...new Set(entries.map(entry => entry.wireshark_name).filter(name => name != null && name !== group.name)),
+  ] as string[];
   if (wireshark.length) {
     const note = element('p', 'Wireshark: ', 'entry-wireshark');
     wireshark.forEach((name, index) => note.append(...(index ? [', '] : []), ...mark(name)));
     panel.append(note);
   }
-  const listed = new Map(entries.map(entry => [JSON.stringify([entry.document, entry.target, facts.differing(entry), entry.name]), entry]));
+  const listed = new Map(
+    entries.map(entry => [JSON.stringify([entry.document, entry.target, facts.differing(entry), entry.name]), entry]),
+  );
   const perDocument = new Map<string, number>();
   for (const { document } of listed.values()) perDocument.set(document, (perDocument.get(document) ?? 0) + 1);
-  panel.append(renderFamilies([...listed.values()].map(entry => {
-    const item = element('span', undefined, 'entry-document');
-    const doc = site.summary(entry.document);
-    const label = doc ? docInFamily(site.label(doc), doc) : entry.document;
-    const { target } = entry;
-    // A value another document defines has its row here, and its definition there.
-    const definition = defined.get(entry);
-    const own = definition?.document === entry.document;
-    const detail: (string | HTMLElement)[][] = facts.differing(entry).map(fact => [fact]);
-    if (entry.name !== group.name) detail.unshift(['as ', ...mark(entry.name)]);
-    // Twice in one document, only its clause tells which.
-    if (target?.section && entry.kind !== 'value' && perDocument.get(entry.document)! > 1) detail.push([target.section]);
-    if (usual && own && definition.document !== usual.document) detail.push(['defines it']);
-    if (entry.across_releases) {
-      // Which edition stands in for a citation is the point here, so its version stays.
-      const crossing = entry.across_releases;
-      const cited = site.index.documents.find(doc => doc.reference === crossing.cited);
-      detail.push([`${cited ? docName(cited) : crossing.cited} V${crossing.version}, ${crossing.rule}`]);
-    }
-    // A row of the document's table: the link says which, and the page marks it.
-    const anchor = link(entry.kind === 'value' && target ? `${label} · ${target.section}` : label, entryTarget(entry));
-    anchor.title = [identityLabel(entry), entry.data_type, target?.section && `${labelOf(target.document)} ${target.section}`].filter(Boolean).join(' · ');
-    item.append(withDetail(anchor, detail));
-    if (definition && !own && definition.document !== usual?.document) item.append(' → ', link(labelOf(definition.document), definition));
-    return { doc, node: item };
-  })));
+  panel.append(
+    renderFamilies(
+      [...listed.values()].map(entry => {
+        const item = element('span', undefined, 'entry-document');
+        const doc = site.summary(entry.document);
+        const label = doc ? docInFamily(site.label(doc), doc) : entry.document;
+        const { target } = entry;
+        // A value another document defines has its row here, and its definition there.
+        const definition = defined.get(entry);
+        const own = definition?.document === entry.document;
+        const detail: (string | HTMLElement)[][] = facts.differing(entry).map(fact => [fact]);
+        if (entry.name !== group.name) detail.unshift(['as ', ...mark(entry.name)]);
+        // Twice in one document, only its clause tells which.
+        if (target?.section && entry.kind !== 'value' && perDocument.get(entry.document)! > 1)
+          detail.push([target.section]);
+        if (usual && own && definition.document !== usual.document) detail.push(['defines it']);
+        if (entry.across_releases) {
+          // Which edition stands in for a citation is the point here, so its version stays.
+          const crossing = entry.across_releases;
+          const cited = site.index.documents.find(doc => doc.reference === crossing.cited);
+          detail.push([`${cited ? docName(cited) : crossing.cited} V${crossing.version}, ${crossing.rule}`]);
+        }
+        // A row of the document's table: the link says which, and the page marks it.
+        const anchor = link(
+          entry.kind === 'value' && target ? `${label} · ${target.section}` : label,
+          entryTarget(entry),
+        );
+        anchor.title = [
+          identityLabel(entry),
+          entry.data_type,
+          target?.section && `${labelOf(target.document)} ${target.section}`,
+        ]
+          .filter(Boolean)
+          .join(' · ');
+        item.append(withDetail(anchor, detail));
+        if (definition && !own && definition.document !== usual?.document)
+          item.append(' → ', link(labelOf(definition.document), definition));
+        return { doc, node: item };
+      }),
+    ),
+  );
   return panel;
 }
 
@@ -154,16 +191,21 @@ function renderSpecification(docs: DocumentSummary[], site: Site, query: string)
     facts.append(...markInterfaces(about.interfaces), about.interfaces && about.subject ? ' — ' : '', about.subject);
     line.append(facts);
   }
-  panel.append(line, renderFamilies(docs.map(doc => {
-    const interfaces = interfacesFor(doc);
-    const { subject } = docAbout(doc);
-    const detail: (string | HTMLElement)[][] = [];
-    if (interfaces && interfaces !== about.interfaces) detail.push(markInterfaces(interfaces));
-    if (subject && subject !== about.subject) detail.push([subject]);
-    const node = element('span', undefined, 'entry-document');
-    node.append(withDetail(link(docInFamily(site.label(doc), doc), { document: doc.id }), detail));
-    return { doc, node };
-  })));
+  panel.append(
+    line,
+    renderFamilies(
+      docs.map(doc => {
+        const interfaces = interfacesFor(doc);
+        const { subject } = docAbout(doc);
+        const detail: (string | HTMLElement)[][] = [];
+        if (interfaces && interfaces !== about.interfaces) detail.push(markInterfaces(interfaces));
+        if (subject && subject !== about.subject) detail.push([subject]);
+        const node = element('span', undefined, 'entry-document');
+        node.append(withDetail(link(docInFamily(site.label(doc), doc), { document: doc.id }), detail));
+        return { doc, node };
+      }),
+    ),
+  );
   return panel;
 }
 
@@ -194,7 +236,13 @@ function mentionRenderer(site: Site, query: string, names: Set<string>) {
 }
 
 /** `returning` is a walk back to a search already made: the keys stay the walk's, not the input's, and `onReady` puts its results back where they were. */
-export function renderSearch(container: HTMLElement, site: Site, query: string, isCurrent: () => boolean, { returning = false, onReady }: { returning?: boolean; onReady?: () => void } = {}) {
+export function renderSearch(
+  container: HTMLElement,
+  site: Site,
+  query: string,
+  isCurrent: () => boolean,
+  { returning = false, onReady }: { returning?: boolean; onReady?: () => void } = {},
+) {
   const form = element('form', undefined, 'search-form');
   const input = element('input', undefined, 'control');
   input.setAttribute('aria-label', 'Search');
@@ -217,13 +265,20 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     results.replaceChildren();
     const text = input.value;
     if (!text.trim()) return;
-    function section<T>(key: string, title: string, items: T[], render: (item: T) => HTMLElement | null, { approximate = 0 } = {}) {
+    function section<T>(
+      key: string,
+      title: string,
+      items: T[],
+      render: (item: T) => HTMLElement | null,
+      { approximate = 0 } = {},
+    ) {
       if (!items.length) return;
       const node = element('section', undefined, `search-section search-${key}`);
       const heading = element('h2');
       const precise = items.length - approximate;
       heading.append(...counted(title, precise || items.length));
-      if (approximate) heading.append(element('span', precise ? `+${approximate} approximate` : 'approximate', 'count'));
+      if (approximate)
+        heading.append(element('span', precise ? `+${approximate} approximate` : 'approximate', 'count'));
       node.append(heading);
       results.append(node);
       const add = (item: T) => {
@@ -242,11 +297,20 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
         node.append(button);
       }
     }
-    const groupSection = (key: string, title: string, groups: NameGroup[]) => section(key, title, groups, group => renderGroup(group, site, text), { approximate: groups.filter(isApproximate).length });
+    const groupSection = (key: string, title: string, groups: NameGroup[]) =>
+      section(key, title, groups, group => renderGroup(group, site, text), {
+        approximate: groups.filter(isApproximate).length,
+      });
     const specifications = new Map<string, DocumentSummary[]>();
-    for (const doc of searchSpecifications(site.index.documents, text)) specifications.set(doc.specification, [...specifications.get(doc.specification) ?? [], doc]);
-    section('specifications', 'Specifications', [...specifications.values()], docs => renderSpecification(docs, site, text));
-    if (failed) { results.append(element('p', failed)); return; }
+    for (const doc of searchSpecifications(site.index.documents, text))
+      specifications.set(doc.specification, [...(specifications.get(doc.specification) ?? []), doc]);
+    section('specifications', 'Specifications', [...specifications.values()], docs =>
+      renderSpecification(docs, site, text),
+    );
+    if (failed) {
+      results.append(element('p', failed));
+      return;
+    }
     if (!data) {
       const status = element('p', 'Loading search data…');
       status.setAttribute('role', 'status');
@@ -256,7 +320,13 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     const found = searchEntries(data.index, text, site.summary);
     for (const { kind, title } of sections) groupSection(kind, title, found[kind]);
     for (const { kind, title } of valueKinds) {
-      groupSection(kind, title, found.value.filter(group => group.entries[0].identity?.kind === 'value' && group.entries[0].identity.value_kind === kind));
+      groupSection(
+        kind,
+        title,
+        found.value.filter(
+          group => group.entries[0].identity?.kind === 'value' && group.entries[0].identity.value_kind === kind,
+        ),
+      );
     }
     // An approximate name brings no lines: the page would fill with what was not asked for.
     const names = new Set(found.avp.filter(group => !isApproximate(group)).map(group => group.name));
@@ -278,7 +348,11 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     const stops = [input, ...results.querySelectorAll<HTMLElement>('a[href], button')];
     const entryOf = (node: HTMLElement): HTMLElement => node.closest<HTMLElement>('.search-entry') ?? node;
     const peers = vertical ? [...new Set(stops.map(entryOf))] : stops.filter(stop => entryOf(stop) === entryOf(active));
-    const next = peers[peers.indexOf(vertical ? entryOf(active) : active) + (event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1)];
+    const next =
+      peers[
+        peers.indexOf(vertical ? entryOf(active) : active) +
+          (event.key === 'ArrowDown' || event.key === 'ArrowRight' ? 1 : -1)
+      ];
     if (!next) return;
     event.preventDefault();
     (vertical ? stops.find(stop => entryOf(stop) === next)! : next).focus();
@@ -293,14 +367,27 @@ export function renderSearch(container: HTMLElement, site: Site, query: string, 
     clearTimeout(timer);
     timer = setTimeout(update, 120);
   };
-  form.onsubmit = event => { event.preventDefault(); clearTimeout(timer); update(); };
+  form.onsubmit = event => {
+    event.preventDefault();
+    clearTimeout(timer);
+    update();
+  };
   update();
   if (!returning) input.focus();
-  site.loadSearch().then(loaded => {
-    data = { index: indexEntries(loaded.entries), mentions: foldMentions(sortMentions(loaded.mentions, site.summary)) };
-  }).catch(error => { failed = String(error); }).finally(() => {
-    if (!isCurrent()) return;
-    update();
-    onReady?.();
-  });
+  site
+    .loadSearch()
+    .then(loaded => {
+      data = {
+        index: indexEntries(loaded.entries),
+        mentions: foldMentions(sortMentions(loaded.mentions, site.summary)),
+      };
+    })
+    .catch(error => {
+      failed = String(error);
+    })
+    .finally(() => {
+      if (!isCurrent()) return;
+      update();
+      onReady?.();
+    });
 }

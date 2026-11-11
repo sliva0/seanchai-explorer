@@ -15,8 +15,9 @@ export const dataURL = (path: string) => siteURL(`data/${path}`);
 async function loadJSON<T>(path: string): Promise<T> {
   const response = await fetch(dataURL(path));
   if (!response.ok) throw new Error(`${response.status}: ${path}`);
-  const data = await response.json() as T & { schema_version: number };
-  if (data.schema_version !== SCHEMA_VERSION) throw new Error(`Unsupported export schema ${data.schema_version} in ${path}, expected ${SCHEMA_VERSION}`);
+  const data = (await response.json()) as T & { schema_version: number };
+  if (data.schema_version !== SCHEMA_VERSION)
+    throw new Error(`Unsupported export schema ${data.schema_version} in ${path}, expected ${SCHEMA_VERSION}`);
   return data;
 }
 
@@ -58,7 +59,9 @@ export const interfacesOf = (doc: Pick<DocumentSummary, 'interfaces'>): string =
 /** The title, unless it only says the specification's name again. */
 export function docSubject(doc: Titled): string {
   const title = compact(doc.title);
-  return !title || [doc.specification, doc.reference, docLabel(doc)].some(name => compact(name) === title) ? '' : doc.title;
+  return !title || [doc.specification, doc.reference, docLabel(doc)].some(name => compact(name) === title)
+    ? ''
+    : doc.title;
 }
 
 /** The interfaces, unless the title names them all, and the title. */
@@ -90,7 +93,9 @@ export function publisherRank(publisher: string): number {
 
 type Edition = Pick<DocumentSummary, 'id' | 'specification' | 'release' | 'version'>;
 
-const compareEditions = (a: Edition, b: Edition) => (a.release ?? -1) - (b.release ?? -1) || (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true });
+const compareEditions = (a: Edition, b: Edition) =>
+  (a.release ?? -1) - (b.release ?? -1) ||
+  (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true });
 
 /** What tells each edition from a newer one of its specification in the corpus. The newest has nothing to say. */
 function olderEditions(documents: Edition[]): Map<string, string> {
@@ -153,7 +158,10 @@ export function paneURL(doc: Pick<DocumentSummary, 'source'>, position: SourcePo
 }
 
 /** The publisher's own copy, at the position where its format can say so. */
-export function publisherURL(doc: Pick<DocumentSummary, 'source'>, position: Pick<SourcePosition, 'section' | 'page' | 'exact'>): URL | null {
+export function publisherURL(
+  doc: Pick<DocumentSummary, 'source'>,
+  position: Pick<SourcePosition, 'section' | 'page' | 'exact'>,
+): URL | null {
   if (!doc.source.url) return null;
   if (doc.source.kind === 'rfc-text') {
     const url = new URL(doc.source.url.replace(/\.txt$/, '.html'));
@@ -224,13 +232,20 @@ export function createSite(index: Index): Site {
     summary: id => summaries.get(id),
     edition: doc => editions.get(doc.id) ?? '',
     label: doc => [docName(doc), editions.get(doc.id)].filter(Boolean).join(' '),
-    loadDocument: id => cached<Document>(known(id).path).then(marked).then(doc => { held.set(id, doc); return doc; }),
+    loadDocument: id =>
+      cached<Document>(known(id).path)
+        .then(marked)
+        .then(doc => {
+          held.set(id, doc);
+          return doc;
+        }),
     held: id => held.get(id),
     loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
     loadSearch: () => cached<Search>('search.json'),
-    loadCommands: () => commandsLoading ??= loadJSON<CommandIndex>('commands.json')
-      .catch(() => emptyIndex(SCHEMA_VERSION))
-      .then(index => commands = index),
+    loadCommands: () =>
+      (commandsLoading ??= loadJSON<CommandIndex>('commands.json')
+        .catch(() => emptyIndex(SCHEMA_VERSION))
+        .then(index => (commands = index))),
     commands: () => commands,
   };
 }
