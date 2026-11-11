@@ -137,7 +137,7 @@ test('after a reload the uses control is off, only a right-click lists a name, a
   await page.keyboard.press('Escape');
   await page.locator('pre a[data-avp]').first().click({ button: 'right' });
   await page.waitForSelector('.avp-popup');
-  assert.match(await page.locator('.avp-popup .popup-title strong').textContent(), /^Uses of /);
+  assert.match(await page.locator('.avp-popup .popup-title strong').textContent(), /^[A-Za-z0-9][A-Za-z0-9_-]*$/);
   await page.keyboard.press('Escape');
   await page.locator('pre a[data-avp]').first().click({ modifiers: ['Alt'] });
   await page.waitForTimeout(50);

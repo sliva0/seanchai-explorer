@@ -179,26 +179,59 @@ pre .avp-current { border-radius: 2px; background: var(--ui-selected); box-shado
 mark { border-radius: 2px; background: var(--mark-bg); color: var(--mark-fg); }
 
 /* Popup */
-.avp-popup { position: fixed; z-index: 100; display: flex; flex-direction: column; gap: var(--space-1); width: max-content; min-width: min(32ch, calc(100vw - 24px)); max-width: min(80ch, calc(100vw - 24px)); max-height: min(50vh, 22rem); overflow: hidden; padding: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius); background: var(--ui-raised); box-shadow: 0 4px 16px var(--ui-shadow); font: var(--text-xs)/1.4 var(--mono); }
+.avp-popup { position: fixed; z-index: 100; display: flex; flex-direction: column; gap: var(--space-1); width: max-content; min-width: min(32ch, calc(100vw - 24px)); max-width: min(80ch, calc(100vw - 24px)); max-height: min(75vh, 36rem); overflow: hidden; padding: var(--space-2); border: 1px solid var(--ui-border); border-radius: var(--radius); background: var(--ui-raised); box-shadow: 0 4px 16px var(--ui-shadow); font: var(--text-xs)/1.4 var(--mono); }
 .avp-popup p { margin: 0; overflow-wrap: anywhere; }
 .popup-title, .popup-actions { display: flex; flex: none; align-items: center; gap: var(--space-2); }
 .popup-title strong { min-width: 0; overflow-wrap: anywhere; }
 .popup-title button { flex: none; width: 1.25rem; height: 1.25rem; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius); background: none; color: var(--ui-muted); font-size: var(--text-md); line-height: 1; cursor: pointer; }
 .popup-title button:hover { color: var(--ui-fg); background: var(--ui-hover); }
 .popup-actions .control, .popup-place .control { height: 1.375rem; }
-.popup-places { display: grid; flex: none; grid-template-columns: max-content minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-1) var(--space-2); }
-.popup-places:not(:has(.pane-action)) { grid-template-columns: max-content minmax(0, 1fr) auto; }
+.popup-places { display: grid; flex: none; grid-template-columns: var(--popup-label, max-content) minmax(0, 1fr) auto auto; align-items: center; gap: var(--space-1) var(--space-2); }
+.popup-places:not(:has(.pane-action)) { grid-template-columns: var(--popup-label, max-content) minmax(0, 1fr) auto; }
 .popup-place, .popup-tables, .popup-group { display: contents; }
 .popup-group-title { grid-column: 1 / -1; margin-top: var(--space-1); }
 /* A command's grid is the popup's list: it gives way and scrolls where the popup is full. */
 .command-places { flex: 0 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .place-differs > span:first-child, .place-differs .place-where { color: var(--ui-muted); }
-.popup-identity { flex: none; }
+.popup-identity, .popup-context, .popup-row { flex: none; }
+.popup-context { padding-left: var(--space-1); box-shadow: inset 2px 0 var(--ui-link); }
+.popup-context .presence { color: var(--ui-fg); font-weight: 600; }
+.fact-note { color: var(--ui-muted); }
+.popup-row-title { color: var(--ui-muted); }
+.popup-flags-line { display: flex; align-items: center; gap: var(--space-1); }
+/* The table's own columns, unruled: muted headings over the bits. */
+.popup-flags { border-collapse: collapse; }
+.popup-flags th, .popup-flags td { padding: 0 1.5ch 0 0; text-align: left; }
+.popup-flags th { color: var(--ui-muted); font-weight: normal; }
+.popup-flags td { cursor: default; }
+.popup-flags .flag-must, .popup-flags .flag-must-not { font-weight: 600; }
+.popup-key-button { flex: none; width: 1.375rem; height: 1.375rem; padding: 0; }
+.popup-key-button[aria-expanded="true"] { background: var(--ui-selected); }
+.popup-facts, .popup-key { display: grid; grid-template-columns: var(--popup-label, max-content) minmax(0, 1fr); gap: 0 var(--space-2); margin: 0; }
+.popup-facts { margin-top: var(--space-1); }
+.popup-flags-line + .popup-facts { margin-top: var(--space-1); }
+.popup-facts dt, .popup-key dt { color: var(--ui-muted); }
+.popup-facts dd, .popup-key dd { margin: 0; overflow-wrap: anywhere; }
+.popup-facts dd .popup-key-button { vertical-align: middle; }
+.popup-key { flex: none; grid-template-columns: max-content minmax(0, 1fr); padding: var(--space-1); border-radius: var(--radius); background: var(--ui-surface); }
+.popup-key dd { color: var(--ui-fg); }
+.popup-key[hidden] { display: none; }
+/* The facts above, where to go below: a hairline between. */
+.avp-popup > .popup-places, .avp-popup > .popup-actions { padding-top: var(--space-1); border-top: 1px solid var(--ui-divider); }
+.popup-row + .popup-row { margin-top: var(--space-1); }
+.popup-contents { flex: none; }
+.popup-contents summary { cursor: pointer; }
+.contents-list { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0 var(--space-2); max-height: 9rem; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; margin-top: var(--space-1); white-space: pre; }
+.contents-list .fact-note { white-space: normal; }
+.contents-list code { font: inherit; }
+.contents-list .struck { text-decoration: line-through; color: var(--ui-muted); }
 .place-where { min-width: 0; overflow-wrap: anywhere; }
 .view-action { grid-column: 3; }
 .view-action:hover { text-decoration: none; }
 .pane-action { grid-column: 4; }
 .usage-details { display: flex; flex: 0 1 auto; flex-direction: column; gap: var(--space-1); min-height: 0; }
+.popup-uses:not([open]) { flex: none; }
+.popup-uses summary { cursor: pointer; }
 .usage-list { min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .usage-link { display: block; width: 100%; border: 0; border-radius: 2px; padding: 0.125rem var(--space-1); text-align: left; color: var(--ui-link); background: none; font: inherit; white-space: pre-wrap; overflow-wrap: anywhere; cursor: pointer; }
 .usage-link:hover { background: var(--ui-hover); }

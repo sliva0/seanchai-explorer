@@ -607,7 +607,7 @@ test('self-hosted: Show on the right opens a pane that is switched off, and leav
   } finally { await page.close(); }
 });
 
-test('a use in the popup is the line with its alignment padding collapsed, in its text and its title', async () => {
+test('a use in the popup is the line with its alignment padding collapsed, after the rule it is a member of, in its text and its title', async () => {
   const page = await boot({ hash: '#29061-6f0/17.7' });
   try {
     const { document } = page;
@@ -615,8 +615,8 @@ test('a use in the popup is the line with its alignment padding collapsed, in it
     await settle();
     const uses = [...document.querySelectorAll('.avp-popup .usage-link')];
     assert.deepEqual(uses.map(use => use.textContent), [
-      '17.6.2 · [ TMGI ] ; bold',
-      '17.6.5 · [ TMGI ] ; bold',
+      '17.6.2 · AAA · [ TMGI ] ; bold',
+      '17.6.5 · RAR · [ TMGI ] ; bold',
       '17.7 · TMGI 900 17.7.2 OctetString M,V P - - Yes',
     ]);
     assert.deepEqual(uses.map(use => use.title), uses.map(use => use.textContent));
@@ -822,20 +822,19 @@ test('a name\'s popup leaves out what it has nothing for, shows an Enumerated AV
   }
 });
 
-test('a name defined in another document has its identity and tables from there once that is loaded, and nothing is loaded for them', async () => {
+test('a name defined in another document has its identity, flags and tables from there, loaded when its popup opens', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document } = page;
-    const drmp = () => [...document.querySelectorAll('pre a[data-avp]')].find(node => node.dataset.avp === 'DRMP');
-    let popup = await popupOf(page, drmp());
-    assert.equal(popup.querySelector('.popup-identity'), null);
-    assert.equal(popup.querySelector('.popup-tables'), null);
+    const drmp = [...document.querySelectorAll('pre a[data-avp]')].find(node => node.dataset.avp === 'DRMP');
     assert.ok(!page.fetched.includes('data/documents/rfc7944.json'));
-    popup.querySelector('.popup-title button').click();
-    await page.go('#rfc7944');
-    await page.go('#29153-j00');
-    popup = await popupOf(page, drmp());
+    rightClick(page, drmp);
+    await settle();
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.ok(page.fetched.includes('data/documents/rfc7944.json'), 'the document defining it is loaded');
     assert.deepEqual(identities(popup), ['Code 301 · Enumerated']);
+    assert.deepEqual([...popup.querySelector('.popup-row').querySelectorAll('.popup-flags td')].map(node => node.textContent), ['V']);
     assert.deepEqual(tableRows(popup).map(cells => cells.slice(0, 3)), [['Enumerated:', 'RFC 7944 · 9.1', 'Jump to']]);
     assert.match(popup.querySelector('.place-table .view-action').getAttribute('href'), /^#rfc7944\/9\.1\?line=13$/);
   } finally { await page.close(); }
@@ -905,9 +904,10 @@ test('right-click and the context-menu key list a name\'s uses, alt-click goes t
     assert.equal(rightClick(page, name), false, 'the browser\'s menu is replaced');
     const popup = document.querySelector('.avp-popup');
     assert.equal(popup.dataset.avp, name.dataset.avp);
-    assert.equal(popup.querySelector('.popup-title strong').textContent, `Uses of ${name.dataset.avp}`);
-    assert.equal(popup.getAttribute('aria-label'), `Uses of ${name.dataset.avp}`);
+    assert.equal(popup.querySelector('.popup-title strong').textContent, name.dataset.avp);
+    assert.equal(popup.getAttribute('aria-label'), name.dataset.avp);
     assert.match(popup.querySelector('.usage-details').textContent, /^Uses \d+/);
+    assert.equal(popup.querySelector('.usage-details').open, false, 'closed, as a Grouped AVP\'s contents are');
     escape();
     name.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'ContextMenu', bubbles: true, cancelable: true }));
     assert.equal(document.querySelector('.avp-popup').dataset.avp, name.dataset.avp);
@@ -1789,5 +1789,58 @@ test('self-hosted: a row of a clause\'s stated origin is no row to find: its use
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'exact', 'page'].map(key => [key, pane().get(key)])), { search: '6.3.9', name: 'Server-Name', row: null, exact: '1', page: '21' }, 'the name in the clause\'s prose');
     const section = [...document.querySelectorAll('#diagnostic-sections li')].find(item => item.dataset.section === '6.3.9');
     assert.match(section.textContent, /Reused AVPs Server-Name/);
+  } finally { await page.close(); }
+});
+
+test('a name\'s popup says how the line opened on uses it, the flags its row sets and a Grouped AVP\'s contents; a command\'s lists its AVPs', async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document } = page;
+    const at = (name, line) => [...document.querySelectorAll('pre [data-avp]')].find(node => node.dataset.avp === name && node.closest('.dad-line').dataset.line === line);
+    const texts = (popup, selector) => [...popup.querySelectorAll(selector)].map(node => node.textContent);
+    let popup = await popupOf(page, at('User-Identity', '24'));
+    assert.deepEqual(texts(popup, '.popup-context p'), [
+      'Here: in command User-Data-Request (UDR) · 6.1.1',
+      'Required { } · must be present, in any position · exactly once',
+      'Bold in the source: the document defines or modifies it here',
+    ]);
+    assert.deepEqual(texts(popup, '.popup-row-title'), ['AVP Table 6.3.1'], 'the row\'s table, opened away from it');
+    assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M, V'], 'no empty columns, no P');
+    assert.match(popup.querySelector('.popup-flags td').title, /^M must be set\. Mandatory/);
+    assert.equal(popup.querySelector('.popup-facts'), null, 'Encrypt is not shown');
+    const button = popup.querySelector('.popup-flags-line .popup-key-button');
+    const key = popup.querySelector('.popup-key');
+    assert.equal(key.hidden, true);
+    button.click();
+    assert.deepEqual([key.hidden, button.getAttribute('aria-expanded')], [false, 'true']);
+    assert.deepEqual(texts(key, 'dt'), ['M', 'V', 'Encrypt']);
+    assert.match(texts(key, 'dd')[2], /^No · Not shown/, 'the row\'s Encrypt cell');
+    const contents = popup.querySelector('.popup-contents');
+    assert.equal(contents.open, false, 'closed away from its rule');
+    assert.equal(contents.querySelector('summary').textContent, 'Contents 4');
+    assert.deepEqual(texts(contents, '.contents-list > *').slice(-2), ['* [ AVP ]', 'optional, any number of times · any other AVP']);
+    popup.querySelector('.popup-title button').click();
+    popup = await popupOf(page, at('User-Identity', '318'));
+    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule');
+    popup.querySelector('.popup-title button').click();
+    popup = await popupOf(page, at('External-Identifier', '279'));
+    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: a row of Reused AVPs 6.3/2']);
+    assert.deepEqual(texts(popup, '.popup-row-title'), [], 'the "Here:" line names the row opened on');
+    assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M'], 'its M-bit cell as the M flag');
+    assert.deepEqual(texts(popup, '.popup-facts dt, .popup-facts dd'), ['From', 'TS29.336']);
+    assert.equal(popup.querySelector('.popup-key').hidden, false, 'the key stays open from the last popup');
+    assert.deepEqual(texts(popup, '.popup-key dt'), ['M', 'V', 'From'], 'a Reused AVPs row has no P or Encrypt to say');
+    popup.querySelector('.popup-title button').click();
+    popup = await popupOf(page, commandNames(document, '306 request')[0]);
+    assert.match(popup.querySelector('.popup-contents summary').textContent, /^AVPs \d+$/);
+    assert.deepEqual(texts(popup, '.contents-list > *').slice(0, 2), ['< Session-Id >', 'fixed, exactly once']);
+    popup.querySelector('.popup-title button').click();
+    rightClick(page, at('DRMP', '16'));
+    await settle();
+    await settle();
+    popup = document.querySelector('.avp-popup');
+    assert.deepEqual(texts(popup, '.popup-row-title')[0], 'AVP Table 9.2 · RFC 7944', 'drawn again once the document defining it is loaded');
+    assert.deepEqual(texts(popup.querySelector('.popup-row'), '.popup-flags th, .popup-flags td'), ['Must not', 'V']);
   } finally { await page.close(); }
 });
