@@ -107,3 +107,21 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     assert.equal([...document.querySelectorAll('#notices .notice')].filter(node => /for the popup/.test(node.textContent)).length, 0);
   } finally { offline.on = false; await page.close(); }
 });
+
+test('a load failing once its page has been left is logged and says nothing on the next page', async () => {
+  const page = await boot({ hash: '#29153-j00' });
+  try {
+    const { attempt, clearNotices } = await import('../../src/notice.ts');
+    const notices = () => page.document.querySelectorAll('#notices .notice').length;
+    const pending = () => { let fail; return [new Promise((_, reject) => { fail = reject; }), () => fail(new Error('late'))]; };
+    const [left, failLeft] = pending();
+    attempt('Could not load it', () => left);
+    clearNotices();
+    const errors = await logged(async () => { failLeft(); await page.settle(); });
+    assert.deepEqual([errors, notices()], [['Error: late'], 0]);
+    const [shown, failShown] = pending();
+    attempt('Could not load it', () => shown);
+    await logged(async () => { failShown(); await page.settle(); });
+    assert.equal(notices(), 1, 'on the page that asked, it is said');
+  } finally { await page.close(); }
+});

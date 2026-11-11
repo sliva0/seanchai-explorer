@@ -52,12 +52,23 @@ export function notifyFailure(what: string, error: unknown, retry?: () => void) 
   region.append(notice);
 }
 
-/** Runs a load the reader asked for; if it fails, says so with a Retry that runs it again the same way. */
+/** Counts the pages shown: a load that fails after its page was left has nothing to say on the next one. */
+let page = 0;
+
+/**
+ * Runs a load the reader asked for; if it fails, says so with a Retry that runs it again the same way. A failure
+ * that comes once the page has been left is only logged: its Retry would act on a page that is not shown.
+ */
 export function attempt(what: string, run: () => Promise<unknown>) {
-  run().catch(error => notifyFailure(what, error, () => attempt(what, run)));
+  const asked = page;
+  run().catch(error => {
+    if (asked === page) notifyFailure(what, error, () => attempt(what, run));
+    else console.error(error);
+  });
 }
 
 /** Drops every notice: a page left behind takes its failures with it. */
 export function clearNotices() {
+  page++;
   document.getElementById(REGION)?.replaceChildren();
 }

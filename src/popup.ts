@@ -36,6 +36,8 @@ function createShell(site: Site, pane: SourcePane) {
   let popup: HTMLElement | undefined;
   let openerNode: HTMLElement | undefined;
   let resizing: ResizeObserver | undefined;
+  /** A popup drawn again leaves the focus where the reader has it. */
+  let redrawing = false;
 
   function close(returnFocus = false) {
     if (!popup) return;
@@ -82,7 +84,7 @@ function createShell(site: Site, pane: SourcePane) {
     const above = bounds.top - size.height - 8;
     const top = below + size.height <= innerHeight - 12 ? below : above >= 12 ? above : innerHeight - size.height - 12;
     panel.style.top = `${Math.max(12, top)}px`;
-    closeButton.focus({ preventScroll: true });
+    if (!redrawing) closeButton.focus({ preventScroll: true });
     // Grown by a section opened in it, it moves up as far as it must to stay in the window.
     if (typeof ResizeObserver === 'undefined') return;
     resizing = new ResizeObserver(() => {
@@ -136,17 +138,20 @@ function createShell(site: Site, pane: SourcePane) {
       const old = popup;
       if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
       const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
-      const focused = old.contains(document.activeElement) ? key(document.activeElement!) : undefined;
+      const inside = old.contains(document.activeElement);
+      const focused = inside ? key(document.activeElement!) : undefined;
       const opened = new Map([...old.querySelectorAll('details')].map(node => [node.className, node.open]));
       const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
       const { left, top } = old.style;
-      redraw(active < 0 ? undefined : active);
+      redrawing = true;
+      try { redraw(active < 0 ? undefined : active); } finally { redrawing = false; }
       const panel = popup as HTMLElement | undefined;
       if (!panel || panel === old) return;
       for (const node of panel.querySelectorAll('details')) node.open = opened.get(node.className) ?? node.open;
       panel.style.top = top;
       panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
-      if (focused) [...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused)?.focus({ preventScroll: true });
+      // The focus the old popup held goes to the same control in the new one, or to Close; one outside stays outside.
+      if (inside) ([...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused) ?? panel.querySelector<HTMLElement>('.popup-title button'))?.focus({ preventScroll: true });
     }));
   }
 

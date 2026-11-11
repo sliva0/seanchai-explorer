@@ -43,6 +43,13 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm test
+      # The same checks as ci.yml, on the tree being published.
+      - run: npm run test:build
+      - name: Install Chromium
+        run: |
+          npx playwright-core install --with-deps --no-shell chromium
+          echo "CHROMIUM=$(node -p "require('playwright-core').chromium.executablePath()")" >> "$GITHUB_ENV"
+      - run: npm run test:smoke
       - name: Build the public site
         run: npm run build
       - name: Check no PDF is published

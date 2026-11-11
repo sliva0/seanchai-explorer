@@ -123,8 +123,8 @@ generators and the public build's check.
 ## Deployment
 
 Manual only. `.github/workflows/pages.yml` deploys to GitHub Pages when run by hand from
-the Actions tab: it runs `npm run check` and `npm test`, builds in public mode, checks no
-PDF is in `dist/`, and publishes with the Pages actions. Pages must be set to deploy from
+the Actions tab: it runs every check CI runs on the tree being published, builds in public
+mode, checks no PDF is in `dist/`, and publishes with the Pages actions. Pages must be set to deploy from
 GitHub Actions.
 
 The build runs the PyPI release unless the repository variable `SEANCHAI_GIT_REF`, or

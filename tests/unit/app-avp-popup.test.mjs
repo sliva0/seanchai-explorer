@@ -263,3 +263,18 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     assert.equal(document.querySelectorAll('pre .avp-current').length, 1);
   } finally { await page.close(); }
 });
+
+test('a popup drawn again once its document loads leaves a focus outside it where it is', async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document } = page;
+    rightClick(page, [...document.querySelectorAll('pre [data-avp]')].find(node => node.dataset.avp === 'DRMP' && node.closest('.dad-line').dataset.line === '16'));
+    const first = document.querySelector('.avp-popup');
+    const outside = document.querySelector('header .theme-toggle');
+    outside.focus();
+    await settle();
+    await settle();
+    assert.ok(document.querySelector('.avp-popup') !== first, 'drawn again');
+    same(document.activeElement, outside);
+  } finally { await page.close(); }
+});
