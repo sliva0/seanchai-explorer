@@ -1,13 +1,35 @@
+# Dependencies
 node_modules/
+
+# Build output: dist/, and copies kept beside it such as dist-public/
 dist/
+dist-*/
 .vite/
-*.local
-.DS_Store
+*.tsbuildinfo
+
+# What scripts/prepare.mjs generates for a build
 public/data/
 public/syntax/
 public/pdfjs/
 .data-tmp/
+
+# A seanchai export, and the sources `npm run sources` downloads
 /export/
 /specifications/
+
+# Test builds
 .smoke-dist/
 .smoke-viewer-dist/
+
+# Local environment and logs
+.env
+.env.*
+*.local
+*.log
+
+# Editors and operating systems
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
