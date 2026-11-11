@@ -10,7 +10,7 @@ const grammar = new URL('../../syntax/dad.tmLanguage.json', import.meta.url);
 /** The `commands.json` prepare would derive from the fixture, which the fixture leaves to it. */
 async function commandsOfFixture() {
   const index = await readFixture('index.json');
-  const documents = await Promise.all(index.documents.map(async doc => ({ id: doc.id, lines: (await readFixture(doc.path)).lines })));
+  const documents = await Promise.all(index.documents.map(doc => readFixture(doc.path)));
   return commandIndex(documents, index.schema_version);
 }
 

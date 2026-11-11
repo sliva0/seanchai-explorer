@@ -36,7 +36,7 @@ if (problem) {
 
 // What a command's popup says of the corpus, small enough to fetch with a document where search.json is not.
 const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
-const documents = await Promise.all(index.documents.map(async doc => ({ id: doc.id, lines: (await read(doc.path)).lines })));
+const documents = await Promise.all(index.documents.map(doc => read(doc.path)));
 await writeFile(path.join(temporary, 'commands.json'), JSON.stringify(commandIndex(documents, index.schema_version)));
 
 await mkdir(path.join(project, 'public'), { recursive: true });

@@ -1,8 +1,8 @@
+import type { DadFile } from './blocks.ts';
 import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
 import { SCHEMA_VERSION } from './types.ts';
-import type { Document, DocumentSummary, Index, Line, RawDocument, Search } from './types.ts';
-import { interfacesOf } from './interfaces.ts';
+import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
 import { valueTables } from './values.ts';
 
@@ -50,7 +50,10 @@ export function docVersioned(doc: Named & Pick<DocumentSummary, 'version'>): str
 
 const compact = (text: string) => text.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-type Titled = Pick<DocumentSummary, 'id' | 'specification' | 'version' | 'reference' | 'title'>;
+type Titled = Pick<DocumentSummary, 'id' | 'specification' | 'version' | 'reference' | 'title' | 'interfaces'>;
+
+/** The Diameter interfaces or reference points a document specifies, or an RFC's application: blank where it has none or the corpus does not say. */
+export const interfacesOf = (doc: Pick<DocumentSummary, 'interfaces'>): string => (doc.interfaces ?? []).join(', ');
 
 /** The title, unless it only says the specification's name again. */
 export function docSubject(doc: Titled): string {
@@ -188,9 +191,9 @@ export interface Site {
 }
 
 /** A value table's rows and a command's names link as other names do from the moment a file is read. */
-function marked<T extends { lines: Line[] }>(file: T): T {
-  valueTables(file.lines);
-  commandFacts(file.lines);
+function marked<T extends DadFile>(file: T): T {
+  valueTables(file);
+  commandFacts(file);
   return file;
 }
 

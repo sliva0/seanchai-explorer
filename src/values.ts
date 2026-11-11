@@ -1,6 +1,8 @@
+import { perFile } from './blocks.ts';
+import type { DadFile } from './blocks.ts';
 import type { CommandRef } from './commands.ts';
 import type { SourcePosition } from './navigation.ts';
-import type { Line, Target, Token, ValueKind } from './types.ts';
+import type { Target, Token, ValueKind } from './types.ts';
 
 export interface ValueRow {
   name: string;
@@ -19,7 +21,8 @@ export interface ValueRow {
 
 export interface ValueTable {
   kind: ValueKind;
-  avp: Token | null;
+  /** The AVP whose numbers it names, and where its `; AVP:` line links. */
+  avp: { name: string; target: Target | null } | null;
   featureListId: number | null;
   application: string | null;
   section: string;
@@ -38,80 +41,40 @@ export interface ValueTable {
  */
 export interface ValueToken extends Token { valueRow?: ValueRow; originOf?: ValueRow; details?: SourcePosition; command?: CommandRef }
 
-export const lineText = (line: Line) => line.tokens.filter(token => !token.correction && token.kind !== 'comment').map(token => token.text).join('').trimEnd();
-const rowText = /^("?)(.+?)\1\s*=\s*(\d+)\s*(?:;\s*([^;]*?))?\s*(?:;;.*)?$/;
-// A row's tail: a clause or a mark, then a result code's `from` document.
-const tailText = /^(.*?)(?:(?:^|\s+)from (\S+))?$/;
-/** A line of whitespace alone: a `;;` note or a corrected-away row reads as nothing, and is no blank line. */
-export const blankLine = (line: Line) => line.tokens.every(token => !token.text.trim());
-const header = /^; ([\w-]+): (.*)$/;
-
-function readTables(lines: Line[]): ValueTable[] {
-  const tables: ValueTable[] = [];
-  let table: ValueTable | undefined;
-  let inBody = false;
-  lines.forEach((line, index) => {
-    const text = lineText(line);
-    if (text.startsWith('; Type:')) {
-      table = text === '; Type: Value Table' ? { kind: 'bits', avp: null, featureListId: null, application: null, section: line.section ?? '', page: null, line: index, rows: [] } : undefined;
-      inBody = false;
-      if (table) tables.push(table);
-      return;
-    }
-    if (!table) return;
-    const field = text.match(header);
-    if (field) {
-      const [, key, value] = field;
-      if (key === 'AVP') table.avp = line.tokens.find(token => token.avp) ?? null;
-      else if (key === 'Kind') table.kind = value as ValueKind;
-      else if (key === 'Feature-List-ID') table.featureListId = Number(value);
-      else if (key === 'Application') table.application = value;
-      else if (key === 'Section') table.section = value;
-      else if (key === 'Page') table.page = Number(value);
-      return;
-    }
-    const row = text.match(rowText);
-    if (!row) {
-      // A blank line ends the block, a `;;` comment or a corrected-away row stays inside it.
-      if (inBody && blankLine(line)) table = undefined;
-      return;
-    }
-    inBody = true;
-    const name = row[2].replace(/\\(["\\])/g, '$1');
-    const clause = line.tokens.find(token => token.source) as ValueToken | undefined;
-    const value = Number(row[3]);
-    const position: SourcePosition = { section: clause?.source?.section ?? table.section, page: clause?.source?.page ?? table.page, name, row: true, value, ...(table.kind === 'result-codes' ? { titled: true } : {}) };
-    const nameToken = line.tokens.find(token => token.target && !token.avp) as ValueToken | undefined;
-    const [, rest, reference] = (row[4] ?? '').match(tailText)!;
-    const originToken = reference ? line.tokens.find(token => token !== nameToken && token.target && token.text === reference) as ValueToken | undefined : undefined;
-    // A link out of the file lands on the row there, as a link to the row here does.
-    if (originToken) originToken.target = { ...originToken.target!, name };
-    const origin = reference ? { reference, target: originToken?.target ?? null } : null;
-    const current: ValueRow = { name, value, mark: rest && !clause ? rest : null, origin, line: index, target: nameToken?.target ?? null, position, table };
+/** The value tables of a file. The first reading marks the rows' tokens, so a row links as any table row does. */
+export const valueTables = perFile(({ lines, blocks }) => blocks.filter(block => block.type === 'Value Table').map(block => {
+  const { fields, section, page } = block;
+  const kind = (fields.Kind ?? 'bits') as ValueKind;
+  const head = lines.slice(block.line, block.value_rows?.[0]?.line ?? block.last + 1).flatMap(line => line.tokens);
+  const avp = block.name ? { name: block.name, target: head.find(token => token.avp === block.name)?.target ?? null } : null;
+  const table: ValueTable = {
+    kind, avp, featureListId: fields['Feature-List-ID'] === undefined ? null : Number(fields['Feature-List-ID']), application: fields.Application ?? null,
+    section, page, line: block.line, rows: [],
+  };
+  for (const row of block.value_rows ?? []) {
+    const { name, value, line } = row;
+    const tokens: ValueToken[] = lines[line].tokens;
+    const position: SourcePosition = { section: row.section ?? section, page, name, row: true, value, ...(kind === 'result-codes' ? { titled: true } : {}) };
+    const nameToken = tokens.find(token => token.target && !token.avp);
+    const originToken = row.origin ? tokens.find(token => token !== nameToken && token.target && token.text === row.origin) : undefined;
+    const origin = row.origin ? { reference: row.origin, target: originToken?.target ?? row.origin_target ?? null } : null;
+    const current: ValueRow = { name, value, mark: row.mark ?? null, origin, line, target: nameToken?.target ?? null, position, table };
     table.rows.push(current);
     if (originToken) originToken.originOf = current;
+    const clause = tokens.find(token => token.source);
     if (clause) clause.source = position;
     if (nameToken) {
       nameToken.valueRow = current;
       // What finds a corrected row's printed spelling in the raw mirror, as a table row's own citation does.
       nameToken.source = position;
     }
-  });
-  return tables;
-}
-
-const known = new WeakMap<Line[], ValueTable[]>();
-
-/** The value tables of a file's lines. The first reading marks the rows' tokens, so a row links as any table row does. */
-export function valueTables(lines: Line[]): ValueTable[] {
-  let tables = known.get(lines);
-  if (!tables) { tables = readTables(lines); known.set(lines, tables); }
-  return tables;
-}
+  }
+  return table;
+}));
 
 /** A link's row: the one named so at its target or in its table. */
-export function valueRowAt(lines: Line[], section: string, name: string): ValueRow | undefined {
-  const rows = valueTables(lines).flatMap(table => table.rows).filter(row => row.name === name);
+export function valueRowAt(file: DadFile, section: string, name: string): ValueRow | undefined {
+  const rows = valueTables(file).flatMap(table => table.rows).filter(row => row.name === name);
   return rows.find(row => row.target?.section === section) ?? rows.find(row => row.table.section === section);
 }
 

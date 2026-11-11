@@ -1,4 +1,3 @@
-import { createAvpPopup } from './avp-popup.ts';
 import { openSite, paneKind, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
@@ -15,6 +14,7 @@ import { pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
+import { createPopups } from './popup.ts';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -166,7 +166,7 @@ try {
   const sourcePane = pane = createSourcePane(site, () => theme.current, () => {
     updateRoute({ source: sourcePane.state, paneHidden: !sourcePane.switchedOn });
   });
-  const popup = createAvpPopup(site, sourcePane);
+  const popup = createPopups(site, sourcePane);
   const services = {
     site, pane: sourcePane, popup,
     highlight(lines: Line[]) {

@@ -16,6 +16,21 @@ const file = (text, links = {}) => text.split('\n').map((line, index, all) => {
   return { tokens: [{ text: full }] };
 }).filter(line => line.tokens.length);
 const texts = lines => lines.map(line => line.tokens.map(token => token.text).join('')).join('');
+/** Where `text` stands on a line, after `from`: a command span's `line`, `start` and `end`. */
+const at = (lines, line, text, from = 0) => {
+  const start = lines[line].tokens.map(token => token.text).join('').indexOf(text, from);
+  return { line, start, end: start + text.length };
+};
+/** A Message block as the export writes one, its name and abbreviation in `; Name:` on the line after its `; Type:` and its rule's head at `head`. */
+function message(lines, index, { line, last, head, name, abbreviation, section, page = null, command }) {
+  const ref = { code: command.code, request: command.request, name, abbreviation, block: index };
+  return {
+    type: 'Message', line, last, section, page, fields: { Name: `${name}, ${abbreviation}`, Section: section, ...page ? { Page: String(page) } : {} }, name, abbreviation, command,
+    rule: { name, line: head, members: [{ line: head + 1, name: 'Session-Id', presence: 'fixed', min: 1, max: 1 }] },
+    commands: [{ ...at(lines, line + 1, name), ...ref }, { ...at(lines, line + 1, abbreviation, 8 + name.length), ...ref }, { ...at(lines, head, name), ...ref }],
+  };
+}
+const scoped = { application: 'Diameter base accounting', stated_in: '9.3', scope: '9.3' };
 const named = lines => lines.flatMap((line, at) => line.tokens.filter(token => token.command).map(token => [at, token.text, commandKey(token.command)]));
 
 const accounting = `; Type: Application Scope
@@ -52,10 +67,27 @@ const accounting = `; Type: Application Scope
 Session-Id 263 M M - UTF8String
 `;
 
-test('a block names its command in its Name line and its rule, and its header says the rest', () => {
+/** The accounting text, its blocks as the export reads them. */
+function accountingFile() {
   const lines = file(accounting);
+  const blocks = [{ type: 'Application Scope', line: 0, last: 4, section: '9.3', page: null, fields: { Name: 'Diameter base accounting', Section: '9.3', 'Application-ID': '3', 'Applies-To': '9.*' }, name: 'Diameter base accounting' }];
+  blocks.push(message(lines, 1, { line: 6, last: 11, head: 10, name: 'Accounting-Request', abbreviation: 'ACR', section: '9.7.1', page: 127, command: { code: 271, request: true, flags: ['REQ', 'PXY'], header_application_id: null, application_id: 3, ...scoped } }));
+  blocks.push(message(lines, 2, { line: 13, last: 18, head: 17, name: 'Accounting-Answer', abbreviation: 'ACA', section: '9.7.2', page: 128, command: { code: 271, request: false, flags: ['PXY'], header_application_id: null, application_id: 3, ...scoped } }));
+  blocks.push(message(lines, 3, { line: 20, last: 24, head: 23, name: 'Gx-Answer', abbreviation: 'GXA', section: '4.2', command: { code: 272, request: false, flags: ['PXY'], header_application_id: 16777238, application_id: 16777238 } }));
+  const columns = ['Name', 'Code', 'ACR', 'ACA', 'CCR', 'Type'];
+  const column = (abbreviation, index) => ({ ...at(lines, 30, abbreviation), code: 271, request: abbreviation === 'ACR', name: blocks[index].name, abbreviation, block: index });
+  blocks.push({
+    type: 'AVP Table', line: 26, last: 31, section: '7.1', page: 94, fields: { Section: '7.1', Table: '7.1.0.1', Page: '94', Columns: 'Name    Code   ACR   ACA   CCR   Type' }, columns,
+    rows: [{ line: 31, name: 'Session-Id', cells: ['Session-Id', '263', 'M', 'M', '-', 'UTF8String'] }], commands: [column('ACR', 1), column('ACA', 2)],
+  });
+  return { id: 'rfc6733', lines, blocks };
+}
+
+test('a block names its command in its Name line and its rule, and its header says the rest', () => {
+  const doc = accountingFile();
+  const { lines } = doc;
   const before = texts(lines);
-  const { blocks, tables } = commandFacts(lines);
+  const { blocks, tables } = commandFacts(doc);
   assert.equal(texts(lines), before, 'every token joined is still the file');
   assert.deepEqual(blocks.map(({ name, abbreviation, section, page, line, code, flags, header, application, scope }) => [name, abbreviation, section, page, line, code, flags, header, application, scope]), [
     ['Accounting-Request', 'ACR', '9.7.1', 127, 6, 271, ['REQ', 'PXY'], null, 3, { name: 'Diameter base accounting', section: '9.3' }],
@@ -66,15 +98,17 @@ test('a block names its command in its Name line and its rule, and its header sa
     [7, 'Accounting-Request', '271 request'], [7, 'ACR', '271 request'], [10, 'Accounting-Request', '271 request'],
     [14, 'Accounting-Answer', '271 answer'], [14, 'ACA', '271 answer'], [17, 'Accounting-Answer', '271 answer'],
   ]);
+  assert.equal(lines[7].tokens.find(token => token.text === 'ACR').command.block, blocks[0], 'a name is its block\'s');
   assert.deepEqual(lines[14].tokens.slice(-3).map(token => token.text), [' ', ';; corrected: (X.py#y)', '\n'], 'a comment after it is left whole');
   assert.deepEqual(tables, [{ section: '7.1', page: 94, line: 26, table: '7.1.0.1', columns: ['ACR', 'ACA'] }]);
   assert.deepEqual(named(lines).filter(([line]) => line === 30).map(([, text]) => text), ['ACR', 'ACA'], 'a column for no command of the file is no name');
-  assert.equal(commandFacts(lines), commandFacts(lines), 'read once');
+  assert.equal(commandFacts(doc), commandFacts(doc), 'read once');
 });
 
 test('a name a link already spans is marked in place, and one inside a link is not split', () => {
   const lines = file('; Type: Message\n; Name: AA-Answer, AAA\n; Section: 17.6.2\n<AA-Answer> ::= < Diameter Header: 265, PXY >\n', { 'AA-Answer>': { target: { document: 'd', section: '17.6.2' } } });
-  commandFacts(lines);
+  const block = message(lines, 0, { line: 0, last: 3, head: 3, name: 'AA-Answer', abbreviation: 'AAA', section: '17.6.2', command: { code: 265, request: false, flags: ['PXY'], header_application_id: null, application_id: null } });
+  commandFacts({ lines, blocks: [block] });
   assert.deepEqual(named(lines).map(([line, text]) => [line, text]), [[1, 'AA-Answer'], [1, 'AAA']]);
   const [link] = lines[3].tokens.filter(token => token.target);
   assert.equal(link.command, undefined);
@@ -91,8 +125,27 @@ test('a Command Codes row names its request and its answer, by name and abbrevia
 319               "Insert Subscriber Data-Request/Answer"  IDR/IDA        TS29.272
 313               -                                        -              -
 `, { 'TS29.229': { target: { document: '29229-j10' } } });
+  const halves = (line, code, [request, answer], [short, long], [requestName, answerName]) => [
+    { ...at(lines, line, request), code, request: true, name: requestName, abbreviation: short },
+    { ...at(lines, line, answer, lines[line].tokens.map(token => token.text).join('').indexOf('/')), code, request: false, name: answerName, abbreviation: long },
+    { ...at(lines, line, short), code, request: true, name: requestName, abbreviation: short },
+    { ...at(lines, line, long), code, request: false, name: answerName, abbreviation: long },
+  ];
+  const block = {
+    type: 'Registry', line: 0, last: 8, section: '5.1', page: 11, fields: { Registry: 'Command Codes', Section: '5.1', Table: '5.1/1', Page: '11', Columns: 'Code Name Abbreviation Defined-In' },
+    columns: ['Code', 'Name', 'Abbreviation', 'Defined-In'],
+    allocations: [
+      { line: 6, cells: ['300', 'User-Authorization-Request/-Answer', 'UAR/UAA', 'TS29.229'], code: 300, name: 'User-Authorization-Request/-Answer', abbreviation: 'UAR/UAA', documents: ['29229-j10'] },
+      { line: 7, cells: ['319', '"Insert Subscriber Data-Request/Answer"', 'IDR/IDA', 'TS29.272'], code: 319, name: 'Insert Subscriber Data-Request/Answer', abbreviation: 'IDR/IDA' },
+      { line: 8, cells: ['313', '-', '-', '-'], code: 313 },
+    ],
+    commands: [
+      ...halves(6, 300, ['User-Authorization-Request', 'Answer'], ['UAR', 'UAA'], ['User-Authorization-Request', 'User-Authorization-Answer']),
+      ...halves(7, 319, ['Insert Subscriber Data-Request', 'Answer'], ['IDR', 'IDA'], ['Insert Subscriber Data-Request', 'Insert Subscriber Data-Answer']),
+    ],
+  };
   const before = texts(lines);
-  const { rows } = commandFacts(lines);
+  const { rows } = commandFacts({ lines, blocks: [block] });
   assert.equal(texts(lines), before);
   assert.deepEqual(rows.map(({ code, name, abbreviation, line, table, defined }) => [code, name, abbreviation, line, table, defined]), [
     [300, 'User-Authorization-Request/-Answer', 'UAR/UAA', 6, '5.1/1', ['29229-j10']],
@@ -104,43 +157,31 @@ test('a Command Codes row names its request and its answer, by name and abbrevia
   ]);
   const answer = lines[6].tokens.find(token => token.text === 'Answer').command;
   assert.equal(answer.name, 'User-Authorization-Answer');
+  assert.equal(answer.row, rows[0], 'a half is its row\'s');
   assert.equal(lines[7].tokens.find(token => token.text === 'IDA').command.name, 'Insert Subscriber Data-Answer');
 });
 
-test('a bare header takes the first covering scope\'s id, and one printing an id is named by the scope stating it for its interface', () => {
-  const lines = file(`; Type: Application Scope
-; Name: S7a
-; Section: 7.1.1
-; Application-ID: 16777308
-; Applies-To: 7.2.25.*
-
-; Type: Application Scope
-; Name: S6a
-; Section: 7.1
-; Application-ID: 16777251
-; Applies-To: 7.*
-
-; Type: Message
-; Name: Insert-Subscriber-Data-Request, IDR
-; Section: 7.2.9
-<Insert-Subscriber-Data-Request> ::= < Diameter Header: 319, REQ, PXY, 16777308 >
-
-; Type: Message
-; Name: Update-VCSG-Location-Request, UVR
-; Section: 7.2.25.1
-<Update-VCSG-Location-Request> ::= < Diameter Header: 8388638, REQ, PXY >
-`);
-  const [insert, vcsg] = commandFacts(lines).blocks;
-  assert.deepEqual([insert.application, insert.scope], [16777308, { name: 'S7a', section: '7.1.1' }]);
-  assert.deepEqual([vcsg.application, vcsg.scope], [16777308, { name: 'S7a', section: '7.1.1' }]);
+test('a bare header\'s application is said from the scope stating its id, one printing an id from the scope naming it', () => {
+  const lines = file('; Type: Message\n; Name: Bare-Request, BRR\n<Bare-Request> ::= < Diameter Header: 1, REQ >\n\n; Type: Message\n; Name: Own-Request, OWR\n<Own-Request> ::= < Diameter Header: 2, REQ, 16777308 >\n\n; Type: Message\n; Name: Unnamed-Request, UNR\n<Unnamed-Request> ::= < Diameter Header: 3, REQ, 7 >\n');
+  const named = { application: 'S7a', stated_in: '7.1.1', scope: '7.2' };
+  const blocks = [
+    message(lines, 0, { line: 0, last: 2, head: 2, name: 'Bare-Request', abbreviation: 'BRR', section: '7.2.25.1', command: { code: 1, request: true, flags: ['REQ'], header_application_id: null, application_id: 16777308, ...named } }),
+    message(lines, 1, { line: 4, last: 6, head: 6, name: 'Own-Request', abbreviation: 'OWR', section: '7.2.9', command: { code: 2, request: true, flags: ['REQ'], header_application_id: 16777308, application_id: 16777308, ...named } }),
+    message(lines, 2, { line: 8, last: 10, head: 10, name: 'Unnamed-Request', abbreviation: 'UNR', section: '8.1', command: { code: 3, request: true, flags: ['REQ'], header_application_id: 7, application_id: 7, scope: '8' } }),
+  ];
+  const [bare, own, unnamed] = commandFacts({ lines, blocks }).blocks;
+  assert.deepEqual([bare.application, bare.scope], [16777308, { name: 'S7a', section: '7.2' }]);
+  assert.deepEqual([own.application, own.scope], [16777308, { name: 'S7a', section: '7.1.1' }]);
+  assert.deepEqual([unnamed.application, unnamed.scope], [7, null], 'no scope names its application');
 });
 
 const doc = { id: 'rfc6733' };
 const other = (document, fields) => ({ document, name: 'Accounting-Answer', abbreviation: 'ACA', section: '6.2.3', page: 60, line: 52, code: 271, flags: ['PXY'], header: null, application: 3, scope: null, ...fields });
 
 test('a block is its Definition, here in the pane at its name and in the view at its line, elsewhere only its clause', () => {
-  const lines = file(accounting);
-  const answer = { document: 'rfc6733', ...commandFacts(lines).blocks[1] };
+  const doc = accountingFile();
+  const { lines } = doc;
+  const answer = { document: 'rfc6733', ...commandFacts(doc).blocks[1] };
   assert.deepEqual(blockPlace(answer, doc), {
     document: 'rfc6733', position: { section: '9.7.2', page: 128, name: 'Accounting-Answer' },
     target: { document: 'rfc6733', section: '9.7.2', name: 'Accounting-Answer' }, line: 13,
@@ -151,7 +192,7 @@ test('a block is its Definition, here in the pane at its name and in the view at
 });
 
 test('a registry half is the block of its code and half in the document its row cites, and nothing where none prints one', () => {
-  const index = { schema_version: 1, registry: [], commands: [other('29229-j10', { name: 'User-Authorization-Answer', code: 300 }), other('29229-j10', { name: 'User-Authorization-Request', code: 300, flags: ['REQ', 'PXY'], line: 30 })] };
+  const index = { schema_version: 2, registry: [], commands: [other('29229-j10', { name: 'User-Authorization-Answer', code: 300 }), other('29229-j10', { name: 'User-Authorization-Request', code: 300, flags: ['REQ', 'PXY'], line: 30 })] };
   const row = { code: 300, name: 'User-Authorization-Request/-Answer', abbreviation: 'UAR/UAA', section: '5.1', page: 11, line: 6, table: '5.1/1', defined: ['29229-j10'] };
   assert.equal(commandOf({ code: 300, request: true, name: 'User-Authorization-Request', abbreviation: 'UAR', row }, doc, index).line, 30);
   assert.equal(commandOf({ code: 300, request: false, name: 'User-Authorization-Answer', abbreviation: 'UAA', row }, doc, index).name, 'User-Authorization-Answer');
@@ -184,23 +225,23 @@ test('other definitions share code, application and half under any name; the nam
   assert.deepEqual(differing, [commands[3], commands[4]]);
 });
 
-test('this file\'s commands and rows come from its lines, the others\' from the index', () => {
-  const lines = file(accounting);
-  const index = { schema_version: 1, commands: [other('rfc6733', { line: 999 }), other('32299-j00')], registry: [{ document: '29230-j30', code: 271, name: 'Accounting', abbreviation: 'ACR/ACA', section: '5.1', page: 11, line: 9, table: null, defined: [] }] };
-  const all = allCommands(lines, doc, index);
+test('this file\'s commands and rows come from its blocks, the others\' from the index', () => {
+  const file = accountingFile();
+  const index = { schema_version: 2, commands: [other('rfc6733', { line: 999 }), other('32299-j00')], registry: [{ document: '29230-j30', code: 271, name: 'Accounting', abbreviation: 'ACR/ACA', section: '5.1', page: 11, line: 9, table: null, defined: [] }] };
+  const all = allCommands(file, doc, index);
   assert.deepEqual(all.map(command => [command.document, command.line]), [['rfc6733', 6], ['rfc6733', 13], ['rfc6733', 20], ['32299-j00', 52]]);
-  const [row] = registryRows({ code: 271 }, lines, doc, index);
+  const [row] = registryRows({ code: 271 }, file, doc, index);
   assert.deepEqual(rowPlace(row, doc), { document: '29230-j30', target: { document: '29230-j30', section: '5.1', name: 'ACR/ACA' }, line: 9 });
-  assert.deepEqual(registryRows({ code: 272 }, lines, doc, index), []);
-  assert.deepEqual(tablesOf(all[0], lines, doc).map(table => table.table), ['7.1.0.1']);
-  assert.deepEqual(tablesOf(all[2], lines, doc), []);
-  assert.deepEqual(tablesOf(all[3], lines, doc), [], 'another document\'s tables are not this file\'s');
+  assert.deepEqual(registryRows({ code: 272 }, file, doc, index), []);
+  assert.deepEqual(tablesOf(all[0], file, doc).map(table => table.table), ['7.1.0.1']);
+  assert.deepEqual(tablesOf(all[2], file, doc), []);
+  assert.deepEqual(tablesOf(all[3], file, doc), [], 'another document\'s tables are not this file\'s');
 });
 
 test('the index of the fixture holds every command search does, with the application the model gives it', async () => {
   const index = await readFixture('index.json');
   const search = await readFixture('search.json');
-  const documents = await Promise.all(index.documents.map(async summary => ({ id: summary.id, lines: (await readFixture(summary.path)).lines })));
+  const documents = await Promise.all(index.documents.map(summary => readFixture(summary.path)));
   const built = commandIndex(documents, index.schema_version);
   const key = (document, section, name, code, application, header, scope) => JSON.stringify([document, section, name, code, application, header, scope]);
   const expected = search.entries.filter(entry => entry.kind === 'command').map(({ document, target, name, identity }) =>

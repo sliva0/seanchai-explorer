@@ -3,8 +3,9 @@ import { commandPlaces } from './command-places.ts';
 import type { CommandIndex } from './commands.ts';
 import { routeFor } from './navigation.ts';
 import type { SourcePosition } from './navigation.ts';
+import { blockAt } from './blocks.ts';
+import type { DadFile } from './blocks.ts';
 import type { Document, Line, Target } from './types.ts';
-import { lineText } from './values.ts';
 import type { ValueRow, ValueToken } from './values.ts';
 
 /**
@@ -38,15 +39,12 @@ function describedAt(line: Line, name: ValueToken, document: string): { cell?: V
  * A `Reused AVPs` block with no `; Table:` is the origin a clause's prose states: there is no row to find, and its
  * row's place and Details are that clause.
  */
-export function markDetails(lines: Line[], doc: Pick<Document, 'id' | 'sections'>) {
-  let stated = false;
-  for (const line of lines) {
-    const text = lineText(line);
-    if (text.startsWith('; Type:')) stated = text === '; Type: Reused AVPs';
-    else if (text.startsWith('; Table:')) stated = false;
+export function markDetails(file: DadFile, doc: Pick<Document, 'id' | 'sections'>) {
+  for (const [index, line] of file.lines.entries()) {
     const name: ValueToken | undefined = line.tokens.find(token => token.avp && token.source?.row);
     if (!name) continue;
-    if (stated) {
+    const block = blockAt(file, index);
+    if (block?.type === 'Reused AVPs' && block.fields.Table === undefined) {
       const clause: SourcePosition = { section: name.source!.section, page: name.source!.page };
       name.source = clause;
       name.details = clause;

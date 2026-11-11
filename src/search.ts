@@ -1,6 +1,5 @@
 import { allowsFuzzy, foldName, foldQuery, looseSubsequence, nameTypos, spansInName, wordPrefixes, wordTypos } from './fuzzy.ts';
 import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
-import { interfacesOf } from './interfaces.ts';
 import type { DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
 
@@ -75,7 +74,7 @@ export function searchSpecifications(documents: DocumentSummary[], query: string
   const ranked: { doc: DocumentSummary; rank: number }[] = [];
   for (const doc of documents) {
     const byNumber = number ? rankAmong([doc.reference, doc.specification, doc.id].map(compact), number) : null;
-    const interfaces = interfacesOf(doc).split(', ').filter(Boolean);
+    const interfaces = doc.interfaces ?? [];
     const byInterface = interfaces.flatMap(name => matchInterface(query, name)?.rank ?? []);
     const text = `${doc.specification} ${doc.title} ${doc.version ?? ''}`.toLowerCase();
     const byWords = wanted.every(word => text.includes(word) || interfaces.some(name => matchInterface(word, name))) ? [SUBSTRING] : [];

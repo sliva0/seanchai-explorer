@@ -7,8 +7,7 @@ import { correctedRow, printedRow } from '../../src/printed-row.ts';
 const doc = { id: 'd', sections: [{ section: '16.4.7', page: 86, title: 'AVP Y' }, { section: '20.5', page: 172, title: 'AVP Table' }] };
 const name = (avp, section, target) => ({ text: avp, avp, source: { section, page: 129, name: avp, row: true }, ...(target ? { target } : {}) });
 const marked = tokens => {
-  const lines = [{ tokens }];
-  markDetails(lines, doc);
+  markDetails({ lines: [{ tokens }], blocks: [] }, doc);
   return tokens;
 };
 const details = { section: '16.4.7', page: 86, name: 'Y', row: true, titled: true };
@@ -67,7 +66,7 @@ const file = () => {
     { tokens: [name('Y', '20.5', here)] },
     { anchor: '16.4.7', tokens: [{ text: 'Z', avp: 'Z', target: here }] },
   ];
-  markDetails(lines, doc);
+  markDetails({ lines, blocks: [] }, doc);
   return lines;
 };
 
@@ -95,13 +94,13 @@ test('a Definition in another document is its clause there, and a Details row is
   const lines = [{ tokens: [{ text: 'R', avp: 'R', target: { document: 'rfc6733', section: '6.7.1' } }] }];
   assert.deepEqual(namePlaces(lines[0].tokens[0], lines, doc), { definition: { document: 'rfc6733', target: { document: 'rfc6733', section: '6.7.1', name: 'R' } } });
   const listed = [{ tokens: [name('R', '20.5', { document: 'rfc6733', section: '6.7.1', name: 'S' })] }];
-  markDetails(listed, doc);
+  markDetails({ lines: listed, blocks: [] }, doc);
   assert.deepEqual(namePlaces(listed[0].tokens[0], listed, doc), { definition: { document: 'rfc6733', target: { document: 'rfc6733', section: '6.7.1', name: 'S' } } });
 });
 
 test('Details the file has no line for are only in the source', () => {
   const lines = [{ tokens: [name('Y', '16a.5', here)] }];
-  markDetails(lines, doc);
+  markDetails({ lines, blocks: [] }, doc);
   assert.deepEqual(namePlaces(lines[0].tokens[0], lines, doc).details, { document: 'd', position: details });
 });
 
@@ -173,7 +172,9 @@ test('a Reused AVPs block with no table is a clause\'s prose: its row goes to th
     ...header('', '', '; Type: Reused AVPs', '; Section: 6.3', '; Table: 6.3/2', '; Columns: Name From'), stated(),
     { section: '6.4', tokens: [{ text: 'Server-Name', avp: 'Server-Name', target: origin }] },
   ];
-  markDetails(lines, doc);
+  const reused = (line, last, fields) => ({ type: 'Reused AVPs', line, last, section: fields.Section, page: fields.Page ? Number(fields.Page) : null, fields: { ...fields, Columns: 'Name From' }, columns: ['Name', 'From'] });
+  const file = { lines, blocks: [reused(0, 4, { Section: '6.3.9', Page: '21' }), reused(7, 11, { Section: '6.3', Table: '6.3/2' })] };
+  markDetails(file, doc);
   const clause = { section: '6.3.9', page: 129 };
   const [row] = lines[4].tokens;
   assert.deepEqual(row.source, clause, 'no row to look for');
@@ -186,7 +187,7 @@ test('a Reused AVPs block with no table is a clause\'s prose: its row goes to th
   };
   assert.deepEqual(namePlaces(lines[12].tokens[0], lines, doc), expected, 'a use elsewhere');
   assert.deepEqual(namePlaces(row, lines, doc), expected, 'its row');
-  markDetails(lines, doc);
+  markDetails(file, doc);
   assert.deepEqual(row.source, clause, 'marked once');
 });
 

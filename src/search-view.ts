@@ -1,7 +1,6 @@
-import { docAbout, docInFamily, docName, publisherRank } from './data.ts';
+import { docAbout, docInFamily, docName, interfacesOf, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { counted, element, link } from './dom.ts';
-import { interfacesOf } from './interfaces.ts';
 import { routeFor } from './navigation.ts';
 import { definitions, filterMentions, foldMentions, groupFacts, identityLabel, indexEntries, interfaceSpans, isApproximate, matchSpans, mentionSpans, searchEntries, searchSpecifications, sortMentions, usualDefinition } from './search.ts';
 import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';

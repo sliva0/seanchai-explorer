@@ -1,44 +1,22 @@
-import type { Line } from './types.ts';
-import { blankLine, lineText } from './values.ts';
+import { avpRows, blockAt, byName, cell, perFile } from './blocks.ts';
+import type { AvpRow, DadFile } from './blocks.ts';
+import type { Member, Presence } from './types.ts';
 
-/** How a rule's member is bracketed: `< X >` fixed, `{ X }` required, `[ X ]` optional (RFC 6733 3.2). */
-export type Presence = 'fixed' | 'required' | 'optional';
+export { avpRows } from './blocks.ts';
+export type { AvpRow } from './blocks.ts';
+export type { Member, Presence } from './types.ts';
 
-/** A member of a command's or a Grouped AVP's rule, as its line prints it. `max` null is no upper bound. */
-export interface Member {
-  name: string;
-  presence: Presence;
-  /** The qualifier as printed, `1*`, `*2`, or empty. */
-  qualifier: string;
-  min: number;
-  max: number | null;
-  bold: boolean;
-  /** The line is commented out with its `; strikethrough` kept, as the document strikes it. */
-  struck: boolean;
-  line: number;
-}
-
-/** A `Message`, `Grouped AVP` or `Reprinted AVP` block's rule. `label` is a command's name and abbreviation. */
+/** A `Message`, `Answer Message`, `Grouped AVP` or `Reprinted AVP` block's rule. `label` is a command's name and abbreviation. */
 export interface Rule {
   kind: string;
   name: string;
   label: string;
   /** Its abbreviation where the block names one, else its name. */
   short: string;
-  section: string | null;
+  section: string;
   /** Its `::=` line. */
   line: number;
   members: Member[];
-}
-
-/** A row of an AVP table, a `Reused AVPs` block or an AVP Codes registry, its cells under its own columns. */
-export interface AvpRow {
-  type: string;
-  name: string;
-  section: string | null;
-  table: string | null;
-  cells: [column: string, value: string][];
-  line: number;
 }
 
 /** What one line says of a name on it: a member of a rule, the rule's own head, or a table's row. */
@@ -47,146 +25,41 @@ export type Use =
   | { kind: 'head'; rule: Rule }
   | { kind: 'row'; row: AvpRow };
 
-interface Block { type: string; fields: Map<string, string>; body: boolean; rule?: Rule; rows: AvpRow[] }
-interface Parsed { blocks: (Block | undefined)[]; rules: Map<string, Rule[]>; rows: Map<string, AvpRow[]> }
-
-const directive = /^; ([\w-]+): (.*?)\s*(?:;;.*)?$/;
-const ruleHead = /^\s*<?\s*([A-Za-z0-9][A-Za-z0-9_-]*)\s*>?\s*::=/;
-const memberLine = /^\s*(?:(\d*)\s*\*\s*(\d*))?\s*([<{[])\s*([A-Za-z0-9][A-Za-z0-9_-]*)\s*[>}\]]/;
-const cells = /(?:"(?:[^"\\]|\\.)*"|[^\s"])+/g;
-const ruleTypes = new Set(['Message', 'Grouped AVP', 'Reprinted AVP']);
-const presenceOf: Record<string, Presence> = { '<': 'fixed', '{': 'required', '[': 'optional' };
-
-/** A line's text with its `;;` comments, which hold a struck member, but without what a correction replaced. */
-const fullText = (line: Line) => line.tokens.filter(token => !token.correction).map(token => token.text).join('').replace(/\n$/, '');
-
-/**
- * RFC 6733 3.2: no qualifier is exactly one of a fixed or required member and at most one of an optional one; a
- * qualifier's missing min is 0, or 1 on a required member, which is there at least once, and its missing max unbounded.
- */
-export function bounds(presence: Presence, minText: string | undefined, maxText: string | undefined, qualified: boolean) {
-  let min = qualified ? (minText ? Number(minText) : 0) : presence === 'optional' ? 0 : 1;
-  const max = qualified ? (maxText ? Number(maxText) : null) : 1;
-  if (presence === 'required') min = Math.max(1, min);
-  return { min, max };
-}
-
-function member(line: Line, index: number): Member | undefined {
-  let text = fullText(line);
-  const struck = /^\s*;;/.test(text);
-  if (struck) {
-    if (!/; strikethrough\b/.test(text)) return undefined;
-    text = text.replace(/^\s*;;/, '');
-  } else text = text.replace(/;;.*$/, '');
-  const match = text.match(memberLine);
-  if (!match) return undefined;
-  const [, minText, maxText, open, name] = match;
-  const qualified = /^\s*\d*\s*\*/.test(text);
-  const presence = presenceOf[open];
-  return {
-    name, presence, qualifier: qualified ? `${minText ?? ''}*${maxText ?? ''}` : '',
-    ...bounds(presence, minText, maxText, qualified),
-    bold: /; bold\b/.test(text), struck, line: index,
+const rulesOf = perFile(({ blocks }) => new Map(blocks.flatMap(block => {
+  if (!block.rule) return [];
+  const { name, line, members } = block.rule;
+  const named = block.name ?? name;
+  const rule: Rule = {
+    kind: block.type, name, label: block.abbreviation ? `${named} (${block.abbreviation})` : named, short: block.abbreviation ?? name,
+    section: block.section, line, members,
   };
-}
-
-function parse(lines: Line[]): Parsed {
-  const parsed: Parsed = { blocks: [], rules: new Map(), rows: new Map() };
-  const add = <T>(map: Map<string, T[]>, name: string, item: T) => {
-    const list = map.get(name);
-    if (list) list.push(item);
-    else map.set(name, [item]);
-  };
-  let block: Block | undefined;
-  lines.forEach((line, index) => {
-    const text = lineText(line);
-    const field = text.match(directive);
-    if (field?.[1] === 'Type') {
-      block = { type: field[2], fields: new Map(), body: false, rows: [] };
-      parsed.blocks[index] = block;
-      return;
-    }
-    if (!block) return;
-    if (!text.trim()) {
-      if (block.body && blankLine(line)) { block = undefined; return; }
-      parsed.blocks[index] = block;
-      if (block.rule) {
-        const found = member(line, index);
-        if (found) block.rule.members.push(found);
-      }
-      return;
-    }
-    parsed.blocks[index] = block;
-    if (field && !block.body) { block.fields.set(field[1], field[2]); return; }
-    if (text.trimStart().startsWith(';')) return;
-    const first = !block.body;
-    block.body = true;
-    const { type, fields } = block;
-    if (ruleTypes.has(type)) {
-      if (first) {
-        const head = text.match(ruleHead);
-        if (!head) return;
-        const [name, abbreviation] = (fields.get('Name') ?? head[1]).split(/,\s*/);
-        const rule: Rule = {
-          kind: type, name: head[1], label: abbreviation ? `${name} (${abbreviation})` : name, short: abbreviation ?? head[1],
-          section: fields.get('Section') ?? line.section ?? null, line: index, members: [],
-        };
-        block.rule = rule;
-        add(parsed.rules, rule.name, rule);
-      } else if (block.rule) {
-        const found = member(line, index);
-        if (found) block.rule.members.push(found);
-      }
-      return;
-    }
-    const tabulates = type === 'AVP Table' || type === 'Reused AVPs' || (type === 'Registry' && fields.get('Registry') === 'AVP Codes');
-    const columns = fields.get('Columns')?.split(/\s+/);
-    if (!tabulates || !columns) return;
-    const row = text.match(cells) ?? [];
-    const end = row.findIndex(value => value.startsWith(';'));
-    if ((end < 0 ? row.length : end) !== columns.length) return;
-    const name = row[columns.indexOf('Name')]?.replace(/^"(.*)"$/, '$1');
-    if (!name) return;
-    const found: AvpRow = {
-      type, name, section: fields.get('Section') ?? line.section ?? null, table: fields.get('Table') ?? null,
-      cells: columns.map((column, at) => [column, row[at]]), line: index,
-    };
-    block.rows.push(found);
-    add(parsed.rows, name, found);
-  });
-  return parsed;
-}
-
-const known = new WeakMap<Line[], Parsed>();
-function parsedOf(lines: Line[]): Parsed {
-  let parsed = known.get(lines);
-  if (!parsed) { parsed = parse(lines); known.set(lines, parsed); }
-  return parsed;
-}
+  return [[block, rule]];
+})));
+const rulesByName = perFile(file => byName([...rulesOf(file).values()].map(rule => [rule.name, rule])));
 
 /** The rule a line is in, if it is in one. */
-export const ruleAt = (lines: Line[], index: number): Rule | undefined => parsedOf(lines).blocks[index]?.rule;
+export const ruleAt = (file: DadFile, index: number): Rule | undefined => {
+  const block = blockAt(file, index);
+  return block && rulesOf(file).get(block);
+};
 
 /** What the line at `index` says of `name`. */
-export function useAt(lines: Line[], index: number, name: string): Use | undefined {
-  const block = parsedOf(lines).blocks[index];
+export function useAt(file: DadFile, index: number, name: string): Use | undefined {
+  const block = blockAt(file, index);
   if (!block) return undefined;
-  const { rule } = block;
+  const rule = rulesOf(file).get(block);
   if (rule) {
     if (rule.line === index) return rule.name === name ? { kind: 'head', rule } : undefined;
     const found = rule.members.find(item => item.line === index && item.name === name);
     return found && { kind: 'member', rule, member: found };
   }
-  const row = block.rows.find(item => item.line === index && item.name === name);
+  const row = avpRows(file, name).find(item => item.line === index);
   return row && { kind: 'row', row };
 }
 
 /** The Grouped AVP and reprinted rules a file gives a name. */
-export const groupedRules = (lines: Line[], name: string): Rule[] =>
-  (parsedOf(lines).rules.get(name) ?? []).filter(rule => rule.kind !== 'Message');
-
-/** The table rows a file gives a name, in file order. */
-export const avpRows = (lines: Line[], name: string): AvpRow[] => parsedOf(lines).rows.get(name) ?? [];
+export const groupedRules = (file: DadFile, name: string): Rule[] =>
+  (rulesByName(file).get(name) ?? []).filter(rule => rule.kind === 'Grouped AVP' || rule.kind === 'Reprinted AVP');
 
 const presenceWords: Record<Presence, { label: string; brackets: string; meaning: string }> = {
   fixed: { label: 'Fixed', brackets: '< >', meaning: 'must be present, at this position in the order' },
@@ -229,7 +102,7 @@ export const bitMeaning: Record<string, string> = {
 const hiddenColumns = new Set(['Name', 'Code', 'Section', 'Type', 'Vendor-ID', 'Encrypt', ...flagColumns.map(([column]) => column)]);
 /** A Reused AVPs table's M-bit cell, `MUST` or `Must not`, as a flag rule. */
 const mBit = (row: AvpRow): FlagRule | undefined => {
-  const value = row.cells.find(([name]) => name === 'M-bit')?.[1].replace(/^"(.*)"$/, '$1').trim().toLowerCase().replace(/\s+/g, ' ');
+  const value = cell(row, 'M-bit')?.replace(/^"(.*)"$/, '$1').trim().toLowerCase().replace(/\s+/g, ' ');
   return value === 'must' || value === 'must not' ? value : undefined;
 };
 
@@ -241,12 +114,12 @@ export function flagTable(row: AvpRow): [FlagRule, string[]][] {
 
 /** The rule a row's flag columns give one bit, the P bit the table shows nowhere else among them. */
 export function bitRule(row: AvpRow, bit: string): FlagRule | undefined {
-  return flagColumns.find(([column]) => row.cells.find(([name]) => name === column)?.[1].split(',').includes(bit))?.[1];
+  return flagColumns.find(([column]) => cell(row, column)?.split(',').includes(bit))?.[1];
 }
 
 /** A row's Encrypt cell as words, `Y`, `No` or `-`, if its table has the column. */
 export function encryptOf(row: AvpRow): string | undefined {
-  const value = row.cells.find(([column]) => column === 'Encrypt')?.[1];
+  const value = cell(row, 'Encrypt');
   return value === undefined ? undefined : cellText(value);
 }
 
@@ -254,8 +127,7 @@ export function encryptOf(row: AvpRow): string | undefined {
 export function flagRules(row: AvpRow): { bit: string; rule: FlagRule; meaning: string }[] {
   const found = new Map<string, FlagRule>();
   for (const [column, rule] of flagColumns) {
-    const value = row.cells.find(([name]) => name === column)?.[1];
-    for (const bit of value?.split(',') ?? []) if (bit in bitMeaning && !found.has(bit)) found.set(bit, rule);
+    for (const bit of cell(row, column)?.split(',') ?? []) if (bit in bitMeaning && !found.has(bit)) found.set(bit, rule);
   }
   const fromColumn = mBit(row);
   if (fromColumn && !found.has('M')) found.set('M', fromColumn);

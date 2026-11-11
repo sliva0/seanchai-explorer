@@ -154,7 +154,7 @@ tests hold it to the exported one.
 
 `src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
 `schema.json`, and the site refuses another schema version before fetching anything
-else. `tests/fixtures/export` is five real documents cut from a real public export.
+else. `tests/fixtures/export` is seven real documents cut from a real public export.
 After the export changes:
 
 ```sh
@@ -167,26 +167,21 @@ npm test
 `--any-schema` lets through an export of another schema version, which `npm run build`
 refuses until the types are regenerated.
 
+The site reads a document's structure from the export and never from its text: each
+file's `blocks` give its rules and their members, its AVP tables and registries row by
+row, its value tables, its commands and where its lines name one, all by line index.
+`src/blocks.ts` holds what the readers of them share, the block a line is in, a file's
+AVP rows by name, one reading per file, and `src/values.ts`, `src/commands.ts`,
+`src/avp-facts.ts` and `src/avp-context.ts` make what the page shows of them. The first
+reading of a file marks the tokens naming a value or a command, so they link as other
+names do. The index of documents gives each one's interfaces, which the index page and
+search show beside its title, a blank where it has none or the corpus does not say.
+
 Prepare also writes `public/data/commands.json`, which `src/commands.ts` derives from the
 export's documents: every command block and Command Codes registry row, about 130 kB,
 which a command's popup needs from documents not loaded and which `search.json` holds
 only inside 8 MB the document pages never fetch. It comes with the first document, and a
 build without it leaves a popup with what the open document says.
-
-## Interface names
-
-The index's second column, the interfaces or application of each document, is not in
-the export. `src/interfaces.ts` holds it, curated by hand from each document's scope
-clause and table of contents, and search finds a document by them. To add a document, or
-change an entry:
-
-- key it by `reference`, or by document `id` where one edition's names differ from the
-  others (as TS 29.212's St is not in its Release 11 edition);
-- list names as the specification spells them, comma-separated: the Diameter ones, not
-  every interface it mentions. For an RFC, name its application;
-- give a document with none an empty string, so that it reads as decided. A missing
-  entry shows as a blank too, but `npm test` fails on it for the fixture's documents
-  and `npm run test:build` for a real export's.
 
 ## Deployment
 

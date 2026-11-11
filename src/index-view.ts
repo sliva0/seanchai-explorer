@@ -1,7 +1,6 @@
-import { docNumber, docSubject, publisherRank } from './data.ts';
+import { docNumber, docSubject, interfacesOf, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { element, link } from './dom.ts';
-import { interfacesOf } from './interfaces.ts';
 import type { DocumentSummary } from './types.ts';
 
 /** A longer list of interfaces wraps, rather than push every title in its group across. */

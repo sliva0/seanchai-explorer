@@ -2,167 +2,43 @@ import { avpRows, bitMeaning, bitRule, columnNotes, encryptOf, flagTable, groupe
 import type { AvpRow, FlagRule, Rule, Use } from './avp-context.ts';
 import { avpIdentities, avpTables } from './avp-facts.ts';
 import type { AvpIdentity } from './avp-facts.ts';
-import { namePlaces, originPlace, placeRoute } from './avp-places.ts';
-import { allCommands, blockPlace, commandOf, definitionsOf, partnerOf, registryRows, rowPlace, tablePlace, tablesOf } from './command-places.ts';
-import type { Command } from './command-places.ts';
-import { commandKey, isRequest } from './commands.ts';
-import type { CommandRef } from './commands.ts';
+import { namePlaces } from './avp-places.ts';
 import type { Place } from './avp-places.ts';
-import { sourceHref } from './data.ts';
+import type { DadFile } from './blocks.ts';
 import type { Site } from './data.ts';
-import { counted, element, externalLink, link } from './dom.ts';
-import type { HighlightedLine, HighlightedToken } from './highlight.ts';
-import { attempt } from './notice.ts';
+import { counted, element } from './dom.ts';
+import type { PopupRequest, PopupShell } from './popup.ts';
 import type { SourcePane } from './source-pane.ts';
-import type { Document, Line } from './types.ts';
-import { valueRowLabel, valueTableTitle } from './values.ts';
-import type { ValueRow } from './values.ts';
+import { valueTableTitle } from './values.ts';
 
-export interface PopupRequest {
-  token: HighlightedToken;
-  doc: Document;
-  /** The view is of the raw text, whose lines `lines` are. */
-  raw: boolean;
-  lines: HighlightedLine[];
-  /** The file's own lines, which `lines` decorate. */
-  fileLines: Line[];
-  opener: HTMLElement;
-  documentPane: HTMLElement;
-  /** Keeps the place a walk through the list is about to leave. */
-  recordJump(): void;
-  /** Goes to a node a walk through the list lands on. */
-  jumpTo(node: HTMLElement): void;
+/** A rule's members as it prints them, each with how many there may be. */
+export function ruleContents(rule: Rule, open: boolean, title: string): HTMLElement {
+  const node = element('details', undefined, 'popup-contents');
+  node.open = open;
+  const summary = element('summary');
+  summary.append(...counted(title, rule.members.length));
+  const list = element('div', undefined, 'contents-list');
+  for (const item of rule.members) {
+    const note = [presenceShort(item), item.name === 'AVP' && 'any other AVP', item.bold && 'bold', (item.struck || item.strikethrough) && 'struck through'].filter(Boolean).join(' · ');
+    const code = element('code', printed(item));
+    if (item.struck || item.strikethrough) code.classList.add('struck');
+    list.append(code, element('span', note, 'fact-note'));
+  }
+  node.append(summary, list);
+  return node;
 }
 
-export type AvpPopup = ReturnType<typeof createAvpPopup>;
-
-export function createAvpPopup(site: Site, pane: SourcePane) {
-  let popup: HTMLElement | undefined;
-  let openerNode: HTMLElement | undefined;
-  let resizing: ResizeObserver | undefined;
-
-  function close(returnFocus = false) {
-    if (!popup) return;
-    popup.remove();
-    popup = undefined;
-    resizing?.disconnect();
-    resizing = undefined;
-    for (const node of document.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
-    if (returnFocus && openerNode?.isConnected) openerNode.focus({ preventScroll: true });
-    openerNode = undefined;
-  }
-
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') close(true); });
-  // A notice can be the popup's own, as a Retry of what it loads, which would have nothing to redraw if this closed it.
-  document.addEventListener('pointerdown', event => {
-    if (popup && !popup.contains(event.target as Node) && !(event.target as Element).closest?.('.notices')) close();
-  });
-
-  /** The heading and the close button: what any popup opens with. */
-  function open(heading: string, opener: HTMLElement) {
-    close();
-    openerNode = opener;
-    const panel = element('section', undefined, 'avp-popup');
-    popup = panel;
-    panel.setAttribute('role', 'dialog');
-    panel.setAttribute('aria-label', heading);
-    const title = element('div', undefined, 'popup-title');
-    title.append(element('strong', heading));
-    const closeButton = element('button', '×');
-    closeButton.setAttribute('aria-label', 'Close');
-    closeButton.onclick = () => close(true);
-    title.append(closeButton);
-    panel.append(title);
-    return { panel, closeButton };
-  }
-
-  function place(panel: HTMLElement, closeButton: HTMLElement, opener: HTMLElement) {
-    document.body.append(panel);
-    const bounds = opener.getBoundingClientRect();
-    const size = panel.getBoundingClientRect();
-    panel.style.left = `${Math.max(12, Math.min(bounds.left, innerWidth - size.width - 12))}px`;
-    // Below the name, or above it where it would otherwise be covered.
-    const below = bounds.bottom + 8;
-    const above = bounds.top - size.height - 8;
-    const top = below + size.height <= innerHeight - 12 ? below : above >= 12 ? above : innerHeight - size.height - 12;
-    panel.style.top = `${Math.max(12, top)}px`;
-    closeButton.focus({ preventScroll: true });
-    // Grown by a section opened in it, it moves up as far as it must to stay in the window.
-    if (typeof ResizeObserver === 'undefined') return;
-    resizing = new ResizeObserver(() => {
-      const { top: at, height } = panel.getBoundingClientRect();
-      if (at + height > innerHeight - 12) panel.style.top = `${Math.max(12, innerHeight - height - 12)}px`;
-    });
-    resizing.observe(panel);
-  }
-
-  /**
-   * A target of a name and the two ways to it: both panels, then the pane alone. Each is there only if the place is in
-   * that medium. With no way to it in the pane, its label is the publisher's copy at that place, if there is one.
-   */
-  function placeRow(label: string, className: string, place: Place, { doc, raw }: PopupRequest, said?: string) {
-    const summary = site.summary(place.document);
-    if (!summary) return undefined;
-    const section = place.position?.section ?? place.target?.section ?? '';
-    const where = said ?? (place.document === doc.id ? section : [site.label(summary), section].filter(Boolean).join(' · '));
-    const row = element('div', undefined, `popup-place ${className}`);
-    row.append(element('span', `${label}:`));
-    const inPane = pane.shows(summary);
-    const href = !inPane && place.position ? sourceHref(summary, place.position, site.mode) : null;
-    const whereNode = href ? externalLink(where, href.href) : element('span', where);
-    whereNode.classList.add('place-where');
-    row.append(whereNode);
-    if (place.target) {
-      const anchor = element('a', 'Jump to', 'control view-action');
-      anchor.href = placeRoute(place, doc, raw);
-      anchor.title = inPane ? 'Moves the text on the left and the source pane on the right' : 'Moves the text to this place';
-      row.append(anchor);
-    }
-    if (inPane) {
-      const button = element('button', 'Show on the right', 'control pane-action');
-      button.type = 'button';
-      button.title = 'Moves only the source pane on the right, and opens it if it is hidden';
-      button.onclick = () => pane.openPlace(place, doc);
-      row.append(button);
-    }
-    return row;
-  }
-
+/** An AVP's popup: what the files at hand say it is, what the line opened on says of it, its rows and rule, its places and its uses. */
+export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) {
   /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
   const identityText = ({ code, vendor, type }: AvpIdentity) =>
     [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? ''].filter(Boolean).join(' · ');
 
   /** The files at hand for a name: the one its link names if that has been loaded, then this one. */
-  function filesOf({ token, doc, fileLines }: PopupRequest) {
+  function filesOf({ token, doc, file }: PopupRequest): { file: DadFile; name: string; document: string }[] {
     const name = token.avp!;
     const away = token.target && token.target.document !== doc.id ? site.held(token.target.document) : undefined;
-    return [...away ? [{ lines: away.lines, name: token.target!.name ?? name, document: away.id }] : [], { lines: fileLines, name, document: doc.id }];
-  }
-
-  /**
-   * The document a popup reads from but has not loaded, as a definition's or a command's: loaded, then the popup drawn
-   * again with it, if the popup is still the one open on `opener`. What has been done in it since is kept: the use
-   * stepped to, the sections opened, where it stands and what in it has the focus.
-   */
-  function loadThenRedraw(id: string | undefined, { doc, opener }: PopupRequest, redraw: (active?: number) => void) {
-    const summary = id && id !== doc.id && !site.held(id) ? site.summary(id) : undefined;
-    if (!summary) return;
-    attempt(`Could not load ${site.label(summary)} for the popup`, () => site.loadDocument(summary.id).then(() => {
-      const old = popup;
-      if (!old?.isConnected || openerNode !== opener || !opener.isConnected) return;
-      const key = (node: Element) => `${node.tagName}.${node.className}|${node.textContent}`;
-      const focused = old.contains(document.activeElement) ? key(document.activeElement!) : undefined;
-      const opened = new Map([...old.querySelectorAll('details')].map(node => [node.className, node.open]));
-      const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
-      const { left, top } = old.style;
-      redraw(active < 0 ? undefined : active);
-      const panel = popup as HTMLElement | undefined;
-      if (!panel || panel === old) return;
-      for (const node of panel.querySelectorAll('details')) node.open = opened.get(node.className) ?? node.open;
-      panel.style.top = top;
-      panel.style.left = `${Math.max(12, Math.min(parseFloat(left), innerWidth - panel.getBoundingClientRect().width - 12))}px`;
-      if (focused) [...panel.querySelectorAll<HTMLElement>('button, summary, a')].find(node => key(node) === focused)?.focus({ preventScroll: true });
-    }));
+    return [...away ? [{ file: away, name: token.target!.name ?? name, document: away.id }] : [], { file, name, document: doc.id }];
   }
 
   /**
@@ -174,11 +50,11 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     const { doc } = request;
     const files = filesOf(request);
     const identities = avpIdentities(files).map(identityText).filter(Boolean);
-    const tables = [...files].reverse().flatMap(({ lines, name, document }) => avpTables(lines, name).map(table => {
+    const tables = [...files].reverse().flatMap(({ file, name, document }) => avpTables(file, name).map(table => {
       const { section, page, line } = table;
       const position = !('rows' in table) ? { section, page, name, row: true, titled: true } : table.kind === 'result-codes' ? { section, page } : table.rows[0].position;
       const place: Place = { document, ...document === doc.id ? { position } : {}, target: { document, section }, line };
-      return placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place, request);
+      return shell.placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place, request);
     }));
     return { identities, tables: tables.filter(row => row !== undefined) };
   }
@@ -197,6 +73,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       node.append(element('p', presenceText(member), 'presence'));
       if (member.bold) node.append(element('p', 'Bold in the source: the document defines or modifies it here', 'fact-note'));
       if (member.struck) node.append(element('p', 'Struck through in the source, and left out of the rule', 'fact-note'));
+      else if (member.strikethrough) node.append(element('p', 'Struck through in the source', 'fact-note'));
     } else if (use.kind === 'head') {
       node.append(element('p', `Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`));
     } else {
@@ -308,27 +185,10 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     return { button, key };
   }
 
-  /** A rule's members as it prints them, each with how many there may be. */
-  function contents(rule: Rule, open: boolean, title: string): HTMLElement {
-    const node = element('details', undefined, 'popup-contents');
-    node.open = open;
-    const summary = element('summary');
-    summary.append(...counted(title, rule.members.length));
-    const list = element('div', undefined, 'contents-list');
-    for (const item of rule.members) {
-      const note = [presenceShort(item), item.name === 'AVP' && 'any other AVP', item.bold && 'bold', item.struck && 'struck through'].filter(Boolean).join(' · ');
-      const code = element('code', printed(item));
-      if (item.struck) code.classList.add('struck');
-      list.append(code, element('span', note, 'fact-note'));
-    }
-    node.append(summary, list);
-    return node;
-  }
-
   /** The rows the files at hand give a name, the one opened on first, each said once, and the Grouped rule they give it. */
   function definitionFacts(request: PopupRequest, use: Use | undefined) {
     const files = filesOf(request);
-    const all = files.flatMap(({ lines, name, document }) => avpRows(lines, name).map(row => ({ row, document })));
+    const all = files.flatMap(({ file, name, document }) => avpRows(file, name).map(row => ({ row, document })));
     if (use?.kind === 'row') all.sort((a, b) => Number(b.row === use.row) - Number(a.row === use.row));
     const seen = new Set<string>();
     const rows = all.filter(({ row }) => {
@@ -337,209 +197,15 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       seen.add(key);
       return true;
     }).slice(0, 3);
-    const rule = use?.kind === 'head' ? use.rule : files.flatMap(({ lines, name }) => groupedRules(lines, name))[0];
+    const rule = use?.kind === 'head' ? use.rule : files.flatMap(({ file, name }) => groupedRules(file, name))[0];
     return { rows, rule };
-  }
-
-  /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
-  function originLabel({ origin }: ValueRow): string {
-    const summary = origin?.target && site.summary(origin.target.document);
-    return summary ? site.label(summary) : origin?.reference ?? '';
-  }
-
-  /**
-   * A value table's name: what its number is of, the document defining a result code another document defines, and
-   * the table around it, whose rows go to the source too.
-   */
-  function showValue(row: ValueRow, request: PopupRequest) {
-    const { doc, opener, documentPane, recordJump, jumpTo } = request;
-    const inPane = pane.shows(doc);
-    const { panel, closeButton } = open(row.name, opener);
-    panel.dataset.value = row.name;
-    const { table } = row;
-    const of = element('p', `${valueRowLabel(table.kind)} ${row.value} of `);
-    if (table.avp?.avp) {
-      if (table.avp.target) of.append(link(table.avp.avp, { ...table.avp.target, name: table.avp.avp }));
-      else of.append(table.avp.avp);
-    }
-    if (table.featureListId !== null) of.append(` · list ${table.featureListId}`);
-    if (table.application) of.append(` · ${table.application}`);
-    if (row.mark) of.append(` · ${row.mark}`);
-    panel.append(of);
-    const source = element('p', 'Source: ');
-    const where = `${row.position.section}${row.position.page ? ` · p. ${row.position.page}` : ''}`;
-    if (inPane) {
-      const button = element('button', where, 'usage-link source-link');
-      button.onclick = () => {
-        pane.setVisible(true);
-        pane.show(table.rows[active].position, doc, true);
-      };
-      source.append(button);
-    } else {
-      const href = sourceHref(doc, row.position, site.mode);
-      if (href) source.append(externalLink(where, href.href));
-      else source.append(where);
-    }
-    panel.append(source);
-    if (row.origin) {
-      const origin = originPlace(row);
-      const found = origin && placeRow('Defined in', 'place-origin', origin, request, [originLabel(row), origin.target!.section].join(' · '));
-      if (found) {
-        const places = element('div', undefined, 'popup-places');
-        places.append(found);
-        panel.append(places);
-      } else panel.append(element('p', `Defined in ${row.origin.reference}`, 'value-origin'));
-    }
-    const actions = element('div', undefined, 'popup-actions');
-    const count = element('span');
-    count.style.minWidth = `${`Row ${table.rows.length}/${table.rows.length}`.length}ch`;
-    const previous = element('button', 'Previous', 'control');
-    const next = element('button', 'Next', 'control');
-    actions.append(count, previous, next);
-    panel.append(actions);
-    const list = element('div', undefined, 'usage-list');
-    const buttons: HTMLButtonElement[] = [];
-    let active = table.rows.indexOf(row);
-    const nameNode = (index: number) => documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
-    // Opening only shows where the row is: the pane moves when a row is chosen, not from under what it was sent to.
-    const mark = (index: number, follow = true) => {
-      active = index;
-      count.textContent = `Row ${active + 1}/${table.rows.length}`;
-      for (const node of documentPane.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
-      nameNode(active)?.classList.add('avp-current');
-      for (const button of buttons) button.removeAttribute('aria-current');
-      buttons[active].setAttribute('aria-current', 'location');
-      buttons[active].scrollIntoView?.({ block: 'nearest' });
-      if (follow && pane.readsDocument()) pane.show(table.rows[active].position, doc, true);
-    };
-    const select = (index: number) => {
-      recordJump();
-      mark((index + table.rows.length) % table.rows.length);
-      const node = nameNode(active);
-      if (node) jumpTo(node);
-    };
-    previous.onclick = () => select(active - 1);
-    next.onclick = () => select(active + 1);
-    table.rows.forEach((item, index) => {
-      const button = element('button', [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(item)}`].filter(Boolean).join(' · '), 'usage-link');
-      button.onclick = () => select(index);
-      buttons.push(button);
-      list.append(button);
-    });
-    const rows = element('div', undefined, 'usage-details');
-    const rowsTitle = element('div');
-    rowsTitle.append(...counted('Table', table.rows.length));
-    rows.append(rowsTitle, list);
-    panel.append(rows);
-    mark(active, false);
-    place(panel, closeButton, opener);
-    buttons[active].scrollIntoView?.({ block: 'nearest' });
-  }
-
-  /** "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none. */
-  function commandIdentity(command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope'>): string[] {
-    const head = [`Code ${command.code}`, isRequest(command) ? 'Request' : 'Answer', command.flags.join(', ')].filter(Boolean).join(' · ');
-    if (command.application === null) return [head, 'No Application-ID: the header prints none'];
-    const from = command.header === null && command.scope ? `from ${command.scope.section}, not the header` : '';
-    return [head, [`Application-ID ${command.application}`, command.scope?.name ?? '', from].filter(Boolean).join(' · ')];
-  }
-
-  /** What tells a definition from the one the popup is of: its name where that is another, its code and application where they are. */
-  function difference(other: Command, command: Command | undefined): string {
-    const application = other.application === null ? 'no Application-ID' : `Application-ID ${other.application}${other.scope?.name ? ` ${other.scope.name}` : ''}`;
-    return [
-      other.section,
-      !command || other.name !== command.name ? other.name : '',
-      command && other.code !== command.code ? `code ${other.code}` : '',
-      command && other.application !== command.application ? application : '',
-    ].filter(Boolean).join(' · ');
-  }
-
-  /** A run of rows in the targets' grid, under its title and count if `titled`, left out when it has none. */
-  function group(title: string, className: string, rows: (HTMLElement | undefined)[], titled = true) {
-    const kept = rows.filter(row => row !== undefined);
-    if (!kept.length) return [];
-    const node = element('div', undefined, `popup-group ${className}`);
-    node.setAttribute('role', 'group');
-    node.setAttribute('aria-label', title);
-    if (titled) {
-      const heading = element('div', undefined, 'popup-group-title');
-      heading.append(...counted(title, kept.length));
-      node.append(heading);
-    }
-    node.append(...kept);
-    return [node];
-  }
-
-  /**
-   * A command's popup: what its header says, its block, the other half, its tables and registry row, and every other
-   * document printing it, then those printing its name for another command. The corpus's are the index's, which the
-   * document's view has waited for; what is in this file is read from the lines the view shows.
-   */
-  function showCommand(ref: CommandRef, request: PopupRequest) {
-    const { doc, fileLines, opener } = request;
-    const index = site.commands();
-    const command = commandOf(ref, doc, index);
-    const name = command?.name ?? ref.name;
-    const abbreviation = command ? command.abbreviation : ref.abbreviation;
-    const heading = abbreviation ? `${name} (${abbreviation})` : name;
-    const { panel, closeButton } = open(heading, opener);
-    panel.dataset.command = commandKey(ref);
-    opener.classList.add('avp-current');
-    const identity = element('div', undefined, 'popup-identity');
-    identity.append(...(command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(text => element('p', text)));
-    panel.append(identity);
-    // This file's as the view shows them: a raw view's rule is the one the raw lines print.
-    const blockLines = command && (command.document === doc.id ? fileLines : site.held(command.document)?.lines);
-    loadThenRedraw(command?.document, request, () => showCommand(ref, request));
-    const rule = blockLines && ruleAt(blockLines, command.line);
-    if (rule?.members.length) panel.append(contents(rule, false, 'AVPs'));
-    const all = allCommands(fileLines, doc, index);
-    const label = (place: Place) => site.summary(place.document) ? site.label(site.summary(place.document)!) : place.document;
-    const rows: HTMLElement[] = [];
-    const add = (...found: (HTMLElement | undefined)[]) => rows.push(...found.filter(row => row !== undefined));
-    if (command) {
-      add(placeRow('Definition', 'place-definition', blockPlace(command, doc), request));
-      const partner = partnerOf(command, all);
-      if (partner) {
-        const place = blockPlace(partner, doc);
-        const where = [partner.document === doc.id ? '' : label(place), partner.section, partner.abbreviation ?? partner.name].filter(Boolean).join(' · ');
-        add(placeRow(isRequest(partner) ? 'Request' : 'Answer', 'place-partner', place, request, where));
-      }
-      add(...group('Tables', 'popup-tables', tablesOf(command, fileLines, doc).map(table =>
-        placeRow('AVP table', 'place-table', tablePlace(table, doc), request, [table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · '))), false));
-    }
-    add(...registryRows(ref, fileLines, doc, index).map(row => {
-      const place = rowPlace(row, doc);
-      return placeRow('Registry', 'place-registry', place, request, [row.document === doc.id ? '' : label(place), row.section, row.table && `table ${row.table}`].filter(Boolean).join(' · '));
-    }));
-    const otherRow = (other: Command, className: string, mark = '') => {
-      const place = blockPlace(other, doc);
-      return placeRow(`${mark}${label(place)}`, className, place, request, difference(other, command));
-    };
-    if (command) {
-      const { same, differing } = definitionsOf(command, all);
-      add(...group('Other definitions', 'popup-others', same.map(other => otherRow(other, 'place-other'))));
-      add(...group('Same name, other command', 'popup-differing', differing.map(other => otherRow(other, 'place-other place-differs', '≠ '))));
-    } else {
-      const printed = all.filter(other => other.code === ref.code && isRequest(other) === ref.request);
-      add(...group('Definitions', 'popup-others', printed.map(other => otherRow(other, 'place-other'))));
-    }
-    if (rows.length) {
-      const places = element('div', undefined, 'popup-places command-places');
-      places.append(...rows);
-      panel.append(places);
-    }
-    place(panel, closeButton, opener);
   }
 
   /** `at` is the use a redraw was stepped to. */
   function show(request: PopupRequest, at?: number) {
     const { token, doc, lines, opener, documentPane, recordJump, jumpTo } = request;
-    if (token.valueRow) { showValue(token.valueRow, request); return; }
-    if (token.command) { showCommand(token.command, request); return; }
     const name = token.avp!;
-    const { panel, closeButton } = open(name, opener);
+    const { panel, closeButton } = shell.open(name, opener);
     const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;
     const seen = new Set<Element>();
     const uses = [...documentPane.querySelectorAll<HTMLElement>('[data-avp]')].filter(node => {
@@ -550,7 +216,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     let active = at !== undefined && at < uses.length ? at : Math.max(0, uses.findIndex(node => lineOf(node) === lineOf(opener)));
     if (at !== undefined) uses[active]?.classList.add('avp-current');
     panel.dataset.avp = name;
-    loadThenRedraw(token.target?.document, request, active => show(request, active));
+    shell.loadThenRedraw(token.target?.document, request, active => show(request, active));
     const { identities, tables } = facts(request);
     if (identities.length) {
       const identity = element('div', undefined, 'popup-identity');
@@ -558,7 +224,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       panel.append(identity);
     }
     const openedOn = Number(lineOf(opener).dataset.line);
-    const use = useAt(request.fileLines, openedOn, name);
+    const use = useAt(request.file, openedOn, name);
     const here = useContext(use);
     if (here) panel.append(here);
     const { rows: definitionRows, rule } = definitionFacts(request, use);
@@ -569,10 +235,10 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       if (key.childElementCount) panel.append(key);
       else button.remove();
     }
-    if (rule?.members.length) panel.append(contents(rule, use?.kind === 'head', 'Contents'));
+    if (rule?.members.length) panel.append(ruleContents(rule, use?.kind === 'head', 'Contents'));
     const { definition, details } = namePlaces(token, lines, doc);
     const places = element('div', undefined, 'popup-places');
-    const rows = [definition && placeRow('Definition', 'place-definition', definition, request), details && placeRow('Details', 'place-details', details, request)];
+    const rows = [definition && shell.placeRow('Definition', 'place-definition', definition, request), details && shell.placeRow('Details', 'place-details', details, request)];
     places.append(...rows.filter(row => row !== undefined));
     // In the targets' grid, for their columns to line up.
     if (tables.length) {
@@ -619,7 +285,7 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
       // The spacing only aligns the line with its neighbours in the file.
       const text = lines[Number(line.dataset.line)].tokens.filter(token => !token.kind).map(token => token.text).join('').replace(/\s+/g, ' ').trim();
       // The rule a member line is in, as a command is abbreviated: a bare `[ TMGI ]` says nothing of which.
-      const rule = ruleAt(request.fileLines, Number(line.dataset.line));
+      const rule = ruleAt(request.file, Number(line.dataset.line));
       const inRule = rule && rule.line !== Number(line.dataset.line) ? `${rule.short} · ` : '';
       const button = element('button', `${line.dataset.section ?? ''} · ${inRule}${text}`, 'usage-link');
       button.title = button.textContent!;
@@ -635,9 +301,9 @@ export function createAvpPopup(site: Site, pane: SourcePane) {
     usages.append(usagesTitle, list);
     usages.ontoggle = () => { if (usages.open) buttons[active]?.scrollIntoView?.({ block: 'nearest' }); };
     panel.append(usages);
-    place(panel, closeButton, opener);
+    shell.place(panel, closeButton, opener);
     buttons[active]?.scrollIntoView?.({ block: 'nearest' });
   }
 
-  return { show, close };
+  return show;
 }

@@ -1,7 +1,8 @@
 import type { Place } from './avp-places.ts';
 import { commandFacts, isRequest } from './commands.ts';
 import type { CommandBlock, CommandCodeRow, CommandIndex, CommandRef, CommandTable } from './commands.ts';
-import type { Document, Line } from './types.ts';
+import type { DadFile } from './blocks.ts';
+import type { Document } from './types.ts';
 
 /** A command where some document prints it: a block of the file at hand, or of another as the index has it. */
 export interface Command extends CommandBlock { document: string }
@@ -44,9 +45,9 @@ export function commandPlaces(ref: CommandRef, doc: Pick<Document, 'id'>, index:
   return command ? { definition: blockPlace(command, doc) } : {};
 }
 
-/** Every command the corpus prints: the file at hand's from its own lines, which the view shows, first; the index's of the others after. */
-export function allCommands(lines: Line[], doc: Pick<Document, 'id'>, index: CommandIndex | undefined): Command[] {
-  const here = commandFacts(lines).blocks.map(block => ({ document: doc.id, ...block }));
+/** Every command the corpus prints: the file at hand's from its own blocks, which the view shows, first; the index's of the others after. */
+export function allCommands(file: DadFile, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): Command[] {
+  const here = commandFacts(file).blocks.map(block => ({ document: doc.id, ...block }));
   return [...here, ...index?.commands.filter(command => command.document !== doc.id) ?? []];
 }
 
@@ -77,16 +78,16 @@ export function definitionsOf(command: Command, commands: Command[]): { same: Co
   };
 }
 
-/** Its rows in a `Command Codes` registry: this file's from its own lines, the others' from the index. */
-export function registryRows(command: Pick<Command, 'code'>, lines: Line[], doc: Pick<Document, 'id'>, index: CommandIndex | undefined): CodeRow[] {
-  const here = commandFacts(lines).rows.map(row => ({ document: doc.id, ...row }));
+/** Its rows in a `Command Codes` registry: this file's from its own blocks, the others' from the index. */
+export function registryRows(command: Pick<Command, 'code'>, file: DadFile, doc: Pick<Document, 'id'>, index: CommandIndex | undefined): CodeRow[] {
+  const here = commandFacts(file).rows.map(row => ({ document: doc.id, ...row }));
   return [...here, ...index?.registry.filter(row => row.document !== doc.id) ?? []].filter(row => row.code === command.code);
 }
 
 /** The tables of this file with a column for the block, which a column names by the first block of its abbreviation. */
-export function tablesOf(command: Command, lines: Line[], doc: Pick<Document, 'id'>): CommandTable[] {
+export function tablesOf(command: Command, file: DadFile, doc: Pick<Document, 'id'>): CommandTable[] {
   if (command.document !== doc.id || !command.abbreviation) return [];
-  const { blocks, tables } = commandFacts(lines);
+  const { blocks, tables } = commandFacts(file);
   if (blocks.find(block => block.abbreviation === command.abbreviation)?.line !== command.line) return [];
   return tables.filter(table => table.columns.includes(command.abbreviation!));
 }

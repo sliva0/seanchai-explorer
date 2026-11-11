@@ -9,8 +9,8 @@ import { compactComment } from './comments.ts';
 import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
+import type { Popups } from './popup.ts';
 import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
-import type { AvpPopup } from './avp-popup.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
 import type { SourcePane } from './source-pane.ts';
@@ -21,7 +21,7 @@ import type { ValueRow } from './values.ts';
 export interface ViewServices {
   site: Site;
   pane: SourcePane;
-  popup: AvpPopup;
+  popup: Popups;
   highlight(lines: Line[]): HighlightedLine[];
   navigate(hash: string): void;
   /** Keeps the place about to be left, for a jump this view makes itself. */
@@ -99,15 +99,15 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer
 type SectionLink = (section: string) => HTMLAnchorElement;
 
 /** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
-function tablesNote(lines: Line[], section: string): string {
-  return valueTables(lines).filter(table => table.section === section).map(table => `${valueTableTitle(table)} (${table.rows.length})`).join(', ');
+function tablesNote(doc: Document, section: string): string {
+  return valueTables(doc).filter(table => table.section === section).map(table => `${valueTableTitle(table)} (${table.rows.length})`).join(', ');
 }
 
 function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
   const list = element('ul', undefined, 'section-list');
   for (const { section, page, title } of doc.sections) {
     const item = element('li');
-    const tables = tablesNote(doc.lines, section);
+    const tables = tablesNote(doc, section);
     item.dataset.section = section;
     item.append(sectionLink(section), ' ', element('span', tables ? `${title} · ${tables}` : title));
     if (page) item.append(' ', element('span', `p. ${page}`, 'section-page'));
@@ -227,9 +227,9 @@ export interface DocumentView {
 
 export function renderDocument(container: HTMLElement, services: ViewServices, doc: Document, raw: RawDocument | undefined): DocumentView {
   const { site, pane, popup } = services;
-  const fileLines = raw ? raw.lines : doc.lines;
-  markDetails(fileLines, doc);
-  const lines = services.highlight(fileLines);
+  const file = raw ?? doc;
+  markDetails(file, doc);
+  const lines = services.highlight(file.lines);
   const controls = element('section');
   controls.id = 'controls';
   const documentPane = element('section');
@@ -299,7 +299,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
 
   const tokenOf = (node: HTMLElement) => lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
   const showUses = (node: HTMLElement) => popup.show({
-    token: tokenOf(node), doc, raw: Boolean(raw), lines, fileLines, opener: node, documentPane,
+    token: tokenOf(node), doc, raw: Boolean(raw), lines, file, opener: node, documentPane,
     recordJump: services.recordJump,
     jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
   });
@@ -455,7 +455,7 @@ export function renderDocument(container: HTMLElement, services: ViewServices, d
       const row = documentPane.querySelector<HTMLElement>('.target-line');
       return row ? Number(row.dataset.line) : undefined;
     },
-    valueRow: (section, name) => valueRowAt(raw ? raw.lines : doc.lines, section, name),
+    valueRow: (section, name) => valueRowAt(file, section, name),
   };
   showCrumb();
   return view;

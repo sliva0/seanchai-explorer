@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createSite, docHeading, docLabel, docName, docNumber, docSubject, docTitle, docVersioned, paneFile, paneKind, paneURL, publisherURL, sourceHref } from '../../src/data.ts';
+import { createSite, docHeading, docLabel, docName, docNumber, docSubject, docTitle, docVersioned, interfacesOf, paneFile, paneKind, paneURL, publisherURL, sourceHref } from '../../src/data.ts';
 
 globalThis.location = new URL('http://localhost/site/index.html#doc');
 
@@ -22,13 +22,20 @@ test('labels name the version and leave out a title repeating the name', () => {
   }
 });
 
+test('a document\'s interfaces are the index\'s, blank for none and where the corpus does not say', () => {
+  assert.equal(interfacesOf({ interfaces: ['Gx', 'Gxx', 'Sd', 'St', 'S15'] }), 'Gx, Gxx, Sd, St, S15');
+  assert.equal(interfacesOf({ interfaces: [] }), '');
+  assert.equal(interfacesOf({ interfaces: null }), '');
+  assert.equal(docTitle({ id: 'x', specification: 'X', version: null, reference: 'X', title: 'T', interfaces: null }), 'X — T');
+});
+
 test('a heading names the interfaces unless the title already says them all', () => {
-  const doc = { id: '29272-j60', specification: '3GPP TS 29.272', version: '19.6.0', reference: 'TS29.272', title: 'EPS MME/SGSN interfaces based on Diameter' };
+  const doc = { id: '29272-j60', specification: '3GPP TS 29.272', version: '19.6.0', reference: 'TS29.272', title: 'EPS MME/SGSN interfaces based on Diameter', interfaces: ['S6a', 'S6d', 'S7a', 'S7d', 'S13', "S13'"] };
   assert.equal(docTitle(doc), "3GPP TS 29.272 V19.6.0 · S6a, S6d, S7a, S7d, S13, S13' — EPS MME/SGSN interfaces based on Diameter");
-  const named = { id: '29229-j10', specification: '3GPP TS 29.229', version: '19.1.0', reference: 'TS29.229', title: 'Cx and Dx interfaces based on Diameter' };
+  const named = { id: '29229-j10', specification: '3GPP TS 29.229', version: '19.1.0', reference: 'TS29.229', title: 'Cx and Dx interfaces based on Diameter', interfaces: ['Cx', 'Dx'] };
   assert.equal(docTitle(named), '3GPP TS 29.229 V19.1.0 — Cx and Dx interfaces based on Diameter');
   assert.equal(docHeading('TS 29.229', { ...named, title: 'Cx only' }), 'TS 29.229 · Cx, Dx — Cx only');
-  assert.equal(docHeading('RFC 6733', { id: 'rfc6733', specification: 'RFC 6733', version: null, reference: 'RFC6733', title: 'Diameter Base Protocol' }), 'RFC 6733 — Diameter Base Protocol');
+  assert.equal(docHeading('RFC 6733', { id: 'rfc6733', specification: 'RFC 6733', version: null, reference: 'RFC6733', title: 'Diameter Base Protocol', interfaces: [] }), 'RFC 6733 — Diameter Base Protocol');
   assert.equal(docHeading('X', { id: 'x', specification: 'X', version: null, reference: 'X', title: '' }), 'X');
 });
 

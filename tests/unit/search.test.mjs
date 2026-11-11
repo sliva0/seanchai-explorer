@@ -255,12 +255,12 @@ test('specifications match by number or title, best match and newest first', () 
 });
 
 test('specifications match by interface, not loosely, and an exact one beats a title', () => {
-  const doc = (id, reference, title = 'Other', release = 18) => ({ id, reference, specification: reference, title, version: null, release });
+  const doc = (id, reference, interfaces, title = 'Other', release = 18) => ({ id, reference, specification: reference, title, version: null, release, interfaces });
   const documents = [
-    doc('titled', 'TS99.999', 'A protocol, its Cx clause'),
-    doc('29229', 'TS29.229'), doc('x-s0013', '3GPP2-X.S0013-006', 'Other', null), doc('183033', 'ETSI-TS183.033', 'Other', 12),
-    doc('29272', 'TS29.272'), doc('29273', 'TS29.273'), doc('29336', 'TS29.336'),
-    doc('29283', 'TS29.283'), doc('oma', 'OMA-DDS-Charging_Data'), doc('rfc8581', 'RFC8581'), doc('none', 'TS29.230'),
+    doc('titled', 'TS99.999', null, 'A protocol, its Cx clause'),
+    doc('29229', 'TS29.229', ['Cx', 'Dx']), doc('x-s0013', '3GPP2-X.S0013-006', ['Cx'], 'Other', null), doc('183033', 'ETSI-TS183.033', ['Cx', 'Dx'], 'Other', 12),
+    doc('29272', 'TS29.272', ['S6a', 'S6d', 'S7a', 'S7d', 'S13', "S13'"]), doc('29273', 'TS29.273', ['SWa', 'STa', 'SWd', 'SWm', 'SWx', 'S6b', "SWa'", "SWd'"]), doc('29336', 'TS29.336', ['S6m', 'S6n', 'S6t']),
+    doc('29283', 'TS29.283', ['MCPTT-2', 'MCVideo-2', 'MCData-2', 'CSC-13']), doc('oma', 'OMA-DDS-Charging_Data', ['CH-1', 'CH-2']), doc('rfc8581', 'RFC8581', ['DOIC agent overload']), doc('none', 'TS29.230', []),
   ];
   const ids = query => searchSpecifications(documents, query).map(doc => doc.id);
   assert.deepEqual(ids('S6a'), ['29272']);
@@ -289,9 +289,9 @@ test('an interfaces list marks each name a query matches', () => {
 
 test('a specification found by an interface shows it marked, even where its title names it', async () => {
   const documents = [
-    { ...summaryOf('29272-x', '3GPP', '3GPP TS 29.272', 18), reference: 'TS29.272', title: 'Mobility Management; Diameter protocol' },
-    { ...summaryOf('29229-x', '3GPP', '3GPP TS 29.229', 18), reference: 'TS29.229', title: 'Cx and Dx interfaces; Protocol details' },
-    { ...summaryOf('29061-x', '3GPP', '3GPP TS 29.061', 18), reference: 'TS29.061', title: 'Interworking' },
+    { ...summaryOf('29272-x', '3GPP', '3GPP TS 29.272', 18), reference: 'TS29.272', title: 'Mobility Management; Diameter protocol', interfaces: ['S6a', 'S6d', 'S7a', 'S7d', 'S13', "S13'"] },
+    { ...summaryOf('29229-x', '3GPP', '3GPP TS 29.229', 18), reference: 'TS29.229', title: 'Cx and Dx interfaces; Protocol details', interfaces: ['Cx', 'Dx'] },
+    { ...summaryOf('29061-x', '3GPP', '3GPP TS 29.061', 18), reference: 'TS29.061', title: 'Interworking', interfaces: ['Gi', 'SGi', 'Gmb', 'SGmb', 'Mz'] },
   ];
   const facts = async query => {
     const page = await boot({ hash: `#search?q=${query}`, transform: withCorpus(documents, []) });
@@ -582,7 +582,7 @@ test('down passes an entry\'s many links at once, and comes back to the name', a
   } finally { await page.close(); }
 });
 
-const summaryOf = (id, publisher, specification, release = null, version = null) => ({ id, publisher, specification, release, version, reference: specification, title: specification, pinned: null, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
+const summaryOf = (id, publisher, specification, release = null, version = null) => ({ id, publisher, specification, release, version, reference: specification, title: specification, pinned: null, interfaces: null, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
 const withCorpus = (documents, entries) => (path, data) => path === 'data/index.json' ? { ...data, documents: [...data.documents, ...documents] } : path === 'data/search.json' ? { ...data, entries: [...data.entries, ...entries], mentions: [] } : data;
 
 test('a name is one entry, with no fold, and its documents inline by publisher in the index\'s order', async () => {

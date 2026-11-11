@@ -394,16 +394,16 @@ test('the index lists releases newest first with pinned ones folded, and version
 });
 
 test('an index row is number, interfaces and title, with what its heading says left out', async () => {
-  const doc = (id, publisher, specification, reference, release, version, title, pinned = null) => ({ id, publisher, specification, reference, release, version, title, pinned, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
+  const doc = (id, publisher, specification, reference, release, version, title, interfaces, pinned = null) => ({ id, publisher, specification, reference, release, version, title, interfaces, pinned, path: `documents/${id}.json`, raw: null, source: { kind: 'other', url: null, local: null, text: null } });
   const documents = [
-    doc('29229-j10', '3GPP', '3GPP TS 29.229', 'TS29.229', 19, '19.1.0', 'Cx and Dx interfaces based on Diameter'),
-    doc('29212-j10', '3GPP', '3GPP TS 29.212', 'TS29.212', 19, '19.1.0', 'PCC'),
-    doc('29212-bj0', '3GPP', '3GPP TS 29.212', 'TS29.212', 11, '11.19.0', 'PCC', 'Held for TS 32.299.'),
-    doc('29230-j30', '3GPP', '3GPP TS 29.230', 'TS29.230', 19, '19.3.0', 'Codes'),
-    doc('es283026-010600', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.6.0', 'TISPAN; Rq'),
-    doc('es283026-010500', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.5.0', 'TISPAN; Rq'),
-    doc('rfc6733', 'IETF', 'RFC 6733', 'RFC6733', null, null, 'RFC 6733'),
-    doc('xs0013-006-b_v1.0', '3GPP2', '3GPP2 X.S0013-006', '3GPP2-X.S0013-006', null, '1.0', 'Cx'),
+    doc('29229-j10', '3GPP', '3GPP TS 29.229', 'TS29.229', 19, '19.1.0', 'Cx and Dx interfaces based on Diameter', ['Cx', 'Dx']),
+    doc('29212-j10', '3GPP', '3GPP TS 29.212', 'TS29.212', 19, '19.1.0', 'PCC', ['Gx', 'Gxx', 'Sd', 'St', 'S15']),
+    doc('29212-bj0', '3GPP', '3GPP TS 29.212', 'TS29.212', 11, '11.19.0', 'PCC', ['Gx', 'Gxx', 'Sd', 'S15'], 'Held for TS 32.299.'),
+    doc('29230-j30', '3GPP', '3GPP TS 29.230', 'TS29.230', 19, '19.3.0', 'Codes', []),
+    doc('es283026-010600', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.6.0', 'TISPAN; Rq', ['Rq']),
+    doc('es283026-010500', 'ETSI', 'ETSI ES 283 026', 'ETSI-ES283.026', null, '1.5.0', 'TISPAN; Rq', ['Rq']),
+    doc('rfc6733', 'IETF', 'RFC 6733', 'RFC6733', null, null, 'RFC 6733', ['Base']),
+    doc('xs0013-006-b_v1.0', '3GPP2', '3GPP2 X.S0013-006', '3GPP2-X.S0013-006', null, '1.0', 'Cx', ['Cx']),
   ];
   const page = await boot({ transform: (path, data) => path === 'data/index.json' ? { ...data, documents } : data });
   try {
@@ -807,7 +807,11 @@ test('a name\'s popup leaves out what it has nothing for, shows an Enumerated AV
     assert.deepEqual(identities(popup), ['Code 900 · Vendor-ID 10415 · OctetString']);
     absent(popup.querySelector('.popup-tables'));
   } finally { await page.close(); }
-  const recoded = (path, data) => path !== 'data/documents/rfc7944.json' ? data : { ...data, lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('header: 301', 'header: 302') })) })) };
+  const recoded = (path, data) => path !== 'data/documents/rfc7944.json' ? data : {
+    ...data,
+    lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('header: 301', 'header: 302') })) })),
+    blocks: data.blocks.map(block => block.avp?.code === 301 ? { ...block, avp: { ...block.avp, code: 302 } } : block),
+  };
   for (const [transform, expected] of [[undefined, ['Code 301 · Enumerated']], [recoded, ['Code 301 · Enumerated', 'Code 302 · Enumerated']]]) {
     const drmp = await boot({ hash: '#rfc7944', transform });
     try {
@@ -1218,14 +1222,14 @@ test('self-hosted: a value name and its clause drive the pane to the row, and th
     const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1));
     const doc = await readFixture('documents/29217-j00.json');
     const { valueTables } = await import('../../src/values.ts');
-    const bits = valueTables(doc.lines).find(table => table.kind === 'bits');
+    const bits = valueTables(doc).find(table => table.kind === 'bits');
     const row = bits.rows[0];
     click(page, rowOf(document, row.name));
     await settle();
     assert.deepEqual(Object.fromEntries(['search', 'name', 'row', 'value'].map(key => [key, pane().get(key)])), { search: row.position.section, name: row.name, row: '1', value: String(row.value) });
     assert.match(page.window.location.hash, /sourceName=/);
     absent(document.querySelector('.avp-popup'));
-    const codes = valueTables(doc.lines).find(table => table.kind === 'result-codes');
+    const codes = valueTables(doc).find(table => table.kind === 'result-codes');
     const code = codes.rows[0];
     const clause = [...document.querySelectorAll(`[data-line="${code.line}"] [data-token]`)].find(node => node.textContent === code.position.section);
     click(page, clause);
@@ -1242,7 +1246,7 @@ test('self-hosted: opening a value\'s popup leaves the pane where it was, and ch
     const pane = () => new URLSearchParams(new URL(frameSrc(document)).hash.slice(1)).get('name');
     const doc = await readFixture('documents/29217-j00.json');
     const { valueTables } = await import('../../src/values.ts');
-    const [first, second] = valueTables(doc.lines).find(table => table.kind === 'bits').rows;
+    const [first, second] = valueTables(doc).find(table => table.kind === 'bits').rows;
     click(page, rowOf(document, first.name));
     await settle();
     assert.equal(pane(), first.name);
@@ -1671,7 +1675,12 @@ test('self-hosted: a command\'s popup says its header, where its application com
 });
 
 test('a header printing its own id says no more, and one printing none with no scope says so', async () => {
-  const bare = (path, data) => path !== 'data/documents/29109-j00.json' ? data : { ...data, lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('303, PXY, 16777221 >', '303, PXY >') })) })) };
+  const unscoped = { header_application_id: null, application_id: null, application: null, stated_in: null, scope: null };
+  const bare = (path, data) => path !== 'data/documents/29109-j00.json' ? data : {
+    ...data,
+    lines: data.lines.map(line => ({ ...line, tokens: line.tokens.map(token => ({ ...token, text: token.text.replace('303, PXY, 16777221 >', '303, PXY >') })) })),
+    blocks: data.blocks.map(block => block.command?.code === 303 && !block.command.request ? { ...block, command: { ...block.command, ...unscoped } } : block),
+  };
   const page = await boot({ hash: '#29109-j00', transform: bare });
   try {
     const popup = await popupOf(page, commandNames(page.document, '303 answer')[0]);
