@@ -411,7 +411,7 @@ export function createAvpPopup(shell: PopupShell, site: Site, pane: SourcePane) 
       if (usages.open) buttons[active]?.scrollIntoView?.({ block: 'nearest' });
     };
     panel.append(usages);
-    shell.place(panel, closeButton, here, documentPane);
+    shell.place(panel, closeButton, here, documentPane, request.scrollGoal);
     buttons[active]?.scrollIntoView?.({ block: 'nearest' });
   }
 

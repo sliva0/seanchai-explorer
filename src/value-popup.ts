@@ -117,7 +117,7 @@ export function createValuePopup(shell: PopupShell, site: Site, pane: SourcePane
     rows.append(rowsTitle, list);
     panel.append(rows);
     mark(active, false);
-    shell.place(panel, closeButton, opener, documentPane);
+    shell.place(panel, closeButton, opener, documentPane, request.scrollGoal);
     buttons[active].scrollIntoView?.({ block: 'nearest' });
   }
 

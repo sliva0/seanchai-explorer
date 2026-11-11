@@ -22,6 +22,10 @@ export function createScroller(pane: HTMLElement) {
   }
 
   return {
+    /** Where a move under way will end. */
+    get goal() {
+      return move?.goal;
+    },
     get moving() {
       return Boolean(move);
     },

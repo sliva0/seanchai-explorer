@@ -178,7 +178,7 @@ export function createCommandPopup(shell: PopupShell, site: Site) {
       places.append(...rows);
       panel.append(places);
     }
-    shell.place(panel, closeButton, opener, documentPane);
+    shell.place(panel, closeButton, opener, documentPane, request.scrollGoal);
   }
 
   return showCommand;

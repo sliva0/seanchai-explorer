@@ -26,6 +26,8 @@ export interface PopupRequest {
   recordJump(): void;
   /** Goes to a node a walk through the list lands on. */
   jumpTo(node: HTMLElement): void;
+  /** Where the text's pane will be scrolled to once a move under way has ended. */
+  scrollGoal(): number | undefined;
 }
 
 export type PopupShell = ReturnType<typeof createShell>;
@@ -35,6 +37,8 @@ export type Popups = ReturnType<typeof createPopups>;
 const GAP = 8;
 /** Space kept between a popup and the window's edge. */
 const EDGE = 12;
+/** How long a popup takes from one name to another: the text's own eased scroll, and a little after it. */
+const GLIDE = 260;
 
 /** Which side of its name a popup is on; a detached popup's name is out of the text's view on that side. */
 type Side = 'below' | 'above';
@@ -94,8 +98,11 @@ function createShell(site: Site, pane: SourcePane) {
   let anchorNode: HTMLElement | undefined;
   /** The text's scrolled pane, whose visible part the popup stays in. */
   let areaNode: HTMLElement | undefined;
+  /** Where the text's pane is being scrolled to, if it is: the popup is placed for where its name will be. */
+  let goalOf: (() => number | undefined) | undefined;
   let side: Side = 'below';
   let frame = 0;
+  let gliding: ReturnType<typeof setTimeout> | undefined;
   let resizing: ResizeObserver | undefined;
   /** A popup drawn again leaves the focus where the reader has it. */
   let redrawing = false;
@@ -104,8 +111,21 @@ function createShell(site: Site, pane: SourcePane) {
     if (!popup || !anchorNode) return;
     const size = popup.getBoundingClientRect();
     const area = areaNode?.isConnected ? areaNode.getBoundingClientRect() : NO_BOX;
+    // A name the text is being scrolled to is placed by where it will stand, not where it passes.
+    const goal = areaNode?.isConnected ? goalOf?.() : undefined;
+    const rest = goal === undefined ? 0 : goal - areaNode!.scrollTop;
+    const name = anchorNode.getBoundingClientRect();
     const at = placement(
-      anchorNode.getBoundingClientRect(),
+      rest
+        ? {
+            top: name.top - rest,
+            bottom: name.bottom - rest,
+            left: name.left,
+            right: name.right,
+            width: name.width,
+            height: name.height,
+          }
+        : name,
       size,
       area,
       { width: innerWidth, height: innerHeight },
@@ -124,6 +144,26 @@ function createShell(site: Site, pane: SourcePane) {
       reposition();
     });
   }
+  /**
+   * Moves the popup from `from`, where it stood by another name, to where it now belongs, eased as the text's scroll
+   * is, instead of at once. While it glides a new place only turns it; after, it follows its name again frame by frame.
+   */
+  function glide(from: { left: string; top: string }) {
+    if (!popup || !from.left || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const { left, top } = popup.style;
+    if (left === from.left && top === from.top) return;
+    popup.classList.remove('gliding');
+    popup.style.left = from.left;
+    popup.style.top = from.top;
+    // Read, for the move to start from there.
+    void popup.offsetWidth;
+    popup.classList.add('gliding');
+    popup.style.left = left;
+    popup.style.top = top;
+    clearTimeout(gliding);
+    const panel = popup;
+    gliding = setTimeout(() => panel.classList.remove('gliding'), GLIDE);
+  }
   // A scroll of any pane but one inside the popup, its lists' own, moves the name it is placed by.
   const scrolled = (event: Event) => {
     if (popup && !popup.contains(event.target as Node)) schedule();
@@ -137,6 +177,7 @@ function createShell(site: Site, pane: SourcePane) {
     resizing = undefined;
     cancelAnimationFrame(frame);
     frame = 0;
+    clearTimeout(gliding);
     document.removeEventListener('scroll', scrolled, { capture: true });
     window.removeEventListener('resize', schedule);
     for (const node of document.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
@@ -180,11 +221,18 @@ function createShell(site: Site, pane: SourcePane) {
    * window is resized or the panel grows. Each `details` notes whether it was drawn open, for a redraw to tell what the
    * reader changed.
    */
-  function place(panel: HTMLElement, closeButton: HTMLElement, anchor: HTMLElement, area: HTMLElement) {
+  function place(
+    panel: HTMLElement,
+    closeButton: HTMLElement,
+    anchor: HTMLElement,
+    area: HTMLElement,
+    scrollGoal?: () => number | undefined,
+  ) {
     document.body.append(panel);
     for (const node of panel.querySelectorAll('details')) node.dataset.drawnOpen = String(node.open);
     anchorNode = anchor;
     areaNode = area;
+    goalOf = scrollGoal;
     reposition();
     if (!redrawing) closeButton.focus({ preventScroll: true });
     document.addEventListener('scroll', scrolled, { capture: true, passive: true });
@@ -197,8 +245,10 @@ function createShell(site: Site, pane: SourcePane) {
   /** Places the popup by another name, as a walk through its uses or rows goes to one. */
   function anchorTo(node: HTMLElement) {
     if (!popup) return;
+    const from = { left: popup.style.left, top: popup.style.top };
     anchorNode = node;
-    schedule();
+    reposition();
+    glide(from);
   }
 
   /**
@@ -231,6 +281,7 @@ function createShell(site: Site, pane: SourcePane) {
       ]),
     );
     const active = [...old.querySelectorAll('.usage-link')].findIndex(node => node.hasAttribute('aria-current'));
+    const from = { left: old.style.left, top: old.style.top };
     redrawing = true;
     try {
       draw(active < 0 ? undefined : active);
@@ -243,6 +294,7 @@ function createShell(site: Site, pane: SourcePane) {
     for (const node of panel.querySelectorAll<HTMLElement>('.usage-list, .contents-list, .command-places'))
       node.scrollTop = scrolls.get(node.className) ?? node.scrollTop;
     reposition();
+    glide(from);
     // The focus the old popup held goes to the same control in the new one, or to Close; one outside stays outside.
     if (inside) {
       const alike = controls(panel).filter(node => key(node) === focused);

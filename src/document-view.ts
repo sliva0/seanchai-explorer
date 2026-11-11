@@ -356,6 +356,7 @@ export function renderDocument(
       documentPane,
       recordJump: services.recordJump,
       jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
+      scrollGoal: () => scroller.goal,
     });
   const nameAt = (target: EventTarget | null) =>
     (target as Element).closest<HTMLElement>('[data-avp], [data-command], .value-name');

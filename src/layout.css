@@ -805,6 +805,17 @@ mark {
 }
 
 /* Popup */
+/* A popup going from one use of a name to the next moves as the text scrolls to it: the same time, the same easing. */
+.avp-popup.gliding {
+  transition:
+    left 220ms cubic-bezier(0.215, 0.61, 0.355, 1),
+    top 220ms cubic-bezier(0.215, 0.61, 0.355, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .avp-popup.gliding {
+    transition: none;
+  }
+}
 .avp-popup {
   position: fixed;
   z-index: 100;
