@@ -116,7 +116,7 @@ Do not edit `src/types.ts` by hand.
 | `document-view.ts`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
 | `blocks.ts`, `values.ts`, `commands.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value or a command |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts` | what a click on a name does, and the places it can go |
-| `popup.ts`, `avp-popup.ts`, `value-popup.ts`, `command-popup.ts` | the popups and the shell they share |
+| `island.ts`, `popup/` | the popups, an island: `index.ts` opens and closes them, `root.ts` holds what one stands on and has loaded, `avp.ts`, `command.ts` and `value.ts` draw each kind, `shared.ts` what they share, `place.ts` where they go by their name |
 | `source-pane.ts`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to |
 | `jump-list.ts`, `jump-controls.ts`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
 | `index-view.ts`, `search.ts`, `fuzzy.ts`, `search-view.ts` | the index page and search |
@@ -127,6 +127,20 @@ Do not edit `src/types.ts` by hand.
 `controls.ts` is the list README.md's Mouse and Keyboard sections follow: change both
 together. `scripts/` holds prepare, the sources download, the fixture and type
 generators and the public build's check.
+
+### Islands
+
+The site is plain DOM, built with `element()` from `dom.ts`, except for islands: a part drawn by
+[Preact](https://preactjs.com) into one host element of its own, which the vanilla code around it opens, updates and
+closes through a small imperative API, as `main.ts` and `document-view.ts` call `createPopups()`'s `show()` and
+`close()`. The popups are the one island. Inside it the state is the components' and every change draws the same nodes
+again, so what the reader opened, scrolled or focused stays without being put back by hand; outside it nothing knows
+Preact is there. Components are written with Preact's typed `h()` in plain `.ts` files, never JSX or `.tsx`: the unit
+tests and scripts import `src/*.ts` straight into Node, which strips types but compiles nothing, and `tsconfig.json`
+allows only erasable syntax. An island is mounted with `island.ts`'s `mount`, which also makes Preact render
+synchronously, so the code and tests around it read the page right after what they did. Make a part an island where
+what it shows changes in place while the reader works in it, with state to keep across those changes; a part drawn
+once and replaced whole, or changed by a class or attribute here and there, stays vanilla.
 
 ## Deployment
 

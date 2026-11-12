@@ -1,7 +1,7 @@
 /**
  * What the site answers to, by mouse and by key, as the help dialog lists it. One list, so README.md's "Mouse" and
  * "Keyboard" tables could be generated from it or checked against it: `keys` are spelt as the README spells them.
- * Where the two differ the handlers are right: clicks.ts, keys.ts, document-view.ts, popup.ts and its popups,
+ * Where the two differ the handlers are right: clicks.ts, keys.ts, document-view.ts, the popups in popup/,
  * search-view.ts, source-pane.ts and viewer.ts.
  */
 export interface Control {

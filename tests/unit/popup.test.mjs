@@ -1,7 +1,7 @@
 // Where a popup goes beside the name it is about.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { placement } from '../../src/popup.ts';
+import { placement } from '../../src/popup/place.ts';
 
 const box = (top, height, left = 0, width = 100) => ({
   top,

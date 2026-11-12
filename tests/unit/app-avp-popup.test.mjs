@@ -7,7 +7,6 @@ import {
   click,
   commandNames,
   identities,
-  notSame,
   pane,
   paneAt,
   popupOf,
@@ -359,13 +358,14 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     next.focus();
     next.click();
     const stepped = document.querySelector('.avp-popup');
-    notSame(stepped, first, 'drawn again for the use stepped to');
+    same(stepped, first, 'the popup open, drawn again over its own nodes');
+    assert.match(stepped.querySelector('.popup-actions span').textContent, /^\.dad 2\//, 'for the use stepped to');
     assert.equal(document.activeElement.textContent, 'Next');
     stepped.querySelector('.popup-uses').open = true;
     await settle();
     await settle();
     const popup = document.querySelector('.avp-popup');
-    assert.ok(popup !== first, 'drawn again');
+    same(popup, first, 'drawn again over its own nodes');
     assert.equal(titles(popup)[0], 'AVP Table 9.2 · RFC 7944');
     assert.match(popup.querySelector('.popup-actions span').textContent, /^\.dad 2\//);
     assert.equal(popup.querySelectorAll('.usage-link')[1].getAttribute('aria-current'), 'location');
@@ -388,11 +388,14 @@ test('a popup drawn again once its document loads leaves a focus outside it wher
       ),
     );
     const first = document.querySelector('.avp-popup');
+    const titles = () => [...first.querySelectorAll('.popup-row-title')].map(node => node.textContent);
+    assert.ok(!titles().includes('AVP Table 9.2 · RFC 7944'), 'RFC 7944 is not loaded yet');
     const outside = document.querySelector('header .theme-toggle');
     outside.focus();
     await settle();
     await settle();
-    assert.ok(document.querySelector('.avp-popup') !== first, 'drawn again');
+    same(document.querySelector('.avp-popup'), first, 'drawn again over its own nodes');
+    assert.equal(titles()[0], 'AVP Table 9.2 · RFC 7944', 'drawn again with the document');
     same(document.activeElement, outside);
   } finally {
     await page.close();
@@ -479,7 +482,7 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     entries[head].click();
     const first = popup;
     popup = document.querySelector('.avp-popup');
-    notSame(popup, first, 'drawn again');
+    same(popup, first, 'drawn again over its own nodes');
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
     assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule, as if opened there');
     assert.equal(popup.querySelector('.popup-uses').open, true, 'the uses stay open');

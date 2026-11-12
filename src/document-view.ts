@@ -9,7 +9,7 @@ import { compactComment } from './comments.ts';
 import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
-import type { Popups } from './popup.ts';
+import type { Popups } from './popup/index.ts';
 import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';

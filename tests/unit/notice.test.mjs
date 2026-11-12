@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { boot, click } from './helpers.mjs';
+import { boot, click, identities } from './helpers.mjs';
 
 /** Keeps what goes to console.error while `run` runs, instead of printing it. */
 async function logged(run) {
@@ -112,15 +112,14 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     assert.match(notice.textContent, /^Could not load RFC 7944 for the popup\./);
     offline.on = false;
     const popup = document.querySelector('.avp-popup');
+    assert.deepEqual(identities(popup), [], 'nothing of RFC 7944 yet');
     const retry = [...notice.querySelectorAll('button')].find(button => button.textContent === 'Retry');
     retry.dispatchEvent(new window.Event('pointerdown', { bubbles: true }));
     assert.ok(document.querySelector('.avp-popup') === popup, 'a press on the notice leaves the popup open');
     retry.click();
     await page.settle();
-    assert.ok(
-      document.querySelector('.avp-popup') !== null && document.querySelector('.avp-popup') !== popup,
-      'drawn again with the document',
-    );
+    assert.ok(document.querySelector('.avp-popup') === popup, 'the popup open, drawn again over its own nodes');
+    assert.deepEqual(identities(popup), ['Code 301 · Enumerated'], 'drawn again with the document');
     assert.equal(
       [...document.querySelectorAll('#notices .notice')].filter(node => /for the popup/.test(node.textContent)).length,
       0,
