@@ -157,7 +157,7 @@ function linuxInstall(address: string): HTMLElement[] {
   bar.append(group, status, button);
   const pre = element('pre', undefined, 'plugin-command');
   pre.append(text);
-  return [element('h2', 'Linux'), bar, pre];
+  return [element('h2', 'Install with a script (Linux)'), bar, pre];
 }
 
 function folderTable(): HTMLTableElement {
@@ -201,7 +201,12 @@ export function renderWireshark(container: HTMLElement, site: Site, isCurrent: (
   const linux = linuxInstall(address);
   const ways = element('section', undefined, 'plugin-ways');
   ways.setAttribute('aria-label', 'Install');
-  ways.append(...linux, element('h2', linux.length ? 'Other systems' : 'Install'), offer, folderTable());
+  ways.append(
+    ...linux,
+    element('h2', linux.length ? 'Install by hand (any system)' : 'Install by hand'),
+    offer,
+    folderTable(),
+  );
 
   function showMissing() {
     ways.replaceChildren(
