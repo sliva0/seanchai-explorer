@@ -70,6 +70,8 @@ export interface CommandIndex {
   schema_version: number;
   commands: IndexedCommand[];
   registry: IndexedCodeRow[];
+  /** An application's name by its id, as the corpus's Application IDs registries print it. */
+  applications: Record<string, string>;
 }
 
 export const isRequest = (command: Pick<CommandBlock, 'flags'>) => command.flags.includes('REQ');
@@ -184,9 +186,14 @@ export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
 
 /** What a set of documents says of their commands, for `commands.json`. */
 export function commandIndex(documents: (DadFile & { id: string })[], schemaVersion: number): CommandIndex {
-  const index: CommandIndex = { schema_version: schemaVersion, commands: [], registry: [] };
+  const index: CommandIndex = { schema_version: schemaVersion, commands: [], registry: [], applications: {} };
   for (const file of documents) {
     const { id } = file;
+    for (const block of file.blocks) {
+      if (block.type !== 'Registry' || block.fields.Registry !== 'Application IDs') continue;
+      for (const row of block.allocations ?? [])
+        if (row.code !== null && row.name) index.applications[row.code] ??= row.name;
+    }
     const { blocks, rows } = commandFacts(file);
     index.commands.push(...blocks.map(block => ({ document: id, ...block })));
     index.registry.push(...rows.map(row => ({ document: id, ...row })));
@@ -199,4 +206,5 @@ export const emptyIndex = (schemaVersion: number): CommandIndex => ({
   schema_version: schemaVersion,
   commands: [],
   registry: [],
+  applications: {},
 });

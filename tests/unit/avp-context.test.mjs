@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   avpRows,
   bitRule,
+  commandsBeside,
   countText,
   encryptOf,
   flagRules,
@@ -246,4 +247,23 @@ test("a row's flags in M, V, P order with what each means, P left out as depreca
     ['Acc-Type', '3GPP-GPRS, Non-3GPP-EPS (NOTE 6)'],
     ['Applicability', '(blank)'],
   ]);
+});
+
+test("a table's commands are those of the nearest clause above it that holds any", () => {
+  const message = section => ({ type: 'Message', section, command: { application_id: 1 } });
+  const blocks = [
+    message('5.2.2.1'),
+    message('5.2.2.2'),
+    { type: 'AVP Table', section: '5.2.3.1' },
+    message('8.2.2.1'),
+    { type: 'Answer Message', section: '8.2.2.9' },
+    message('50.1'),
+  ];
+  const file = { lines: [], blocks };
+  const sections = section => commandsBeside(file, section).map(block => block.section);
+  assert.deepEqual(sections('5.2.3.1'), ['5.2.2.1', '5.2.2.2'], "clause 5.2's, not clause 50's");
+  assert.deepEqual(sections('8.2.3.0'), ['8.2.2.1'], 'a block with no header is not a command');
+  assert.deepEqual(sections('8.2.2.1.4'), ['8.2.2.1'], 'the clause itself');
+  assert.deepEqual(sections('9.1'), [], 'no clause above it holds a command');
+  assert.deepEqual(sections('5'), [], 'a top clause has none above it');
 });

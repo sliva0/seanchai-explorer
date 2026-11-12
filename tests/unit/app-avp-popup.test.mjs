@@ -148,7 +148,7 @@ test('a name defined in another document has its identity, flags and tables from
     assert.ok(page.fetched.includes('data/documents/rfc7944.json'), 'the document defining it is loaded');
     assert.deepEqual(identities(popup), ['Code 301 · Enumerated']);
     assert.deepEqual(
-      [...popup.querySelector('.popup-row').querySelectorAll('.popup-flags td')].map(node => node.textContent),
+      [...popup.querySelectorAll('.popup-row .popup-flags td')].map(node => node.textContent),
       ['V'],
     );
     assert.deepEqual(
@@ -291,7 +291,11 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
       'Required { } · must be present, in any position · exactly once',
       'Bold in the source: the document defines or modifies it here',
     ]);
-    assert.deepEqual(texts(popup, '.popup-row-title'), ['AVP Table 6.3.1'], "the row's table, opened away from it");
+    assert.deepEqual(
+      texts(popup, '.popup-row-title'),
+      ['AVP Table 6.3.1 · Application-ID 16777217'],
+      "the row's table and the application of its commands, opened away from it; alone, not marked as applying",
+    );
     assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M, V'], 'no empty columns, no P');
     assert.match(popup.querySelector('.popup-flags td').title, /^M must be set\. Mandatory/);
     absent(popup.querySelector('.popup-facts'), 'Encrypt is not shown');
@@ -330,12 +334,14 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     await settle();
     await settle();
     popup = document.querySelector('.avp-popup');
-    assert.deepEqual(
-      texts(popup, '.popup-row-title')[0],
+    assert.equal(
+      texts(popup, '.popup-row-title').at(-1),
       'AVP Table 9.2 · RFC 7944',
-      'drawn again once the document defining it is loaded',
+      "drawn again once the document defining it is loaded, after the tables of the command's own clause",
     );
-    assert.deepEqual(texts(popup.querySelector('.popup-row'), '.popup-flags th, .popup-flags td'), ['Must not', 'V']);
+    const rows = [...popup.querySelectorAll('.popup-row')];
+    assert.deepEqual(texts(rows[0], '.popup-flags th, .popup-flags td'), ['Must not', 'M, V'], "the command's table");
+    assert.deepEqual(texts(rows.at(-1), '.popup-flags th, .popup-flags td'), ['Must not', 'V'], "RFC 7944's");
   } finally {
     await page.close();
   }
@@ -366,7 +372,15 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     await settle();
     const popup = document.querySelector('.avp-popup');
     same(popup, first, 'drawn again over its own nodes');
-    assert.equal(titles(popup)[0], 'AVP Table 9.2 · RFC 7944');
+    assert.deepEqual(
+      titles(popup),
+      [
+        'AVP Table 6.3.1 · Application-ID 16777217 · applies here',
+        'Reused AVPs 6.3.1 · Application-ID 16777217 · applies here',
+        'AVP Table 9.2 · RFC 7944',
+      ],
+      "the tables of the command opened in first and marked, then the defining document's",
+    );
     assert.match(popup.querySelector('.popup-actions span').textContent, /^\.dad 2\//);
     assert.equal(popup.querySelectorAll('.usage-link')[1].getAttribute('aria-current'), 'location');
     assert.equal(popup.querySelector('.popup-uses').open, true);
@@ -395,7 +409,7 @@ test('a popup drawn again once its document loads leaves a focus outside it wher
     await settle();
     await settle();
     same(document.querySelector('.avp-popup'), first, 'drawn again over its own nodes');
-    assert.equal(titles()[0], 'AVP Table 9.2 · RFC 7944', 'drawn again with the document');
+    assert.ok(titles().includes('AVP Table 9.2 · RFC 7944'), 'drawn again with the document');
     same(document.activeElement, outside);
   } finally {
     await page.close();

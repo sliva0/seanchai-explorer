@@ -6,6 +6,7 @@ import {
   bitMeaning,
   bitRule,
   columnNotes,
+  commandsBeside,
   encryptOf,
   flagTable,
   groupedRules,
@@ -20,6 +21,7 @@ import { avpIdentities, avpTables } from '../avp-facts.ts';
 import type { AvpIdentity } from '../avp-facts.ts';
 import { namePlaces } from '../avp-places.ts';
 import type { Place } from '../avp-places.ts';
+import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
 import { valueTableTitle } from '../values.ts';
@@ -116,13 +118,29 @@ function FlagsTable({ columns }: { columns: ReturnType<typeof flagTable> }) {
  * A row's flags, then its other cells: From, its marks. Its title says which table it is of, but not for the row
  * opened on, which the "Here:" line names. `keyButton`, the "?" button, goes after its flags, or after its first cell.
  */
-function RowFacts({ title, row, keyButton }: { title: string | undefined; row: AvpRow; keyButton?: ComponentChild }) {
+function RowFacts({
+  title,
+  applies,
+  row,
+  keyButton,
+}: {
+  title: string | undefined;
+  applies: boolean;
+  row: AvpRow;
+  keyButton?: ComponentChild;
+}) {
   const columns = flagTable(row);
   const cells = otherCells(row);
   return h(
     'div',
-    { class: 'popup-row' },
-    title !== undefined && h('div', { class: 'popup-row-title' }, title),
+    { class: applies ? 'popup-row popup-row-here' : 'popup-row' },
+    title !== undefined &&
+      h(
+        'div',
+        { class: 'popup-row-title' },
+        title,
+        applies && h('span', { class: 'popup-row-applies' }, ' · applies here'),
+      ),
     columns.length > 0 && h('div', { class: 'popup-flags-line' }, h(FlagsTable, { columns }), keyButton),
     cells.length > 0 &&
       h(
@@ -171,10 +189,41 @@ function keyEntries(rows: AvpRow[]): [string, string, string?][] {
   return entries;
 }
 
-/** The rows the files at hand give a name, the one opened on first, each said once, and the Grouped rule they give it. */
+/** At most this many applications are named for a table; one for more says nothing of which. */
+const NAMED_APPLICATIONS = 3;
+
+/**
+ * The rows the files at hand give a name, each said once, and the Grouped rule they give it. The row opened on comes
+ * first, then those of a table that applies to the command opened in: one whose commands it is among, or in another
+ * document one for its application. Each row has the applications its table's commands are of, as their document or
+ * the registry names them.
+ */
 function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined) {
   const files = filesOf(site, request);
-  const all = files.flatMap(({ file, name, document }) => avpRows(file, name).map(row => ({ row, document })));
+  const here = use?.kind === 'member' ? blockAt(request.file, use.rule.line) : undefined;
+  const all = files.flatMap(({ file, name, document }) =>
+    avpRows(file, name).map(row => {
+      const commands = commandsBeside(file, row.section);
+      const ids = [...new Set(commands.flatMap(block => block.command!.application_id ?? []))];
+      const applications =
+        ids.length > NAMED_APPLICATIONS
+          ? []
+          : ids.map(
+              id =>
+                commands.find(block => block.command!.application_id === id && block.command!.application)?.command!
+                  .application ??
+                site.commands()?.applications[id] ??
+                `Application-ID ${id}`,
+            );
+      const applies =
+        !!here?.command &&
+        (file === request.file
+          ? commands.includes(here)
+          : here.command.application_id !== null && ids.includes(here.command.application_id));
+      return { row, document, applications, applies };
+    }),
+  );
+  all.sort((a, b) => Number(b.applies) - Number(a.applies));
   if (use?.kind === 'row') all.sort((a, b) => Number(b.row === use.row) - Number(a.row === use.row));
   const seen = new Set<string>();
   const rows = all
@@ -332,11 +381,13 @@ export function AvpPopup(props: PopupProps) {
             ? undefined
             : [
                 tableOf(item.row),
+                item.applications.join(', '),
                 item.document !== doc.id && site.summary(item.document) ? site.label(site.summary(item.document)!) : '',
               ]
                 .filter(Boolean)
                 .join(' · '),
         row: item.row,
+        applies: item.applies && definitionRows.length > 1,
         keyButton: item === keyed ? keyButton : undefined,
       }),
     ),

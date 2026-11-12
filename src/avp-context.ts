@@ -1,5 +1,6 @@
 import { avpRows, blockAt, byName, cell, perFile } from './blocks.ts';
 import type { AvpRow, DadFile } from './blocks.ts';
+import type { Block } from './types.ts';
 import type { Member, Presence } from './types.ts';
 
 export { avpRows } from './blocks.ts';
@@ -65,6 +66,21 @@ export function useAt(file: DadFile, index: number, name: string): Use | undefin
   }
   const row = avpRows(file, name).find(item => item.line === index);
   return row && { kind: 'row', row };
+}
+
+const messagesOf = perFile(({ blocks }) => blocks.filter(block => block.type === 'Message' && block.command));
+
+/**
+ * The commands a table's rows are for: the Message blocks of the nearest clause above the table's that holds any,
+ * TS 29.273's 5.2.2 for its table 5.2.3.1/1. None where no clause above it holds one.
+ */
+export function commandsBeside(file: DadFile, section: string): Block[] {
+  for (let clause = section; clause.includes('.');) {
+    clause = clause.slice(0, clause.lastIndexOf('.'));
+    const found = messagesOf(file).filter(block => block.section === clause || block.section.startsWith(`${clause}.`));
+    if (found.length) return found;
+  }
+  return [];
 }
 
 /** The Grouped AVP and reprinted rules a file gives a name. */

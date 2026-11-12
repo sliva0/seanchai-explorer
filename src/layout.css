@@ -1050,6 +1050,10 @@ mark {
 .popup-row-title {
   color: var(--ui-muted);
 }
+.popup-row-applies {
+  color: var(--ui-fg);
+  font-weight: 600;
+}
 .popup-flags-line {
   display: flex;
   align-items: center;

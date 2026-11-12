@@ -636,3 +636,20 @@ test('the index of the fixture holds every command search does, with the applica
   assert.deepEqual(got.toSorted(), expected.toSorted());
   assert.equal(built.schema_version, index.schema_version);
 });
+
+test('the index names an application by its id as an Application IDs registry prints it, the first to say', () => {
+  const registry = (Registry, allocations) => ({ type: 'Registry', fields: { Registry }, allocations });
+  const row = (code, name) => ({ line: 0, cells: [], code, name });
+  const documents = [
+    {
+      id: 'a',
+      lines: [],
+      blocks: [
+        registry('Application IDs', [row(16777265, '3GPP SWx'), row(null, 'Unallocated'), row(7, null)]),
+        registry('Command Codes', [row(300, 'User-Authorization')]),
+      ],
+    },
+    { id: 'b', lines: [], blocks: [registry('Application IDs', [row(16777265, 'Another'), row(4, 'Credit Control')])] },
+  ];
+  assert.deepEqual(commandIndex(documents, 2).applications, { 4: 'Credit Control', 16777265: '3GPP SWx' });
+});
