@@ -37,18 +37,29 @@ const PERSONAL_PLUGINS = '~/.local/lib/wireshark/plugins';
 
 /**
  * One line installing or updating the plugin from `plugin`, its links set to `address`, that dash, bash, zsh and fish
- * all run as it is: nothing but `&&`, single-quoted literals and `~/` paths. It downloads first and edits in place
- * after, so a failed download leaves the plugin there as it was. Its `sed -i` is GNU's, as Linux has.
- * Null where an address would still hold what the quotes cannot.
+ * all run as it is: nothing but `&&`, single-quoted literals and `~/` paths. It downloads beside the plugin, to a
+ * `.part` file Wireshark never loads, as it loads only files ending `.lua`; sets the address there and checks, a whole
+ * line and fixed string, that it is set, which a file without the marked line or with CRLF endings fails; and only
+ * then moves it over the installed plugin, in one rename. A failed step prints nothing and leaves the plugin as it was;
+ * the last says it is installed. Its `sed -i` is GNU's, as Linux has.
+ *
+ * The address is the same string in the sed replacement and in the grep: `quotable` leaves it no `'`, which would close
+ * either's shell quotes, and no `&`, `\` or `|`, which sed would read in its replacement and grep's `-F` reads as they
+ * are. Null where an address would still hold what the quotes cannot.
  */
 export function installCommand(address: string, plugin: string): string | null {
   const [base, from] = [quotable(address), quotable(plugin)];
   if (/\p{Cc}/u.test(base + from)) return null;
   const file = `${PERSONAL_PLUGINS}/${PLUGIN_NAME}`;
+  const part = `${file}.part`;
+  const line = `local EXPLORER = "${base}" -- seanchai:explorer`;
   return [
     `mkdir -p ${PERSONAL_PLUGINS}`,
-    `curl -fsSL -o ${file} '${from}'`,
-    `sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = "${base}" -- seanchai:explorer|' ${file}`,
+    `curl -fsSL -o ${part} '${from}'`,
+    `sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|${line}|' ${part}`,
+    `grep -qxF '${line}' ${part}`,
+    `mv ${part} ${file}`,
+    `echo 'Installed ${PLUGIN_NAME}'`,
   ].join(' && ');
 }
 

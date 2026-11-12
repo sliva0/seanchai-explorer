@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { promisify } from 'node:util';
 import http from 'node:http';
@@ -1303,6 +1303,44 @@ function shellAt(name) {
   return found.status === 0 ? found.stdout.trim() : null;
 }
 
+/** The install shells there are, each found once, and a line saying so for each one missing. */
+function installShells() {
+  const shells = [];
+  for (const shell of ['sh', 'dash', 'bash', 'zsh', 'fish']) {
+    const at = shellAt(shell);
+    if (at) shells.push([shell, at]);
+    else console.log(`# no ${shell}: its install run is skipped`);
+  }
+  return shells;
+}
+
+const installed = home => path.join(home, '.local/lib/wireshark/plugins/seanchai_diameter.lua');
+
+/**
+ * Runs `command` in `shell` with HOME in a new directory, after putting `old` there as the installed plugin where it
+ * is given, and gives what it exited with, printed and left installed.
+ */
+async function runInstall(at, command, old) {
+  const home = await mkdtemp(path.join(tmpdir(), 'seanchai-home-'));
+  try {
+    if (old !== undefined) {
+      await mkdir(path.dirname(installed(home)), { recursive: true });
+      await writeFile(installed(home), old);
+    }
+    // Not spawnSync: the servers it downloads from answer in this process.
+    const run = await promisify(execFile)(at, ['-c', command], {
+      env: { PATH: process.env.PATH, HOME: home },
+      timeout: 30_000,
+    }).then(
+      ({ stdout }) => ({ code: 0, stdout }),
+      error => ({ code: error.code, stdout: error.stdout }),
+    );
+    return { ...run, file: await readFile(installed(home)).catch(() => null) };
+  } finally {
+    await rm(home, { recursive: true, force: true });
+  }
+}
+
 test(
   "the plugin page's download and its install line both give the served plugin with this server's address",
   { skip },
@@ -1324,25 +1362,64 @@ test(
     assert.match(await page.locator('.plugin-status').textContent(), /^Saved seanchai_diameter\.lua, its links set/);
 
     const command = await page.locator('.plugin-command code').textContent();
-    for (const shell of ['sh', 'dash', 'bash', 'zsh', 'fish']) {
-      const at = shellAt(shell);
-      if (!at) {
-        console.log(`# no ${shell}: its install run is skipped`);
-        continue;
-      }
-      const home = await mkdtemp(path.join(tmpdir(), 'seanchai-home-'));
-      try {
-        // Not spawnSync: the server it downloads from answers in this process.
-        await promisify(execFile)(at, ['-c', command], {
-          env: { PATH: process.env.PATH, HOME: home },
-          timeout: 30_000,
-        });
-        const installed = await readFile(path.join(home, '.local/lib/wireshark/plugins/seanchai_diameter.lua'), 'utf8');
-        assert.equal(installed, saved, shell);
-      } finally {
-        await rm(home, { recursive: true, force: true });
+    for (const [shell, at] of installShells()) {
+      for (const old of [undefined, '-- an older plugin\n']) {
+        const run = await runInstall(at, command, old);
+        assert.equal(run.code, 0, shell);
+        assert.equal(run.stdout, 'Installed seanchai_diameter.lua\n', shell);
+        assert.equal(run.file?.toString('utf8'), saved, shell);
       }
     }
     await done();
+  },
+);
+
+test(
+  'the install line leaves the installed plugin as it was where the download fails or its address cannot be set',
+  { skip },
+  async () => {
+    const { page, done } = await open('#wireshark');
+    const command = await page.locator('.plugin-command code').textContent();
+    await done();
+    const served = await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'));
+    const bodies = {
+      '/unmarked.lua': served.toString('utf8').replace(/^local EXPLORER = .*\n/m, ''),
+      '/crlf.lua': served.toString('utf8').replaceAll('\n', '\r\n'),
+    };
+    assert.notEqual(bodies['/unmarked.lua'], served.toString('utf8'));
+    const failing = http
+      .createServer((request, response) => {
+        if (request.url === '/cut.lua') {
+          // Headers and half the body, then the connection goes.
+          response.writeHead(200, { 'content-length': served.length });
+          response.write(served.subarray(0, served.length >> 1), () => response.socket.destroy());
+        } else if (request.url in bodies) {
+          response.writeHead(200);
+          response.end(bodies[request.url]);
+        } else {
+          response.writeHead(404);
+          response.end();
+        }
+      })
+      .listen(0, '127.0.0.1');
+    await new Promise(resolve => failing.once('listening', resolve));
+    const from = `http://127.0.0.1:${failing.address().port}`;
+    const plugin = `'${base}plugin/seanchai_diameter.lua'`;
+    assert.ok(command.includes(plugin));
+    const old = Buffer.from('-- an older plugin, which a failed update keeps\n');
+    try {
+      for (const [shell, at] of installShells()) {
+        for (const name of ['/cut.lua', '/missing.lua', '/unmarked.lua', '/crlf.lua']) {
+          const run = await runInstall(at, command.replace(plugin, `'${from}${name}'`), old);
+          const what = `${shell} ${name}`;
+          assert.notEqual(run.code, 0, what);
+          assert.doesNotMatch(run.stdout, /Installed/, what);
+          assert.ok(run.file?.equals(old), what);
+        }
+      }
+    } finally {
+      failing.closeAllConnections();
+      failing.close();
+    }
   },
 );

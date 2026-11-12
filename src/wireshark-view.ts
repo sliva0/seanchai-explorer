@@ -106,7 +106,7 @@ function linuxInstall(address: string): HTMLElement[] {
   return [
     element('h2', 'Linux'),
     paragraph(
-      "In a terminal, this line downloads the plugin into Wireshark's personal plugins folder and points its links at this site. Run it again to update.",
+      "In a terminal, this line downloads the plugin into Wireshark's personal plugins folder and points its links at this site, replacing an installed plugin only once the download is complete and its links are set. Run it again to update.",
     ),
     block,
     status,

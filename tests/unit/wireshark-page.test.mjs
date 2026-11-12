@@ -145,7 +145,7 @@ test('the page says what the plugin is and its versions, and its download links 
     assert.equal(guide.target, '_blank');
     assert.match(
       text,
-      /downloads the plugin into Wireshark's personal plugins folder and points its links at this site\. Run it again to update\./,
+      /downloads the plugin into Wireshark's personal plugins folder and points its links at this site, replacing an installed plugin only once the download is complete and its links are set\. Run it again to update\./,
     );
     const copied = [];
     Object.defineProperty(page.window.navigator, 'clipboard', {
@@ -298,7 +298,14 @@ test('the jump list goes back to the page from a document, under its own label',
 });
 
 const install = (base, plugin) =>
-  `mkdir -p ~/.local/lib/wireshark/plugins && curl -fsSL -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua '${plugin}' && sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = "${base}" -- seanchai:explorer|' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua`;
+  `mkdir -p ~/.local/lib/wireshark/plugins && curl -fsSL -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part '${plugin}' && sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = "${base}" -- seanchai:explorer|' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && grep -qxF 'local EXPLORER = "${base}" -- seanchai:explorer' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part ~/.local/lib/wireshark/plugins/seanchai_diameter.lua && echo 'Installed seanchai_diameter.lua'`;
+
+test('the install command downloads beside the plugin, checks the address is set, and only then replaces it', () => {
+  assert.equal(
+    installCommand('https://host/', 'https://host/plugin/seanchai_diameter.lua'),
+    "mkdir -p ~/.local/lib/wireshark/plugins && curl -fsSL -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part 'https://host/plugin/seanchai_diameter.lua' && sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = \"https://host/\" -- seanchai:explorer|' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && grep -qxF 'local EXPLORER = \"https://host/\" -- seanchai:explorer' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part ~/.local/lib/wireshark/plugins/seanchai_diameter.lua && echo 'Installed seanchai_diameter.lua'",
+  );
+});
 
 test('the install command is one line of single-quoted literals and && alone', () => {
   for (const base of ['https://host/', 'https://host/sub/', 'http://192.168.3.3:4173/']) {
@@ -321,4 +328,9 @@ test('what a shell, sed or Lua would read as its own is percent-encoded in both 
   assert.equal(installCommand('https://host/\n', 'https://host/plugin'), null);
   // Each literal is closed where it was opened: the quotes pair up with nothing inside them but the command's own.
   assert.equal(command.split("'").length % 2, 1);
+  // sed writes its replacement as it is, with no `&` or `\` in it, so the grep checks for the very line it wrote.
+  const [, written] = command.match(/\|(local EXPLORER = [^|]*)\|' /);
+  const [, checked] = command.match(/ grep -qxF '([^']*)' /);
+  assert.equal(written, checked);
+  assert.doesNotMatch(written, /[&\\|']/);
 });
