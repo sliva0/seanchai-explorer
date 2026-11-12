@@ -25,7 +25,7 @@ export function quotable(url: string): string {
  * The address the plugin's links start with, as `<address>#<document>/<clause>?name=…`: the page as served, without
  * its fragment, which is the route, or its query, which no route reads. A sub-path and a page named in it stay, so
  * `https://host/sub/` and `https://host/sub/index.html` each open the site where it is. It is `quotable`, so the
- * download and the install scripts write the same address.
+ * download and the install commands write the same address.
  */
 export function explorerAddress(href: string): string {
   const url = new URL(href);
@@ -37,7 +37,7 @@ export function explorerAddress(href: string): string {
 /** Where Wireshark looks for a reader's own Lua plugins on Linux, as a path the shell expands. */
 const PERSONAL_PLUGINS = '~/.local/lib/wireshark/plugins';
 
-/** The shells an install script is written for: `posix` for dash, bash and zsh, the default. */
+/** The shells the install commands are written for: `posix` for dash, bash and zsh, the default. */
 export type InstallShell = 'posix' | 'fish';
 
 export function resolveInstallShell(stored: unknown): InstallShell {
@@ -45,7 +45,7 @@ export function resolveInstallShell(stored: unknown): InstallShell {
 }
 
 /**
- * What both install scripts set before their steps, `file` and `line`, as each is used more than once, and the
+ * What the install commands of both shells set before their steps, `file` and `line`, as each is used more than once, and the
  * plugin's address, used once: the marked line holds the address and goes in single quotes, as the address does, where
  * `quotable` leaves no `'` to close them and no `\`, which fish's would read. Expanded into sed's replacement and
  * grep's pattern, the line is not scanned again, so an address's `$` or `!` stays as it is. Null where an address would
@@ -58,7 +58,7 @@ function installValues(address: string, plugin: string): { file: string; line: s
 }
 
 /**
- * The script installing or updating the plugin from `plugin`, its links set to `address`, for dash, bash and zsh, as
+ * The commands installing or updating the plugin from `plugin`, its links set to `address`, for dash, bash and zsh, as
  * it reads pasted or run with `sh -c`. It downloads beside the plugin, to a `.part` file Wireshark never loads, as it
  * loads only files ending `.lua`; sets the address on the marked line there and checks, a whole line and fixed string,
  * that it is set, which a file without the marked line or with CRLF endings fails; and only then moves it over the

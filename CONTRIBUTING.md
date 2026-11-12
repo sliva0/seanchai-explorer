@@ -92,7 +92,7 @@ Prepare also writes `public/plugin/seanchai_diameter.lua`, the Wireshark plugin,
 modes. A build fails if `seanchai` ran for the export and the plugin command failed, saying so where that `seanchai`
 is too old to have it; from `SEANCHAI_EXPORT` it goes on without the plugin, and the Wireshark page gives the command
 making one instead. The page fetches the file and rewrites its one line ending `-- seanchai:explorer`, through
-`src/plugin-file.ts`, to the address it is served at, as its install script for POSIX shells or fish does with `sed`;
+`src/plugin-file.ts`, to the address it is served at, as its install commands for POSIX shells or fish do with `sed`;
 it reads the versions from its `-- seanchai:versions` line.
 `tests/fixtures/plugin/` holds a few lines standing in for it, which the unit and smoke tests serve.
 

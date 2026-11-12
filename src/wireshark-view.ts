@@ -76,7 +76,7 @@ function liveStatus(className: string): HTMLElement {
 
 /**
  * Puts `text` on the clipboard and says so on the button itself, where the reader is looking, and in `status`. A page
- * not served over HTTPS, as a copy on a LAN is, has no clipboard API: the script is selected and copied by the
+ * not served over HTTPS, as a copy on a LAN is, has no clipboard API: the commands are selected and copied by the
  * document's own copy command, and where that is refused too it stays selected for the reader's copy key.
  */
 async function copy(text: string, node: HTMLElement, status: HTMLElement, button: HTMLElement) {
@@ -108,7 +108,7 @@ const SHELLS = [
 ] as const;
 
 /**
- * The Linux way: a choice of shell, kept for the next visit, and its script with a Copy button, or none where the
+ * The Linux way: a choice of shell, kept for the next visit, and its commands with a Copy button, or none where the
  * address cannot be quoted for a shell.
  */
 function linuxInstall(address: string): HTMLElement[] {
@@ -151,13 +151,13 @@ function linuxInstall(address: string): HTMLElement[] {
   const status = liveStatus('copy-status');
   const button = element('button', 'Copy', 'control');
   button.type = 'button';
-  button.setAttribute('aria-label', 'Copy the script');
+  button.setAttribute('aria-label', 'Copy the commands');
   button.onclick = () => void copy(text.textContent, text, status, button);
   const bar = element('div', undefined, 'plugin-command-bar');
   bar.append(group, status, button);
   const pre = element('pre', undefined, 'plugin-command');
   pre.append(text);
-  return [element('h2', 'Install with a script (Linux)'), bar, pre];
+  return [element('h2', 'Install from a terminal (Linux)'), bar, pre];
 }
 
 function folderTable(): HTMLTableElement {
@@ -178,7 +178,7 @@ function folderTable(): HTMLTableElement {
   return table;
 }
 
-/** The Wireshark plugin's page: its versions, its install script and download set to link to this site. Drawn once. */
+/** The Wireshark plugin's page: its versions, its install commands and download set to link to this site. Drawn once. */
 export function renderWireshark(container: HTMLElement, site: Site, isCurrent: () => boolean) {
   const address = explorerAddress(location.href);
   const heading = element('h1', 'Wireshark plugin');

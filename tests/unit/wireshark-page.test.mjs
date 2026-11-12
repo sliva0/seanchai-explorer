@@ -132,7 +132,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
     assert.ok(page.fetched.includes('plugin/seanchai_diameter.lua'));
     assert.deepEqual(
       [...document.querySelectorAll('main h2')].map(node => node.textContent),
-      ['Install with a script (Linux)', 'Install by hand (any system)'],
+      ['Install from a terminal (Linux)', 'Install by hand (any system)'],
     );
     absent(document.querySelector('main a'));
     const from = 'http://localhost/plugin/seanchai_diameter.lua';
@@ -144,7 +144,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
       [
         'Wireshark plugin',
         'seanchai 0.2.0, corpus 2026.11.11',
-        'Install with a script (Linux)',
+        'Install from a terminal (Linux)',
         'bash / zsh / sh',
         'fish',
         'Copy',
@@ -180,7 +180,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
       value: { writeText: async text => void copied.push(text) },
     });
     const copyButton = document.querySelector('.plugin-command-bar button');
-    assert.equal(copyButton.getAttribute('aria-label'), 'Copy the script');
+    assert.equal(copyButton.getAttribute('aria-label'), 'Copy the commands');
     click(page, copyButton);
     await page.settle();
     assert.deepEqual(copied, [fishInstall('http://localhost/', from)]);
