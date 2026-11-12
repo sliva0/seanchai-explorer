@@ -188,6 +188,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
     const copyStatus = document.querySelector('.copy-status');
     assert.equal(copyStatus.getAttribute('role'), 'status');
     assert.equal(copyStatus.textContent, 'Copied');
+    assert.equal(copyButton.textContent, 'Copied', 'said on the button, where the reader looks');
     Object.defineProperty(window.navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async () => Promise.reject(new Error('denied')) },
@@ -195,6 +196,18 @@ test('the page shows its versions, the script for the chosen shell and the downl
     click(page, copyButton);
     await page.settle();
     assert.equal(copyStatus.textContent, 'Selected: press Ctrl+C');
+    assert.equal(copyButton.textContent, 'Press Ctrl+C');
+    document.execCommand = () => true;
+    click(page, copyButton);
+    await page.settle();
+    assert.equal(
+      copyStatus.textContent,
+      'Copied',
+      "with no clipboard API, as over plain HTTP, the document's own copy does it",
+    );
+    delete document.execCommand;
+    click(page, copyButton);
+    await page.settle();
     assert.equal(window.getSelection().toString(), command.textContent);
 
     const saved = downloads(page);

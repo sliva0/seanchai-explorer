@@ -75,21 +75,31 @@ function liveStatus(className: string): HTMLElement {
 }
 
 /**
- * Puts `text` on the clipboard and says so in `status`. Where the browser refuses, the script is selected instead,
- * for the reader's own copy key.
+ * Puts `text` on the clipboard and says so on the button itself, where the reader is looking, and in `status`. A page
+ * not served over HTTPS, as a copy on a LAN is, has no clipboard API: the script is selected and copied by the
+ * document's own copy command, and where that is refused too it stays selected for the reader's copy key.
  */
-async function copy(text: string, node: HTMLElement, status: HTMLElement) {
+async function copy(text: string, node: HTMLElement, status: HTMLElement, button: HTMLElement) {
+  let copied = true;
   try {
     await window.navigator.clipboard.writeText(text);
-    status.textContent = 'Copied';
   } catch {
     const range = document.createRange();
     range.selectNodeContents(node);
     const selection = window.getSelection();
     selection?.removeAllRanges();
     selection?.addRange(range);
-    status.textContent = 'Selected: press Ctrl+C';
+    try {
+      copied = document.execCommand('copy');
+    } catch {
+      copied = false;
+    }
+    if (copied) selection?.removeAllRanges();
   }
+  status.textContent = copied ? 'Copied' : 'Selected: press Ctrl+C';
+  button.textContent = copied ? 'Copied' : 'Press Ctrl+C';
+  clearTimeout(Number(button.dataset.reset));
+  button.dataset.reset = String(setTimeout(() => (button.textContent = 'Copy'), 2000));
 }
 
 const SHELLS = [
@@ -142,7 +152,7 @@ function linuxInstall(address: string): HTMLElement[] {
   const button = element('button', 'Copy', 'control');
   button.type = 'button';
   button.setAttribute('aria-label', 'Copy the script');
-  button.onclick = () => void copy(text.textContent, text, status);
+  button.onclick = () => void copy(text.textContent, text, status, button);
   const bar = element('div', undefined, 'plugin-command-bar');
   bar.append(group, status, button);
   const pre = element('pre', undefined, 'plugin-command');
