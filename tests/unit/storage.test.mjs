@@ -19,6 +19,7 @@ test('the keys are the names the site has always stored under, so a reader keeps
   assert.deepEqual(storageKeys, {
     theme: 'seanchai-theme',
     clickTarget: 'seanchai-click-target',
+    installShell: 'seanchai-install-shell',
     outline: 'seanchai-outline',
     zoom: 'seanchai-zoom',
     positions: 'seanchai-positions',

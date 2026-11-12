@@ -4,7 +4,6 @@ import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { promisify } from 'node:util';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -1303,12 +1302,15 @@ function shellAt(name) {
   return found.status === 0 ? found.stdout.trim() : null;
 }
 
-/** The install shells there are, each found once, and a line saying so for each one missing. */
+/** The shells a script is written for: the POSIX one runs in each of sh, dash, bash and zsh, fish's in fish. */
+const VARIANTS = { sh: 'posix', dash: 'posix', bash: 'posix', zsh: 'posix', fish: 'fish' };
+
+/** The install shells there are, each found once with the script it runs, and a line saying so for each one missing. */
 function installShells() {
   const shells = [];
-  for (const shell of ['sh', 'dash', 'bash', 'zsh', 'fish']) {
+  for (const [shell, variant] of Object.entries(VARIANTS)) {
     const at = shellAt(shell);
-    if (at) shells.push([shell, at]);
+    if (at) shells.push([shell, at, variant]);
     else console.log(`# no ${shell}: its install run is skipped`);
   }
   return shells;
@@ -1317,10 +1319,11 @@ function installShells() {
 const installed = home => path.join(home, '.local/lib/wireshark/plugins/seanchai_diameter.lua');
 
 /**
- * Runs `command` in `shell` with HOME in a new directory, after putting `old` there as the installed plugin where it
- * is given, and gives what it exited with, printed and left installed.
+ * Runs `script` in the shell at `at` with HOME in a new directory, after putting `old` there as the installed plugin
+ * where it is given, and gives what it exited with, printed, with HOME as `~`, and left installed. `how` is `-c`, the
+ * script as one argument, or `stdin`, read line by line as a paste is.
  */
-async function runInstall(at, command, old) {
+async function runInstall(at, script, old, how) {
   const home = await mkdtemp(path.join(tmpdir(), 'seanchai-home-'));
   try {
     if (old !== undefined) {
@@ -1328,21 +1331,36 @@ async function runInstall(at, command, old) {
       await writeFile(installed(home), old);
     }
     // Not spawnSync: the servers it downloads from answer in this process.
-    const run = await promisify(execFile)(at, ['-c', command], {
-      env: { PATH: process.env.PATH, HOME: home },
-      timeout: 30_000,
-    }).then(
-      ({ stdout }) => ({ code: 0, stdout }),
-      error => ({ code: error.code, stdout: error.stdout }),
-    );
+    const run = await new Promise(resolve => {
+      const child = execFile(
+        at,
+        how === '-c' ? ['-c', script] : [],
+        { env: { PATH: process.env.PATH, HOME: home }, timeout: 30_000 },
+        (error, stdout) => resolve({ code: error ? error.code : 0, stdout: stdout.replaceAll(home, '~') }),
+      );
+      child.stdin.end(how === '-c' ? '' : script);
+    });
     return { ...run, file: await readFile(installed(home)).catch(() => null) };
   } finally {
     await rm(home, { recursive: true, force: true });
   }
 }
 
+/** The page's script for each shell, as its block shows it once that shell is chosen. */
+async function installScripts(page) {
+  const scripts = {};
+  for (const [variant, label] of [
+    ['fish', 'fish'],
+    ['posix', 'bash / zsh / sh'],
+  ]) {
+    await page.getByRole('radio', { name: label }).check();
+    scripts[variant] = await page.locator('.plugin-command code').textContent();
+  }
+  return scripts;
+}
+
 test(
-  "the plugin page's download and its install line both give the served plugin with this server's address",
+  "the plugin page's download and its install scripts both give the served plugin with this server's address",
   { skip },
   async () => {
     const { page, done } = await open('#wireshark');
@@ -1350,7 +1368,6 @@ test(
     const marked = /^local EXPLORER = "[^"\\]*" -- seanchai:explorer$/gm;
     assert.equal(served.match(marked)?.length, 1);
     const expected = served.replace(marked, `local EXPLORER = "${base}" -- seanchai:explorer`);
-    assert.equal(await page.locator('.plugin-address code').textContent(), base);
 
     const [download] = await Promise.all([
       page.waitForEvent('download'),
@@ -1359,27 +1376,37 @@ test(
     assert.equal(download.suggestedFilename(), 'seanchai_diameter.lua');
     const saved = await readFile(await download.path(), 'utf8');
     assert.equal(saved, expected);
-    assert.match(await page.locator('.plugin-status').textContent(), /^Saved seanchai_diameter\.lua, its links set/);
+    assert.equal(await page.locator('.plugin-status').textContent(), 'Saved');
 
-    const command = await page.locator('.plugin-command code').textContent();
-    for (const [shell, at] of installShells()) {
-      for (const old of [undefined, '-- an older plugin\n']) {
-        const run = await runInstall(at, command, old);
-        assert.equal(run.code, 0, shell);
-        assert.equal(run.stdout, 'Installed seanchai_diameter.lua\n', shell);
-        assert.equal(run.file?.toString('utf8'), saved, shell);
+    const scripts = await installScripts(page);
+    for (const script of Object.values(scripts)) {
+      assert.ok(script.includes(`'local EXPLORER = "${base}" -- seanchai:explorer'`));
+      assert.ok(script.endsWith('\n'));
+    }
+    const ran = [];
+    for (const [shell, at, variant] of installShells()) {
+      for (const how of ['-c', 'stdin']) {
+        for (const old of [undefined, '-- an older plugin\n']) {
+          const run = await runInstall(at, scripts[variant], old, how);
+          const what = `${shell} ${how}`;
+          assert.equal(run.code, 0, what);
+          assert.equal(run.stdout, 'Installed ~/.local/lib/wireshark/plugins/seanchai_diameter.lua\n', what);
+          assert.equal(run.file?.toString('utf8'), saved, what);
+        }
+        ran.push(`${shell} ${how}`);
       }
     }
+    console.log(`# install scripts ran in: ${ran.join(', ')}`);
     await done();
   },
 );
 
 test(
-  'the install line leaves the installed plugin as it was where the download fails or its address cannot be set',
+  'the install scripts leave the installed plugin as it was where the download fails or its address cannot be set',
   { skip },
   async () => {
     const { page, done } = await open('#wireshark');
-    const command = await page.locator('.plugin-command code').textContent();
+    const scripts = await installScripts(page);
     await done();
     const served = await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'));
     const bodies = {
@@ -1405,16 +1432,18 @@ test(
     await new Promise(resolve => failing.once('listening', resolve));
     const from = `http://127.0.0.1:${failing.address().port}`;
     const plugin = `'${base}plugin/seanchai_diameter.lua'`;
-    assert.ok(command.includes(plugin));
+    for (const script of Object.values(scripts)) assert.ok(script.includes(plugin));
     const old = Buffer.from('-- an older plugin, which a failed update keeps\n');
     try {
-      for (const [shell, at] of installShells()) {
-        for (const name of ['/cut.lua', '/missing.lua', '/unmarked.lua', '/crlf.lua']) {
-          const run = await runInstall(at, command.replace(plugin, `'${from}${name}'`), old);
-          const what = `${shell} ${name}`;
-          assert.notEqual(run.code, 0, what);
-          assert.doesNotMatch(run.stdout, /Installed/, what);
-          assert.ok(run.file?.equals(old), what);
+      for (const [shell, at, variant] of installShells()) {
+        for (const how of ['-c', 'stdin']) {
+          for (const name of ['/cut.lua', '/missing.lua', '/unmarked.lua', '/crlf.lua']) {
+            const run = await runInstall(at, scripts[variant].replace(plugin, `'${from}${name}'`), old, how);
+            const what = `${shell} ${how} ${name}`;
+            assert.notEqual(run.code, 0, what);
+            assert.doesNotMatch(run.stdout, /Installed/, what);
+            assert.ok(run.file?.equals(old), what);
+          }
         }
       }
     } finally {
@@ -1423,3 +1452,27 @@ test(
     }
   },
 );
+
+test('the shell is chosen by keyboard, and its script keeps its lines inside a narrow page', { skip }, async () => {
+  const { page, done } = await open('#wireshark', { viewport: { width: 360, height: 800 } });
+  const posix = page.getByRole('radio', { name: 'bash / zsh / sh' });
+  await posix.focus();
+  assert.ok(await posix.isChecked());
+  for (const [key, label] of [
+    ['ArrowRight', 'fish'],
+    ['ArrowLeft', 'bash / zsh / sh'],
+  ]) {
+    await page.keyboard.press(key);
+    assert.ok(await page.getByRole('radio', { name: label }).isChecked(), key);
+    const layout = await page.evaluate(() => {
+      const pre = document.querySelector('.plugin-command');
+      return {
+        wider: document.documentElement.scrollWidth - innerWidth,
+        scrolls: pre.scrollWidth > pre.clientWidth,
+        whiteSpace: getComputedStyle(pre).whiteSpace,
+      };
+    });
+    assert.deepEqual(layout, { wider: 0, scrolls: true, whiteSpace: 'pre' }, label);
+  }
+  await done();
+});

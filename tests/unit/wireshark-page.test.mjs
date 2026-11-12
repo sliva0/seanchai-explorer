@@ -4,7 +4,16 @@ import { resolveObjectURL } from 'node:buffer';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { WIRESHARK, namesDocument, parseRoute } from '../../src/navigation.ts';
-import { explorerAddress, installCommand, pluginVersions, quotable, withExplorer } from '../../src/plugin-file.ts';
+import {
+  explorerAddress,
+  fishInstall,
+  generateCommand,
+  pluginVersions,
+  posixInstall,
+  quotable,
+  resolveInstallShell,
+  withExplorer,
+} from '../../src/plugin-file.ts';
 import { absent, boot, click, pluginFixture, present, press, same } from './helpers.mjs';
 
 const MARKED = 'local EXPLORER = "https://sliva0.github.io/seanchai-explorer/" -- seanchai:explorer';
@@ -108,10 +117,10 @@ function downloads(page) {
 const downloadButton = document =>
   [...document.querySelectorAll('main button')].find(button => button.textContent.startsWith('Download'));
 
-test('the page says what the plugin is and its versions, and its download links to this site', async () => {
+test('the page shows its versions, the script for the chosen shell and the download, and next to no text', async () => {
   const page = await boot({ hash: '#search' });
   try {
-    const { document } = page;
+    const { document, window } = page;
     const link = [...document.querySelectorAll('header nav a')].find(a => a.textContent === 'Wireshark');
     assert.equal(link.getAttribute('href'), '#wireshark');
     click(page, link);
@@ -119,55 +128,74 @@ test('the page says what the plugin is and its versions, and its download links 
     assert.equal(document.title, 'Wireshark plugin — Seanchaí');
     assert.equal(document.querySelector('main h1').textContent, 'Wireshark plugin');
     same(document.activeElement, document.querySelector('main h1'));
-    const text = document.querySelector('main').textContent;
-    assert.match(text, /checks every Diameter message in a capture against the documents shown on this site/);
-    assert.match(text, /cites the clause, table and page/);
-    assert.match(text, /~\/\.local\/lib\/wireshark\/plugins\//);
-    assert.match(text, /%APPDATA%\\Wireshark\\plugins\\/);
-    assert.match(text, /seanchai\.errors > 0/);
-    assert.match(text, /Protocols → Seanchaí/);
-    assert.match(text, /Wireshark 4\.2 or later/);
-    assert.match(text, /A self-hosted copy of this site/);
-    assert.doesNotMatch(text, /SCTP|TCP|\bports?\b/i);
-    assert.equal(document.querySelector('.versions').textContent, 'Generated from seanchai 0.2.0, corpus 2026.11.11.');
-    assert.equal(document.querySelector('.plugin-address code').textContent, 'http://localhost/');
+    assert.equal(document.querySelector('.plugin-title .versions').textContent, 'seanchai 0.2.0, corpus 2026.11.11');
     assert.ok(page.fetched.includes('plugin/seanchai_diameter.lua'));
-    const command = document.querySelector('.plugin-command code');
-    assert.equal(command.textContent, install('http://localhost/', 'http://localhost/plugin/seanchai_diameter.lua'));
-    assert.equal(document.querySelectorAll('.plugin-command').length, 1, 'Linux only');
     assert.deepEqual(
       [...document.querySelectorAll('main h2')].map(node => node.textContent),
-      ['Linux', 'Other systems', 'Use'],
+      ['Linux', 'Other systems'],
     );
-    assert.match(text, /"Explorer address" \(seanchai\.explorer_url\)/);
-    const guide = [...document.querySelectorAll('main a')].find(a => a.textContent === 'what it checks');
-    assert.equal(guide.href, 'https://github.com/sliva0/seanchai/blob/main/docs/wireshark-plugin.md');
-    assert.equal(guide.target, '_blank');
-    assert.match(
-      text,
-      /downloads the plugin into Wireshark's personal plugins folder and points its links at this site, replacing an installed plugin only once the download is complete and its links are set\. Run it again to update\./,
+    absent(document.querySelector('main a'));
+    const from = 'http://localhost/plugin/seanchai_diameter.lua';
+    const command = document.querySelector('.plugin-command code');
+    assert.equal(command.textContent, posixInstall('http://localhost/', from));
+    assert.equal(document.querySelectorAll('.plugin-command').length, 1, 'Linux only');
+    assert.equal(
+      document.querySelector('main').textContent,
+      [
+        'Wireshark plugin',
+        'seanchai 0.2.0, corpus 2026.11.11',
+        'Linux',
+        'bash / zsh / sh',
+        'fish',
+        'Copy',
+        posixInstall('http://localhost/', from),
+        'Other systems',
+        'Download seanchai_diameter.lua',
+        'SystemFolder',
+        'Linux and macOS~/.local/lib/wireshark/plugins/',
+        'Windows%APPDATA%\\Wireshark\\plugins\\',
+        'Then restart Wireshark, or press Ctrl+Shift+L.',
+      ].join(''),
     );
+
+    const group = document.querySelector('.shell-choice');
+    assert.equal(group.getAttribute('role'), 'radiogroup');
+    assert.equal(group.getAttribute('aria-label'), 'Shell');
+    const radios = [...group.querySelectorAll('input[type="radio"]')];
+    assert.deepEqual(
+      radios.map(radio => [radio.value, radio.checked, radio.parentElement.textContent]),
+      [
+        ['posix', true, 'bash / zsh / sh'],
+        ['fish', false, 'fish'],
+      ],
+    );
+    radios[1].checked = true;
+    radios[1].dispatchEvent(new window.Event('change'));
+    assert.equal(command.textContent, fishInstall('http://localhost/', from));
+    assert.equal(window.localStorage.getItem('seanchai-install-shell'), 'fish');
+
     const copied = [];
-    Object.defineProperty(page.window.navigator, 'clipboard', {
+    Object.defineProperty(window.navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async text => void copied.push(text) },
     });
-    const copyButton = document.querySelector('.plugin-command button');
-    assert.equal(copyButton.getAttribute('aria-label'), 'Copy the command');
+    const copyButton = document.querySelector('.plugin-command-bar button');
+    assert.equal(copyButton.getAttribute('aria-label'), 'Copy the script');
     click(page, copyButton);
     await page.settle();
-    assert.deepEqual(copied, [command.textContent]);
+    assert.deepEqual(copied, [fishInstall('http://localhost/', from)]);
+    assert.ok(copied[0].endsWith('"Installed $file"\n'), 'the last line runs when pasted');
     const copyStatus = document.querySelector('.copy-status');
     assert.equal(copyStatus.getAttribute('role'), 'status');
-    assert.equal(copyStatus.textContent, 'Copied.');
-    Object.defineProperty(page.window.navigator, 'clipboard', {
+    assert.equal(copyStatus.textContent, 'Copied');
+    Object.defineProperty(window.navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async () => Promise.reject(new Error('denied')) },
     });
     click(page, copyButton);
     await page.settle();
-    assert.match(copyStatus.textContent, /^Selected: press Ctrl\+C/);
-    assert.equal(page.window.getSelection().toString(), command.textContent);
+    assert.equal(copyStatus.textContent, 'Selected: press Ctrl+C');
+    assert.equal(window.getSelection().toString(), command.textContent);
 
     const saved = downloads(page);
     const status = document.querySelector('.plugin-status');
@@ -177,7 +205,7 @@ test('the page says what the plugin is and its versions, and its download links 
     assert.equal(saved.length, 1);
     assert.equal(saved[0].name, 'seanchai_diameter.lua');
     assert.equal(await saved[0].text, plugin.replace(MARKED, marked('http://localhost/')));
-    assert.equal(status.textContent, 'Saved seanchai_diameter.lua, its links set to this site.');
+    assert.equal(status.textContent, 'Saved');
     absent(document.querySelector('main a[download]'));
     assert.equal(page.fetched.filter(file => file.startsWith('plugin/')).length, 1, 'the first fetch is kept');
   } finally {
@@ -185,12 +213,21 @@ test('the page says what the plugin is and its versions, and its download links 
   }
 });
 
-test('in a self-hosted build the page says its links open this copy, PDF beside the text', async () => {
-  const page = await boot({ hash: '#wireshark', mode: 'self-hosted' });
+test('the chosen shell is kept for the next visit, and the POSIX one is the default', async () => {
+  assert.equal(resolveInstallShell('fish'), 'fish');
+  assert.equal(resolveInstallShell('posix'), 'posix');
+  assert.equal(resolveInstallShell(null), 'posix');
+  assert.equal(resolveInstallShell('zsh'), 'posix');
+  const page = await boot({
+    hash: '#wireshark',
+    prepare: ({ window }) => window.localStorage.setItem('seanchai-install-shell', 'fish'),
+  });
   try {
-    assert.match(
-      page.document.querySelector('main').textContent,
-      /This copy is self-hosted: the links open it, with the source PDF beside the text/,
+    const { document } = page;
+    assert.equal(document.querySelector('.shell-choice input:checked').value, 'fish');
+    assert.equal(
+      document.querySelector('.plugin-command code').textContent,
+      fishInstall('http://localhost/', 'http://localhost/plugin/seanchai_diameter.lua'),
     );
   } finally {
     await page.close();
@@ -208,16 +245,16 @@ test("a plugin without its versions line shows the index's, and one without its 
     const index = JSON.parse(await readFile(new URL('../fixtures/export/index.json', import.meta.url), 'utf8'));
     assert.equal(
       document.querySelector('.versions').textContent,
-      `Generated from seanchai ${index.seanchai_version}, corpus ${index.corpus_version}.`,
+      `seanchai ${index.seanchai_version}, corpus ${index.corpus_version}`,
     );
     const saved = downloads(page);
     click(page, downloadButton(document));
     await page.settle();
     assert.equal(await saved[0].text, bare);
     const status = document.querySelector('.plugin-status');
-    assert.match(
+    assert.equal(
       status.textContent,
-      /^Saved seanchai_diameter\.lua as it was built, since it has no explorer line: its links go to the address it was generated with, not to this site\.$/,
+      'Saved as built, since it has no explorer line: its links keep the address it was generated with.',
     );
     assert.ok(status.classList.contains('plugin-warning'));
   } finally {
@@ -225,21 +262,25 @@ test("a plugin without its versions line shows the index's, and one without its 
   }
 });
 
-test('a build without the plugin says the download is not part of it and how to make one', async () => {
+test('a build without the plugin gives the command making one, with its links set to this site', async () => {
   const page = await boot({ hash: '#wireshark', plugin: false });
   try {
     const { document } = page;
     absent(downloadButton(document) ?? null);
     const offer = document.querySelector('.plugin-ways');
     absent(document.querySelector('.plugin-download'));
-    assert.match(offer.textContent, /^InstallThe download is not part of this build\. Generate the plugin with:/);
+    assert.equal(offer.querySelector('p').textContent, 'Not in this build. Generate it with:');
     assert.equal(
       offer.querySelector('pre code').textContent,
-      "uvx --from 'seanchai[corpus]' seanchai wireshark-plugin -o seanchai_diameter.lua",
+      "uvx --from 'seanchai[corpus]' seanchai wireshark-plugin -o seanchai_diameter.lua --explorer 'http://localhost/'",
     );
-    assert.match(offer.textContent, /add --explorer 'http:\/\/localhost\/' for its links to open this site/);
+    assert.equal(
+      generateCommand("https://host/o'b/"),
+      offer.querySelector('pre code').textContent.replace('http://localhost/', 'https://host/o%27b/'),
+    );
     present(document.querySelector('.plugin-folders'));
     absent(document.querySelector('.plugin-command'));
+    absent(document.querySelector('main h2'));
   } finally {
     await page.close();
   }
@@ -263,7 +304,7 @@ test('a failed fetch is a notice with Retry, which downloads once it can', async
     click(page, downloadButton(document));
     await page.settle();
     assert.equal(saved.length, 0);
-    assert.equal(document.querySelector('.plugin-status').textContent, 'The download failed.');
+    assert.equal(document.querySelector('.plugin-status').textContent, 'Failed');
     const notice = document.querySelector('#notices .notice');
     assert.match(
       notice.textContent,
@@ -297,40 +338,94 @@ test('the jump list goes back to the page from a document, under its own label',
   }
 });
 
-const install = (base, plugin) =>
-  `mkdir -p ~/.local/lib/wireshark/plugins && curl -fsSL -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part '${plugin}' && sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = "${base}" -- seanchai:explorer|' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && grep -qxF 'local EXPLORER = "${base}" -- seanchai:explorer' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part ~/.local/lib/wireshark/plugins/seanchai_diameter.lua && echo 'Installed seanchai_diameter.lua'`;
+const posix = (line, from) => `file=~/.local/lib/wireshark/plugins/seanchai_diameter.lua
+line='${line}'
 
-test('the install command downloads beside the plugin, checks the address is set, and only then replaces it', () => {
+mkdir -p ~/.local/lib/wireshark/plugins &&
+  curl -fsSL -o "$file.part" '${from}' &&
+  sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" &&
+  grep -qxF "$line" "$file.part" &&
+  mv "$file.part" "$file" &&
+  echo "Installed $file"
+`;
+
+const fish = (line, from) => `set file ~/.local/lib/wireshark/plugins/seanchai_diameter.lua
+set line '${line}'
+
+mkdir -p ~/.local/lib/wireshark/plugins
+and curl -fsSL -o $file.part '${from}'
+and sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part
+and grep -qxF $line $file.part
+and mv $file.part $file
+and echo "Installed $file"
+`;
+
+test('each install script downloads beside the plugin, checks the address is set, and only then replaces it', () => {
   assert.equal(
-    installCommand('https://host/', 'https://host/plugin/seanchai_diameter.lua'),
-    "mkdir -p ~/.local/lib/wireshark/plugins && curl -fsSL -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part 'https://host/plugin/seanchai_diameter.lua' && sed -i 's|^local EXPLORER = .* -- seanchai:explorer$|local EXPLORER = \"https://host/\" -- seanchai:explorer|' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && grep -qxF 'local EXPLORER = \"https://host/\" -- seanchai:explorer' ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part && mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part ~/.local/lib/wireshark/plugins/seanchai_diameter.lua && echo 'Installed seanchai_diameter.lua'",
-  );
-});
+    posixInstall('https://host/', 'https://host/plugin/seanchai_diameter.lua'),
+    `file=~/.local/lib/wireshark/plugins/seanchai_diameter.lua
+line='local EXPLORER = "https://host/" -- seanchai:explorer'
 
-test('the install command is one line of single-quoted literals and && alone', () => {
-  for (const base of ['https://host/', 'https://host/sub/', 'http://192.168.3.3:4173/']) {
-    const plugin = `${base}plugin/seanchai_diameter.lua`;
-    const linux = installCommand(base, plugin);
-    assert.equal(linux, install(base, plugin));
-    assert.doesNotMatch(linux, /\$\(|`|\n|\bexport\b|=\S*;|[{}]|<</);
+mkdir -p ~/.local/lib/wireshark/plugins &&
+  curl -fsSL -o "$file.part" 'https://host/plugin/seanchai_diameter.lua' &&
+  sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" &&
+  grep -qxF "$line" "$file.part" &&
+  mv "$file.part" "$file" &&
+  echo "Installed $file"
+`,
+  );
+  assert.equal(
+    fishInstall('https://host/', 'https://host/plugin/seanchai_diameter.lua'),
+    `set file ~/.local/lib/wireshark/plugins/seanchai_diameter.lua
+set line 'local EXPLORER = "https://host/" -- seanchai:explorer'
+
+mkdir -p ~/.local/lib/wireshark/plugins
+and curl -fsSL -o $file.part 'https://host/plugin/seanchai_diameter.lua'
+and sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part
+and grep -qxF $line $file.part
+and mv $file.part $file
+and echo "Installed $file"
+`,
+  );
+  for (const base of ['https://host/sub/', 'http://192.168.3.3:4173/']) {
+    const from = `${base}plugin/seanchai_diameter.lua`;
+    assert.equal(posixInstall(base, from), posix(marked(base), from));
+    assert.equal(fishInstall(base, from), fish(marked(base), from));
   }
 });
 
+/** The single-quoted line a script sets, which sed writes and grep looks for. */
+const lineOf = script => script.match(/^(?:set )?line[= ]'([^']*)'$/m)[1];
+
 test('what a shell, sed or Lua would read as its own is percent-encoded in both addresses', () => {
   assert.equal(quotable(`a'b"c\\d|e&f`), 'a%27b%22c%5Cd%7Ce%26f');
-  // The page's query goes, so its `&` never reaches the command; one in a path is encoded.
+  // The page's query goes, so its `&` never reaches the script; one in a path is encoded.
   const base = explorerAddress("https://host/o'brien/a&b|c/?x=1&y='2'#wireshark");
   assert.equal(base, 'https://host/o%27brien/a%26b%7Cc/');
-  const plugin = "https://host/o'brien/a&b|c/plugin/seanchai_diameter.lua";
-  const command = installCommand(base, plugin);
-  assert.equal(command, install(base, 'https://host/o%27brien/a%26b%7Cc/plugin/seanchai_diameter.lua'));
-  assert.equal(installCommand("https://host/'", "https://host/'"), install('https://host/%27', 'https://host/%27'));
-  assert.equal(installCommand('https://host/\n', 'https://host/plugin'), null);
-  // Each literal is closed where it was opened: the quotes pair up with nothing inside them but the command's own.
-  assert.equal(command.split("'").length % 2, 1);
-  // sed writes its replacement as it is, with no `&` or `\` in it, so the grep checks for the very line it wrote.
-  const [, written] = command.match(/\|(local EXPLORER = [^|]*)\|' /);
-  const [, checked] = command.match(/ grep -qxF '([^']*)' /);
-  assert.equal(written, checked);
-  assert.doesNotMatch(written, /[&\\|']/);
+  const from = "https://host/o'brien/a&b|c/plugin/seanchai_diameter.lua";
+  const encoded = 'https://host/o%27brien/a%26b%7Cc/plugin/seanchai_diameter.lua';
+  assert.equal(posixInstall(base, from), posix(marked(base), encoded));
+  assert.equal(fishInstall(base, from), fish(marked(base), encoded));
+  for (const build of [posixInstall, fishInstall]) {
+    assert.equal(build("https://host/'", "https://host/'"), build('https://host/%27', 'https://host/%27'));
+    assert.equal(build('https://h/a\\b"c', 'https://h/'), build('https://h/a%5Cb%22c', 'https://h/'));
+    assert.equal(build('https://host/\n', 'https://host/plugin'), null);
+    assert.equal(build('https://host/', 'https://host/\t'), null);
+    // A `$`, `!` or `*` is left as it is: in single quotes, and expanded into sed and grep, no shell reads it.
+    const odd = build('https://host/a$b!c*/', 'https://host/a$b!c*/p');
+    assert.equal(lineOf(odd), marked('https://host/a$b!c*/'));
+    assert.match(odd, /'https:\/\/host\/a\$b!c\*\/p'/);
+  }
+  // Both scripts set the same line, which sed writes as it is, with no `&`, `\` or `|` in it, and the download writes.
+  const [posixLine, fishLine] = [posixInstall(base, from), fishInstall(base, from)].map(lineOf);
+  assert.equal(posixLine, fishLine);
+  assert.doesNotMatch(posixLine, /[&\\|']/);
+  const download = withExplorer(plugin, base);
+  assert.ok(download.written);
+  assert.ok(download.text.split('\n').includes(posixLine));
+  for (const script of [posixInstall(base, from), fishInstall(base, from)]) {
+    // Each literal is closed where it was opened: the quotes pair up with nothing inside them but the script's own.
+    assert.equal(script.split("'").length % 2, 1);
+    assert.ok(script.endsWith('\n'));
+  }
 });
