@@ -1,8 +1,10 @@
 // Drives a build of the fixture export in headless Chromium: CHROMIUM=/path/to/chromium npm run test:smoke
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { promisify } from 'node:util';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -28,7 +30,11 @@ let base;
 
 before(async () => {
   if (skip) return;
-  const env = { ...process.env, SEANCHAI_EXPORT: path.join(root, 'tests/fixtures/export') };
+  const env = {
+    ...process.env,
+    SEANCHAI_EXPORT: path.join(root, 'tests/fixtures/export'),
+    SEANCHAI_PLUGIN: path.join(root, 'tests/fixtures/plugin/seanchai_diameter.lua'),
+  };
   for (const [command, args] of [
     ['node', ['scripts/prepare.mjs']],
     ['npx', ['vite', 'build', '--outDir', dist, '--logLevel', 'error']],
@@ -1287,6 +1293,56 @@ test(
       '43',
       'the public pane cannot read the PDF, so both go to the block',
     );
+    await done();
+  },
+);
+
+/** Where a shell is, or null: each install shell is run where it is installed, and skipped where not. */
+function shellAt(name) {
+  const found = spawnSync('sh', ['-c', `command -v ${name}`], { encoding: 'utf8' });
+  return found.status === 0 ? found.stdout.trim() : null;
+}
+
+test(
+  "the plugin page's download and its install line both give the served plugin with this server's address",
+  { skip },
+  async () => {
+    const { page, done } = await open('#wireshark');
+    const served = await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8');
+    const marked = /^local EXPLORER = "[^"\\]*" -- seanchai:explorer$/gm;
+    assert.equal(served.match(marked)?.length, 1);
+    const expected = served.replace(marked, `local EXPLORER = "${base}" -- seanchai:explorer`);
+    assert.equal(await page.locator('.plugin-address code').textContent(), base);
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      page.locator('.plugin-download > button').click(),
+    ]);
+    assert.equal(download.suggestedFilename(), 'seanchai_diameter.lua');
+    const saved = await readFile(await download.path(), 'utf8');
+    assert.equal(saved, expected);
+    assert.match(await page.locator('.plugin-status').textContent(), /^Saved seanchai_diameter\.lua, its links set/);
+
+    const command = await page.locator('.plugin-command code').textContent();
+    for (const shell of ['sh', 'dash', 'bash', 'zsh', 'fish']) {
+      const at = shellAt(shell);
+      if (!at) {
+        console.log(`# no ${shell}: its install run is skipped`);
+        continue;
+      }
+      const home = await mkdtemp(path.join(tmpdir(), 'seanchai-home-'));
+      try {
+        // Not spawnSync: the server it downloads from answers in this process.
+        await promisify(execFile)(at, ['-c', command], {
+          env: { PATH: process.env.PATH, HOME: home },
+          timeout: 30_000,
+        });
+        const installed = await readFile(path.join(home, '.local/lib/wireshark/plugins/seanchai_diameter.lua'), 'utf8');
+        assert.equal(installed, saved, shell);
+      } finally {
+        await rm(home, { recursive: true, force: true });
+      }
+    }
     await done();
   },
 );

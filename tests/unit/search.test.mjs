@@ -653,7 +653,7 @@ test('a search matching nothing has no headings', async () => {
   }
 });
 
-test('the header links to the index and search, and / is left to the browser', async () => {
+test('the header links to the index, search and the Wireshark plugin, and / is left to the browser', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
@@ -662,6 +662,7 @@ test('the header links to the index and search, and / is left to the browser', a
       [
         ['Index', '#'],
         ['Search', '#search'],
+        ['Wireshark', '#wireshark'],
       ],
     );
     assert.ok(document.querySelector('header .theme-toggle'));

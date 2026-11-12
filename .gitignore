@@ -11,6 +11,7 @@ dist-*/
 public/data/
 public/syntax/
 public/pdfjs/
+public/plugin/
 .data-tmp/
 
 # A seanchai export, and the sources `npm run sources` downloads

@@ -10,7 +10,7 @@ import { createJumpControls } from './jump-controls.ts';
 import { createJumpList } from './jump-list.ts';
 import type { JumpEntry, JumpWalk } from './jump-list.ts';
 import { createChords, keyWalk, takesTyping } from './keys.ts';
-import { pageOf, parseRoute, routeFor } from './navigation.ts';
+import { WIRESHARK, namesDocument, pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
@@ -20,6 +20,7 @@ import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
 import { session } from './storage.ts';
 import { initTheme } from './theme.ts';
+import { renderWireshark } from './wireshark-view.ts';
 import type { Line } from './types.ts';
 
 const header = element('header');
@@ -28,7 +29,10 @@ const indexLink = element('a', 'Index', 'control');
 indexLink.href = '#';
 const searchLink = element('a', 'Search', 'control');
 searchLink.href = '#search';
-nav.append(indexLink, searchLink);
+const wiresharkLink = element('a', 'Wireshark', 'control');
+wiresharkLink.href = `#${WIRESHARK}`;
+wiresharkLink.title = 'Wireshark plugin';
+nav.append(indexLink, searchLink, wiresharkLink);
 const themeButton = element('button', undefined, 'control theme-toggle');
 themeButton.type = 'button';
 const help = createHelp();
@@ -91,10 +95,7 @@ try {
   history.scrollRestoration = 'manual';
 
   const positions = createPositionStore(session);
-  const jumps = createJumpList(
-    session,
-    document => !document || document === 'search' || Boolean(site.summary(document)),
-  );
+  const jumps = createJumpList(session, document => !namesDocument(document) || Boolean(site.summary(document)));
   const jumpControls = createJumpControls(walk);
 
   const targetOf = (route: Route) => ({ document: route.document, section: route.section || null, name: route.name });
@@ -141,6 +142,7 @@ try {
   function jumpLabel({ document, line, top }: JumpEntry): string {
     if (!document) return 'Index';
     if (document === 'search') return 'Search';
+    if (document === WIRESHARK) return 'Wireshark plugin';
     const summary = site.summary(document);
     return `${summary ? site.label(summary) : document} line ${(line ?? top) + 1}`;
   }
@@ -170,7 +172,7 @@ try {
       ? (document.activeElement as HTMLElement)
       : undefined;
     const target = parseRoute(entry.hash);
-    const inDocument = target.document && target.document !== 'search';
+    const inDocument = namesDocument(target.document);
     const hash = inDocument
       ? routeFor(targetOf(target), { ...target, paneHidden: !sourcePane.switchedOn })
       : entry.hash;
@@ -226,8 +228,7 @@ try {
     event.preventDefault();
     const href = anchor.getAttribute('href')!;
     const target = parseRoute(href);
-    const keepsPaneOff =
-      !sourcePane.switchedOn && target.document && target.document !== 'search' && !target.paneHidden;
+    const keepsPaneOff = !sourcePane.switchedOn && namesDocument(target.document) && !target.paneHidden;
     services.navigate(keepsPaneOff ? routeFor(targetOf(target), { ...target, paneHidden: true }) : href);
   });
   const chords = createChords();
@@ -309,6 +310,14 @@ try {
         },
       });
       if (place) focusHeading();
+      return;
+    }
+    if (parsed.document === WIRESHARK) {
+      leaveDocument('wireshark-view');
+      setTitle('Wireshark plugin');
+      renderWireshark(content, site, () => generation === request);
+      if (arrived) focusHeading();
+      if (place) content.scrollTop = place.offset;
       return;
     }
     const meta = site.summary(parsed.document);

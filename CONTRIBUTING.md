@@ -87,6 +87,14 @@ which a command's popup needs from documents not loaded and which `search.json` 
 only inside 8 MB the document pages never fetch. It comes with the first document, and a
 build without it leaves a popup with what the open document says.
 
+Prepare also writes `public/plugin/seanchai_diameter.lua`, the Wireshark plugin, with
+`seanchai wireshark-plugin` from the same `seanchai` as the export, or copies `SEANCHAI_PLUGIN`. It ships in both
+modes. A build fails if `seanchai` ran for the export and the plugin command failed, saying so where that `seanchai`
+is too old to have it; from `SEANCHAI_EXPORT` it goes on without the plugin, and the Wireshark page says the download
+is not part of the build. The page fetches the file and rewrites its one line ending `-- seanchai:explorer`, through
+`src/plugin-file.ts`, to the address it is served at; it reads the versions from its `-- seanchai:versions` line.
+`tests/fixtures/plugin/` holds a few lines standing in for it, which the unit and smoke tests serve.
+
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
 that lacks one. A build copies the export's grammar, or else this one, to the generated
 `public/syntax/` and never changes this one.
@@ -120,6 +128,7 @@ Do not edit `src/types.ts` by hand.
 | `source-pane.ts`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to |
 | `jump-list.ts`, `jump-controls.ts`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
 | `index-view.ts`, `search.ts`, `fuzzy.ts`, `search-view.ts` | the index page and search |
+| `wireshark-view.ts`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
 | `controls.ts`, `help.ts`, `notice.ts`, `theme.ts` | the help dialog and the list of controls it shows, notices, the theme |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |

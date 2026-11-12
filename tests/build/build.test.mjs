@@ -8,6 +8,7 @@ import path from 'node:path';
 import test from 'node:test';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { rfcPages } from '../../src/rfc-text.ts';
+import { hasCommand } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = path.join(root, 'dist');
@@ -73,6 +74,24 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   assert.match(check.stderr, /sources\/a\.pdf/);
 });
 
+// Asked of the seanchai the build runs, by running it: a release older than the plugin has no such command.
+const pluginSkip =
+  !process.env.SEANCHAI_PLUGIN &&
+  hasCommand('wireshark-plugin') !== true &&
+  'the seanchai the build runs has no wireshark-plugin command';
+
+/** The plugin the last build shipped has the one line the Wireshark page rewrites, and says what made it. */
+async function checkPlugin() {
+  const text = await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8');
+  assert.equal(text.match(/^local EXPLORER = "[^"\\]*" -- seanchai:explorer$/gm)?.length, 1);
+  assert.match(text, /^-- seanchai:versions seanchai \S+, corpus \S+$/m);
+}
+
+test('the public build ships the Wireshark plugin', { skip: pluginSkip }, async () => {
+  if (!existsSync(path.join(dist, 'plugin'))) npm('build');
+  await checkPlugin();
+});
+
 const skip = !existsSync(specifications) && 'no specifications directory';
 
 test('self-hosted build ships the PDFs, viewer and PDF.js', { skip }, async () => {
@@ -88,6 +107,7 @@ test('self-hosted build ships the PDFs, viewer and PDF.js', { skip }, async () =
   assert.ok((await readFile(path.join(dist, 'viewer.html'), 'utf8')).includes('viewerContainer'));
   assert.ok((await readFile(path.join(dist, 'pdfjs/wasm/openjpeg.wasm'))).length > 0);
   assert.ok((await checkRfcAnchors(index)) > 0);
+  if (!pluginSkip) await checkPlugin();
 });
 
 test('a self-hosted export is refused for a public build', { skip }, async () => {

@@ -33,9 +33,18 @@ export interface Route extends RouteOptions {
   name?: string;
 }
 
+/** The Wireshark plugin's page, a route no document's id can be: ids are an export's file names, specifications and RFCs. */
+export const WIRESHARK = 'wireshark';
+const SITE_PAGES = new Set(['search', WIRESHARK]);
+
+/** Whether a route's first part names a document, and not the index or one of the site's own pages. */
+export function namesDocument(document: string): boolean {
+  return Boolean(document) && !SITE_PAGES.has(document);
+}
+
 /** What a route shows, apart from where in it: a change of this is a new browser history entry. A document's corrected and raw text have different lines, so they are two pages. */
 export function pageOf(route: Pick<Route, 'document' | 'raw'>): string {
-  return route.document && route.document !== 'search' && route.raw ? `${route.document}?raw` : route.document;
+  return namesDocument(route.document) && route.raw ? `${route.document}?raw` : route.document;
 }
 
 export function routeFor(target: Target, options: RouteOptions = {}): string {

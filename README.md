@@ -14,6 +14,9 @@ specifications' publishers. The site holds no Python and reads only what
 
 Pressing `?` in the site shows the same list of mouse and keyboard controls as below.
 
+The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
+copy of the site it is downloaded from.
+
 ## Mouse
 
 | On a name | |
@@ -135,6 +138,7 @@ contract.
 | `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the release. |
 | `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
+| `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |
 
 ## License
 
