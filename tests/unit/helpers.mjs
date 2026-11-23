@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
 import { commandIndex } from '../../src/commands.ts';
+import { nodeName as named } from '../setup.mjs';
 
 export const fixture = new URL('../fixtures/export/', import.meta.url);
 export const readFixture = async file => JSON.parse(await readFile(new URL(file, fixture), 'utf8'));
@@ -185,13 +186,7 @@ export const click = (page, node, init = {}) =>
   node.dispatchEvent(new page.window.MouseEvent('click', { bubbles: true, cancelable: true, ...init }));
 
 // A failed assert.equal prints its operands, and printing a DOM node walks the whole document: these compare nodes
-// with === and name a node only by its tag, id and class.
-const named = node =>
-  node?.nodeType === 1
-    ? `<${node.localName}${node.id ? `#${node.id}` : ''}${node.getAttribute('class') ? `.${node.getAttribute('class').trim().split(/\s+/).join('.')}` : ''}>`
-    : node?.nodeType
-      ? node.nodeName
-      : String(node);
+// with === and name a node only by its tag, id and class, as tests/setup.mjs does for every strict comparison.
 /** Asserts there is no node: `node` is null. */
 export const absent = (node, message) => assert.ok(node === null, message ?? `expected no node, found ${named(node)}`);
 /** Asserts there is a node: `node` is neither null nor undefined. */

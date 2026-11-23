@@ -50,13 +50,16 @@ is red. Without `specifications/`, the tests that need it skip, as they do in CI
 
 ## Tests
 
-Run the unit tests through `npm test`, which caps each test process's heap at 1 GB and
-its time at two minutes. A failed assertion prints its operands, and printing a DOM node
-walks the whole document: without the cap, one failing `assert.equal(node, null)` can
-take all the machine's memory. For one file or one test, keep the cap:
+Run the unit tests through `npm test`. It runs them under `scripts/guard.mjs`, which kills every test process
+once one holds more than 2 GB or the run has taken five minutes (`TEST_MEMORY_MB`, `TEST_TIME_S`), caps each
+process's heap at 1 GB and each test at two minutes, and loads `tests/setup.mjs` first. Node caps neither memory
+outside the V8 heap nor a loop that never yields, as a component setting its state on every draw does, and either
+would otherwise take the machine: a failed assertion prints its operands to a depth of 1000, and printing a DOM node
+walks the whole document and window. `tests/setup.mjs` makes a strict comparison over a node fail with each node
+named by its tag, id and class instead. For one file or one test, keep both:
 
 ```sh
-node --import ./tests/tsx.mjs --max-old-space-size=1024 --test --test-timeout=120000 --test-name-pattern='<name>' tests/unit/app-targets.test.mjs
+node scripts/guard.mjs node --import ./tests/setup.mjs --max-old-space-size=1024 --test --test-timeout=120000 --test-name-pattern='<name>' tests/unit/app-targets.test.mjs
 ```
 
 In a test, check a node with `absent`, `present`, `same` or `notSame` from
@@ -162,8 +165,8 @@ what they did. An update made while a draw is under way, as from a layout effect
 not inside it. Keep a component's state where it is drawn; what a handler outside the tree must read at the moment of
 a click, as the "Click shows uses" box, it reads from the node.
 
-Node strips the types of `src/*.ts` but compiles no JSX, so `npm test` loads `tests/tsx.mjs`, which compiles a `.tsx`
-module with oxc as Vite does; run a single test file with `--import ./tests/tsx.mjs` too. Code that the scripts import,
+Node strips the types of `src/*.ts` but compiles no JSX, so `npm test` loads `tests/tsx.mjs` through `tests/setup.mjs`, which compiles
+a `.tsx` module with oxc as Vite does; run a single test file with `--import ./tests/setup.mjs` too. Code that the scripts import,
 as `src/commands.ts` and `src/plugin-file.ts`, stays `.ts` with no JSX.
 
 ## Deployment

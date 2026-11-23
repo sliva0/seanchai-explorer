@@ -18,8 +18,8 @@
   "rules": {
     // tsc checks every default import, and this rule cannot resolve Vite's `?url` imports.
     "import/default": "off",
-    // A stylesheet is imported for its effect, which Vite bundles.
-    "import/no-unassigned-import": ["error", { "allow": ["**/*.css"] }],
+    // A stylesheet is imported for its effect, which Vite bundles, and the tests' .tsx loader for the hooks it registers.
+    "import/no-unassigned-import": ["error", { "allow": ["**/*.css", "**/tsx.mjs"] }],
     // A helper is written beside the one function using it, for reading, not hoisted for speed.
     "unicorn/consistent-function-scoping": "off",
     // A handler is assigned with `on…` where a later one must replace it; addEventListener would add a second.
