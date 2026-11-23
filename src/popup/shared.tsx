@@ -7,7 +7,7 @@ import { placeRoute } from '../avp-places.ts';
 import type { Place } from '../avp-places.ts';
 import { sourceHref } from '../data.ts';
 import type { Site } from '../data.ts';
-import type { SourcePane } from '../source-pane.ts';
+import type { SourcePane } from '../source-pane.tsx';
 import { useAnchoring } from './place.ts';
 import type { PopupProps, PopupRequest } from './root.tsx';
 

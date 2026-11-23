@@ -121,16 +121,16 @@ Do not edit `src/types.ts` by hand.
 
 | Files in `src/` | Hold |
 |---|---|
-| `main.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the site's start and routes, the export it fetches, the keys it stores |
-| `document-view.ts`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
+| `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
+| `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
 | `blocks.ts`, `values.ts`, `commands.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value or a command |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts` | what a click on a name does, and the places it can go |
-| `island.ts`, `popup/` | the popups, an island: `index.ts` opens and closes them, `root.ts` holds what one stands on and has loaded, `avp.ts`, `command.ts` and `value.ts` draw each kind, `shared.ts` what they share, `place.ts` where they go by their name |
-| `source-pane.ts`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to |
-| `jump-list.ts`, `jump-controls.ts`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
-| `index-view.ts`, `search.ts`, `fuzzy.ts`, `search-view.ts` | the index page and search |
-| `wireshark-view.ts`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
-| `controls.ts`, `help.ts`, `notice.ts`, `theme.ts` | the help dialog and the list of controls it shows, notices, the theme |
+| `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `shared.tsx` what they share, `place.ts` where they go by their name |
+| `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to |
+| `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
+| `index-view.tsx`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page and search |
+| `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
+| `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts` | the help dialog and the list of controls it shows, notices, the theme |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |
 
@@ -138,20 +138,33 @@ Do not edit `src/types.ts` by hand.
 together. `scripts/` holds prepare, the sources download, the fixture and type
 generators and the public build's check.
 
-### Islands
+### Components
 
-The site is plain DOM, built with `element()` from `dom.ts`, except for islands: a part drawn by
-[Preact](https://preactjs.com) into one host element of its own, which the vanilla code around it opens, updates and
-closes through a small imperative API, as `main.ts` and `document-view.ts` call `createPopups()`'s `show()` and
-`close()`. The popups are the one island. Inside it the state is the components' and every change draws the same nodes
-again, so what the reader opened, scrolled or focused stays without being put back by hand; outside it nothing knows
-Preact is there. Components are written in TSX, in `.tsx` files, for Preact's automatic JSX runtime. Node strips
-the types of `src/*.ts` but compiles no JSX, so `npm test` loads `tests/tsx.mjs`, which compiles a `.tsx` module with
-oxc as Vite does; run a single test file with `--import ./tests/tsx.mjs` too. Code that the scripts import, as
-`src/commands.ts` and `src/plugin-file.ts`, stays `.ts` with no JSX. An island is mounted with `island.ts`'s `mount`, which also makes Preact render
-synchronously, so the code and tests around it read the page right after what they did. Make a part an island where
-what it shows changes in place while the reader works in it, with state to keep across those changes; a part drawn
-once and replaced whole, or changed by a class or attribute here and there, stays vanilla.
+The site is one [Preact](https://preactjs.com) tree, written in TSX in `.tsx` files for Preact's automatic JSX
+runtime. `main.tsx` is the router: it works out from the route what the page shows, draws `<App>` from `app.tsx` with
+it, and keeps the jump list, the browser's history and where each document was left. Every page and part of one is a
+component with its own state: the index, search, the Wireshark page, the help, the jump buttons, a document's strip and
+the source pane, which `source-pane.tsx` holds as a small store its components draw from and the rest of the code
+moves. The popups are a second root of their own, which `popup/index.tsx` opens and closes for the text.
+
+What stays imperative does so on purpose, each behind one component or module:
+
+- A document's text, tens of thousands of token nodes, is built once by hand in `document-view.tsx`'s `DocumentText`,
+  whose component draws only its empty pane: nothing drawn around it, as the strip's crumb on every scroll, diffs it.
+  Its clicks, popups, jumps and positions work on those nodes through the `DocumentView` it gives the router.
+- Positions are put back to the pixel by the router once a document is drawn, before anything is waited for.
+- The PDF and RFC readers, `viewer.ts` and `rfc.ts`, are pages of their own in the pane's frame, driving PDF.js.
+- `notice.ts` is a service any module, the PDF viewer's page too, can tell of a failure.
+
+Drawing is synchronous (`render.ts`): `mount()` has drawn before it returns, and a state update before the handler
+making it returns, so the router can position a text it has just drawn and the tests read the page straight after
+what they did. An update made while a draw is under way, as from a layout effect, is drawn right after that draw ends,
+not inside it. Keep a component's state where it is drawn; what a handler outside the tree must read at the moment of
+a click, as the "Click shows uses" box, it reads from the node.
+
+Node strips the types of `src/*.ts` but compiles no JSX, so `npm test` loads `tests/tsx.mjs`, which compiles a `.tsx`
+module with oxc as Vite does; run a single test file with `--import ./tests/tsx.mjs` too. Code that the scripts import,
+as `src/commands.ts` and `src/plugin-file.ts`, stays `.ts` with no JSX.
 
 ## Deployment
 

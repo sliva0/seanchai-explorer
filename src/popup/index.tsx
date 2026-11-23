@@ -1,7 +1,7 @@
 import type { Site } from '../data.ts';
 import { element } from '../dom.ts';
-import { mount } from '../island.ts';
-import type { SourcePane } from '../source-pane.ts';
+import { mount } from '../render.ts';
+import type { SourcePane } from '../source-pane.tsx';
 import { Island } from './root.tsx';
 import type { PopupRequest } from './root.tsx';
 

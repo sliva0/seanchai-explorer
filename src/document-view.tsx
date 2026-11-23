@@ -1,3 +1,5 @@
+import type { ComponentChildren } from 'preact';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { readClickTarget, writeClickTarget } from './click-target.ts';
 import type { ClickTarget } from './click-target.ts';
 import { clickAction, nameTitle } from './clicks.ts';
@@ -6,14 +8,15 @@ import { commandKey } from './commands.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { compactComment } from './comments.ts';
-import { counted, element, externalLink, link, scrollTopFor } from './dom.ts';
+import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { Popups } from './popup/index.tsx';
 import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
-import type { SourcePane } from './source-pane.ts';
+import { SourceToggle, Workspace } from './source-pane.tsx';
+import type { SourcePane } from './source-pane.tsx';
 import type { Document, Line, RawDocument } from './types.ts';
 import { valueRowAt, valueTables, valueTableTitle } from './values.ts';
 import type { ValueRow } from './values.ts';
@@ -29,6 +32,9 @@ export interface ViewServices {
   /** The view has come to rest somewhere new. */
   scrolled(view: DocumentView): void;
 }
+
+// The text is tens of thousands of nodes, drawn once by hand below and never again: a component drawing it would be
+// diffed whenever anything around it changed.
 
 function correctionNode(token: HighlightedToken, reason: string, id: string): HTMLElement {
   const comment = element('span', undefined, 'correction correction-note');
@@ -113,113 +119,6 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer
   return pre;
 }
 
-type SectionLink = (section: string) => HTMLAnchorElement;
-
-/** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
-function tablesNote(doc: Document, section: string): string {
-  return valueTables(doc)
-    .filter(table => table.section === section)
-    .map(table => `${valueTableTitle(table)} (${table.rows.length})`)
-    .join(', ');
-}
-
-function renderSections(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const list = element('ul', undefined, 'section-list');
-  for (const { section, page, title } of doc.sections) {
-    const item = element('li');
-    const tables = tablesNote(doc, section);
-    item.dataset.section = section;
-    item.append(sectionLink(section), ' ', element('span', tables ? `${title} · ${tables}` : title));
-    if (page) item.append(' ', element('span', `p. ${page}`, 'section-page'));
-    list.append(item);
-  }
-  return list;
-}
-
-function renderFindings(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const list = element('ul');
-  for (const finding of doc.findings) {
-    const item = element(
-      'li',
-      `${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `,
-    );
-    if (finding.section) item.append(sectionLink(finding.section));
-    list.append(item);
-  }
-  return list;
-}
-
-function renderHoles(doc: Document, sectionLink: SectionLink): HTMLElement {
-  const list = element('ul');
-  for (const hole of doc.holes) {
-    const item = element(
-      'li',
-      `${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `,
-    );
-    if (hole.section) item.append(sectionLink(hole.section));
-    list.append(item);
-  }
-  return list;
-}
-
-/** A row of toggles and the panels they open under the strip, one at a time. A toggle with nothing to show stays off. */
-function renderDiagnostics(panels: { title: string; count: number; list: HTMLElement }[]) {
-  const toggles = element('div');
-  toggles.id = 'diagnostics';
-  const entries = panels.map(({ title, count, list }) => {
-    const panel = element('div', undefined, 'diagnostic-panel');
-    panel.id = `diagnostic-${title.toLowerCase()}`;
-    panel.hidden = true;
-    panel.append(list);
-    const toggle = element('button', undefined, 'disclosure');
-    toggle.type = 'button';
-    toggle.append(...counted(title, count));
-    toggle.disabled = !count;
-    toggle.setAttribute('aria-expanded', 'false');
-    toggle.setAttribute('aria-controls', panel.id);
-    toggles.append(toggle);
-    return { toggle, panel };
-  });
-  const setOpen = (entry: (typeof entries)[number], opening: boolean) => {
-    for (const other of entries) {
-      other.panel.hidden = true;
-      other.toggle.setAttribute('aria-expanded', 'false');
-    }
-    entry.panel.hidden = !opening;
-    entry.toggle.setAttribute('aria-expanded', String(opening));
-  };
-  for (const entry of entries) entry.toggle.onclick = () => setOpen(entry, entry.panel.hidden === true);
-  return { toggles, bodies: entries.map(entry => entry.panel), open: (index: number) => setOpen(entries[index], true) };
-}
-
-/** The choice of a name's place a click goes to first, kept for every document and tab. */
-function renderClickTarget(current: ClickTarget, onChange: (target: ClickTarget) => void): HTMLElement {
-  const group = element('div', 'Click goes to', 'click-target');
-  group.setAttribute('role', 'radiogroup');
-  group.setAttribute('aria-label', 'Click goes to');
-  group.title = 'What a click or alt-click on a name goes to where it has both; right-click offers both';
-  for (const [target, label] of [
-    ['definition', 'Definition'],
-    ['details', 'Details'],
-  ] as const) {
-    // A radio before its word, where a box follows a toggle's: each is told from the other.
-    const option = element('label', label, 'visibility-toggle');
-    const input = element('input');
-    input.type = 'radio';
-    input.name = 'click-target';
-    input.value = target;
-    // What the browser would restore on a reload is the stored choice's to say.
-    input.autocomplete = 'off';
-    input.checked = target === current;
-    input.onchange = () => {
-      if (input.checked) onChange(target);
-    };
-    option.prepend(input);
-    group.append(option);
-  }
-  return group;
-}
-
 /** How far below the top edge a jump leaves a line. */
 const JUMP_MARGIN = 12;
 
@@ -254,94 +153,40 @@ export interface DocumentView {
   pointedLine(): number | undefined;
   /** The value table's row a link to `section` under `name` means, if it means one. */
   valueRow(section: string, name: string): ValueRow | undefined;
+  /** The section at the top of the view, which a jump to it would leave there. */
+  currentSection(): string | undefined;
 }
 
-export function renderDocument(
-  container: HTMLElement,
+/** What the strip around the text sets for it, read at the moment of a click. */
+interface Settings {
+  prefer(): ClickTarget;
+  uses(): boolean;
+}
+
+/**
+ * Makes the text of `doc` in `documentPane`, its own pane, and everything the reader does in it: clicks, the popups,
+ * the jumps and where it comes to rest. `onScroll` is told once a frame while it scrolls, for the strip's crumb.
+ */
+function createText(
+  documentPane: HTMLElement,
   services: ViewServices,
   doc: Document,
   raw: RawDocument | undefined,
+  settings: Settings,
+  onScroll: () => void,
 ): DocumentView {
   const { site, pane, popup } = services;
   const file = raw ?? doc;
   markDetails(file, doc);
   const lines = services.highlight(file.lines);
-  const controls = element('section');
-  controls.id = 'controls';
-  const documentPane = element('section');
-  documentPane.id = 'document';
-  documentPane.tabIndex = 0;
-  documentPane.setAttribute('aria-label', 'Document text');
   const scroller = createScroller(documentPane);
-  let rows: HTMLElement[] = [];
-  let sectionRows: HTMLElement[] = [];
+  const pre = renderLines(lines, doc, site, settings.prefer());
+  documentPane.replaceChildren(pre);
+  const rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
+  const sectionRows = rows.filter(row => row.dataset.section);
   /** The section a jump to it leaves at the top of the view, where its line sits below the margin and the end of the last section still shows above. */
   const currentSection = () =>
     topRow(sectionRows, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
-  if (doc.raw) {
-    const toggle = element('a', raw ? 'Corrected' : 'Raw');
-    const refresh = () => {
-      const route = parseRoute(location.hash);
-      const section = currentSection() ?? route.section;
-      toggle.href = routeFor(
-        { document: doc.id, section: section || null, name: section === route.section ? route.name : undefined },
-        { raw: !raw, source: route.source, paneHidden: route.paneHidden },
-      );
-    };
-    refresh();
-    for (const type of ['click', 'auxclick', 'contextmenu']) toggle.addEventListener(type, refresh);
-    controls.append(toggle);
-  }
-  const usesToggle = element('label', 'Click shows uses ', 'visibility-toggle uses-toggle');
-  usesToggle.title = 'Plain click lists where a name is used instead of going to it';
-  const usesInput = element('input');
-  usesInput.type = 'checkbox';
-  // Each document starts with it off, whatever the browser would restore on a reload.
-  usesInput.autocomplete = 'off';
-  usesInput.checked = false;
-  usesToggle.append(usesInput);
-  let prefer = readClickTarget();
-  controls.append(
-    usesToggle,
-    renderClickTarget(prefer, target => {
-      prefer = target;
-      writeClickTarget(target);
-    }),
-  );
-  const workspace = element('div');
-  workspace.id = 'workspace';
-  pane.mount(workspace, doc);
-  if (pane.toggle) controls.append(pane.toggle);
-  const pre = renderLines(lines, doc, site, prefer);
-  documentPane.append(pre);
-  rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
-  sectionRows = rows.filter(row => row.dataset.section);
-  workspace.insertBefore(documentPane, workspace.children[1] ?? null);
-  const sectionLink: SectionLink = section => {
-    const anchor = element('a', section);
-    anchor.href = routeFor({ document: doc.id, section }, { raw: Boolean(raw) });
-    return anchor;
-  };
-  const { toggles, bodies, open } = renderDiagnostics([
-    { title: 'Findings', count: doc.findings.length, list: renderFindings(doc, sectionLink) },
-    { title: 'Holes', count: doc.holes.length, list: renderHoles(doc, sectionLink) },
-    { title: 'Sections', count: doc.sections.length, list: renderSections(doc, sectionLink) },
-  ]);
-  const sectionsPanel = bodies.length - 1;
-  const tools = element('div');
-  tools.id = 'document-tools';
-  const crumb = element('button', undefined, 'section-crumb');
-  crumb.type = 'button';
-  const crumbSlot = element('div', undefined, 'crumb-slot');
-  crumbSlot.append(crumb);
-  // One control over one panel: its toggle opens and closes it, its crumb opens it at the current entry.
-  const sectionControl = element('div', undefined, 'section-control');
-  sectionControl.setAttribute('role', 'group');
-  sectionControl.setAttribute('aria-label', 'Sections');
-  sectionControl.append(toggles.lastElementChild!, crumbSlot);
-  toggles.append(sectionControl);
-  tools.append(toggles, controls, ...bodies);
-  container.replaceChildren(tools, workspace);
 
   const tokenOf = (node: HTMLElement) =>
     lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
@@ -364,11 +209,12 @@ export function renderDocument(
   const clickContext = (): ClickContext => ({
     paneShows: document => pane.shows(site.summary(document)),
     paneOn: pane.switchedOn,
-    uses: usesInput.checked,
+    uses: settings.uses(),
   });
   const placeOf = (node: HTMLElement) =>
-    tokenPlace(tokenOf(node), lines, doc, sectionAt(node), prefer, site.commands());
-  const fallbackOf = (node: HTMLElement) => fallbackPlace(tokenOf(node), lines, doc, prefer, site.commands());
+    tokenPlace(tokenOf(node), lines, doc, sectionAt(node), settings.prefer(), site.commands());
+  const fallbackOf = (node: HTMLElement) =>
+    fallbackPlace(tokenOf(node), lines, doc, settings.prefer(), site.commands());
 
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') {
@@ -434,31 +280,6 @@ export function renderDocument(
     row.addEventListener('animationend', () => row.classList.remove('landing'), { once: true });
   }
 
-  const sectionTitles = new Map(doc.sections.map(({ section, title }) => [section, title]));
-  const showCrumb = () => {
-    const section = currentSection();
-    const title = sectionTitles.get(section ?? '');
-    crumb.textContent = section ? [section, title].filter(Boolean).join(' · ') : '';
-    crumb.disabled = !section;
-    crumb.dataset.section = section ?? '';
-    crumb.title = section ? `${crumb.textContent}: show in Sections` : '';
-  };
-  crumb.onclick = () => {
-    const panel = bodies[sectionsPanel];
-    open(sectionsPanel);
-    for (const node of panel.querySelectorAll('[aria-current]')) node.removeAttribute('aria-current');
-    const item = [...panel.querySelectorAll<HTMLElement>('li')].find(
-      node => node.dataset.section === crumb.dataset.section,
-    );
-    if (!item) return;
-    item.setAttribute('aria-current', 'location');
-    panel.scrollTop +=
-      item.getBoundingClientRect().top -
-      panel.getBoundingClientRect().top -
-      (panel.clientHeight - item.offsetHeight) / 2;
-    item.querySelector('a')?.focus({ preventScroll: true });
-  };
-
   // Where the view came to rest goes to the URL and the session once, not at every step of the way there.
   let resting: ReturnType<typeof setTimeout> | undefined;
   const restLater = () => {
@@ -473,7 +294,7 @@ export function renderDocument(
     () => {
       frame ||= requestAnimationFrame(() => {
         frame = 0;
-        if (documentPane.isConnected) showCrumb();
+        if (documentPane.isConnected) onScroll();
       });
       restLater();
     },
@@ -538,7 +359,314 @@ export function renderDocument(
       return row ? Number(row.dataset.line) : undefined;
     },
     valueRow: (section, name) => valueRowAt(file, section, name),
+    currentSection,
   };
-  showCrumb();
   return view;
+}
+
+/**
+ * The text's pane, drawn empty and filled by hand once: a draw of the strip or the pane beside it leaves the text's
+ * nodes as they are, and a new document or the raw text is a new page. `onView` is given the view once the text is in
+ * the page.
+ */
+function DocumentText({
+  services,
+  doc,
+  raw,
+  settings,
+  onScroll,
+  onView,
+}: {
+  services: ViewServices;
+  doc: Document;
+  raw: RawDocument | undefined;
+  settings: Settings;
+  onScroll(): void;
+  onView(view: DocumentView): void;
+}) {
+  const pane = useRef<HTMLElement>(null);
+  useLayoutEffect(() => onView(createText(pane.current!, services, doc, raw, settings, onScroll)), []);
+  return <section id="document" ref={pane} tabIndex={0} aria-label="Document text" />;
+}
+
+/** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
+function tablesNote(doc: Document, section: string): string {
+  return valueTables(doc)
+    .filter(table => table.section === section)
+    .map(table => `${valueTableTitle(table)} (${table.rows.length})`)
+    .join(', ');
+}
+
+function SectionList({
+  doc,
+  sectionLink,
+  current,
+}: {
+  doc: Document;
+  sectionLink(section: string): ComponentChildren;
+  current: string | undefined;
+}) {
+  return (
+    <ul class="section-list">
+      {doc.sections.map(({ section, page, title }) => {
+        const tables = tablesNote(doc, section);
+        return (
+          <li key={section} data-section={section} aria-current={section === current ? 'location' : undefined}>
+            {sectionLink(section)} <span>{tables ? `${title} · ${tables}` : title}</span>
+            {page ? (
+              <>
+                {' '}
+                <span class="section-page">{`p. ${page}`}</span>
+              </>
+            ) : null}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function FindingList({ doc, sectionLink }: { doc: Document; sectionLink(section: string): ComponentChildren }) {
+  return (
+    <ul>
+      {doc.findings.map((finding, index) => (
+        <li key={index}>
+          {`${finding.severity} [${finding.rule}] ${finding.message}${finding.accepted_by ? ` (${finding.accepted_by})` : ''} `}
+          {finding.section && sectionLink(finding.section)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function HoleList({ doc, sectionLink }: { doc: Document; sectionLink(section: string): ComponentChildren }) {
+  return (
+    <ul>
+      {doc.holes.map((hole, index) => (
+        <li key={index}>
+          {`${hole.name}: ${hole.missing.join(', ')}${hole.recorded ? ` — ${hole.recorded}` : ''} `}
+          {hole.section && sectionLink(hole.section)}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+type Panel = 'Findings' | 'Holes' | 'Sections';
+
+/** A toggle opening one of the panels under the strip; one with nothing to show stays off. */
+function Disclosure({ title, count, open, toggle }: { title: Panel; count: number; open: boolean; toggle(): void }) {
+  return (
+    <button
+      type="button"
+      class="disclosure"
+      disabled={!count}
+      aria-expanded={open}
+      aria-controls={`diagnostic-${title.toLowerCase()}`}
+      onClick={toggle}
+    >
+      {`${title} `}
+      <span class="count">{String(count)}</span>
+    </button>
+  );
+}
+
+/** The choice of a name's place a click goes to first, kept for every document and tab. */
+function ClickTargetChoice({ current, onChange }: { current: ClickTarget; onChange(target: ClickTarget): void }) {
+  return (
+    <div
+      class="click-target"
+      role="radiogroup"
+      aria-label="Click goes to"
+      title="What a click or alt-click on a name goes to where it has both; right-click offers both"
+    >
+      Click goes to
+      {(
+        [
+          ['definition', 'Definition'],
+          ['details', 'Details'],
+        ] as const
+      ).map(([target, label]) => (
+        // A radio before its word, where a box follows a toggle's: each is told from the other.
+        <label key={target} class="visibility-toggle">
+          <input
+            type="radio"
+            name="click-target"
+            value={target}
+            // What the browser would restore on a reload is the stored choice's to say.
+            autocomplete="off"
+            checked={target === current}
+            onChange={event => {
+              if (event.currentTarget.checked) onChange(target);
+            }}
+          />
+          {label}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * The link to the other text, corrected or raw, at the section in view: worked out as it is followed, from where the
+ * text then is and the route as it then stands.
+ */
+function RawLink({ doc, raw, section }: { doc: Document; raw: boolean; section(): string | undefined }) {
+  const hrefAt = (current: string | undefined) => {
+    const route = parseRoute(location.hash);
+    current ??= route.section;
+    return routeFor(
+      { document: doc.id, section: current || null, name: current === route.section ? route.name : undefined },
+      { raw: !raw, source: route.source, paneHidden: route.paneHidden },
+    );
+  };
+  const refresh = (event: Event) => {
+    (event.currentTarget as HTMLAnchorElement).href = hrefAt(section());
+  };
+  // Drawn with the route's own section: the text is not yet where the route puts it.
+  return (
+    <a href={hrefAt(undefined)} onClick={refresh} onAuxClick={refresh} onContextMenu={refresh}>
+      {raw ? 'Corrected' : 'Raw'}
+    </a>
+  );
+}
+
+/**
+ * A document's page: its strip of diagnostics and controls over the workspace of its text and the source pane.
+ * `header` goes first in the document's bar. The strip's own state, the panel open and the crumb, is drawn by it alone.
+ */
+export function DocumentPage({
+  services,
+  doc,
+  raw,
+  header,
+  onView,
+}: {
+  services: ViewServices;
+  doc: Document;
+  raw: RawDocument | undefined;
+  header?: ComponentChildren;
+  onView(view: DocumentView): void;
+}) {
+  const { site, pane } = services;
+  const [open, setOpen] = useState<Panel | undefined>(undefined);
+  const [crumb, setCrumb] = useState<string | undefined>(undefined);
+  const [prefer, setPrefer] = useState(readClickTarget);
+  // Read from the box at the moment of a click, as a browser restoring form state changes it with no event.
+  const usesBox = useRef<HTMLInputElement>(null);
+  /** The section the crumb opened the list at, scrolled to and focused there. */
+  const [shown, setShown] = useState<{ section: string } | undefined>(undefined);
+  const preferred = useRef(prefer);
+  preferred.current = prefer;
+  const [settings] = useState<Settings>(() => ({
+    prefer: () => preferred.current,
+    uses: () => Boolean(usesBox.current?.checked),
+  }));
+  const view = useRef<DocumentView>(undefined);
+  const sectionsPanel = useRef<HTMLDivElement>(null);
+
+  const showCrumb = () => setCrumb(view.current?.currentSection());
+  useLayoutEffect(() => {
+    const panel = sectionsPanel.current;
+    const item = shown && panel?.querySelector<HTMLElement>(`li[aria-current]`);
+    if (!panel || !item) return;
+    panel.scrollTop +=
+      item.getBoundingClientRect().top -
+      panel.getBoundingClientRect().top -
+      (panel.clientHeight - item.offsetHeight) / 2;
+    item.querySelector('a')?.focus({ preventScroll: true });
+  }, [shown]);
+
+  const sectionLink = (section: string) => (
+    <a href={routeFor({ document: doc.id, section }, { raw: Boolean(raw) })}>{section}</a>
+  );
+  const toggle = (panel: Panel) => () => setOpen(current => (current === panel ? undefined : panel));
+  const disclosure = (title: Panel, count: number) => (
+    <Disclosure title={title} count={count} open={open === title} toggle={toggle(title)} />
+  );
+  const panels: [Panel, ComponentChildren][] = [
+    ['Findings', <FindingList key="findings" doc={doc} sectionLink={sectionLink} />],
+    ['Holes', <HoleList key="holes" doc={doc} sectionLink={sectionLink} />],
+    ['Sections', <SectionList key="sections" doc={doc} sectionLink={sectionLink} current={shown?.section} />],
+  ];
+  const crumbTitle =
+    crumb && [crumb, doc.sections.find(section => section.section === crumb)?.title].filter(Boolean).join(' · ');
+  return (
+    <>
+      <div id="document-tools">
+        <div id="diagnostics">
+          {disclosure('Findings', doc.findings.length)}
+          {disclosure('Holes', doc.holes.length)}
+          {/* One control over one panel: its toggle opens and closes it, its crumb opens it at the current entry. */}
+          <div class="section-control" role="group" aria-label="Sections">
+            {disclosure('Sections', doc.sections.length)}
+            <div class="crumb-slot">
+              <button
+                type="button"
+                class="section-crumb"
+                disabled={!crumb}
+                data-section={crumb ?? ''}
+                title={crumb ? `${crumbTitle}: show in Sections` : ''}
+                onClick={() => {
+                  setOpen('Sections');
+                  setShown(crumb ? { section: crumb } : undefined);
+                }}
+              >
+                {crumbTitle || ''}
+              </button>
+            </div>
+          </div>
+        </div>
+        <section id="controls">
+          {doc.raw && <RawLink doc={doc} raw={Boolean(raw)} section={() => view.current?.currentSection()} />}
+          <label
+            class="visibility-toggle uses-toggle"
+            title="Plain click lists where a name is used instead of going to it"
+          >
+            {'Click shows uses '}
+            {/* Each document starts with it off, whatever the browser would restore on a reload. */}
+            <input ref={usesBox} type="checkbox" autocomplete="off" />
+          </label>
+          <ClickTargetChoice
+            current={prefer}
+            onChange={target => {
+              writeClickTarget(target);
+              setPrefer(target);
+            }}
+          />
+          <SourceToggle pane={pane} />
+        </section>
+        {panels.map(([title, list]) => (
+          <div
+            key={title}
+            class="diagnostic-panel"
+            id={`diagnostic-${title.toLowerCase()}`}
+            hidden={open !== title}
+            ref={title === 'Sections' ? sectionsPanel : undefined}
+          >
+            {list}
+          </div>
+        ))}
+      </div>
+      <Workspace
+        pane={pane}
+        site={site}
+        header={header}
+        text={
+          <DocumentText
+            services={services}
+            doc={doc}
+            raw={raw}
+            settings={settings}
+            onScroll={showCrumb}
+            onView={created => {
+              view.current = created;
+              showCrumb();
+              onView(created);
+            }}
+          />
+        }
+      />
+    </>
+  );
 }

@@ -3,7 +3,7 @@ import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
 import type { HighlightedLine, HighlightedToken } from '../highlight.ts';
 import { attempt } from '../notice.ts';
-import type { SourcePane } from '../source-pane.ts';
+import type { SourcePane } from '../source-pane.tsx';
 import type { Document } from '../types.ts';
 import { AvpPopup } from './avp.tsx';
 import { CommandPopup } from './command.tsx';

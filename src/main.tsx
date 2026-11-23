@@ -1,14 +1,12 @@
-import type { ComponentChild } from 'preact';
+import { App } from './app.tsx';
+import type { AppProps, Page } from './app.tsx';
 import { openSite, paneKind, siteURL } from './data.ts';
-import { element } from './dom.ts';
-import { renderDocument } from './document-view.ts';
-import type { DocumentView } from './document-view.ts';
-import { createHelp } from './help.ts';
+import type { Site } from './data.ts';
+import type { DocumentView, ViewServices } from './document-view.tsx';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
-import { IndexView } from './index-view.tsx';
-import { mount } from './island.ts';
-import { createJumpControls } from './jump-controls.ts';
+import { jumpTargets } from './jump-controls.tsx';
+import type { JumpTargets } from './jump-controls.tsx';
 import { createJumpList } from './jump-list.ts';
 import type { JumpEntry, JumpWalk } from './jump-list.ts';
 import { createChords, keyWalk, takesTyping } from './keys.ts';
@@ -17,74 +15,54 @@ import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
 import { createPopups } from './popup/index.tsx';
-import { SearchView } from './search-view.tsx';
-import { createSourcePane } from './source-pane.ts';
-import type { SourcePane } from './source-pane.ts';
+import { mount } from './render.ts';
+import { createSourcePane } from './source-pane.tsx';
+import type { SourcePane } from './source-pane.tsx';
 import { session } from './storage.ts';
 import { initTheme } from './theme.ts';
-import { WiresharkView } from './wireshark-view.tsx';
+import type { Theme } from './theme.ts';
 import type { Line } from './types.ts';
 
-const header = element('header');
-const nav = element('nav');
-const indexLink = element('a', 'Index', 'control');
-indexLink.href = '#';
-const searchLink = element('a', 'Search', 'control');
-searchLink.href = '#search';
-const wiresharkLink = element('a', 'Wireshark', 'control');
-wiresharkLink.href = `#${WIRESHARK}`;
-wiresharkLink.title = 'Wireshark plugin';
-nav.append(indexLink, searchLink, wiresharkLink);
-const themeButton = element('button', undefined, 'control theme-toggle');
-themeButton.type = 'button';
-const help = createHelp();
-const headerActions = element('div', undefined, 'header-actions');
-headerActions.append(help.button, themeButton);
-header.append(nav, headerActions);
-const content = element('main');
-content.id = 'content';
-content.tabIndex = -1;
-// A link's own fragment would be taken for a route.
-const skipLink = element('a', 'Skip to content', 'skip-link');
-skipLink.href = '#';
-skipLink.onclick = event => {
-  event.preventDefault();
-  (content.querySelector<HTMLElement>('#document') ?? content).focus();
+// The router: it works out from the route what the page shows and where, draws it with <App>, and keeps the jump list,
+// the browser's history and each document's position. Drawing is synchronous (see render.ts), so what it reads of the
+// page after a draw, as a document's view to position, is there.
+
+const root = document.querySelector<HTMLElement>('#app')!;
+let state: AppProps = {
+  site: undefined,
+  page: { kind: 'start' },
+  theme: 'light',
+  toggleTheme: () => theme.toggle(),
+  jumps: {},
+  walk: () => {},
 };
-document.querySelector('#app')!.replaceChildren(skipLink, header, content);
-noticeRegion();
+/** Draws the site again with `next` changed. */
+function draw(next: Partial<AppProps>) {
+  state = { ...state, ...next };
+  mount(<App {...state} />, root);
+}
+// The page's main element, which every draw keeps: read through the root, as `document` may be another by the time a
+// load finishes in a test.
+const content = () => root.querySelector<HTMLElement>('#content')!;
 
 let pane: SourcePane | undefined;
-const theme = initTheme(value => {
-  themeButton.textContent = value === 'light' ? 'Dark' : 'Light';
-  themeButton.setAttribute('aria-label', `${themeButton.textContent} theme`);
+const theme = initTheme((value: Theme) => {
+  draw({ theme: value });
   pane?.postTheme();
 });
-themeButton.onclick = () => theme.toggle();
+noticeRegion();
 
 function setTitle(page?: string) {
   document.title = page ? `${page} — Seanchaí` : 'Seanchaí';
 }
 
 function focusHeading() {
-  (content.querySelector('h1') ?? content).focus({ preventScroll: true });
+  (content().querySelector('h1') ?? content()).focus({ preventScroll: true });
 }
 
-/** Draws a page's component into the content, or with none clears what was drawn for a page drawn by hand. */
-const draw = (page: ComponentChild) => {
-  mount(null, content);
-  content.replaceChildren();
-  if (page) mount(page, content);
-};
-
 function showMessage(heading: string, detail?: string) {
-  draw(null);
-  content.className = '';
   setTitle(heading);
-  const title = element('h1', heading);
-  title.tabIndex = -1;
-  content.replaceChildren(title);
-  if (detail) content.append(element('p', detail));
+  draw({ page: { kind: 'message', heading, detail } });
 }
 
 function showError(error: unknown) {
@@ -95,9 +73,15 @@ try {
   const site = await openSite();
   const grammar = await fetch(siteURL('syntax/dad.tmLanguage.json'));
   if (!grammar.ok) throw new Error(`${grammar.status}: syntax/dad.tmLanguage.json`);
-  const highlighter = createHighlighter((await grammar.json()) as Grammar);
+  await start(site, createHighlighter((await grammar.json()) as Grammar));
+} catch (error) {
+  showError(error);
+}
+
+async function start(site: Site, highlighter: ReturnType<typeof createHighlighter>) {
   const highlighted = new WeakMap<Line[], HighlightedLine[]>();
   let view: DocumentView | undefined;
+  /** Counts the routes shown: a load finishing after another route was asked for has nothing to show. */
   let request = 0;
   // Focus moves on navigation, not when the site is first opened.
   let arrived = false;
@@ -106,7 +90,6 @@ try {
 
   const positions = createPositionStore(session);
   const jumps = createJumpList(session, document => !namesDocument(document) || Boolean(site.summary(document)));
-  const jumpControls = createJumpControls(walk);
 
   const targetOf = (route: Route) => ({ document: route.document, section: route.section || null, name: route.name });
 
@@ -131,7 +114,8 @@ try {
     const parsed = parseRoute(hash);
     const position = view?.doc.id === parsed.document ? view.position() : undefined;
     if (!view && arriving?.document === parsed.document) return arriving;
-    if (!view || !position) return { document: parsed.document, top: 0, offset: content.scrollTop, hash: hash || '#' };
+    if (!view || !position)
+      return { document: parsed.document, top: 0, offset: content().scrollTop, hash: hash || '#' };
     const line = view.pointedLine();
     return {
       document: parsed.document,
@@ -159,15 +143,16 @@ try {
 
   function showJumps() {
     const current = here();
-    jumpControls.update(walk => jumps.peek(walk, current), jumpLabel);
+    const targets: JumpTargets = jumpTargets(walk => jumps.peek(walk, current), jumpLabel);
+    if (JSON.stringify(targets) !== JSON.stringify(state.jumps)) draw({ jumps: targets });
   }
 
   /** Puts the route in the browser's history: a new entry for a new page, so that Back steps between documents, the same one for a move within a page. */
-  function setRoute(hash: string, state: unknown) {
+  function setRoute(hash: string, entry: unknown) {
     const samePage = pageOf(parseRoute(hash)) === pageOf(parseRoute(location.hash));
     if (samePage) {
-      if ((hash === '#' ? '' : hash) !== location.hash || state) history.replaceState(state, '', hash);
-    } else history.pushState(state, '', hash);
+      if ((hash === '#' ? '' : hash) !== location.hash || entry) history.replaceState(entry, '', hash);
+    } else history.pushState(entry, '', hash);
   }
 
   /** Walks the jump list. The pane stays as the reader has it, on or off, whatever it was at the place walked to. */
@@ -178,9 +163,8 @@ try {
       showJumps();
       return;
     }
-    const refocus = jumpControls.node.contains(document.activeElement)
-      ? (document.activeElement as HTMLElement)
-      : undefined;
+    // A walk from the buttons keeps the focus on the same button, which a new document draws afresh.
+    const refocus = (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('.jump-button')?.dataset.walk;
     const target = parseRoute(entry.hash);
     const inDocument = namesDocument(target.document);
     const hash = inDocument
@@ -200,7 +184,7 @@ try {
     },
   ));
   const popup = createPopups(site, sourcePane);
-  const services = {
+  const services: ViewServices = {
     site,
     pane: sourcePane,
     popup,
@@ -231,6 +215,7 @@ try {
       showJumps();
     },
   };
+  draw({ site, walk });
   // Every route link goes through here, for the history to step by document. A link's route does not say the pane is off, and without that it would switch the pane on.
   document.addEventListener('click', event => {
     const anchor = (event.target as Element).closest?.<HTMLAnchorElement>('a[href^="#"]');
@@ -255,17 +240,16 @@ try {
     const left = leave();
     updateRoute({ top: left.top }, left.offset);
   });
-  function leaveDocument(className: string) {
+  function leaveDocument() {
     view = undefined;
     sourcePane.unmount();
-    content.className = className;
   }
 
-  /** How a route is come to: `smooth` is a jump, which is eased if it stays in the document; `place` a walk back to where a page was left. */
+  /** How a route is come to: `smooth` is a jump, which is eased if it stays in the document; `place` a walk back to where a page was left; `refocus` the jump button to focus again. */
   interface Arrival {
     smooth?: boolean;
     place?: JumpEntry;
-    refocus?: HTMLElement;
+    refocus?: string;
   }
 
   async function route(arrival: Arrival = {}) {
@@ -291,6 +275,15 @@ try {
     else if (fresh && saved && !parsed.section) current.restore(saved.top, saved.offset);
   }
 
+  /** Draws a page of the site's own, and puts it where a walk back to it left it. */
+  function showPage(page: Page, title: string | undefined, place: JumpEntry | undefined) {
+    leaveDocument();
+    setTitle(title);
+    draw({ page });
+    if (arrived) focusHeading();
+    if (place) content().scrollTop = place.offset;
+  }
+
   let shownPage: string | undefined;
 
   async function show(arrival: Arrival) {
@@ -303,40 +296,33 @@ try {
     if (page !== shownPage) clearNotices();
     shownPage = page;
     if (!parsed.document) {
-      leaveDocument('index-view');
-      setTitle();
-      draw(<IndexView site={site} />);
-      if (arrived) focusHeading();
-      if (place) content.scrollTop = place.offset;
+      showPage({ kind: 'index' }, undefined, place);
       return;
     }
     if (parsed.document === 'search') {
-      leaveDocument('');
+      leaveDocument();
       setTitle('Search');
-      draw(
-        <SearchView
-          site={site}
-          query={parsed.query}
-          returning={Boolean(place)}
-          onReady={() => {
-            if (place) content.scrollTop = place.offset;
-          }}
-        />,
-      );
+      draw({
+        page: {
+          kind: 'search',
+          key: generation,
+          query: parsed.query,
+          returning: Boolean(place),
+          onReady: () => {
+            if (place && generation === request) content().scrollTop = place.offset;
+          },
+        },
+      });
       if (place) focusHeading();
       return;
     }
     if (parsed.document === WIRESHARK) {
-      leaveDocument('wireshark-view');
-      setTitle('Wireshark plugin');
-      draw(<WiresharkView site={site} />);
-      if (arrived) focusHeading();
-      if (place) content.scrollTop = place.offset;
+      showPage({ kind: 'wireshark' }, 'Wireshark plugin', place);
       return;
     }
     const meta = site.summary(parsed.document);
     if (!meta) {
-      leaveDocument('');
+      leaveDocument();
       showMessage('Document not found');
       if (arrived) focusHeading();
       return;
@@ -350,12 +336,7 @@ try {
         setTitle(site.label(meta));
         // A quick load goes straight from the old page to the new; only a slow one says so.
         const loading = setTimeout(() => {
-          if (generation !== request) return;
-          content.className = '';
-          const status = element('p', `Loading ${site.label(meta)}…`);
-          status.setAttribute('role', 'status');
-          draw(null);
-          content.replaceChildren(status);
+          if (generation === request) draw({ page: { kind: 'loading', label: site.label(meta) } });
         }, 150);
         // The command index comes with the first document, for its commands' names to know where they go.
         const [doc, raw] = await Promise.all([
@@ -364,10 +345,19 @@ try {
           site.loadCommands(),
         ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
-        content.className = 'document-view';
-        draw(null);
-        view = renderDocument(content, services, doc, raw);
-        content.querySelector('.document-header')!.prepend(jumpControls.node);
+        sourcePane.mount(doc);
+        draw({
+          page: {
+            kind: 'document',
+            key: generation,
+            doc,
+            raw,
+            services,
+            onView: created => {
+              view = created;
+            },
+          },
+        });
       }
       const current = view!;
       sourcePane.setVisible(!parsed.paneHidden);
@@ -388,13 +378,15 @@ try {
         if (position) sourcePane.show({ ...position, name: parsed.name }, current.doc);
       }
       if (arrived) {
-        if (arrival.refocus?.isConnected) arrival.refocus.focus({ preventScroll: true });
+        const refocus =
+          arrival.refocus && content().querySelector<HTMLElement>(`.jump-button[data-walk="${arrival.refocus}"]`);
+        if (refocus) refocus.focus({ preventScroll: true });
         else if (fresh) focusHeading();
         else current.focusPosition();
       }
     } catch (error) {
       if (generation !== request) return;
-      leaveDocument('');
+      leaveDocument();
       showError(error);
       if (arrived) focusHeading();
     }
@@ -407,6 +399,4 @@ try {
     void route({ smooth: true });
   });
   await route();
-} catch (error) {
-  showError(error);
 }

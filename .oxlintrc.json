@@ -40,7 +40,10 @@
     // A list drawn whole from data that does not move, as a rule's members or a popup's uses, is keyed by its place.
     "react/no-array-index-key": "off",
     // It reads a ref's `current` set in a handler or effect as a hook's value mutated, which Preact allows.
-    "react/immutability": "off"
+    "react/immutability": "off",
+    // The source pane's frame is the site's own reader, rfc.html or viewer.html, which needs its scripts, its storage
+    // and new tabs: a sandbox allowing all of them would only look safer.
+    "react/iframe-missing-sandbox": "off"
   },
   "overrides": [
     {
