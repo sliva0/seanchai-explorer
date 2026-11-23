@@ -37,11 +37,21 @@ test('public: right-click on a value name shows its table, with its AVP and sour
     name.dispatchEvent(ctrl);
     assert.equal(ctrl.defaultPrevented, false, "a new tab is the browser's");
     absent(document.querySelector('.avp-popup'));
+    // happy-dom follows the link the browser would have opened in a new tab.
+    const followed = window.location.hash.split('?')[0];
     click(page, name);
+    await settle();
+    assert.equal(window.location.hash.split('?')[0], followed, 'a click shows it beside the text');
+    absent(document.querySelector('.avp-popup'));
+    const entry = document.querySelector('.inspector-entry');
+    assert.equal(entry.dataset.value, 'DIAMETER_ERROR_SERVICE_AREA');
+    assert.match(entry.textContent, /Result code 5123 of Experimental-Result-Code/);
+    assert.ok(!name.classList.contains('avp-current'), 'marking no name');
+    click(page, name, { altKey: true });
     await settle();
     assert.ok(
       window.location.hash.startsWith(`${name.getAttribute('href')}?name=DIAMETER_ERROR_SERVICE_AREA&`),
-      'with only a placeholder, its link is followed',
+      'an alt-click follows its link',
     );
     assert.ok(document.querySelector('.target-line').contains(name), 'to its row');
     absent(document.querySelector('.avp-popup'));

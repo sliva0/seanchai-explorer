@@ -1,14 +1,18 @@
 // The source pane: what each build shows in it, and how a name or section link reaches it.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { absent, boot, click, frameSrc, nameLink, readFixture, rightClick, settle } from './helpers.mjs';
+import { absent, boot, click, commandNames, frameSrc, nameLink, readFixture, rightClick, settle } from './helpers.mjs';
 
-const placeholderLinks = document =>
-  [...document.querySelectorAll('#source-pane .source-placeholder a')].map(a => a.href);
+/** The publisher's links the page shows, which it shows once for a document: the source's header shows with the pane. */
+const publisherLinks = document =>
+  [...document.querySelectorAll('.publisher-link:not([hidden])')].filter(
+    link => !link.closest('.source-header') || document.querySelector('#workspace').classList.contains('with-source'),
+  );
+const selfHostLink = document => document.querySelector('#source-pane .inspector-note a')?.href;
 const sectionPage = async (id, section) =>
   (await readFixture(`documents/${id}.json`)).sections.find(entry => entry.section === section).page;
 
-test('public: a PDF gets the pane and its toggle, with a placeholder for the viewer', async () => {
+test('public: a PDF gets the pane and its toggle, with an inspector in place of the viewer', async () => {
   const page = await boot({ hash: '#29153-j00/5.1' });
   try {
     const { document } = page;
@@ -17,20 +21,30 @@ test('public: a PDF gets the pane and its toggle, with a placeholder for the vie
     assert.equal(document.querySelector('.source-toggle input').checked, true);
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
     assert.equal(document.querySelectorAll('#source-pane').length, 1);
-    const placeholder = document.querySelector('.source-placeholder');
+    const inspector = document.querySelector('#source-pane .inspector');
+    assert.match(inspector.querySelector('.inspector-empty').textContent, /^Click a name for details beside the text/);
+    assert.match(inspector.querySelector('.inspector-empty').textContent, /an alt-click moves it/);
     assert.match(
-      placeholder.textContent,
-      /The PDF of TS 29\.153 V19\.0\.0 cannot be shown here for licensing reasons\./,
+      inspector.querySelector('.inspector-note').textContent,
+      /This public build cannot show the PDF of TS 29\.153 V19\.0\.0, for licensing reasons; a self-hosted build shows it here\./,
     );
-    const [publisher, selfHost] = placeholderLinks(document);
-    assert.match(publisher, new RegExp(`^https://www\\.etsi\\.org/.*#page=${pageNumber}$`));
-    assert.equal(selfHost, 'https://github.com/sliva0/seanchai-explorer#two-build-modes');
+    assert.equal(selfHostLink(document), 'https://github.com/sliva0/seanchai-explorer#two-build-modes');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153 V19.0.0 — '));
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153 V19.0.0 — '));
     assert.equal(document.querySelector('.source-header .source-page').textContent, `p. ${pageNumber}`);
-    assert.equal(document.querySelector('.source-header .publisher-link').href, publisher);
+    const [publisher, ...more] = publisherLinks(document);
+    assert.deepEqual(more, [], "the publisher's copy is linked once");
+    assert.ok(publisher.closest('.source-header'), "by the inspector's header");
+    assert.match(publisher.href, new RegExp(`^https://www\\.etsi\\.org/.*#page=${pageNumber}$`));
+    absent(inspector.querySelector('a[href*="etsi.org"]'));
     assert.equal(document.querySelector('.source-header .local-link').hidden, true);
     assert.equal(document.querySelector('.document-header .local-link').hidden, true);
+    const toggle = document.querySelector('.source-toggle input');
+    toggle.checked = false;
+    toggle.dispatchEvent(new page.window.Event('change', { bubbles: true }));
+    const [shown, ...others] = publisherLinks(document);
+    assert.deepEqual(others, []);
+    assert.ok(shown.closest('.document-header'), "the text's header links it with the pane off");
   } finally {
     await page.close();
   }
@@ -71,7 +85,7 @@ test('public: a name defined in an RFC goes to the pane and leaves the main view
     const source = new URL(frameSrc(document));
     assert.equal(source.pathname, '/rfc.html');
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('query'), name.dataset.avp);
-    absent(document.querySelector('.source-placeholder'));
+    absent(document.querySelector('.inspector'));
     assert.ok(document.querySelector('.source-document').textContent.startsWith('RFC 7944'));
     // Walking this document's own names has nothing to show, so the RFC stays.
     rightClick(page, name);
@@ -88,7 +102,7 @@ test('public: a name defined in an RFC goes to the pane and leaves the main view
   }
 });
 
-test('public: a name defined in a PDF goes to its page, whose placeholder says where to read it', async () => {
+test('public: a click on a name defined in a PDF shows it in the inspector at its page, and the text stays', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
@@ -99,13 +113,30 @@ test('public: a name defined in a PDF goes to its page, whose placeholder says w
       name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
       return name.title;
     };
-    assert.equal(title(), 'Click: go to definition · Right-click: uses');
+    assert.equal(title(), 'Click: show it in pane · Alt-click: go to definition · Right-click: uses');
+    const before = window.location.hash;
     click(page, name);
     await settle();
-    assert.ok(window.location.hash.startsWith(`#29217-j00/${section}`));
+    assert.ok(window.location.hash.startsWith(`${before}?`), 'the text stays');
+    assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('source'), '29217-j00');
+    assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153'));
+    absent(document.querySelector('.avp-popup'), 'no popup');
+    const entry = document.querySelector('#source-pane .inspector-entry');
+    assert.equal(entry.dataset.avp, name.dataset.avp);
+    assert.equal(entry.querySelector('.popup-title').textContent, name.dataset.avp);
+    absent(entry.querySelector('.popup-title button'), 'nothing to close');
+    assert.ok(entry.querySelector('.popup-uses'), 'where it is used');
+    assert.match(document.querySelector('#source-pane .inspector-note').textContent, /self-hosted build/);
+    assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.217 V19.0.0'));
+    assert.equal(document.querySelector('.source-header .source-page').textContent, `p. ${pageNumber}`);
+    assert.match(
+      document.querySelector('.source-header .publisher-link').href,
+      new RegExp(`/ts_129217v190000p\\.pdf#page=${pageNumber}$`),
+    );
+    click(page, name, { altKey: true });
+    await settle();
+    assert.ok(window.location.hash.startsWith(`#29217-j00/${section}`), 'alt-click moves the text');
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.217'));
-    assert.match(document.querySelector('.source-placeholder').textContent, /The PDF of TS 29\.217 V19\.0\.0 cannot/);
-    assert.match(placeholderLinks(document)[0], new RegExp(`/ts_129217v190000p\\.pdf#page=${pageNumber}$`));
   } finally {
     await page.close();
   }
@@ -116,21 +147,23 @@ test('public: a pane restored to a placeholder gives way to an RFC and comes bac
   const page = await boot({ hash: shared });
   try {
     const { document } = page;
-    assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.217/);
+    assert.ok(document.querySelector('.inspector'));
+    assert.match(document.querySelector('.source-document').textContent, /^TS 29\.217/);
     assert.ok(document.querySelector('main h1').textContent.startsWith('3GPP TS 29.153'));
     click(page, nameLink(document, '#rfc7944'));
     await settle();
-    absent(document.querySelector('.source-placeholder'));
+    absent(document.querySelector('.inspector'));
     assert.equal(new URL(frameSrc(document)).pathname, '/rfc.html');
     await page.go(shared);
     absent(document.querySelector('iframe'));
-    assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.217/);
+    assert.ok(document.querySelector('.inspector'));
+    assert.match(document.querySelector('.source-document').textContent, /^TS 29\.217/);
   } finally {
     await page.close();
   }
 });
 
-test('public: a switched-off pane is switched on for a place it can read, and left off for one it cannot; too narrow, a name goes to its page', async () => {
+test('public: a switched-off pane is switched on for a place it can read, and to show a name it cannot; too narrow, a name goes to its page', async () => {
   const off = await boot({ hash: '#29153-j00?pane=0' });
   try {
     const { document, window } = off;
@@ -147,9 +180,13 @@ test('public: a switched-off pane is switched on for a place it can read, and le
   try {
     click(placeholder, nameLink(placeholder.document, '#29217-j00/'));
     await settle();
+    assert.ok(placeholder.window.location.hash.startsWith('#29153-j00?'), 'the view stays');
+    assert.doesNotMatch(placeholder.window.location.hash, /pane=0/);
+    assert.equal(placeholder.document.querySelector('.source-toggle input').checked, true);
+    assert.ok(placeholder.document.querySelector('.inspector-entry'));
+    click(placeholder, nameLink(placeholder.document, '#29217-j00/'), { altKey: true });
+    await settle();
     assert.ok(placeholder.window.location.hash.startsWith('#29217-j00/'));
-    assert.match(placeholder.window.location.hash, /pane=0/);
-    assert.equal(placeholder.document.querySelector('.source-toggle input').checked, false);
   } finally {
     await placeholder.close();
   }
@@ -329,13 +366,33 @@ test('a shared pane state the build cannot show falls back to the document itsel
   }
 });
 
-test("public: an RFC page restores a PDF's placeholder beside it from a shared pane state", async () => {
+test("public: an RFC page restores a PDF's inspector beside it from a shared pane state", async () => {
   const page = await boot({ hash: '#rfc7944?source=29153-j00&sourceSection=5.1' });
   try {
     const { document } = page;
     absent(document.querySelector('iframe'));
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('RFC 7944'));
-    assert.match(document.querySelector('.source-placeholder').textContent, /TS 29\.153/);
+    assert.ok(document.querySelector('.inspector'));
+    assert.match(document.querySelector('.source-document').textContent, /^TS 29\.153/);
+  } finally {
+    await page.close();
+  }
+});
+
+test("public: a click on a command shows its popup's content in the inspector, its places one per row", async () => {
+  const page = await boot({ hash: '#29061-6f0/17.6.2' });
+  try {
+    const { document, window } = page;
+    const before = window.location.hash.split('?')[0];
+    click(page, commandNames(document, '265 request')[0]);
+    await settle();
+    assert.equal(window.location.hash.split('?')[0], before, 'the text stays');
+    absent(document.querySelector('.avp-popup'));
+    const entry = document.querySelector('#source-pane .inspector-entry');
+    assert.equal(entry.dataset.command, '265 request');
+    assert.match(entry.querySelector('.popup-title').textContent, /^AA-Request/);
+    assert.ok(entry.querySelector('.command-places .place-definition'));
+    assert.ok(!commandNames(document, '265 request')[0].classList.contains('avp-current'), 'marking no name');
   } finally {
     await page.close();
   }

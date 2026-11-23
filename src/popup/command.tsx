@@ -76,7 +76,9 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
   const { doc, file, opener } = request;
   const index = site.commands();
   const command = commandOf(ref, doc, index);
-  useLayoutEffect(() => opener.classList.add('avp-current'), []);
+  useLayoutEffect(() => {
+    if (!props.inline) opener.classList.add('avp-current');
+  }, []);
   useLayoutEffect(() => demand(command?.document), [command?.document]);
   const placeRow = placeRows(site, pane, request);
   const name = command?.name ?? ref.name;

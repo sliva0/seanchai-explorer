@@ -291,7 +291,8 @@ export function AvpPopup(props: PopupProps) {
   const away = token.target?.document;
   useLayoutEffect(() => demand(away), [away]);
   useLayoutEffect(() => {
-    if (!stepped) return;
+    // The inspector marks no name: a popup's mark goes when it closes, which the inspector never does.
+    if (!stepped || props.inline) return;
     for (const node of document.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
     stepped.classList.add('avp-current');
   }, [stepped]);

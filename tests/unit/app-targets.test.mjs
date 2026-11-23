@@ -244,7 +244,7 @@ test("the popup shows one target where a row's clause is its table's", async () 
   }
 });
 
-test("public: the popup has only the view's way to a target, under the publisher's copy, and a name's click goes there", async () => {
+test("public: the popup has only the view's way to a target, under the publisher's copy, and a name's click shows it beside the text", async () => {
   const page = await boot({ hash: '#29061-6f0/17.7', clickTarget: 'definition' });
   try {
     const { document, window } = page;
@@ -258,9 +258,17 @@ test("public: the popup has only the view's way to a target, under the publisher
     document.querySelector('.avp-popup .popup-title button').click();
     click(page, name);
     await settle();
-    assert.equal(window.location.hash.split('?')[0], '#29061-6f0/17.7');
+    assert.equal(window.location.hash.split('?')[0], '#29061-6f0/17.7', 'the text stays');
+    absent(document.querySelector('.target-line'));
+    absent(document.querySelector('.avp-popup'));
+    const entry = document.querySelector('.inspector-entry');
+    assert.equal(entry.dataset.avp, 'TMGI');
+    assert.equal(entry.querySelector('.place-definition .view-action').textContent, 'Jump to');
+    assert.match(entry.querySelector('.place-definition .place-where').href, /etsi\.org.*#page=\d+$/);
+    click(page, name, { altKey: true });
+    await settle();
+    assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('name'), 'TMGI', 'alt-click goes there');
     assert.equal(document.querySelector('.target-line a[data-avp]').dataset.avp, 'TMGI');
-    assert.match(document.querySelector('.source-placeholder').textContent, /cannot be shown here/);
   } finally {
     await page.close();
   }
@@ -381,7 +389,7 @@ test('self-hosted: where the view has no line for the Details, an alt-click take
   }
 });
 
-test('public: where neither panel can show the Details, a click goes to the Definition', async () => {
+test('public: where neither panel can show the Details, an alt-click goes to the Definition', async () => {
   const unanchored = (path, data) =>
     path !== 'data/documents/29061-6f0.json'
       ? data
@@ -391,8 +399,8 @@ test('public: where neither panel can show the Details, a click goes to the Defi
     const { document, window } = page;
     const name = tmgi(document);
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(name.title, 'Click: go to definition · Right-click: uses');
-    click(page, name);
+    assert.equal(name.title, 'Click: show it in pane · Alt-click: go to definition · Right-click: uses');
+    click(page, name, { altKey: true });
     await settle();
     assert.ok(document.querySelector('.target-line').querySelector('a[data-avp="TMGI"]'));
   } finally {

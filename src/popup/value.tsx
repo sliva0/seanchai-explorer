@@ -27,6 +27,7 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
   const nameNode = (index: number) =>
     documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
   useLayoutEffect(() => {
+    if (props.inline) return;
     for (const node of documentPane.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
     nameNode(active)?.classList.add('avp-current');
   }, [active]);

@@ -15,7 +15,10 @@ import {
 import type { Site } from './data.ts';
 import type { PaneState, SourcePosition } from './navigation.ts';
 import { attempt } from './notice.ts';
+import { Popup } from './popup/root.tsx';
+import type { PopupRequest } from './popup/root.tsx';
 import { correctedRow, printedRow } from './printed-row.ts';
+import { CLICK_HINT } from './site-text.ts';
 import type { Document, DocumentSummary } from './types.ts';
 
 const selfHostingGuide = 'https://github.com/sliva0/seanchai-explorer#two-build-modes';
@@ -104,24 +107,62 @@ function PaneHeader({
   );
 }
 
-/** What the pane says of a PDF this build does not hold: why, and where to read it instead. */
-function Placeholder({ doc, position }: { doc: DocumentSummary; position: SourcePosition }) {
-  const url = publisherURL(doc, position);
+/** What the pane says of a PDF this build does not hold, beside what it shows instead. */
+function SelfHostNote({ doc, brief }: { doc: DocumentSummary; brief: boolean }) {
+  const link = (
+    <a href={selfHostingGuide} target="_blank" rel="noopener">
+      {brief ? 'Self-hosting' : 'Self-host Seanchaí Explorer'}
+    </a>
+  );
+  return brief ? (
+    <p class="inspector-note">
+      {`The PDF of ${docVersioned(doc)} is shown here in a self-hosted build. `}
+      {link}
+    </p>
+  ) : (
+    <p class="inspector-note">
+      {`This public build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons; a self-hosted build shows it here. `}
+      {link}
+    </p>
+  );
+}
+
+/**
+ * The pane where it cannot show the source: what the name last clicked is, as its popup says it, or until one is, what
+ * a click does. The publisher's copy is the pane's header's to link to, at the place the name went to.
+ */
+function Inspector({
+  site,
+  pane,
+  doc,
+  inspected,
+}: {
+  site: Site;
+  pane: SourcePane;
+  doc: DocumentSummary;
+  inspected: Inspected | undefined;
+}) {
+  const [keyOpen, setKeyOpen] = useState(false);
   return (
-    <div class="source-placeholder">
-      <p>{`The PDF of ${docVersioned(doc)} cannot be shown here for licensing reasons.`}</p>
-      <p>
-        {url && (
-          <a href={url.href} target="_blank" rel="noopener">
-            {`Open at ${hostName(url)}${position.page ? `, p. ${position.page}` : ''}`}
-          </a>
-        )}
-      </p>
-      <p>
-        <a href={selfHostingGuide} target="_blank" rel="noopener">
-          Self-host Seanchaí Explorer to read PDFs beside the corpus
-        </a>
-      </p>
+    <div class="inspector" aria-label="Inspector" role="region">
+      {inspected ? (
+        <Popup
+          key={inspected.count}
+          inline
+          site={site}
+          pane={pane}
+          request={inspected.request}
+          keyOpen={keyOpen}
+          toggleKey={() => setKeyOpen(open => !open)}
+          close={() => {}}
+        />
+      ) : (
+        <div class="inspector-empty">
+          <p>{CLICK_HINT}</p>
+          <p>A click leaves the text where it is; an alt-click moves it to the name's place.</p>
+        </div>
+      )}
+      <SelfHostNote doc={doc} brief={Boolean(inspected)} />
     </div>
   );
 }
@@ -180,6 +221,12 @@ function Divider({
 
 export type SourcePane = ReturnType<typeof createSourcePane>;
 
+/** The name the inspector shows, as a popup is asked for it, and the count of names shown, each drawn afresh. */
+interface Inspected {
+  request: PopupRequest;
+  count: number;
+}
+
 /**
  * The source pane beside a document's text: what it shows and whether it is open, held here for the components drawing
  * it and the code moving it. `onChange` is told of a change the reader made, to keep in the route.
@@ -194,6 +241,8 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   /** What the pane shows while it is open, and keeps while it is hidden: a page loads only where it can be seen. */
   let shown: { url?: string; title?: string; placeholder?: { doc: Document; position: SourcePosition } } = {};
   let frame: HTMLIFrameElement | null = null;
+  let inspected: Inspected | undefined;
+  let inspections = 0;
   const listeners = new Set<() => void>();
 
   const isOpen = () => Boolean(wide.matches && switchedOn && mounted?.reads);
@@ -258,6 +307,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       };
       selected = undefined;
       shown = {};
+      inspected = undefined;
       changed();
     },
     /** The text is gone: a move still under way is dropped, and nothing is drawn again until the next mount. */
@@ -265,6 +315,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       request++;
       mounted = undefined;
       selected = undefined;
+      inspected = undefined;
     },
     get switchedOn() {
       return switchedOn;
@@ -276,6 +327,24 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       if (!wide.matches || !mounted?.reads || !target) return false;
       const kind = paneKind(target, site.mode);
       return Boolean(kind && kind !== 'placeholder');
+    },
+    /**
+     * The pane would show what a name is for a place in `document`, or with none in the text's own: it is here, wide
+     * enough, and has no reader for that document. It shows the place's source where it has one.
+     */
+    inspects(document: string | undefined): boolean {
+      const target = document === undefined ? mounted?.doc : site.summary(document);
+      return Boolean(wide.matches && mounted?.reads && target && paneKind(target, site.mode) === 'placeholder');
+    },
+    /**
+     * Shows what the name `request` is about is, switching the pane on, and moves it to `place`, if there is one, for
+     * its header to link to the publisher's copy there. The text stays where it is.
+     */
+    inspect(request: PopupRequest, place: Place | undefined) {
+      inspected = { request, count: ++inspections };
+      setVisible(true);
+      if (place) pane.openPlace(place, request.doc);
+      else onChange();
     },
     setVisible,
     /** The reader's switch of the pane, a change to keep in the route as a move by the code is not. */
@@ -349,6 +418,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
         mounted,
         selected,
         shown,
+        inspected,
         setFrame(node: HTMLIFrameElement | null) {
           frame = node;
         },
@@ -397,12 +467,15 @@ export function Workspace({
   header?: ComponentChildren;
   text: ComponentChildren;
 }) {
-  const { open, mounted, selected, shown, setFrame } = usePane(pane);
+  const { open, mounted, selected, shown, inspected, setFrame } = usePane(pane);
   const [ratio, setRatio] = useState(50);
   const [resizing, setResizing] = useState(false);
   const workspace = useRef<HTMLDivElement>(null);
   if (!mounted) return null;
   const { doc } = mounted;
+  const inspector = shown.url === undefined ? shown.placeholder : undefined;
+  // The publisher's copy is linked once: by the inspector's header where it shows this document's place.
+  const linked = !(open && inspector && selected?.doc.id === doc.id);
   const style = { '--source-left': `${ratio}fr`, '--source-right': `${100 - ratio}fr` };
   const classes = [open && 'with-source', resizing && 'resizing'].filter(Boolean).join(' ');
   return (
@@ -413,6 +486,7 @@ export function Workspace({
         doc={doc}
         position={selected?.doc.id === doc.id ? selected.position : mounted.position}
         site={site}
+        publisher={linked}
       >
         {header}
       </PaneHeader>
@@ -431,8 +505,8 @@ export function Workspace({
             <div class="pane-header source-header" />
           )}
           <aside id="source-pane">
-            {shown.url === undefined && shown.placeholder ? (
-              <Placeholder doc={shown.placeholder.doc} position={shown.placeholder.position} />
+            {inspector ? (
+              <Inspector site={site} pane={pane} doc={inspector.doc} inspected={inspected} />
             ) : (
               <iframe
                 ref={setFrame}

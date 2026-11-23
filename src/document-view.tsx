@@ -11,7 +11,7 @@ import { compactComment } from './comments.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
-import type { Popups } from './popup/index.tsx';
+import type { PopupRequest, Popups } from './popup/index.tsx';
 import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
@@ -190,19 +190,20 @@ function createText(
 
   const tokenOf = (node: HTMLElement) =>
     lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
-  const showUses = (node: HTMLElement) =>
-    popup.show({
-      token: tokenOf(node),
-      doc,
-      raw: Boolean(raw),
-      lines,
-      file,
-      opener: node,
-      documentPane,
-      recordJump: services.recordJump,
-      jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
-      scrollGoal: () => scroller.goal,
-    });
+  /** What a popup or the inspector is asked about a name: its token, and the text and its moves around it. */
+  const requestFor = (node: HTMLElement): PopupRequest => ({
+    token: tokenOf(node),
+    doc,
+    raw: Boolean(raw),
+    lines,
+    file,
+    opener: node,
+    documentPane,
+    recordJump: services.recordJump,
+    jumpTo: target => jumpTo(target, { smooth: true, flash: true, margin: 24 }),
+    scrollGoal: () => scroller.goal,
+  });
+  const showUses = (node: HTMLElement) => popup.show(requestFor(node));
   const nameAt = (target: EventTarget | null) =>
     (target as Element).closest<HTMLElement>('[data-avp], [data-command], .value-name');
   const sectionAt = (node: HTMLElement) => node.closest<HTMLElement>('.dad-line')!.dataset.section;
@@ -210,6 +211,7 @@ function createText(
     paneShows: document => pane.shows(site.summary(document)),
     paneOn: pane.switchedOn,
     uses: settings.uses(),
+    inspects: document => pane.inspects(document),
   });
   const placeOf = (node: HTMLElement) =>
     tokenPlace(tokenOf(node), lines, doc, sectionAt(node), settings.prefer(), site.commands());
@@ -223,7 +225,8 @@ function createText(
     }
     popup.close();
     // Nothing moves in the view when the pane alone does, so the jump list has nothing to keep.
-    if (action.type === 'pane') pane.openPlace(action.place, doc);
+    if (action.type === 'inspect') pane.inspect(requestFor(node), action.place);
+    else if (action.type === 'pane') pane.openPlace(action.place, doc);
     else if (action.type === 'both') services.navigate(placeRoute(action.place, doc, Boolean(raw), !pane.switchedOn));
     else if (action.type === 'new-tab') {
       const anchor = node.closest('a');

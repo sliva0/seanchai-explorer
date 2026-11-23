@@ -129,11 +129,11 @@ Do not edit `src/types.ts` by hand.
 | `blocks.ts`, `values.ts`, `commands.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value or a command |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts` | what a click on a name does, and the places it can go |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `shared.tsx` what they share, `place.ts` where they go by their name |
-| `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to |
+| `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
 | `index-view.tsx`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
-| `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts` | the help dialog and the list of controls it shows, notices, the theme |
+| `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts`, `site-text.ts` | the help dialog and the list of controls it shows, notices, the theme, and the site's few sentences of its own |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |
 

@@ -145,7 +145,7 @@ test(
     await line.locator('.value-name').click({ button: 'right' });
     const row = page.locator('.avp-popup .place-origin');
     assert.equal(await row.locator('.place-where').textContent(), 'TS 29.329 · 6.2.2.1');
-    assert.equal(await row.locator('.pane-action').count(), 0, "a PDF's pane is a placeholder, so only the text's way");
+    assert.equal(await row.locator('.pane-action').count(), 0, "a PDF's pane is an inspector, so only the text's way");
     const box = await page.locator('.avp-popup').evaluate(popup => ({
       width: popup.getBoundingClientRect().width,
       scrolls: popup.scrollHeight > popup.clientHeight,
@@ -241,28 +241,30 @@ test('public, desktop: ; From: links to the document a reprint comes from', { sk
 });
 
 test(
-  "public, desktop: a PDF's pane is a placeholder, a name in an RFC takes the pane alone, and one in a PDF goes to its page",
+  "public, desktop: a PDF's pane is an inspector, a name in an RFC takes the pane alone, and one in a PDF shows in it at its page",
   { skip },
   async () => {
     const { page, context, done } = await open('#29153-j00');
     const pages = [];
     context.on('page', opened => pages.push(opened));
-    const placeholder = page.locator('#source-pane .source-placeholder');
-    await placeholder.waitFor();
+    const inspector = page.locator('#source-pane .inspector');
+    await inspector.waitFor();
     assert.equal(await page.locator('iframe').count(), 0);
     assert.equal(await page.locator('.source-toggle').isVisible(), true);
-    assert.match(await placeholder.textContent(), /The PDF of TS 29\.153 V19\.0\.0 cannot be shown here/);
-    const fit = await placeholder.evaluate(node => {
+    assert.match(await inspector.textContent(), /^Click a name for details beside the text/);
+    assert.match(await inspector.textContent(), /This public build cannot show the PDF of TS 29\.153 V19\.0\.0/);
+    const fit = await inspector.evaluate(node => {
       const pane = node.parentElement.getBoundingClientRect();
       const box = node.getBoundingClientRect();
-      const text = node.querySelector('p').getBoundingClientRect();
+      const note = node.querySelector('.inspector-note').getBoundingClientRect();
       return {
         filled: box.width === pane.width && box.height === pane.height,
-        centred: Math.abs(text.left + text.right - pane.left - pane.right) < 2,
+        noteAtFoot: Math.abs(note.bottom - box.bottom) < 24,
         overflows: node.scrollHeight > node.clientHeight,
       };
     });
-    assert.deepEqual(fit, { filled: true, centred: true, overflows: false });
+    assert.deepEqual(fit, { filled: true, noteAtFoot: true, overflows: false });
+    assert.equal(await page.locator('.publisher-link:visible').count(), 1, "the publisher's copy is linked once");
     await scrollPane(page, 1237);
     const left = await scrollOf(page);
     await page
@@ -271,21 +273,32 @@ test(
       .evaluate(node => node.click());
     await page.frameLocator('iframe').locator('.rfc-line', { hasText: 'DRMP AVP' }).last().waitFor();
     await page.waitForSelector('.source-header h2:has-text("RFC 7944")');
-    assert.equal(await placeholder.count(), 0);
+    assert.equal(await inspector.count(), 0);
     assert.equal(await page.title(), 'TS 29.153 — Seanchaí');
     assert.ok(
       await page.evaluate(() => location.hash.startsWith('#29153-j00?') && location.hash.includes('source=rfc7944')),
     );
     near(await scrollOf(page), left, 'the text stays');
-    await page
-      .locator('pre a[data-avp][href^="#29217-j00"]')
-      .first()
-      .evaluate(node => node.click());
+    const elsewhere = page.locator('pre a[data-avp][href^="#29217-j00"]').first();
+    const avp = await elsewhere.getAttribute('data-avp');
+    await elsewhere.evaluate(node => node.click());
+    const entry = page.locator('#source-pane .inspector-entry');
+    await entry.waitFor();
+    assert.equal(await entry.getAttribute('data-avp'), avp);
+    assert.equal(await page.locator('.avp-popup').count(), 0, 'no popup');
+    await page.waitForSelector('.source-header h2:has-text("29.217")');
+    assert.match(
+      await page.locator('.source-header .publisher-link').getAttribute('href'),
+      /ts_129217v190000p\.pdf#page=\d+$/,
+    );
+    assert.ok(await page.evaluate(() => location.hash.startsWith('#29153-j00?')), 'the text stays');
+    near(await scrollOf(page), left, 'to the pixel');
+    await elsewhere.evaluate(node =>
+      node.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, altKey: true })),
+    );
     await page.waitForSelector('.document-header h1:has-text("29.217")');
-    assert.ok(await page.evaluate(() => location.hash.startsWith('#29217-j00/')));
-    await placeholder.waitFor();
-    assert.match(await placeholder.textContent(), /TS 29\.217/);
-    assert.match(await placeholder.locator('a').first().getAttribute('href'), /ts_129217v190000p\.pdf#page=\d+$/);
+    assert.ok(await page.evaluate(() => location.hash.startsWith('#29217-j00/')), 'an alt-click moves the text');
+    await inspector.waitFor();
     assert.equal(await page.locator('iframe').count(), 0);
     assert.equal(pages.length, 0);
     await done();
@@ -1249,7 +1262,7 @@ test('the arrows sit left of the title, in one row', { skip }, async () => {
 });
 
 test(
-  "a command's abbreviation is a name: its popup is compact, in the targets' grid, and a click goes to its block",
+  "a command's abbreviation is a name: its popup is compact, in the targets' grid, a click shows it, and an alt-click goes to its block",
   { skip },
   async () => {
     const fetched = [];
@@ -1286,12 +1299,13 @@ test(
     assert.equal(look.selfScrolls, false);
     await page.keyboard.press('Escape');
     await abbreviation.click();
+    const entry = page.locator('#source-pane .inspector-entry');
+    await entry.waitFor();
+    assert.equal(await entry.getAttribute('data-command'), '265 answer', 'the public pane shows it instead of the PDF');
+    assert.equal(await popup.count(), 0);
+    await abbreviation.click({ modifiers: ['Alt'] });
     await page.waitForSelector('.target-line');
-    assert.equal(
-      await page.locator('.target-line').getAttribute('data-line'),
-      '43',
-      'the public pane cannot read the PDF, so both go to the block',
-    );
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '43', 'an alt-click goes to the block');
     await done();
   },
 );

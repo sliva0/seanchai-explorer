@@ -21,7 +21,7 @@ copy of the site it is downloaded from.
 
 | On a name | |
 |---|---|
-| Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; with "Click shows uses" on, where it is used |
+| Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane |
 | Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is and where else it is printed, each place offering the same two |
 | Ctrl-, Shift- or Cmd-click | the browser's |
@@ -33,9 +33,16 @@ A definition is the row of the first AVP table listing the name, or the clause i
 names where that is another document's or there is no row. Details are the clause that
 row points to, and are left out where it points nowhere else; a click then goes to the
 definition. A row of a `Reused AVPs` block with no `; Table:`, an origin a clause's
-prose states, is that clause, which is its name's Details. Where the pane cannot read
-the place (a public build's PDFs, a document in no format it reads, a narrow window) a
-click does what an alt-click does, and the popup offers only `Jump to`.
+prose states, is that clause, which is its name's Details.
+
+Where the pane cannot show a document's source, as for a public build's PDFs, it is an
+inspector instead: a plain click on a name shows there what its popup would say, its
+code, type, flags, members or values, uses, Definition and Details, and opens no popup.
+The text stays where it is, and the pane's header links to the publisher's copy at the
+page the click would have gone to. A place in a document the pane does read, as an RFC,
+it goes to as before. Where there is no pane at all (a document in no format it reads, a
+narrow window) a click does what an alt-click does. A popup offers only `Jump to` for a
+place the pane cannot show.
 
 A value's name goes to its row the same way, and a `; Section:` or `; Page:` link to its
 clause, or with no pane to the publisher's copy in a new tab. A result code's `from`
@@ -92,7 +99,7 @@ permission. So there are two builds, and the plain one is the safe one:
 
 | | `npm run build` (public) | `npm run build:self-hosted` |
 |---|---|---|
-| ETSI documents | side pane with a note and a link to ETSI's URL at the page; section links open that URL in a new tab | side pane with a PDF.js viewer |
+| ETSI documents | side pane as an inspector of the name last clicked, with a link to ETSI's URL at its page; section links open that URL in a new tab | side pane with a PDF.js viewer |
 | RFCs | side pane, from shipped text or rfc-editor.org | side pane |
 | Ships PDFs, PDF.js, `viewer.html` | never; the build fails if a PDF is in `dist/` | yes |
 

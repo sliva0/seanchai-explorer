@@ -293,25 +293,44 @@ ul {
   height: 0;
   border: 0;
 }
-.source-placeholder {
+/* The inspector: where the pane cannot show the source, what the name last clicked is, as its popup says it. */
+.inspector {
   flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   min-height: 0;
-  padding: var(--space-4);
   overflow: auto;
-  color: var(--ui-muted);
-  font-size: var(--text-md);
-  line-height: 1.5;
-  text-align: center;
+  padding: var(--space-3);
+  overscroll-behavior: contain;
+  font: var(--text-xs)/1.4 var(--mono);
 }
-.source-placeholder p {
-  max-width: 48ch;
+.inspector-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.inspector-entry .popup-title {
   margin: 0;
-  text-wrap: balance;
+  font: 600 var(--text-sm)/1.4 var(--mono);
+}
+.inspector-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-width: 56ch;
+  color: var(--ui-muted);
+  font: var(--text-md)/1.5 var(--sans);
+}
+.inspector-empty p,
+.inspector-note {
+  margin: 0;
+}
+/* Under what the inspector shows, at the pane's foot when that is short. */
+.inspector-note {
+  margin-top: auto;
+  color: var(--ui-muted);
+  font: var(--text-xs)/1.4 var(--sans);
 }
 #divider {
   grid-column: 2;
@@ -963,7 +982,8 @@ mark {
     inset -2px 0 var(--ui-link),
     0 4px 16px var(--ui-shadow);
 }
-.avp-popup p {
+.avp-popup p,
+.inspector-entry p {
   margin: 0;
   overflow-wrap: anywhere;
 }
@@ -1135,7 +1155,9 @@ mark {
 }
 /* The facts above, where to go below: a hairline between. */
 .avp-popup > .popup-places,
-.avp-popup > .popup-actions {
+.avp-popup > .popup-actions,
+.inspector-entry > .popup-places,
+.inspector-entry > .popup-actions {
   padding-top: var(--space-1);
   border-top: 1px solid var(--ui-divider);
 }
@@ -1168,6 +1190,10 @@ mark {
 .contents-list .struck {
   text-decoration: line-through;
   color: var(--ui-muted);
+}
+/* Each row starts its own line, whether the one above it had the pane's button or not. */
+.popup-place > :first-child {
+  grid-column: 1;
 }
 .place-where {
   min-width: 0;
@@ -1222,7 +1248,8 @@ mark {
   background: var(--ui-selected);
   box-shadow: inset 2px 0 var(--ui-link);
 }
-.avp-popup p .usage-link {
+.avp-popup p .usage-link,
+.inspector-entry p .usage-link {
   display: inline;
   width: auto;
 }
