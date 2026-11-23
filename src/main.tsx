@@ -17,7 +17,7 @@ import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
 import { createPopups } from './popup/index.tsx';
-import { renderSearch } from './search-view.ts';
+import { SearchView } from './search-view.tsx';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
 import { session } from './storage.ts';
@@ -313,13 +313,16 @@ try {
     if (parsed.document === 'search') {
       leaveDocument('');
       setTitle('Search');
-      draw(null);
-      renderSearch(content, site, parsed.query, () => generation === request, {
-        returning: Boolean(place),
-        onReady: () => {
-          if (place) content.scrollTop = place.offset;
-        },
-      });
+      draw(
+        <SearchView
+          site={site}
+          query={parsed.query}
+          returning={Boolean(place)}
+          onReady={() => {
+            if (place) content.scrollTop = place.offset;
+          }}
+        />,
+      );
       if (place) focusHeading();
       return;
     }
