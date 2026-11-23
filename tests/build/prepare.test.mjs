@@ -87,7 +87,13 @@ esac
 `,
   );
   await chmod(uv, 0o755);
-  return { SEANCHAI_ROOT: directory, PATH: `${bin}${path.delimiter}${process.env.PATH}`, SEANCHAI_PLUGIN: '' };
+  // Its export, not one the environment names, and no plugin made already.
+  return {
+    SEANCHAI_ROOT: directory,
+    PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+    SEANCHAI_EXPORT: '',
+    SEANCHAI_PLUGIN: '',
+  };
 }
 
 test('prepare ships SEANCHAI_PLUGIN as it is', async () => {
