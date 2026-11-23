@@ -56,6 +56,57 @@ export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
  */
 export type Category = 'M' | 'C' | 'O';
 /**
+ * The layouts a clause names for an AVP's payload, each defined in the
+ * clause cited. A closed set, read from TS 29.272 Release 19's clauses: a
+ * layout no clause states is not here.
+ *
+ * - `e164-tbcd`: an international number (ITU-T E.164, at most 15 decimal
+ *   digits) as a TBCD-string, TS 29.002 clause 17.7.8: two digits per
+ *   octet, the first in bits 1-4, "1111" filling the last octet's bits 5-8
+ *   after an odd count, with no octet for the nature of address and the
+ *   numbering plan (TS 29.272 clauses 7.3.39, 7.3.85).
+ * - `plmn-id`: MCC and MNC in three octets, TS 29.272 table 7.3.9/1 after
+ *   TS 24.008 clause 10.5.1.13: MCC digit 2 and 1 in octet 1, MNC digit 3
+ *   and MCC digit 3 in octet 2, MNC digit 2 and 1 in octet 3; a two-digit
+ *   MNC sets MNC digit 3 to "1111".
+ * - `plmn-id-prefix`: a `plmn-id` in the first three octets and further
+ *   octets after it (TS 29.272 table 7.3.64/1, Trace-Reference).
+ * - `digits`: decimal digits as text, a character each (TS 29.272 clauses
+ *   7.3.4, 7.3.50).
+ * - `labels`: one or more non-empty labels separated by dots, as text
+ *   (TS 29.272 clause 7.3.32).
+ * - `apn`: `labels`, or the wild card APN `*` (TS 29.272 clause 7.3.36).
+ * - `plmn-domain`: `mnc<MNC>.mcc<MCC>.3gppnetwork.org` (TS 29.272 clause
+ *   7.3.105), MNC two or three digits and MCC three.
+ * - `epc-plmn-domain`: `epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org` (TS 29.272
+ *   clause 7.3.43).
+ * - `ip-address`: an Address of family IPv4 (1) or IPv6 (2) (RFC 6733
+ *   clause 4.3.1), the clause allowing no other (TS 29.272 clause 7.3.98).
+ * - `time-zone`: the offset from UTC in units of 15 minutes, a sign and
+ *   decimal digits, `+8` (TS 29.272 clause 7.3.163).
+ * - `element`: an information element another document defines, carried
+ *   whole: `document`, and the `clause` and `element` name where the
+ *   clause gives them. Checked no further than a length rule states.
+ */
+export type Codec =
+  | 'e164-tbcd'
+  | 'plmn-id'
+  | 'plmn-id-prefix'
+  | 'digits'
+  | 'labels'
+  | 'apn'
+  | 'plmn-domain'
+  | 'epc-plmn-domain'
+  | 'ip-address'
+  | 'time-zone'
+  | 'element';
+/**
+ * What a `length` rule counts: the payload's octets, the decimal digits
+ * an encoding carries (a TBCD-string's, or a digit string's), or the
+ * characters of a text.
+ */
+export type LengthUnit = 'octets' | 'digits' | 'characters';
+/**
  * ABNF bracket around an AVP reference inside a message/grouped rule.
  */
 export type Presence = 'fixed' | 'required' | 'optional';
@@ -272,7 +323,13 @@ export interface Document {
  * - `columns`, `element_rows` and `described` for an Information Elements
  *   block, `name` being the command it describes and `described` where the
  *   model finds that command, none where the block names none or several
- *   applications print it.
+ *   applications print it;
+ * - `interpreted`, `avp_target` and `readings` for an Interpreted
+ *   Constraints block, `name` being the AVP it constrains, `avp_target`
+ *   where its `; AVP:` line links, and `fields` its scope (`Command`,
+ *   `Application-ID` or `Within`) and `Versions`. `interpreted` is true
+ *   only here: a person read the block in the clause's prose, and no
+ *   document prints it as structure.
  *
  * `commands` marks where its lines name a command.
  */
@@ -291,10 +348,12 @@ export interface Block {
   fields: {
     [k: string]: string;
   };
+  interpreted?: boolean;
   last: number;
   line: number;
   name?: string | null;
   page: number | null;
+  readings?: ConstraintReading[];
   reservations?: Reservation[];
   rows?: TableRow[];
   rule?: Rule | null;
@@ -379,6 +438,52 @@ export interface ElementRow {
   line: number;
   name: string;
   printed?: string | null;
+}
+/**
+ * Quotes and the rules read from them.
+ */
+export interface ConstraintReading {
+  quotes: ConstraintQuote[];
+  rules: ConstraintRule[];
+}
+/**
+ * A sentence an Interpreted Constraints block quotes, at `line`,
+ * unescaped.
+ */
+export interface ConstraintQuote {
+  line: number;
+  text: string;
+}
+/**
+ * A rule of an Interpreted Constraints block at `line`, by `kind`, as
+ * the dictionary's `Rule`: `length` has `unit`, `low` and `high`; `range`
+ * `low` and `high`; `exclude` `values`; `encoding` `codec`, and an
+ * `element`'s `document`, `clause` and `element`; `present-if`,
+ * `absent-if`, `requires` and `excludes` their `conditions`, alternatives;
+ * `text-only` nothing.
+ */
+export interface ConstraintRule {
+  clause?: string | null;
+  codec?: Codec | null;
+  conditions?: ConstraintCondition[];
+  document?: string | null;
+  element?: string | null;
+  high?: number | null;
+  kind:
+    'length' | 'range' | 'exclude' | 'encoding' | 'present-if' | 'absent-if' | 'requires' | 'excludes' | 'text-only';
+  line: number;
+  low?: number | null;
+  unit?: LengthUnit | null;
+  values?: number[];
+}
+/**
+ * A predicate's condition: the sibling `avp` present, holding `value`,
+ * or with `bit` set, a number or a name.
+ */
+export interface ConstraintCondition {
+  avp: string;
+  bit?: number | string | null;
+  value?: number | string | null;
 }
 /**
  * A registry's `; RESERVED first..last` line at `line`.
@@ -471,7 +576,7 @@ export interface EnumEntry {
  * A declaration the file cites, by its reason.
  */
 export interface Correction {
-  kind: 'correction' | 'delete' | 'insert' | 'supply' | 'accept';
+  kind: 'correction' | 'delete' | 'insert' | 'supply' | 'interpret' | 'accept';
   reason: string;
 }
 /**

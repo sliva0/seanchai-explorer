@@ -504,8 +504,9 @@ test('an interfaces list marks each name a query matches', () => {
 
 test('a specification found by an interface shows it marked, even where its title names it', async () => {
   const documents = [
+    // Newer than the fixture's own TS 29.272, which it stands in for.
     {
-      ...summaryOf('29272-x', '3GPP', '3GPP TS 29.272', 18),
+      ...summaryOf('29272-x', '3GPP', '3GPP TS 29.272', 20),
       reference: 'TS29.272',
       title: 'Mobility Management; Diameter protocol',
       interfaces: ['S6a', 'S6d', 'S7a', 'S7d', 'S13', "S13'"],
