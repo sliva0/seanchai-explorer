@@ -1,3 +1,4 @@
+import type { ComponentChild } from 'preact';
 import { openSite, paneKind, siteURL } from './data.ts';
 import { element } from './dom.ts';
 import { renderDocument } from './document-view.ts';
@@ -5,7 +6,8 @@ import type { DocumentView } from './document-view.ts';
 import { createHelp } from './help.ts';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
-import { renderIndex } from './index-view.ts';
+import { IndexView } from './index-view.tsx';
+import { mount } from './island.ts';
 import { createJumpControls } from './jump-controls.ts';
 import { createJumpList } from './jump-list.ts';
 import type { JumpEntry, JumpWalk } from './jump-list.ts';
@@ -68,7 +70,15 @@ function focusHeading() {
   (content.querySelector('h1') ?? content).focus({ preventScroll: true });
 }
 
+/** Draws a page's component into the content, or with none clears what was drawn for a page drawn by hand. */
+const draw = (page: ComponentChild) => {
+  mount(null, content);
+  content.replaceChildren();
+  if (page) mount(page, content);
+};
+
 function showMessage(heading: string, detail?: string) {
+  draw(null);
   content.className = '';
   setTitle(heading);
   const title = element('h1', heading);
@@ -295,7 +305,7 @@ try {
     if (!parsed.document) {
       leaveDocument('index-view');
       setTitle();
-      renderIndex(content, site);
+      draw(<IndexView site={site} />);
       if (arrived) focusHeading();
       if (place) content.scrollTop = place.offset;
       return;
@@ -303,6 +313,7 @@ try {
     if (parsed.document === 'search') {
       leaveDocument('');
       setTitle('Search');
+      draw(null);
       renderSearch(content, site, parsed.query, () => generation === request, {
         returning: Boolean(place),
         onReady: () => {
@@ -315,6 +326,7 @@ try {
     if (parsed.document === WIRESHARK) {
       leaveDocument('wireshark-view');
       setTitle('Wireshark plugin');
+      draw(null);
       renderWireshark(content, site, () => generation === request);
       if (arrived) focusHeading();
       if (place) content.scrollTop = place.offset;
@@ -340,6 +352,7 @@ try {
           content.className = '';
           const status = element('p', `Loading ${site.label(meta)}…`);
           status.setAttribute('role', 'status');
+          draw(null);
           content.replaceChildren(status);
         }, 150);
         // The command index comes with the first document, for its commands' names to know where they go.
@@ -350,6 +363,7 @@ try {
         ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         content.className = 'document-view';
+        draw(null);
         view = renderDocument(content, services, doc, raw);
         content.querySelector('.document-header')!.prepend(jumpControls.node);
       }

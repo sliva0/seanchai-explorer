@@ -144,7 +144,8 @@ export async function boot({
   for (const name of globals) globalThis[name] = window[name];
   globalThis.window = window;
   boots += 1;
-  await import(`../../src/${entry}.ts?boot=${boots}`);
+  // The site's own entry is a component module; the other pages' are plain TypeScript.
+  await import(`../../src/${entry}.${entry === 'main' ? 'tsx' : 'ts'}?boot=${boots}`);
   await settle();
   return {
     window,
