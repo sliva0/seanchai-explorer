@@ -635,6 +635,9 @@ test('the index of the fixture holds every command search does, with the applica
   );
   assert.deepEqual(got.toSorted(), expected.toSorted());
   assert.equal(built.schema_version, index.schema_version);
+  const exported = await readFixture('commands.json');
+  assert.deepEqual(built.commands, exported.commands, 'what a schema-2 build derives is what the export writes');
+  assert.deepEqual(built.registry, exported.registry);
 });
 
 test('the index names an application by its id as an Application IDs registry prints it, the first to say', () => {

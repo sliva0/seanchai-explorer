@@ -3,7 +3,16 @@ import { cp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
-const documents = ['29061-6f0', '29109-j00', '29153-j00', '29217-j00', '29283-j00', '29329-j10', 'rfc7944'];
+const documents = [
+  '29061-6f0',
+  '29109-j00',
+  '29153-j00',
+  '29217-j00',
+  '29283-j00',
+  '29328-j20',
+  '29329-j10',
+  'rfc7944',
+];
 const from = path.resolve(process.argv[2] ?? 'public/data');
 const to = fileURLToPath(new URL('../tests/fixtures/export/', import.meta.url));
 const read = async file => JSON.parse(await readFile(path.join(from, file), 'utf8'));
@@ -21,6 +30,13 @@ await write('search.json', {
   ...search,
   entries: search.entries.filter(entry => wanted.has(entry.document)),
   mentions: search.mentions.filter(mention => wanted.has(mention.document)),
+});
+// Every application's name stays: it is what the corpus's registries print, and a popup may name any.
+const commands = await read('commands.json');
+await write('commands.json', {
+  ...commands,
+  commands: commands.commands.filter(command => wanted.has(command.document)),
+  registry: commands.registry.filter(row => wanted.has(row.document)),
 });
 await cp(path.join(from, 'schema.json'), path.join(to, 'schema.json'));
 await cp(path.join(from, 'syntax'), path.join(to, 'syntax'), { recursive: true });

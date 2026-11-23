@@ -105,7 +105,7 @@ and echo "Installed $file"
 `;
 }
 
-/** The versions the plugin was generated from, `seanchai 0.2.0, corpus 2026.11.11`, or null where it does not say. */
+/** The versions the plugin was generated from, `seanchai 0.2.0, corpus 2026.11.12`, or null where it does not say. */
 export function pluginVersions(text: string): string | null {
   return text.match(VERSIONS_LINE)?.[1].trim() || null;
 }

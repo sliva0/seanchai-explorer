@@ -13,6 +13,7 @@ import {
   paneFile,
   paneKind,
   paneURL,
+  publisherRank,
   publisherURL,
   sourceHref,
 } from '../../src/data.ts';
@@ -107,6 +108,7 @@ test('a name keeps of its publisher what its context does not say', () => {
     ['3GPP2', '3GPP2 X.S0013-006', '3GPP2 X.S0013-006', '3GPP2 X.S0013-006'],
     ['oneM2M', 'oneM2M TS-0004', 'oneM2M TS-0004', 'oneM2M TS-0004'],
     ['OMA', 'OMA-DDS-Charging_Data', 'OMA-DDS-Charging_Data', 'OMA-DDS-Charging_Data'],
+    ['Private', 'Private Acme-Gx', 'Private Acme-Gx', 'Acme-Gx'],
   ];
   for (const [publisher, specification, name, number] of cases) {
     assert.equal(docName({ publisher, specification }), name);
@@ -117,6 +119,11 @@ test('a name keeps of its publisher what its context does not say', () => {
     'TS 29.229 V19.1.0',
   );
   assert.equal(docVersioned({ publisher: 'IETF', specification: 'RFC 6733', version: null }), 'RFC 6733');
+});
+
+test("a private document's publisher comes after every other, and one not named after that", () => {
+  assert.ok(publisherRank('Private') > publisherRank('OMA'));
+  assert.ok(publisherRank('Private') < publisherRank('Someone'));
 });
 
 test('only an edition the corpus holds a newer one of says which it is', () => {

@@ -293,7 +293,7 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     ]);
     assert.deepEqual(
       texts(popup, '.popup-row-title'),
-      ['AVP Table 6.3.1 · Application-ID 16777217'],
+      ['AVP Table 6.3.1 · 3GPP Sh/Ph'],
       "the row's table and the application of its commands, opened away from it; alone, not marked as applying",
     );
     assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M, V'], 'no empty columns, no P');
@@ -375,8 +375,8 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     assert.deepEqual(
       titles(popup),
       [
-        'AVP Table 6.3.1 · Application-ID 16777217 · applies here',
-        'Reused AVPs 6.3.1 · Application-ID 16777217 · applies here',
+        'AVP Table 6.3.1 · 3GPP Sh/Ph · applies here',
+        'Reused AVPs 6.3.1 · 3GPP Sh/Ph · applies here',
         'AVP Table 9.2 · RFC 7944',
       ],
       "the tables of the command opened in first and marked, then the defining document's",

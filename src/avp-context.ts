@@ -7,7 +7,7 @@ export { avpRows } from './blocks.ts';
 export type { AvpRow } from './blocks.ts';
 export type { Member, Presence } from './types.ts';
 
-/** A `Message`, `Answer Message`, `Grouped AVP` or `Reprinted AVP` block's rule. `label` is a command's name and abbreviation. */
+/** A `Message`, `Answer Message` or `Grouped AVP` block's rule, or a schema-2 export's `Reprinted AVP`'s. `label` is a command's name and abbreviation. */
 export interface Rule {
   kind: string;
   name: string;
@@ -83,7 +83,7 @@ export function commandsBeside(file: DadFile, section: string): Block[] {
   return [];
 }
 
-/** The Grouped AVP and reprinted rules a file gives a name. */
+/** The Grouped AVP rules a file gives a name, reprinted ones too, which a schema-2 export calls `Reprinted AVP`. */
 export const groupedRules = (file: DadFile, name: string): Rule[] =>
   (rulesByName(file).get(name) ?? []).filter(rule => rule.kind === 'Grouped AVP' || rule.kind === 'Reprinted AVP');
 

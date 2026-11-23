@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { commandIndex } from '../src/commands.ts';
 import { PLUGIN_PATH } from '../src/plugin-file.ts';
-import { SCHEMA_VERSION } from '../src/types.ts';
+import { READ_SCHEMAS, readsSchema } from '../src/schema.ts';
 import { hasCommand, pluginVersions, project, release, runSeanchai, seanchai, specifications } from './seanchai.mjs';
 
 const selfHosted = process.argv.includes('--self-hosted');
@@ -53,8 +53,8 @@ const said = versions => `seanchai ${versions.seanchai}, corpus ${versions.corpu
 const exported = { seanchai: index.seanchai_version, corpus: index.corpus_version };
 const pin = { seanchai: release.seanchai, corpus: release['seanchai-corpus'] };
 const problem =
-  !anySchema && index.schema_version !== SCHEMA_VERSION
-    ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
+  !anySchema && !readsSchema(index.schema_version)
+    ? `Export schema ${index.schema_version}, expected ${READ_SCHEMAS.join(' or ')}`
     : index.mode !== mode
       ? `A ${mode} build cannot use a ${index.mode} export`
       : pinned && (exported.seanchai !== pin.seanchai || exported.corpus !== pin.corpus)
@@ -65,10 +65,12 @@ if (problem) {
   throw new Error(problem);
 }
 
-// What a command's popup says of the corpus, small enough to fetch with a document where search.json is not.
+// What a command's popup says of the corpus, for an export of schema 2, which has no commands.json.
 const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
-const documents = await Promise.all(index.documents.map(doc => read(doc.path)));
-await writeFile(path.join(temporary, 'commands.json'), JSON.stringify(commandIndex(documents, index.schema_version)));
+if (!existsSync(path.join(temporary, 'commands.json'))) {
+  const documents = await Promise.all(index.documents.map(async doc => ({ ...(await read(doc.path)), id: doc.id })));
+  await writeFile(path.join(temporary, 'commands.json'), JSON.stringify(commandIndex(documents, index.schema_version)));
+}
 
 await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });

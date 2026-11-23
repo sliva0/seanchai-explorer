@@ -1,37 +1,13 @@
 import { perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
-import type { Block, Line } from './types.ts';
+import type { Block, Commands, IndexedCodeRow, IndexedCommand, Line } from './types.ts';
 import type { ValueToken } from './values.ts';
 
-/** A `; Type: Message` block: a command as its file prints it. `line` is its `; Type:` line. */
-export interface CommandBlock {
-  name: string;
-  abbreviation: string | null;
-  section: string;
-  page: number | null;
-  line: number;
-  code: number;
-  /** The header's flags as it prints them: `REQ`, `PXY`, `ERR`. */
-  flags: string[];
-  /** The Application-ID the header prints, null for a bare one. */
-  header: number | null;
-  /** The command's own: the header's, or for a bare header the one the first Application Scope block covering its clause states. */
-  application: number | null;
-  /** The Application Scope block naming the application, and for a bare header the one stating its id. */
-  scope: { name: string; section: string } | null;
-}
+/** A `; Type: Message` block: a command as its file prints it, as `commands.json` has it less its document. */
+export type CommandBlock = Omit<IndexedCommand, 'document'>;
 
 /** A row of a `Command Codes` registry, at `line`: a code, its request and answer. `defined` is the documents its Defined-In cell links to. */
-export interface CommandCodeRow {
-  code: number;
-  name: string;
-  abbreviation: string | null;
-  section: string;
-  page: number | null;
-  line: number;
-  table: string | null;
-  defined: string[];
-}
+export type CommandCodeRow = Omit<IndexedCodeRow, 'document'>;
 
 /** An AVP table with a column per command, TS 32.299's ACR to CCA. `line` is its `; Type:` line. */
 export interface CommandTable {
@@ -58,21 +34,9 @@ export interface CommandFacts {
   tables: CommandTable[];
 }
 
-/** A command as the corpus index has it: a block and its document. */
-export interface IndexedCommand extends CommandBlock {
-  document: string;
-}
-export interface IndexedCodeRow extends CommandCodeRow {
-  document: string;
-}
-/** `commands.json`, which prepare derives from the export's documents for what one document cannot say of a command. */
-export interface CommandIndex {
-  schema_version: number;
-  commands: IndexedCommand[];
-  registry: IndexedCodeRow[];
-  /** An application's name by its id, as the corpus's Application IDs registries print it. */
-  applications: Record<string, string>;
-}
+export type { IndexedCodeRow, IndexedCommand } from './types.ts';
+/** `commands.json`, the export's index of every document's commands, for what one document cannot say of a command. */
+export type CommandIndex = Commands;
 
 export const isRequest = (command: Pick<CommandBlock, 'flags'>) => command.flags.includes('REQ');
 /** What tells a command's names on a page from another's: `271 answer`. */
@@ -184,7 +148,10 @@ export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
   return facts;
 });
 
-/** What a set of documents says of their commands, for `commands.json`. */
+/**
+ * What a set of documents says of their commands, as `commands.json` says it: what prepare writes for an export of
+ * schema 2, which has none. Goes once the pinned release writes schema 3 (CONTRIBUTING.md, "Generated files").
+ */
 export function commandIndex(documents: (DadFile & { id: string })[], schemaVersion: number): CommandIndex {
   const index: CommandIndex = { schema_version: schemaVersion, commands: [], registry: [], applications: {} };
   for (const file of documents) {

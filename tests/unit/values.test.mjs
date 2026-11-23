@@ -310,11 +310,18 @@ test("the exported grammar colours a row's name, number and clause or mark, and 
   assert.equal(features.tokens[0].scope, 'variable.other.enum.dad');
   assert.equal(scopeOf(features, 'M') ?? scopeOf(features, 'O'), 'string.unquoted.enum-note.dad');
   const reprint = await scoped('29109-j00');
-  const from = reprint.find(line => line.tokens.map(token => token.text).join('') === '; From: RFC6733\n');
-  assert.equal(scopeOf(from, 'From'), 'keyword.other.directive.dad');
+  const from = reprint.find(line => line.tokens.map(token => token.text).join('') === '; Reprints: RFC6733\n');
+  assert.equal(scopeOf(from, 'Reprints'), 'keyword.other.directive.dad');
   assert.equal(scopeOf(from, 'RFC6733'), 'entity.name.tag.spec-ref.dad');
-  const type = reprint.find(line => line.tokens.map(token => token.text).join('') === '; Type: Reprinted AVP\n');
-  assert.equal(scopeOf(type, 'Reprinted AVP'), 'storage.type.section.dad');
+  const elements = await scoped('29328-j20');
+  const type = elements.find(
+    line => line.tokens.map(token => token.text).join('') === '; Type: Information Elements\n',
+  );
+  assert.equal(scopeOf(type, 'Information Elements'), 'storage.type.section.dad');
+  const command = elements.find(line => line.tokens[0].text === '; ' && line.tokens[1]?.text === 'Command');
+  assert.equal(scopeOf(command, 'Command'), 'keyword.other.directive.dad');
+  assert.equal(scopeOf(command, 'User-Data-Request'), 'string.unquoted.directive-value.dad');
+  assert.equal(command.tokens.find(token => token.text === 'User-Data-Request').target.document, '29329-j10');
   const origin = (await scoped('29283-j00')).find(line => line.tokens[0].text === 'DIAMETER_ERROR_USER_UNKNOWN');
   assert.equal(scopeOf(origin, '7.4.3.2'), 'string.unquoted.enum-note.dad');
   assert.equal(origin.tokens.find(token => token.text === 'from').scope, 'keyword.other.from.dad');

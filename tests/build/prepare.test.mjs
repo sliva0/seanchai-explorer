@@ -44,29 +44,49 @@ test("prepare uses the export's grammar, the fallback when it has none, and leav
   }
 });
 
-test("prepare derives the command index from the export's documents, beside them", async () => {
+test("prepare keeps the export's command index", async () => {
   const exported = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
   prepare(exported);
-  const index = JSON.parse(await readFile(path.join(root, 'public/data/commands.json'), 'utf8'));
-  const search = JSON.parse(await readFile(path.join(exported, 'search.json'), 'utf8'));
-  assert.equal(index.schema_version, search.schema_version);
-  assert.equal(index.commands.length, search.entries.filter(entry => entry.kind === 'command').length);
-  assert.deepEqual(
-    index.commands.find(command => command.document === '29061-6f0' && command.name === 'AA-Answer'),
-    {
-      document: '29061-6f0',
-      name: 'AA-Answer',
-      abbreviation: 'AAA',
-      section: '17.6.2',
-      page: 83,
-      line: 43,
-      code: 265,
-      flags: ['PXY'],
-      header: null,
-      application: 16777223,
-      scope: { name: 'Gmb', section: '17' },
-    },
-  );
+  const read = async (directory, file) => JSON.parse(await readFile(path.join(directory, file), 'utf8'));
+  assert.deepEqual(await read(path.join(root, 'public/data'), 'commands.json'), await read(exported, 'commands.json'));
+});
+
+test('prepare derives the command index of a schema-2 export, which has none, as schema 3 exports it', async () => {
+  const fixture = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
+  const exported = await mkdtemp(path.join(tmpdir(), 'seanchai-export-'));
+  try {
+    await cp(fixture, exported, { recursive: true });
+    await rm(path.join(exported, 'commands.json'));
+    const index = JSON.parse(await readFile(path.join(exported, 'index.json'), 'utf8'));
+    await writeFile(path.join(exported, 'index.json'), JSON.stringify({ ...index, schema_version: 2 }));
+    prepare(exported);
+    const derived = JSON.parse(await readFile(path.join(root, 'public/data/commands.json'), 'utf8'));
+    const commands = JSON.parse(await readFile(path.join(fixture, 'commands.json'), 'utf8'));
+    assert.equal(derived.schema_version, 2);
+    assert.deepEqual(derived.commands, commands.commands);
+    assert.deepEqual(
+      derived.commands.find(command => command.document === '29061-6f0' && command.name === 'AA-Answer'),
+      {
+        document: '29061-6f0',
+        name: 'AA-Answer',
+        abbreviation: 'AAA',
+        section: '17.6.2',
+        page: 83,
+        line: 43,
+        code: 265,
+        flags: ['PXY'],
+        header: null,
+        application: 16777223,
+        scope: { name: 'Gmb', section: '17' },
+      },
+    );
+    await writeFile(path.join(exported, 'index.json'), JSON.stringify({ ...index, schema_version: 1 }));
+    const old = run({ SEANCHAI_EXPORT: exported, SEANCHAI_PLUGIN: standIn });
+    assert.notEqual(old.status, 0);
+    assert.match(old.stderr, /Export schema 1, expected 2 or 3/);
+  } finally {
+    await rm(exported, { recursive: true, force: true });
+  }
 });
 
 /**

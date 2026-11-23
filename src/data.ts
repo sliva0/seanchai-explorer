@@ -1,6 +1,7 @@
 import type { DadFile } from './blocks.ts';
 import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
+import { READ_SCHEMAS, readsSchema } from './schema.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
@@ -16,8 +17,10 @@ async function loadJSON<T>(path: string): Promise<T> {
   const response = await fetch(dataURL(path));
   if (!response.ok) throw new Error(`${response.status}: ${path}`);
   const data = (await response.json()) as T & { schema_version: number };
-  if (data.schema_version !== SCHEMA_VERSION)
-    throw new Error(`Unsupported export schema ${data.schema_version} in ${path}, expected ${SCHEMA_VERSION}`);
+  if (!readsSchema(data.schema_version))
+    throw new Error(
+      `Unsupported export schema ${data.schema_version} in ${path}, expected ${READ_SCHEMAS.join(' or ')}`,
+    );
   return data;
 }
 
@@ -32,10 +35,12 @@ export function docName(doc: Named): string {
   return doc.publisher === '3GPP' ? doc.specification.replace(/^3GPP /, '') : doc.specification;
 }
 
-/** The name under a heading that says the publisher. 3GPP2, oneM2M and OMA keep their prefix, which carries meaning. */
+/** The name under a heading that says the publisher. 3GPP2, oneM2M and OMA keep their prefix, which carries meaning; a private document's `Private NAME` is its NAME. */
 export function docNumber(doc: Named): string {
   if (doc.publisher === '3GPP') return docName(doc).replace(/^TS /, '');
-  return doc.publisher === 'ETSI' ? doc.specification.replace(/^ETSI /, '') : doc.specification;
+  return doc.publisher === 'ETSI' || doc.publisher === 'Private'
+    ? doc.specification.replace(new RegExp(`^${doc.publisher} `), '')
+    : doc.specification;
 }
 
 /** The name beside its publisher's: OMA's `DDS-Charging_Data` reads as its publisher prints it, `DDS Charging_Data`. */
@@ -83,7 +88,8 @@ export function docTitle(doc: Titled): string {
   return docHeading(docLabel(doc), doc);
 }
 
-const PUBLISHER_ORDER = ['3GPP', 'IETF', 'ETSI', '3GPP2', 'oneM2M', 'OMA'];
+/** A private document, a vendor's or one's own, comes after every publisher's. */
+const PUBLISHER_ORDER = ['3GPP', 'IETF', 'ETSI', '3GPP2', 'oneM2M', 'OMA', 'Private'];
 
 /** Where a publisher's documents go in any list by publisher, one not named last. */
 export function publisherRank(publisher: string): number {

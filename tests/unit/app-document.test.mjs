@@ -138,13 +138,14 @@ test('a mention link marks its line, a later route clears it, and loading says s
   }
 });
 
-test("; From: links to the document a reprint comes from, and the block's names to theirs", async () => {
+test("; Reprints: links to the document a reprint comes from, and the block's names to theirs", async () => {
   const page = await boot({ hash: '#29109-j00' });
   try {
     const { document, window } = page;
     const lines = [...document.querySelectorAll('.dad-line')];
-    const type = lines.findIndex(line => line.textContent === '; Type: Reprinted AVP\n');
-    const from = lines.slice(type).find(line => line.textContent.startsWith('; From:'));
+    const from = lines.find(line => line.textContent.startsWith('; Reprints:'));
+    const type = lines.slice(0, lines.indexOf(from)).findLast(line => line.textContent.startsWith('; Type:'));
+    assert.equal(type.textContent, '; Type: Grouped AVP\n');
     const anchor = from.querySelector('a');
     assert.equal(anchor.textContent, 'RFC6733');
     assert.equal(anchor.getAttribute('href'), '#rfc6733');

@@ -225,12 +225,12 @@ test(
   },
 );
 
-test('public, desktop: ; From: links to the document a reprint comes from', { skip }, async () => {
+test('public, desktop: ; Reprints: links to the document a reprint comes from', { skip }, async () => {
   const { page, context, done } = await open('#29109-j00');
   const pages = [];
   context.on('page', opened => pages.push(opened));
   const from = page
-    .locator('.dad-line', { hasText: /^; From: RFC6733/ })
+    .locator('.dad-line', { hasText: /^; Reprints: RFC6733/ })
     .first()
     .locator('a');
   assert.equal(await from.getAttribute('href'), '#rfc6733');

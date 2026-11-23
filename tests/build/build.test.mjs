@@ -8,6 +8,7 @@ import path from 'node:path';
 import test from 'node:test';
 import Ajv2020 from 'ajv/dist/2020.js';
 import { rfcPages } from '../../src/rfc-text.ts';
+import { SCHEMA_VERSION } from '../../src/types.ts';
 import { hasCommand } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
@@ -61,10 +62,13 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   await checkRfcAnchors(index);
   const grammar = await readFile(path.join(dist, 'data/syntax/dad.tmLanguage.json'));
   assert.deepEqual(await readFile(path.join(dist, 'syntax/dad.tmLanguage.json')), grammar);
-  assert.ok(
-    (await readFile(path.join(root, 'syntax/dad.tmLanguage.json'))).equals(grammar),
-    'syntax/dad.tmLanguage.json is behind the export: run npm run fixture',
-  );
+  // The committed copy is the grammar of the schema the site is generated from: a schema-2 export's, the pinned
+  // release's, is older, and has no Information Elements.
+  if (index.schema_version === SCHEMA_VERSION)
+    assert.ok(
+      (await readFile(path.join(root, 'syntax/dad.tmLanguage.json'))).equals(grammar),
+      'syntax/dad.tmLanguage.json is behind the export: run npm run fixture',
+    );
   const check = spawnSync(
     'node',
     ['scripts/check-public.mjs', fileURLToPath(new URL('fixtures/with-pdf/', import.meta.url))],

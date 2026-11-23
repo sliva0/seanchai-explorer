@@ -1,5 +1,5 @@
 -- Seanchaí: a stand-in for the Wireshark plugin `seanchai wireshark-plugin` writes, for the tests.
--- seanchai:versions seanchai 0.2.0, corpus 2026.11.11
+-- seanchai:versions seanchai 0.2.0, corpus 2026.11.12
 local EXPLORER = "https://sliva0.github.io/seanchai-explorer/" -- seanchai:explorer
 
 local seanchai = Proto("seanchai", "Seanchaí")

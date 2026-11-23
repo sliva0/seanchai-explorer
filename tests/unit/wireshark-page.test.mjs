@@ -85,7 +85,7 @@ test('the address is the page as served, without its route or query, wherever it
 });
 
 test('the versions line is read, and its absence is null', () => {
-  assert.equal(pluginVersions(plugin), 'seanchai 0.2.0, corpus 2026.11.11');
+  assert.equal(pluginVersions(plugin), 'seanchai 0.2.0, corpus 2026.11.12');
   assert.equal(pluginVersions('local x = 1\n'), null);
   assert.equal(pluginVersions('-- seanchai:versions   \n'), null);
 });
@@ -128,7 +128,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
     assert.equal(document.title, 'Wireshark plugin — Seanchaí');
     assert.equal(document.querySelector('main h1').textContent, 'Wireshark plugin');
     same(document.activeElement, document.querySelector('main h1'));
-    assert.equal(document.querySelector('.plugin-title .versions').textContent, 'seanchai 0.2.0, corpus 2026.11.11');
+    assert.equal(document.querySelector('.plugin-title .versions').textContent, 'seanchai 0.2.0, corpus 2026.11.12');
     assert.ok(page.fetched.includes('plugin/seanchai_diameter.lua'));
     assert.deepEqual(
       [...document.querySelectorAll('main h2')].map(node => node.textContent),
@@ -146,7 +146,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
       document.querySelector('main').textContent,
       [
         'Wireshark plugin',
-        'seanchai 0.2.0, corpus 2026.11.11',
+        'seanchai 0.2.0, corpus 2026.11.12',
         "Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to the publisher's copy and to this site.",
         'Filter for messages breaking a rule with seanchai.errors > 0. More on the plugin',
         'Install from a terminal (Linux and macOS)',

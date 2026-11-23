@@ -11,7 +11,7 @@ const schema = await readFixture('schema.json');
 test('every fixture file satisfies the schema the export ships', async () => {
   const validate = new Ajv2020({ strict: false, allErrors: true }).compile(schema);
   const documents = (await readdir(new URL('documents/', fixture))).map(name => `documents/${name}`);
-  for (const file of ['index.json', 'search.json', ...documents]) {
+  for (const file of ['index.json', 'search.json', 'commands.json', ...documents]) {
     assert.ok(validate(await readFixture(file)), `${file}: ${JSON.stringify(validate.errors?.slice(0, 3))}`);
   }
   assert.equal(validate({ schema_version: SCHEMA_VERSION + 1, id: 'x', lines: [] }), false);

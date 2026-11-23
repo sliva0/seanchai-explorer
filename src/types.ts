@@ -1,7 +1,7 @@
 // Generated from the export's schema.json by scripts/generate-types.mjs. Do not edit.
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
-export type SeanchaiExport = Index | Search | Document | RawDocument;
+export type SeanchaiExport = Index | Search | Document | RawDocument | Commands;
 /**
  * The closed set of Diameter AVP data types: the basic formats of
  * RFC 6733 §4.2 and the common derived formats of §4.3.1, spelled as the
@@ -50,6 +50,12 @@ export type RegistryKind = 'Application IDs' | 'Command Codes' | 'AVP Codes' | '
 export type ValueKind = 'result-codes' | 'bits' | 'features';
 export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
 /**
+ * An information element's category, the "Cat." column of a stage-3
+ * document's per-command tables (TS 29.272 clause 5.2: "M" mandatory, "C"
+ * conditional, "O" optional).
+ */
+export type Category = 'M' | 'C' | 'O';
+/**
  * ABNF bracket around an AVP reference inside a message/grouped rule.
  */
 export type Presence = 'fixed' | 'required' | 'optional';
@@ -93,7 +99,7 @@ export interface DocumentSummary {
   interfaces: string[] | null;
   path: string;
   pinned: string | null;
-  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M';
+  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M' | 'Private';
   raw: string | null;
   reference: string;
   release: number | null;
@@ -237,7 +243,7 @@ export interface Document {
   lines: Line[];
   path: string;
   pinned: string | null;
-  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M';
+  publisher: '3GPP' | '3GPP2' | 'ETSI' | 'IETF' | 'OMA' | 'oneM2M' | 'Private';
   raw: string | null;
   reference: string;
   release: number | null;
@@ -254,14 +260,19 @@ export interface Document {
  * `Name` to `Applies-To`; `name` and `abbreviation` are what its `; Name:`
  * or `; AVP:` names. What else it holds depends on `type`:
  *
- * - `rule` for a Message, Answer Message, Grouped AVP or Reprinted AVP, with
- *   `command` for a Message and `avp` for a Grouped or Reprinted AVP;
+ * - `rule` for a Message, Answer Message or Grouped AVP, with `command` for
+ *   a Message and `avp` for a Grouped AVP, whose `fields` hold `Reprints`
+ *   where it reprints another document's rule;
  * - `avp` and `values` for an Enumerated AVP;
  * - `columns` and `rows` for an AVP Table or Reused AVPs block;
  * - `columns`, `allocations` and `reservations` for a Registry;
  * - `value_kind`, `feature_list_id`, `application`, `avp_target` and
  *   `value_rows` for a Value Table, `avp_target` being where its `; AVP:`
- *   line links.
+ *   line links;
+ * - `columns`, `element_rows` and `described` for an Information Elements
+ *   block, `name` being the command it describes and `described` where the
+ *   model finds that command, none where the block names none or several
+ *   applications print it.
  *
  * `commands` marks where its lines name a command.
  */
@@ -274,6 +285,8 @@ export interface Block {
   columns?: string[];
   command?: Command | null;
   commands?: CommandSpan[];
+  described?: Target[];
+  element_rows?: ElementRow[];
   feature_list_id?: number | null;
   fields: {
     [k: string]: string;
@@ -351,6 +364,21 @@ export interface CommandSpan {
   name: string;
   request: boolean;
   start: number;
+}
+/**
+ * A row of an Information Elements block at `line`, `cells` as a
+ * `TableRow`'s: the element's `name` unquoted, the `avps` its mapping cell
+ * names (`either`: one of them) or the cell as `printed`, and its
+ * `category`, `M`, `C` or `O`.
+ */
+export interface ElementRow {
+  avps?: string[];
+  category?: Category | null;
+  cells: string[];
+  either?: boolean;
+  line: number;
+  name: string;
+  printed?: string | null;
 }
 /**
  * A registry's `; RESERVED first..last` line at `line`.
@@ -553,4 +581,61 @@ export interface RawDocument {
   id: string;
   lines: Line[];
   schema_version: number;
+}
+/**
+ * `commands.json`: every document's commands and Command Codes registry
+ * rows, in document order, and each application's name by its id as the
+ * first Application IDs registry naming it prints it, for what a page
+ * shows of a command another document defines.
+ */
+export interface Commands {
+  applications: {
+    [k: string]: string;
+  };
+  commands: IndexedCommand[];
+  registry: IndexedCodeRow[];
+  schema_version: number;
+}
+/**
+ * A Message block, as `commands.json` lists it across the corpus:
+ * `document` is the document's `id`, `line` its `; Type:` line, `flags` the
+ * header's in printed order, `header` the id the header prints and
+ * `application` the effective one.
+ */
+export interface IndexedCommand {
+  abbreviation: string | null;
+  application: number | null;
+  code: number;
+  document: string;
+  flags: CommandFlag[];
+  header: number | null;
+  line: number;
+  name: string;
+  page: number | null;
+  scope: Scope | null;
+  section: string;
+}
+/**
+ * The Application Scope block naming a command's application, and for a
+ * bare header the one stating its id (`Command.application` and
+ * `application_clause`).
+ */
+export interface Scope {
+  name: string;
+  section: string;
+}
+/**
+ * A Command Codes registry row with a code and a name, at `line` of
+ * `document`; `defined` is the documents its Defined-In cell resolves to.
+ */
+export interface IndexedCodeRow {
+  abbreviation: string | null;
+  code: number;
+  defined: string[];
+  document: string;
+  line: number;
+  name: string;
+  page: number | null;
+  section: string;
+  table: string | null;
 }
