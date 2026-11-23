@@ -1,5 +1,6 @@
 import { avpRows, blockAt, byName, cell, perFile } from './blocks.ts';
 import type { AvpRow, DadFile } from './blocks.ts';
+import { isInterpreted, lineText } from './constraints.ts';
 import { elementRowAt } from './elements.ts';
 import type { Block, ElementRow } from './types.ts';
 import type { Member, Presence } from './types.ts';
@@ -21,12 +22,17 @@ export interface Rule {
   members: Member[];
 }
 
-/** What one line says of a name on it: a member of a rule, the rule's own head, a table's row, or an information element's. */
+/**
+ * What one line says of a name on it: a member of a rule, the rule's own head, a table's row, an information element's,
+ * or a line of Interpreted Constraints: the AVP they are on (`subject`), the grouped AVP they hold within (`scope`), or
+ * a condition of a rule (`condition`).
+ */
 export type Use =
   | { kind: 'member'; rule: Rule; member: Member }
   | { kind: 'head'; rule: Rule }
   | { kind: 'row'; row: AvpRow }
-  | { kind: 'element'; block: Block; row: ElementRow };
+  | { kind: 'element'; block: Block; row: ElementRow }
+  | { kind: 'constraint'; block: Block; role: 'subject' | 'scope' | 'condition' };
 
 const rulesOf = perFile(
   ({ blocks }) =>
@@ -65,6 +71,11 @@ export function useAt(file: DadFile, index: number, name: string): Use | undefin
     if (rule.line === index) return rule.name === name ? { kind: 'head', rule } : undefined;
     const found = rule.members.find(item => item.line === index && item.name === name);
     return found && { kind: 'member', rule, member: found };
+  }
+  if (isInterpreted(block)) {
+    const text = lineText(file, index);
+    const role = text.startsWith('; AVP:') ? 'subject' : text.startsWith('; Within:') ? 'scope' : 'condition';
+    return { kind: 'constraint', block, role };
   }
   const element = elementRowAt(block, index);
   if (element) return element.avps?.includes(name) ? { kind: 'element', block, row: element } : undefined;

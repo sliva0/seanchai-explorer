@@ -13,6 +13,11 @@ test('compact comments remove only citation and occurrence markers', () => {
   );
   assert.equal(compactComment(';; note (keep this explanation)'), ';; note (keep this explanation)');
   assert.equal(
+    compactComment(';; interpreted: (TS29.272.py#imei-digits)'),
+    ';; interpreted',
+    'no colon left before nothing',
+  );
+  assert.equal(
     compactComment(';; inserted: from clause 16.4.7 (TS29.061.py#3gpp-sgsn-mcc-mnc-row)'),
     ';; inserted: from clause 16.4.7',
   );

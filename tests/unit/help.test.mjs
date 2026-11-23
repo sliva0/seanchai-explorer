@@ -52,10 +52,10 @@ test("it lists every control of controls.ts, the README's keys among them", asyn
     toggle(document).click();
     const help = dialog(document);
     assert.deepEqual(
-      [...help.querySelectorAll('h3')].map(node => node.textContent),
+      [...help.querySelectorAll('.help-group h3')].map(node => node.textContent),
       controlGroups.map(group => group.title),
     );
-    const terms = [...help.querySelectorAll('dt')].map(node =>
+    const terms = [...help.querySelectorAll('.help-group dt')].map(node =>
       [...node.querySelectorAll('kbd')].map(key => key.textContent),
     );
     assert.deepEqual(
@@ -122,14 +122,16 @@ test('the focus stays in the dialog while it is open', async () => {
     const help = dialog(document);
     const close = help.querySelector('.popup-title button');
     assert.equal(close.getAttribute('aria-label'), 'Close');
-    close.focus();
-    assert.equal(press(page, { key: 'Tab' }, close).defaultPrevented, true);
+    // Its last stop is the link to the page on interpreted constraints.
+    const last = [...help.querySelectorAll('a[href]')].at(-1);
+    last.focus();
+    assert.equal(press(page, { key: 'Tab' }, last).defaultPrevented, true);
     assert.ok(document.activeElement === close, 'Tab wraps');
     assert.equal(press(page, { key: 'Tab', shiftKey: true }, close).defaultPrevented, true);
-    assert.ok(document.activeElement === close, 'and Shift+Tab');
+    assert.ok(document.activeElement === last, 'and Shift+Tab');
     help.focus();
     assert.equal(press(page, { key: 'Tab', shiftKey: true }, help).defaultPrevented, true);
-    assert.ok(document.activeElement === close);
+    assert.ok(document.activeElement === last);
     document.querySelector('.index-view a').focus();
     assert.ok(help.contains(document.activeElement), 'the focus sent outside comes back');
     close.click();

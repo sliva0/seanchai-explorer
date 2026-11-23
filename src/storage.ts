@@ -9,6 +9,8 @@ export const storageKeys = {
   theme: 'seanchai-theme',
   /** Local: `definition` or `details`, where a click on a name goes first. */
   clickTarget: 'seanchai-click-target',
+  /** Local: `shown` or `hidden`, a document's Interpreted Constraints blocks. */
+  interpreted: 'seanchai-interpreted',
   /** Local: `posix` or `fish`, the shell the Wireshark page's install script is written for. */
   installShell: 'seanchai-install-shell',
   /** Local: `visible` or `hidden`, the PDF viewer's chapters. */

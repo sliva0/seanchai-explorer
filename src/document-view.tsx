@@ -10,6 +10,7 @@ import type { Site } from './data.ts';
 import { lineAnnotations } from './annotations.ts';
 import type { LineAnnotation } from './annotations.ts';
 import { compactComment } from './comments.ts';
+import { interpretedLines } from './constraints.ts';
 import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
@@ -19,6 +20,7 @@ import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
 import { SourceToggle, Workspace } from './source-pane.tsx';
+import { readStored, writeStored } from './storage.ts';
 import type { SourcePane } from './source-pane.tsx';
 import type { Document, Line, RawDocument } from './types.ts';
 import { valueRowAt, valueTables, valueTableTitle } from './values.ts';
@@ -177,12 +179,16 @@ export interface DocumentView {
   valueRow(section: string, name: string): ValueRow | undefined;
   /** The section at the top of the view, which a jump to it would leave there. */
   currentSection(): string | undefined;
+  /** Leaves the Interpreted Constraints blocks out of the text, or puts them back, keeping the line at the top there. */
+  hideInterpreted(hidden: boolean): void;
 }
 
 /** What the strip around the text sets for it, read at the moment of a click. */
 interface Settings {
   prefer(): ClickTarget;
   uses(): boolean;
+  /** The text has put the Interpreted Constraints blocks back, for a move to a line among them. */
+  revealInterpreted(): void;
 }
 
 /**
@@ -205,10 +211,28 @@ function createText(
   const pre = renderLines(lines, doc, site, settings.prefer(), lineAnnotations(file, doc.id, site));
   documentPane.replaceChildren(pre);
   const rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
-  const sectionRows = rows.filter(row => row.dataset.section);
+  // Hidden Interpreted Constraints blocks have no box, so a search down the page by its boxes passes over them.
+  const interpreted = interpretedLines(file);
+  const hiding = () => documentPane.classList.contains('interpreted-hidden');
+  const hiddenRow = (row: HTMLElement) => hiding() && interpreted.has(Number(row.dataset.line));
+  let shown: { hidden: boolean; rows: HTMLElement[]; sections: HTMLElement[] } | undefined;
+  const shownRows = () => {
+    const hidden = hiding();
+    if (shown?.hidden !== hidden) {
+      const visible = hidden ? rows.filter(row => !hiddenRow(row)) : rows;
+      shown = { hidden, rows: visible, sections: visible.filter(row => row.dataset.section) };
+    }
+    return shown;
+  };
   /** The section a jump to it leaves at the top of the view, where its line sits below the margin and the end of the last section still shows above. */
   const currentSection = () =>
-    topRow(sectionRows, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
+    topRow(shownRows().sections, documentPane.getBoundingClientRect().top + JUMP_MARGIN + 4)?.dataset.section;
+  /** A move to a line in a hidden block shows the blocks again first. */
+  const reveal = (row: HTMLElement | undefined) => {
+    if (!row || !hiddenRow(row)) return;
+    documentPane.classList.remove('interpreted-hidden');
+    settings.revealInterpreted();
+  };
 
   const tokenOf = (node: HTMLElement) =>
     lines[Number(node.closest<HTMLElement>('.dad-line')!.dataset.line)].tokens[Number(node.dataset.token)];
@@ -379,6 +403,7 @@ function createText(
     target: HTMLElement,
     { smooth, flash: flashes, margin = JUMP_MARGIN }: { smooth: boolean; flash: boolean; margin?: number },
   ) {
+    reveal(target.closest<HTMLElement>('.dad-line') ?? undefined);
     scroller.to(scrollTopFor(documentPane, target, margin), smooth, () => {
       const row = target.closest<HTMLElement>('.dad-line');
       if (flashes && row) flash(row);
@@ -392,19 +417,24 @@ function createText(
     pointAtLine(line) {
       for (const node of documentPane.querySelectorAll('.target-line')) node.classList.remove('target-line');
       const row = line === undefined ? undefined : rows[line];
+      reveal(row);
       row?.classList.add('target-line');
       focusLater(row);
       return row;
     },
     sectionRow(section) {
       const row = document.getElementById(`section-${section}`) ?? undefined;
+      reveal(row);
       if (row && !focusable) focusLater(row);
       return row;
     },
     jumpTo,
     restore(top, offset) {
-      const row = rows[top];
+      // A line hidden since is the first shown after it, flush with the edge.
+      const hidden = rows[top] && hiddenRow(rows[top]);
+      const row = hidden ? rows.slice(top).find(other => !hiddenRow(other)) : rows[top];
       if (!row) return;
+      if (hidden) return void scroller.to(scrollTopFor(documentPane, row, 0), false);
       // A line with no saved offset is flush with the edge, except the first, above which the pane has only padding.
       scroller.to(top === 0 && offset === undefined ? 0 : scrollTopFor(documentPane, row, 0) + (offset ?? 0), false);
     },
@@ -414,7 +444,7 @@ function createText(
     },
     position() {
       const edge = documentPane.getBoundingClientRect().top;
-      const row = topRow(rows, edge);
+      const row = topRow(shownRows().rows, edge);
       return row && { top: Number(row.dataset.line), offset: edge - row.getBoundingClientRect().top };
     },
     pointedLine() {
@@ -423,6 +453,12 @@ function createText(
     },
     valueRow: (section, name) => valueRowAt(file, section, name),
     currentSection,
+    hideInterpreted(hidden) {
+      if (!interpreted.size || documentPane.classList.contains('interpreted-hidden') === hidden) return;
+      const at = view.position();
+      documentPane.classList.toggle('interpreted-hidden', hidden);
+      if (at) view.restore(at.top, hidden && interpreted.has(at.top) ? undefined : at.offset);
+    },
   };
   return view;
 }
@@ -476,15 +512,18 @@ function SectionList({
   doc,
   sectionLink,
   current,
+  hidden,
 }: {
   site: Site;
   doc: Document;
   sectionLink(section: string): ComponentChildren;
   current: string | undefined;
+  hidden: Set<string>;
 }) {
   return (
     <ul class="section-list">
-      {doc.sections.map(({ section, page, title: exported }) => {
+      {doc.sections.flatMap(({ section, page, title: exported }) => {
+        if (hidden.has(section)) return [];
         const title = sectionTitle(site, doc, section, exported);
         const tables = tablesNote(doc, section);
         return (
@@ -637,11 +676,26 @@ export function DocumentPage({
   const [shown, setShown] = useState<{ section: string } | undefined>(undefined);
   const preferred = useRef(prefer);
   preferred.current = prefer;
+  /** Whether the Interpreted Constraints blocks are left out of the text: kept for every document, shown by default. */
+  const [interpretedHidden, setInterpretedHidden] = useState(() => readStored('interpreted') === 'hidden');
+  const hiddenNow = useRef(interpretedHidden);
+  hiddenNow.current = interpretedHidden;
   const [settings] = useState<Settings>(() => ({
     prefer: () => preferred.current,
     uses: () => Boolean(usesBox.current?.checked),
+    // Shown again for a move to one, for this page alone: the stored choice stays.
+    revealInterpreted: () => setInterpretedHidden(false),
   }));
   const view = useRef<DocumentView>(undefined);
+  useLayoutEffect(() => view.current?.hideInterpreted(interpretedHidden), [interpretedHidden]);
+  const file = raw ?? doc;
+  const interpreted = interpretedLines(file);
+  /** The clauses holding only Interpreted Constraints blocks, which the Sections list leaves out while they are hidden. */
+  const interpretedSections = new Set(
+    interpretedHidden
+      ? file.lines.flatMap((line, index) => (line.anchor && interpreted.has(index) ? [line.anchor] : []))
+      : [],
+  );
   const sectionsPanel = useRef<HTMLDivElement>(null);
 
   const showCrumb = () => setCrumb(view.current?.currentSection());
@@ -668,7 +722,14 @@ export function DocumentPage({
     ['Holes', <HoleList key="holes" doc={doc} sectionLink={sectionLink} />],
     [
       'Sections',
-      <SectionList key="sections" site={site} doc={doc} sectionLink={sectionLink} current={shown?.section} />,
+      <SectionList
+        key="sections"
+        site={site}
+        doc={doc}
+        sectionLink={sectionLink}
+        current={shown?.section}
+        hidden={interpretedSections}
+      />,
     ],
   ];
   const crumbEntry = crumb ? doc.sections.find(section => section.section === crumb) : undefined;
@@ -702,6 +763,25 @@ export function DocumentPage({
         </div>
         <section id="controls" class={options ? 'options-open' : undefined}>
           {doc.raw && <RawLink doc={doc} raw={Boolean(raw)} section={() => view.current?.currentSection()} />}
+          {interpreted.size > 0 && (
+            <label
+              class="visibility-toggle interpreted-toggle"
+              title="Shows the Interpreted Constraints blocks: what a reader read in a clause's prose of an AVP's value or presence, which the document prints as no structure. Kept for every document"
+            >
+              {'Interpreted '}
+              <input
+                type="checkbox"
+                // What the browser would restore on a reload is the stored choice's to say.
+                autocomplete="off"
+                checked={!interpretedHidden}
+                onChange={event => {
+                  const hidden = !event.currentTarget.checked;
+                  writeStored('interpreted', hidden ? 'hidden' : 'shown');
+                  setInterpretedHidden(hidden);
+                }}
+              />
+            </label>
+          )}
           <button
             type="button"
             class="disclosure options-toggle"
@@ -752,6 +832,7 @@ export function DocumentPage({
             onScroll={showCrumb}
             onView={created => {
               view.current = created;
+              created.hideInterpreted(hiddenNow.current);
               showCrumb();
               onView(created);
             }}

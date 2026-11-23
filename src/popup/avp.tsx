@@ -28,6 +28,7 @@ import { elementPlace, memberPlaces } from '../element-places.ts';
 import { elementText, memberElements, tablesFor, tablesOf } from '../elements.ts';
 import type { ElementTable } from '../elements.ts';
 import { valueTableTitle } from '../values.ts';
+import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
 import { Counted, Entries, Panel, placeRows, RuleContents, Steps } from './shared.tsx';
 
@@ -77,6 +78,21 @@ function UseContext({ use, elements }: { use: Use; elements: string[] }) {
     else if (member.strikethrough) lines.push(<p class="fact-note">Struck through in the source</p>);
   } else if (use.kind === 'head') {
     lines.push(<p>{`Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`}</p>);
+  } else if (use.kind === 'constraint') {
+    const { block, role } = use;
+    const on = block.name ?? block.fields.AVP;
+    const scope = block.fields.Within
+      ? ` · within ${block.fields.Within}`
+      : block.fields.Command
+        ? ` · in ${block.fields.Command}`
+        : '';
+    const what =
+      role === 'subject'
+        ? `the AVP of interpreted constraints${scope}`
+        : role === 'scope'
+          ? `the grouped AVP interpreted constraints on ${on} hold within`
+          : `a condition of an interpreted rule on ${on}${scope}`;
+    lines.push(<p>{`Here: ${what} · ${block.section}`}</p>);
   } else if (use.kind === 'element') {
     const { block } = use;
     const table = block.fields.Table ? `table ${block.fields.Table}` : 'Information Elements';
@@ -447,6 +463,7 @@ export function AvpPopup(props: PopupProps) {
         </div>
       )}
       {use && <UseContext use={use} elements={elements.notes} />}
+      <ConstraintFacts site={site} pane={pane} request={request} use={use} />
       {definitionRows.map((item, index) => (
         <RowFacts
           key={index}

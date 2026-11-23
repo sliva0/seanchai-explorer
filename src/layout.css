@@ -304,6 +304,8 @@ ul {
   overflow: auto;
   padding: var(--space-3);
   overscroll-behavior: contain;
+  /* Its width is its column's, which a quote wraps within. */
+  container-type: inline-size;
 }
 #document:focus-visible {
   outline-offset: -2px;
@@ -518,10 +520,11 @@ pre {
   display: none;
 }
 /*
- * A member's category in its command's Information Elements tables, after the end of its line: laid over the text,
- * never moving a column, as tall as the line, and its letter drawn by CSS, so a copy of the text leaves it.
+ * After the end of a line, what the tables and the interpreted constraints say of the name it reads: a member's
+ * category in its command's Information Elements tables, and an italic i where interpreted constraints hold for it.
+ * Laid over the text, never moving a column, as tall as the line, and drawn by CSS, so a copy of the text leaves it.
  */
-.element-mark {
+.line-mark {
   position: absolute;
   margin-left: 2ch;
   padding: 0 0.4em;
@@ -536,6 +539,24 @@ pre {
 }
 .element-mark::before {
   content: attr(data-category);
+}
+/* Interpreted, not printed: a dashed edge, as the blocks' own lines have. */
+.constraint-mark::after {
+  content: "i";
+  font:
+    italic 600 1.15em/1 Georgia,
+    "Times New Roman",
+    serif;
+}
+.constraint-mark:not(.element-mark) {
+  box-shadow: none;
+  outline: 1px dashed var(--ui-border-strong);
+  outline-offset: -1px;
+}
+.element-mark.constraint-mark::after {
+  margin-left: 0.45em;
+  padding-left: 0.45em;
+  border-left: 1px dashed var(--ui-border-strong);
 }
 /* An Information Elements row's category is no flag, which the grammar takes an M for: one colour for M, C and O. */
 .dad-line.element-row [class*="avp-flag"] {
@@ -614,6 +635,10 @@ pre [class*="bracket.optional"] {
   color: var(--syntax-optional);
   background: var(--syntax-optional-bg);
 }
+pre [class*="support.type"] {
+  color: var(--syntax-type);
+  background: var(--syntax-type-bg);
+}
 pre [class*="variable.other.enum"],
 pre [class*="string.quoted"],
 pre [class*="enum-note"] {
@@ -648,6 +673,27 @@ pre [class*="empty-cell"] {
 .correction-note {
   color: var(--syntax-reference);
   font-style: italic;
+}
+/*
+ * An Interpreted Constraints block: a reader's reading of a clause's prose, which the document prints as no structure.
+ * A dashed edge in the correction notes' hue, two dashes a line so they run on from line to line; its `; Type:` line
+ * keeps a corrected line's tint, as its note cites the declaration.
+ */
+.dad-line.interpreted {
+  background-image: repeating-linear-gradient(to bottom, var(--interpreted-edge) 0 0.375lh, transparent 0.375lh 0.75lh);
+  background-repeat: no-repeat;
+  background-size: 2px 100%;
+}
+/* A quote wraps where the pane ends, or at about the width of the text's longer lines, under its own first letter. */
+.dad-line.constraint-quote {
+  max-width: max(48ch, min(100ch, 100cqi - 2 * var(--space-3)));
+  padding-left: 1ch;
+  text-indent: -1ch;
+  white-space: pre-wrap;
+}
+#document.interpreted-hidden .dad-line.interpreted,
+#document.interpreted-hidden .dad-line.interpreted-gap {
+  display: none;
 }
 .dad-line.target-line {
   background: var(--target-bg);
@@ -1186,6 +1232,72 @@ mark {
 .fact-note {
   color: var(--ui-muted);
 }
+/* What interpreted constraints hold where the name is read: a dashed edge, as their blocks have in the text. It gives way and scrolls where the popup is full. */
+.popup-constraints {
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 3rem;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding-left: var(--space-2);
+  border-left: 2px dashed var(--interpreted-edge);
+}
+.constraints-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--ui-muted);
+}
+.constraints-about {
+  margin-left: auto;
+}
+.constraint-scope {
+  color: var(--ui-muted);
+}
+.constraint-readings {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.constraint-reading summary {
+  font-weight: 600;
+}
+.constraint-reading summary::before {
+  margin-left: 0;
+}
+.constraint-reading details[open] > summary {
+  margin-bottom: 2px;
+}
+.constraint-text-only {
+  padding-left: calc(0.45em + 0.55em);
+}
+.constraint-kind {
+  color: var(--ui-muted);
+  font-style: italic;
+}
+.constraint-quote {
+  display: block;
+  color: var(--syntax-string);
+  font-family: var(--sans);
+  font-style: italic;
+  overflow-wrap: anywhere;
+}
+.constraint-text-only .constraint-quote {
+  display: inline;
+}
+.constraint-reading details .constraint-quote {
+  padding-left: calc(0.45em + 0.55em);
+}
+.constraint-group + .constraint-group {
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--ui-divider);
+}
+.constraint-places {
+  margin-top: 2px;
+}
 .popup-row-title {
   color: var(--ui-muted);
 }
@@ -1426,6 +1538,10 @@ mark {
 }
 .help-list dd {
   margin: 0;
+}
+.help-codecs code {
+  font: var(--text-xs)/1.5 var(--mono);
+  white-space: nowrap;
 }
 .help-list kbd {
   padding: 0 var(--space-1);
