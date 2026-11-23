@@ -48,8 +48,10 @@ const passes = {
 };
 for (const [name, pass] of Object.entries(passes)) {
   const compare = assert[name];
-  assert[name] = function checked(actual, expected, message) {
-    if (!holdsNode(actual) && !holdsNode(expected)) return compare.call(this, actual, expected, message);
+  // The message is passed on only where given: node takes an undefined one for a message of the wrong type.
+  assert[name] = function checked(actual, expected, ...rest) {
+    if (!holdsNode(actual) && !holdsNode(expected)) return compare.call(this, actual, expected, ...rest);
+    const [message] = rest;
     if (pass(actual, expected)) return;
     if (message instanceof Error) throw message;
     throw new assert.AssertionError({
