@@ -22,7 +22,7 @@ import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
 import { session } from './storage.ts';
 import { initTheme } from './theme.ts';
-import { renderWireshark } from './wireshark-view.ts';
+import { WiresharkView } from './wireshark-view.tsx';
 import type { Line } from './types.ts';
 
 const header = element('header');
@@ -326,8 +326,7 @@ try {
     if (parsed.document === WIRESHARK) {
       leaveDocument('wireshark-view');
       setTitle('Wireshark plugin');
-      draw(null);
-      renderWireshark(content, site, () => generation === request);
+      draw(<WiresharkView site={site} />);
       if (arrived) focusHeading();
       if (place) content.scrollTop = place.offset;
       return;

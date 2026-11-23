@@ -38,7 +38,9 @@
     // should run it again, not every value it reads.
     "react-hooks/exhaustive-deps": "off",
     // A list drawn whole from data that does not move, as a rule's members or a popup's uses, is keyed by its place.
-    "react/no-array-index-key": "off"
+    "react/no-array-index-key": "off",
+    // It reads a ref's `current` set in a handler or effect as a hook's value mutated, which Preact allows.
+    "react/immutability": "off"
   },
   "overrides": [
     {
