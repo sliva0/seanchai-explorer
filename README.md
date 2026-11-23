@@ -31,7 +31,8 @@ copy of the site it is downloaded from.
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
-text where it is. "Click goes to" is kept in the browser for every document.
+text where it is. "Click goes to" is kept in the browser for every document. In a window
+too narrow for the pane, it and "Click shows uses" fold under the strip's "Click options".
 
 A definition is the row of the first AVP table listing the name, or the clause its link
 names where that is another document's or there is no row. Details are the clause that

@@ -180,7 +180,7 @@ ul {
 .section-crumb:disabled {
   visibility: hidden;
 }
-#diagnostics .disclosure {
+#document-tools .disclosure {
   display: inline-flex;
   align-items: center;
   height: var(--control-height);
@@ -193,7 +193,7 @@ ul {
   white-space: nowrap;
   cursor: pointer;
 }
-#diagnostics .disclosure:hover:not(:disabled) {
+#document-tools .disclosure:hover:not(:disabled) {
   color: var(--ui-link-hover);
   background: var(--ui-hover);
 }
@@ -203,6 +203,31 @@ ul {
 }
 #diagnostics .disclosure:disabled::before {
   visibility: hidden;
+}
+/* The narrow window's toggle of the click's options: hidden beside a pane, and then no control's left neighbour. */
+#controls > .options-toggle {
+  display: none;
+}
+#controls > .options-toggle:first-child + * {
+  padding-left: 0;
+  border-left: 0;
+}
+/* No pane: the click's options fold under their toggle, and the controls wrap, with no rule to start a row with. */
+@media (max-width: 760px) {
+  #controls > * + * {
+    padding-left: 0;
+    border-left: 0;
+  }
+  #controls > a {
+    min-width: 0;
+    text-align: left;
+  }
+  #controls > .options-toggle {
+    display: inline-flex;
+  }
+  #controls:not(.options-open) > .click-option {
+    display: none;
+  }
 }
 #diagnostics .count {
   margin-left: var(--space-1);
@@ -726,6 +751,15 @@ pre .avp-current {
   }
   .document-table colgroup {
     display: none;
+  }
+  /* A row is a number and interfaces over a title, under no columns: the headings are left to screen readers. */
+  .document-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
   .document-table tbody tr {
     display: grid;

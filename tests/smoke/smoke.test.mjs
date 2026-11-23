@@ -336,6 +336,20 @@ test(
   },
 );
 
+test('desktop: the click options show in the strip, with no toggle for them', { skip }, async () => {
+  const { page, done } = await open('#rfc7944');
+  assert.equal(await page.locator('.options-toggle').isVisible(), false);
+  assert.equal(await page.locator('.uses-toggle').isVisible(), true);
+  assert.equal(await page.locator('.click-target').isVisible(), true);
+  const tops = await page.evaluate(() =>
+    [...document.querySelectorAll('#controls > *')]
+      .filter(node => node.checkVisibility())
+      .map(node => Math.round(node.getBoundingClientRect().top)),
+  );
+  assert.equal(new Set(tops).size, 1, 'one row');
+  await done();
+});
+
 test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { skip }, async () => {
   const { page, context, done } = await open('#rfc7944', { viewport: { width: 390, height: 800 } });
   const pages = [];
@@ -353,6 +367,26 @@ test('mobile: no pane is loaded, names navigate, nothing scrolls sideways', { sk
   await page.locator('pre a[data-avp]').first().click();
   await page.waitForFunction(() => location.hash.startsWith('#rfc7944/'));
   assert.equal(pages.length, 0);
+  // The click's options are folded under their toggle; the controls are one row, with no rule starting a row.
+  assert.equal(await page.locator('.uses-toggle').isVisible(), false);
+  assert.equal(await page.locator('.click-target').isVisible(), false);
+  const strip = () =>
+    page.evaluate(() => {
+      const controls = [...document.querySelectorAll('#controls > *')].filter(node => node.checkVisibility());
+      return {
+        rows: new Set(controls.map(node => Math.round(node.getBoundingClientRect().top))).size,
+        rules: controls.filter(node => getComputedStyle(node).borderLeftWidth !== '0px').length,
+        rawAtLeft:
+          Math.abs(
+            document.querySelector('#controls > a').getBoundingClientRect().left -
+              document.querySelector('#controls').getBoundingClientRect().left,
+          ) < 1,
+      };
+    });
+  assert.deepEqual(await strip(), { rows: 1, rules: 0, rawAtLeft: true });
+  await page.locator('.options-toggle').click();
+  assert.equal(await page.locator('.options-toggle').getAttribute('aria-expanded'), 'true');
+  assert.equal((await strip()).rules, 0);
   await page.locator('.uses-toggle').click();
   await page.locator('pre a[data-avp]').first().click();
   await page.waitForSelector('.avp-popup');
@@ -1099,7 +1133,7 @@ test(
         const colour = getComputedStyle(probe).color;
         probe.remove();
         const controls = [...document.querySelectorAll('#controls > *')]
-          .filter(node => !node.hidden)
+          .filter(node => node.checkVisibility())
           .map(node => {
             const style = getComputedStyle(node);
             return {
@@ -1123,10 +1157,17 @@ test(
     const narrow = await open('#29153-j00', { viewport: { width: 390, height: 780 } });
     const shown = await narrow.page.evaluate(() =>
       [...document.querySelectorAll('#controls > *')]
-        .filter(node => !node.hidden)
-        .map(node => getComputedStyle(node).borderLeftWidth),
+        .filter(node => node.checkVisibility())
+        .map(node => [node.textContent.trim(), getComputedStyle(node).borderLeftWidth]),
     );
-    assert.deepEqual(shown, ['0px', '1px', '1px'], 'Source is hidden, Raw and the two click controls keep their rules');
+    assert.deepEqual(
+      shown,
+      [
+        ['Raw', '0px'],
+        ['Click options', '0px'],
+      ],
+      'Source is hidden and the click controls folded, and a wrapped row starts with no rule',
+    );
     await narrow.done();
   },
 );

@@ -220,3 +220,19 @@ test('the strip names the section at the top of the view, and opens the Sections
     await page.close();
   }
 });
+
+test("the strip's toggle of the click options says whether they are open, and marks the controls so", async () => {
+  const page = await boot({ hash: '#29061-6f0', width: 390 });
+  try {
+    const { document } = page;
+    const toggle = document.querySelector('#controls > .options-toggle');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    assert.ok(!document.querySelector('#controls').classList.contains('options-open'));
+    assert.equal(document.querySelectorAll('#controls > .click-option').length, 2);
+    toggle.click();
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.ok(document.querySelector('#controls').classList.contains('options-open'));
+  } finally {
+    await page.close();
+  }
+});

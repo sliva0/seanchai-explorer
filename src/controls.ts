@@ -24,7 +24,7 @@ export const controlGroups: ControlGroup[] = [
     controls: [
       {
         keys: ['Click'],
-        does: 'Its Details or its definition, as "Click goes to" in the document\'s strip says, in the source pane alone, which opens if it was switched off. With "Click shows uses" on, where it is used',
+        does: 'Its Details or its definition, as "Click goes to" in the document\'s strip says (under "Click options" in a narrow window), in the source pane alone, which opens if it was switched off. With "Click shows uses" on, where it is used',
       },
       { keys: ['Alt-click'], does: 'The same place in the text and the pane' },
       {

@@ -516,7 +516,7 @@ function Disclosure({ title, count, open, toggle }: { title: Panel; count: numbe
 function ClickTargetChoice({ current, onChange }: { current: ClickTarget; onChange(target: ClickTarget): void }) {
   return (
     <div
-      class="click-target"
+      class="click-target click-option"
       role="radiogroup"
       aria-label="Click goes to"
       title="What a click or alt-click on a name goes to where it has both; right-click offers both"
@@ -593,6 +593,8 @@ export function DocumentPage({
   const [open, setOpen] = useState<Panel | undefined>(undefined);
   const [crumb, setCrumb] = useState<string | undefined>(undefined);
   const [prefer, setPrefer] = useState(readClickTarget);
+  /** Where the window is narrow, the click's options are folded under a toggle of their own. */
+  const [options, setOptions] = useState(false);
   // Read from the box at the moment of a click, as a browser restoring form state changes it with no event.
   const usesBox = useRef<HTMLInputElement>(null);
   /** The section the crumb opened the list at, scrolled to and focused there. */
@@ -658,10 +660,18 @@ export function DocumentPage({
             </div>
           </div>
         </div>
-        <section id="controls">
+        <section id="controls" class={options ? 'options-open' : undefined}>
           {doc.raw && <RawLink doc={doc} raw={Boolean(raw)} section={() => view.current?.currentSection()} />}
+          <button
+            type="button"
+            class="disclosure options-toggle"
+            aria-expanded={options}
+            onClick={() => setOptions(open => !open)}
+          >
+            Click options
+          </button>
           <label
-            class="visibility-toggle uses-toggle"
+            class="visibility-toggle uses-toggle click-option"
             title="Plain click lists where a name is used instead of going to it"
           >
             {'Click shows uses '}
