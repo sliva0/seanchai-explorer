@@ -17,6 +17,8 @@ import {
 import type { InstallShell } from './plugin-file.ts';
 import { readStored, writeStored } from './storage.ts';
 
+const PLUGIN_DOCS = 'https://github.com/sliva0/seanchai/blob/main/docs/wireshark-plugin.md';
+
 const FOLDERS = [
   ['Linux and macOS', '~/.local/lib/wireshark/plugins/'],
   ['Windows', '%APPDATA%\\Wireshark\\plugins\\'],
@@ -119,7 +121,7 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
   };
   return (
     <>
-      <h2>Install from a terminal (Linux)</h2>
+      <h2>Install from a terminal (Linux and macOS)</h2>
       <div class="plugin-command-bar">
         <div class="shell-choice" role="radiogroup" aria-label="Shell">
           {SHELLS.map(([shell, label]) => (
@@ -251,6 +253,19 @@ export function WiresharkView({ site }: { site: Site }) {
         <span class="versions">
           {said ?? [seanchai && `seanchai ${seanchai}`, corpus && `corpus ${corpus}`].filter(Boolean).join(', ')}
         </span>
+      </div>
+      <div class="plugin-about">
+        <p>
+          Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and
+          what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to
+          the publisher's copy and to this site.
+        </p>
+        <p>
+          {'Filter for messages breaking a rule with '}
+          <code>seanchai.errors {'>'} 0</code>
+          {'. '}
+          <a href={PLUGIN_DOCS}>More on the plugin</a>
+        </p>
       </div>
       <section class="plugin-ways" aria-label="Install">
         {missing ? (

@@ -132,9 +132,12 @@ test('the page shows its versions, the script for the chosen shell and the downl
     assert.ok(page.fetched.includes('plugin/seanchai_diameter.lua'));
     assert.deepEqual(
       [...document.querySelectorAll('main h2')].map(node => node.textContent),
-      ['Install from a terminal (Linux)', 'Install by hand (any system)'],
+      ['Install from a terminal (Linux and macOS)', 'Install by hand (any system)'],
     );
-    absent(document.querySelector('main a'));
+    assert.deepEqual(
+      [...document.querySelectorAll('main a')].map(a => a.href),
+      ['https://github.com/sliva0/seanchai/blob/main/docs/wireshark-plugin.md'],
+    );
     const from = 'http://localhost/plugin/seanchai_diameter.lua';
     const command = document.querySelector('.plugin-command code');
     assert.equal(command.textContent, posixInstall('http://localhost/', from));
@@ -144,7 +147,9 @@ test('the page shows its versions, the script for the chosen shell and the downl
       [
         'Wireshark plugin',
         'seanchai 0.2.0, corpus 2026.11.11',
-        'Install from a terminal (Linux)',
+        "Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to the publisher's copy and to this site.",
+        'Filter for messages breaking a rule with seanchai.errors > 0. More on the plugin',
+        'Install from a terminal (Linux and macOS)',
         'bash / zsh / sh',
         'fish',
         'Copy',
@@ -356,9 +361,10 @@ line='${line}'
 
 mkdir -p ~/.local/lib/wireshark/plugins &&
   curl -fsSL -o "$file.part" '${from}' &&
-  sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" &&
-  grep -qxF "$line" "$file.part" &&
-  mv "$file.part" "$file" &&
+  sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" > "$file.new" &&
+  grep -qxF "$line" "$file.new" &&
+  mv "$file.new" "$file" &&
+  rm -f "$file.part" &&
   echo "Installed $file"
 `;
 
@@ -367,9 +373,10 @@ set line '${line}'
 
 mkdir -p ~/.local/lib/wireshark/plugins
 and curl -fsSL -o $file.part '${from}'
-and sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part
-and grep -qxF $line $file.part
-and mv $file.part $file
+and sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part > $file.new
+and grep -qxF $line $file.new
+and mv $file.new $file
+and rm -f $file.part
 and echo "Installed $file"
 `;
 
@@ -381,9 +388,10 @@ line='local EXPLORER = "https://host/" -- seanchai:explorer'
 
 mkdir -p ~/.local/lib/wireshark/plugins &&
   curl -fsSL -o "$file.part" 'https://host/plugin/seanchai_diameter.lua' &&
-  sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" &&
-  grep -qxF "$line" "$file.part" &&
-  mv "$file.part" "$file" &&
+  sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" > "$file.new" &&
+  grep -qxF "$line" "$file.new" &&
+  mv "$file.new" "$file" &&
+  rm -f "$file.part" &&
   echo "Installed $file"
 `,
   );
@@ -394,9 +402,10 @@ set line 'local EXPLORER = "https://host/" -- seanchai:explorer'
 
 mkdir -p ~/.local/lib/wireshark/plugins
 and curl -fsSL -o $file.part 'https://host/plugin/seanchai_diameter.lua'
-and sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part
-and grep -qxF $line $file.part
-and mv $file.part $file
+and sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part > $file.new
+and grep -qxF $line $file.new
+and mv $file.new $file
+and rm -f $file.part
 and echo "Installed $file"
 `,
   );

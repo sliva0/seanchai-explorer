@@ -60,13 +60,14 @@ function installValues(address: string, plugin: string): { file: string; line: s
 /**
  * The commands installing or updating the plugin from `plugin`, its links set to `address`, for dash, bash and zsh, as
  * it reads pasted or run with `sh -c`. It downloads beside the plugin, to a `.part` file Wireshark never loads, as it
- * loads only files ending `.lua`; sets the address on the marked line there and checks, a whole line and fixed string,
- * that it is set, which a file without the marked line or with CRLF endings fails; and only then moves it over the
- * installed plugin, in one rename. Each step ends in `&&`, which carries the chain to the next line, so a failed one
- * stops the rest, prints nothing of its own and leaves the plugin as it was; the last says it is installed. Its
- * `sed -i` is GNU's, as Linux has. The replacement is the line itself, which `quotable` leaves no `&`, `\` or `|` sed
- * would read; `\$` in double quotes is the pattern's own `$`. The `~` of `file=~/…` expands, as the start of an
- * assignment's value. Ends with a newline, so the last line runs when pasted.
+ * loads only files ending `.lua`; writes it with the address on the marked line to a `.new` file beside it and checks,
+ * a whole line and fixed string, that it is set, which a file without the marked line or with CRLF endings fails; and
+ * only then moves that over the installed plugin, in one rename, and removes the download. Each step ends in `&&`,
+ * which carries the chain to the next line, so a failed one stops the rest, prints nothing of its own and leaves the
+ * plugin as it was; the last says it is installed. Its `sed` edits no file in place, which GNU's and BSD's, as macOS
+ * has, spell differently. The replacement is the line itself, which `quotable` leaves no `&`, `\` or `|` sed would
+ * read; `\$` in double quotes is the pattern's own `$`. The `~` of `file=~/…` expands, as the start of an assignment's
+ * value. Ends with a newline, so the last line runs when pasted.
  */
 export function posixInstall(address: string, plugin: string): string | null {
   const values = installValues(address, plugin);
@@ -76,9 +77,10 @@ line='${values.line}'
 
 mkdir -p ${PERSONAL_PLUGINS} &&
   curl -fsSL -o "$file.part" '${values.url}' &&
-  sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" &&
-  grep -qxF "$line" "$file.part" &&
-  mv "$file.part" "$file" &&
+  sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" "$file.part" > "$file.new" &&
+  grep -qxF "$line" "$file.new" &&
+  mv "$file.new" "$file" &&
+  rm -f "$file.part" &&
   echo "Installed $file"
 `;
 }
@@ -95,9 +97,10 @@ set line '${values.line}'
 
 mkdir -p ${PERSONAL_PLUGINS}
 and curl -fsSL -o $file.part '${values.url}'
-and sed -i "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part
-and grep -qxF $line $file.part
-and mv $file.part $file
+and sed "s|^local EXPLORER = .* -- seanchai:explorer\\$|$line|" $file.part > $file.new
+and grep -qxF $line $file.new
+and mv $file.new $file
+and rm -f $file.part
 and echo "Installed $file"
 `;
 }
