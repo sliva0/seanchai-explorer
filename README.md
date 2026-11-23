@@ -8,7 +8,8 @@ command names link to their definitions and details, section and page numbers to
 source document, and search covers specifications, AVPs, commands, applications,
 registry rows, result codes, bits, features and every line of text; a name is also
 found by its initials or a misspelling, labelled approximate and listed after the
-precise matches. It is unofficial and not affiliated with or endorsed by any of the
+precise matches. A result lists its documents one a line, and past ten, the first ten
+with a toggle for the rest. It is unofficial and not affiliated with or endorsed by any of the
 specifications' publishers. The site holds no Python and reads only what
 `seanchai export` writes.
 

@@ -82,8 +82,15 @@ interface ListedDocument {
   node: ComponentChild;
 }
 
-/** A row per publisher, in the index's order, with a line per document, keeping a specification's editions together. */
+/** How many documents a result lists before the rest wait behind a toggle. */
+export const SHOWN_DOCUMENTS = 10;
+
+/**
+ * A row per publisher, in the index's order, with a line per document, keeping a specification's editions together.
+ * Past `SHOWN_DOCUMENTS` documents, the first of them show, and a toggle shows the rest.
+ */
 function Families({ documents }: { documents: ListedDocument[] }) {
+  const [all, setAll] = useState(false);
   const families = new Map<string, Map<string, ComponentChild[]>>();
   for (const { doc, node } of documents) {
     const family = families.get(doc?.publisher ?? 'Other') ?? new Map<string, ComponentChild[]>();
@@ -91,16 +98,34 @@ function Families({ documents }: { documents: ListedDocument[] }) {
     family.set(specification, [...(family.get(specification) ?? []), node]);
     families.set(doc?.publisher ?? 'Other', family);
   }
+  const rows = [...families]
+    .toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))
+    .map(([publisher, family]) => ({ publisher, nodes: [...family.values()].flat() }));
+  const hidden = all ? 0 : Math.max(0, documents.length - SHOWN_DOCUMENTS);
+  let left = documents.length - hidden;
+  const shown = rows
+    .map(row => {
+      const nodes = row.nodes.slice(0, Math.max(0, left));
+      left -= nodes.length;
+      return { ...row, nodes };
+    })
+    .filter(row => row.nodes.length);
+  const more = documents.length > SHOWN_DOCUMENTS;
   return (
     <ul class="entry-families">
-      {[...families]
-        .toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))
-        .map(([publisher, family]) => (
-          <li key={publisher}>
-            <span class="family">{`${publisher}:`}</span>
-            <span class="family-documents">{[...family.values()].flat()}</span>
-          </li>
-        ))}
+      {shown.map(({ publisher, nodes }) => (
+        <li key={publisher}>
+          <span class="family">{`${publisher}:`}</span>
+          <span class="family-documents">{nodes}</span>
+        </li>
+      ))}
+      {more && (
+        <li class="entry-more">
+          <button type="button" class="control" aria-expanded={all} onClick={() => setAll(open => !open)}>
+            {all ? 'Show fewer' : `+${documents.length - SHOWN_DOCUMENTS} more`}
+          </button>
+        </li>
+      )}
     </ul>
   );
 }

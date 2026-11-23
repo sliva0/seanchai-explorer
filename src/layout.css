@@ -812,6 +812,11 @@ pre .avp-current {
   display: grid;
   overflow-wrap: anywhere;
 }
+/* Under the documents' column, the toggle for those past the first ten. */
+.search-section .entry-families .entry-more > button {
+  grid-column: 2;
+  justify-self: start;
+}
 .doc-detail {
   color: var(--ui-muted);
 }

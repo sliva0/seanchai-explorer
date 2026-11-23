@@ -1234,3 +1234,41 @@ test("a value another document defines is defined there, at its row of that docu
     await page.close();
   }
 });
+
+test('a result past ten documents lists the first ten, one a line, and a toggle for the rest', async () => {
+  const ids = Array.from({ length: 13 }, (_, index) => `29${String(index + 100)}-jx`);
+  const documents = ids.map(id => summaryOf(id, '3GPP', `3GPP TS 29.${id.slice(2, 5)}`, 19, '19.0.0'));
+  const entries = ids.map(document => ({
+    ...command('Many-Answer', 271, 3, { abbreviation: 'MNA', document, defined_in: [] }),
+    target: { document, section: '6.2' },
+    identity: { kind: 'command', command_code: 271, application_id: 3, header_application_id: null, application: 'Rf' },
+  }));
+  const page = await boot({ hash: '#search?q=Many-Answer', transform: withCorpus(documents, entries) });
+  try {
+    const { document } = page;
+    const section = document.querySelector('.search-command');
+    const lines = () => section.querySelectorAll('.family-documents > .entry-document').length;
+    assert.equal(lines(), 10);
+    const toggle = section.querySelector('.entry-more button');
+    assert.equal(toggle.textContent, '+3 more');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'false');
+    toggle.click();
+    assert.equal(lines(), 13);
+    assert.equal(toggle.textContent, 'Show fewer');
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    toggle.click();
+    assert.equal(lines(), 10);
+  } finally {
+    await page.close();
+  }
+});
+
+test('a result of ten documents or fewer has no toggle', async () => {
+  const page = await boot({ hash: '#search?q=Session-Id' });
+  try {
+    absent(page.document.querySelector('.entry-more'));
+    assert.ok(page.document.querySelector('.entry-document'));
+  } finally {
+    await page.close();
+  }
+});
