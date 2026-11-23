@@ -31,6 +31,7 @@ export const controlGroups: ControlGroup[] = [
         keys: ['Right-click'],
         does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is and where else it is printed',
       },
+      { keys: ['▾'], does: 'Beside the name under the pointer or with the focus: what a right-click does' },
       { keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'], does: "The browser's" },
     ],
   },

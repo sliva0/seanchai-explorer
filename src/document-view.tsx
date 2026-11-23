@@ -269,6 +269,44 @@ function createText(
     });
   }
 
+  // The way to a right-click's popup for one who has not read the help: a ▾ over the end of the name under the pointer
+  // or with the focus, laid over the text and not in it, so no column moves. Its glyph is drawn by the stylesheet, out
+  // of a copy of the text. The keyboard has Menu and Shift+F10 for it.
+  const menu = element('button', undefined, 'name-menu');
+  menu.type = 'button';
+  menu.tabIndex = -1;
+  menu.hidden = true;
+  menu.setAttribute('aria-hidden', 'true');
+  let menuFor: HTMLElement | undefined;
+  const placeMenu = (node: HTMLElement | null) => {
+    menuFor = node ?? undefined;
+    menu.hidden = !node;
+    if (!node) return;
+    const box = node.getBoundingClientRect();
+    const origin = pre.getBoundingClientRect();
+    menu.style.left = `${box.right - origin.left}px`;
+    menu.style.top = `${box.top - origin.top}px`;
+    menu.style.height = `${box.height}px`;
+    menu.title = node.dataset.command
+      ? 'Its definitions (right-click)'
+      : node.classList.contains('value-name')
+        ? 'Its table (right-click)'
+        : 'Uses and places (right-click)';
+  };
+  pre.append(menu);
+  pre.addEventListener('mouseover', event => {
+    if (event.target !== menu) placeMenu(nameAt(event.target));
+  });
+  pre.addEventListener('mouseleave', () => placeMenu(null));
+  pre.addEventListener('focusin', event => {
+    if (event.target !== menu) placeMenu(nameAt(event.target));
+  });
+  menu.addEventListener('click', event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (menuFor?.isConnected) showUses(menuFor);
+  });
+
   let focusable: HTMLElement | undefined;
   const focusLater = (node: HTMLElement | undefined) => {
     if (node) node.tabIndex = -1;

@@ -24,6 +24,7 @@ copy of the site it is downloaded from.
 | Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane |
 | Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is and where else it is printed, each place offering the same two |
+| `▾` | beside the name under the pointer or with the focus, laid over the text: what a right-click does |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the

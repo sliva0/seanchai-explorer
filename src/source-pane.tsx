@@ -159,7 +159,10 @@ function Inspector({
       ) : (
         <div class="inspector-empty">
           <p>{CLICK_HINT}</p>
-          <p>A click leaves the text where it is; an alt-click moves it to the name's place.</p>
+          <p>
+            A click leaves the text where it is, and an alt-click moves it to the name. The ▾ beside the name under the
+            pointer opens what a right-click does.
+          </p>
         </div>
       )}
       <SelfHostNote doc={doc} brief={Boolean(inspected)} />

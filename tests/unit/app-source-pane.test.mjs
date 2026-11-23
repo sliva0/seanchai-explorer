@@ -23,7 +23,10 @@ test('public: a PDF gets the pane and its toggle, with an inspector in place of 
     assert.equal(document.querySelectorAll('#source-pane').length, 1);
     const inspector = document.querySelector('#source-pane .inspector');
     assert.match(inspector.querySelector('.inspector-empty').textContent, /^Click a name for details beside the text/);
-    assert.match(inspector.querySelector('.inspector-empty').textContent, /an alt-click moves it/);
+    assert.match(
+      inspector.querySelector('.inspector-empty').textContent,
+      /an alt-click moves it to the name\. The ▾ beside the name/,
+    );
     assert.match(
       inspector.querySelector('.inspector-note').textContent,
       /This public build cannot show the PDF of TS 29\.153 V19\.0\.0, for licensing reasons; a self-hosted build shows it here\./,

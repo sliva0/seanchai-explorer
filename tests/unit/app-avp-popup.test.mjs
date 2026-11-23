@@ -527,3 +527,35 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     await page.close();
   }
 });
+
+test('a ▾ over the end of the name under the pointer or with the focus opens its popup, and adds nothing to the text', async () => {
+  const page = await boot({ hash: '#29061-6f0/17.7' });
+  try {
+    const { document, window } = page;
+    const menu = document.querySelector('pre > .name-menu');
+    assert.equal(menu.hidden, true);
+    assert.equal(menu.textContent, '', 'its glyph is the stylesheet’s, out of a copy of the text');
+    assert.equal(menu.getAttribute('aria-hidden'), 'true');
+    assert.equal(menu.tabIndex, -1);
+    const name = tmgi(document);
+    const line = name.closest('.dad-line').textContent;
+    name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(menu.hidden, false);
+    assert.equal(name.closest('.dad-line').textContent, line);
+    assert.equal(menu.title, 'Uses and places (right-click)');
+    menu.click();
+    await settle();
+    assert.equal(document.querySelector('.avp-popup').dataset.avp, 'TMGI');
+    document.querySelector('.avp-popup .popup-title button').click();
+    document.querySelector('pre').dispatchEvent(new window.MouseEvent('mouseleave'));
+    assert.equal(menu.hidden, true);
+    const command = commandNames(document, '265 answer')[0];
+    command.dispatchEvent(new window.FocusEvent('focusin', { bubbles: true }));
+    assert.equal(menu.hidden, false);
+    assert.equal(menu.title, 'Its definitions (right-click)');
+    document.querySelector('pre .dad-line').dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
+    assert.equal(menu.hidden, true, 'off a name it goes');
+  } finally {
+    await page.close();
+  }
+});
