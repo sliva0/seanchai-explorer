@@ -148,8 +148,21 @@ export function placeRows(site: Site, pane: SourcePane, { doc, raw }: PopupReque
   };
 }
 
-/** A rule's members as it prints them, each with how many there may be; drawn open where `open`. */
-export function RuleContents({ rule, open, title }: { rule: Rule; open: boolean; title: string }) {
+/**
+ * A rule's members as it prints them, each with how many there may be and its category in the Information Elements
+ * tables describing the command, `categories` by its name; drawn open where `open`.
+ */
+export function RuleContents({
+  rule,
+  open,
+  title,
+  categories,
+}: {
+  rule: Rule;
+  open: boolean;
+  title: string;
+  categories?: Map<string, string>;
+}) {
   return (
     <details class="popup-contents" open={open}>
       <summary>
@@ -163,6 +176,7 @@ export function RuleContents({ rule, open, title }: { rule: Rule; open: boolean;
             item.name === 'AVP' && 'any other AVP',
             item.bold && 'bold',
             struck && 'struck through',
+            categories?.get(item.name) && `category ${categories.get(item.name)}`,
           ]
             .filter(Boolean)
             .join(' · ');

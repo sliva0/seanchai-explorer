@@ -24,6 +24,9 @@ import type { Place } from '../avp-places.ts';
 import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
+import { elementPlace, memberPlaces } from '../element-places.ts';
+import { elementText, memberElements, tablesFor, tablesOf } from '../elements.ts';
+import type { ElementTable } from '../elements.ts';
 import { valueTableTitle } from '../values.ts';
 import type { PopupProps, PopupRequest } from './root.tsx';
 import { Counted, Entries, Panel, placeRows, RuleContents, Steps } from './shared.tsx';
@@ -59,8 +62,11 @@ const flagHeading: Record<FlagRule, string> = {
 const ruleName = (rule: Rule) => `${rule.kind === 'Message' ? 'command' : rule.kind} ${rule.label}`;
 const tableOf = (row: AvpRow) => [row.type, row.table ?? row.section].filter(Boolean).join(' ');
 
-/** What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is. */
-function UseContext({ use }: { use: Use }) {
+/**
+ * What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is, and
+ * what the Information Elements tables say of it, `elements`.
+ */
+function UseContext({ use, elements }: { use: Use; elements: string[] }) {
   const lines: ComponentChild[] = [];
   if (use.kind === 'member') {
     const { rule, member } = use;
@@ -71,7 +77,13 @@ function UseContext({ use }: { use: Use }) {
     else if (member.strikethrough) lines.push(<p class="fact-note">Struck through in the source</p>);
   } else if (use.kind === 'head') {
     lines.push(<p>{`Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`}</p>);
+  } else if (use.kind === 'element') {
+    const { block } = use;
+    const table = block.fields.Table ? `table ${block.fields.Table}` : 'Information Elements';
+    const of = block.name ? `element of ${block.name}` : 'element';
+    lines.push(<p>{`Here: an ${of} · ${table}${block.section ? ` · ${block.section}` : ''}`}</p>);
   } else lines.push(<p>{`Here: a row of ${tableOf(use.row)}`}</p>);
+  for (const text of elements) lines.push(<p class="popup-element">{text}</p>);
   return <div class="popup-context">{lines}</div>;
 }
 
@@ -237,6 +249,67 @@ function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined
   return { rows, rule };
 }
 
+/**
+ * What the Information Elements tables say of the name where it stands, and the places they offer: for a member of a
+ * command, the rows naming it, each its element and category, and the way to the row; for a table's row, its element
+ * and the way to the members it maps to, which may be another document's (TS 29.328's rows, TS 29.329's members).
+ */
+function elementFacts(
+  site: Site,
+  request: PopupRequest,
+  use: Use | undefined,
+  placeRow: ReturnType<typeof placeRows>,
+): { notes: string[]; places: ComponentChild[] } {
+  const { doc, file } = request;
+  const name = request.token.avp!;
+  const index = site.elements();
+  const label = (document: string) =>
+    document === doc.id ? '' : site.summary(document) ? site.label(site.summary(document)!) : document;
+  const tableWhere = (table: ElementTable) =>
+    [label(table.document), table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · ');
+  if (use?.kind === 'member') {
+    const block = blockAt(file, use.rule.line);
+    const found = block ? memberElements(tablesFor(index, doc.id, block), use.member.name) : [];
+    return {
+      notes: found.map(({ row }) => `Element: ${elementText(row)}`),
+      places: found
+        .map(({ table, row }) =>
+          placeRow('Element', 'place-element', elementPlace(table, row, name, file, doc), tableWhere(table)),
+        )
+        .filter(row => row !== undefined),
+    };
+  }
+  if (use?.kind !== 'element') return { notes: [], places: [] };
+  const { block, row } = use;
+  const tables = tablesOf(index, doc.id, block);
+  const places = tables.flatMap(table => {
+    const indexed = table.rows.find(other => other.name === row.name && other.avps.includes(name));
+    const { message } = table;
+    return indexed
+      ? memberPlaces(table, indexed, file, doc)
+          .filter(({ member }) => member === name)
+          .map(({ place }) =>
+            placeRow(
+              'Member',
+              'place-member',
+              place,
+              [label(message.document), message.section, message.name].filter(Boolean).join(' · '),
+            ),
+          )
+          .filter(row => row !== undefined)
+      : [];
+  });
+  // A table naming no command, or one the corpus prints for several applications, describes no one rule.
+  const unplaced = !block.name
+    ? 'The table names no command'
+    : !tables.length
+      ? `No one rule of ${block.name} found for the table`
+      : !places.length
+        ? `Not a member of ${block.name}'s rule`
+        : '';
+  return { notes: [`Element: ${elementText(row)}`, unplaced].filter(Boolean), places };
+}
+
 let keys = 0;
 const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;
 
@@ -341,9 +414,11 @@ export function AvpPopup(props: PopupProps) {
       </button>
     ) : undefined;
   const { definition, details } = namePlaces(token, lines, doc);
+  const elements = elementFacts(site, request, use, placeRow);
   const placed = [
     definition && placeRow('Definition', 'place-definition', definition),
     details && placeRow('Details', 'place-details', details),
+    ...elements.places,
   ];
   const hasPlaces = placed.some(Boolean) || tables.length > 0;
 
@@ -371,7 +446,7 @@ export function AvpPopup(props: PopupProps) {
           ))}
         </div>
       )}
-      {use && <UseContext use={use} />}
+      {use && <UseContext use={use} elements={elements.notes} />}
       {definitionRows.map((item, index) => (
         <RowFacts
           key={index}

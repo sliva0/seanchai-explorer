@@ -16,6 +16,8 @@ import {
 import type { Command } from '../command-places.ts';
 import { commandKey, isRequest } from '../commands.ts';
 import type { CommandRef } from '../commands.ts';
+import { tablePlace as elementsPlace } from '../element-places.ts';
+import { categoriesOf, memberElements, tablesFor } from '../elements.ts';
 import type { PopupProps } from './root.tsx';
 import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
 
@@ -88,7 +90,12 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
   const blockFile = command && (command.document === doc.id ? file : site.held(command.document));
   const rule = blockFile && ruleAt(blockFile, command.line);
   const all = allCommands(file, doc, index);
-  const label = (place: Place) =>
+  // The Information Elements tables describing the block, which may be another document's.
+  const elementTables = command ? tablesFor(site.elements(), command.document, command) : [];
+  const categories = new Map(
+    (rule?.members ?? []).map(member => [member.name, categoriesOf(memberElements(elementTables, member.name))]),
+  );
+  const label = (place: Pick<Place, 'document'>) =>
     site.summary(place.document) ? site.label(site.summary(place.document)!) : place.document;
   const rows: (ComponentChild | undefined)[] = [];
   if (command) {
@@ -115,6 +122,25 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
             'place-table',
             tablePlace(table, doc),
             [table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · '),
+          ),
+        ),
+        false,
+      ),
+      ...group(
+        'Information elements',
+        'popup-elements',
+        elementTables.map(table =>
+          placeRow(
+            'Elements',
+            'place-elements',
+            elementsPlace(table, file, doc),
+            [
+              table.document === doc.id ? '' : label({ document: table.document }),
+              table.section,
+              table.table && `table ${table.table}`,
+            ]
+              .filter(Boolean)
+              .join(' · '),
           ),
         ),
         false,
@@ -172,7 +198,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
           ),
         )}
       </div>
-      {rule?.members.length ? <RuleContents rule={rule} open={false} title="AVPs" /> : null}
+      {rule?.members.length ? <RuleContents rule={rule} open={false} title="AVPs" categories={categories} /> : null}
       {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}
     </Panel>
   );

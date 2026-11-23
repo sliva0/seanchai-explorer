@@ -241,6 +241,63 @@ test('public, desktop: ; Reprints: links to the document a reprint comes from', 
 });
 
 test(
+  "public, desktop: a member's category lies after its line moving no column, and its row and member lead to each other",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29329-j10/6.1.1');
+    const line = page.locator('.dad-line[data-line="24"]');
+    const mark = line.locator('.element-mark');
+    await mark.waitFor();
+    const laid = await line.evaluate(node => {
+      const mark = node.querySelector('.element-mark');
+      const text = document.createRange();
+      text.selectNodeContents(node);
+      mark.hidden = true;
+      const without = { width: node.getBoundingClientRect().width, height: node.getBoundingClientRect().height };
+      mark.hidden = false;
+      const box = mark.getBoundingClientRect();
+      const name = node.querySelector('[data-avp]').getBoundingClientRect();
+      const line = node.getBoundingClientRect();
+      return {
+        same: without.width === line.width && without.height === line.height,
+        after: box.left > name.right,
+        within: box.top >= line.top - 1 && box.bottom <= line.bottom + 1,
+        letter: getComputedStyle(mark, '::before').content,
+        copied: (() => {
+          const selection = window.getSelection();
+          selection.removeAllRanges();
+          selection.addRange(text);
+          const copied = selection.toString();
+          selection.removeAllRanges();
+          return copied.trimEnd();
+        })(),
+      };
+    });
+    assert.deepEqual(laid, {
+      same: true,
+      after: true,
+      within: true,
+      letter: '"M"',
+      copied: '        { User-Identity }                  ; bold',
+    });
+    await line.locator('[data-avp="User-Identity"]').click();
+    const entry = page.locator('#source-pane .inspector-entry');
+    await entry.waitFor();
+    assert.match(await entry.textContent(), /Element: User Identity \(See 7\.1\) · M, mandatory/);
+    await entry.locator('.place-element .view-action').click();
+    await page.waitForSelector('.document-header h1:has-text("29.328")');
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '17');
+    await page.locator('.dad-line[data-line="17"] [data-avp="User-Identity"]').click({ button: 'right' });
+    const popup = page.locator('.avp-popup');
+    await popup.waitFor();
+    await popup.locator('.place-member .view-action').click();
+    await page.waitForSelector('.document-header h1:has-text("29.329")');
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '24');
+    await done();
+  },
+);
+
+test(
   "public, desktop: a PDF's pane is an inspector, a name in an RFC takes the pane alone, and one in a PDF shows in it at its page",
   { skip },
   async () => {

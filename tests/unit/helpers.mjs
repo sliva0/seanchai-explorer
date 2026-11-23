@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
+import { elementIndex } from '../../src/elements.ts';
 import { nodeName as named } from '../setup.mjs';
 
 export const fixture = new URL('../fixtures/export/', import.meta.url);
@@ -8,6 +9,13 @@ export const readFixture = async file => JSON.parse(await readFile(new URL(file,
 const grammar = new URL('../../syntax/dad.tmLanguage.json', import.meta.url);
 /** A few lines standing in for the Wireshark plugin a build serves, with its marked lines; npm run fixture leaves it. */
 export const pluginFixture = new URL('../fixtures/plugin/seanchai_diameter.lua', import.meta.url);
+
+/** The `elements.json` prepare would derive from the fixture, which the fixture leaves to it. */
+export async function elementsOfFixture() {
+  const index = await readFixture('index.json');
+  const documents = await Promise.all(index.documents.map(doc => readFixture(doc.path)));
+  return elementIndex(documents, index.schema_version);
+}
 
 /** A self-hosted variant of the fixture: every ETSI document has a local PDF. */
 function asSelfHosted(data) {
@@ -43,7 +51,8 @@ globalThis.cancelAnimationFrame ??= () => {};
  * Starts src/main.ts or another entry on a happy-dom page, with the fixture as its export.
  * `width` is the viewport, `transform` changes a data file before the page reads it, `text` replaces a text source,
  * `session` is what the tab's storage already holds, `clickTarget` the stored place a click on a name goes to first,
- * `commands` whether the export has its command index, `plugin` whether it has the Wireshark plugin, whose text
+ * `commands` whether the export has its command index, `elements` whether the build derived an index of Information
+ * Elements tables, `plugin` whether it has the Wireshark plugin, whose text
  * `transform` is given too, and `prepare` runs on the page before it starts.
  */
 export async function boot({
@@ -60,6 +69,7 @@ export async function boot({
   prepare = () => {},
   text,
   commands = true,
+  elements = true,
   plugin = true,
   transform = (_path, data) => data,
 } = {}) {
@@ -103,6 +113,10 @@ export async function boot({
     }
     const file = new URL(path.replace(/^data\//, ''), fixture);
     if (path === 'data/commands.json' && !commands) return { ok: false, status: 404 };
+    if (path === 'data/elements.json')
+      return elements
+        ? { ok: true, json: async () => transform(path, await elementsOfFixture()) }
+        : { ok: false, status: 404 };
     try {
       if (path.endsWith('.txt')) return { ok: true, text: async () => text ?? readFile(file, 'utf8') };
       const data = JSON.parse(await readFile(file, 'utf8'));

@@ -44,11 +44,17 @@ test("prepare uses the export's grammar, the fallback when it has none, and leav
   }
 });
 
-test("prepare keeps the export's command index", async () => {
+test("prepare keeps the export's command index, and derives the element index from its documents", async () => {
   const exported = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
   prepare(exported);
   const read = async (directory, file) => JSON.parse(await readFile(path.join(directory, file), 'utf8'));
   assert.deepEqual(await read(path.join(root, 'public/data'), 'commands.json'), await read(exported, 'commands.json'));
+  const elements = await read(path.join(root, 'public/data'), 'elements.json');
+  assert.equal(elements.schema_version, 3);
+  assert.deepEqual(
+    elements.tables.find(table => table.document === '29328-j20' && table.command === 'User-Data-Request').message,
+    { document: '29329-j10', section: '6.1.1', name: 'User-Data-Request', line: 10 },
+  );
 });
 
 test('prepare derives the command index of a schema-2 export, which has none, as schema 3 exports it', async () => {

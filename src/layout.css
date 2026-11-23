@@ -517,6 +517,32 @@ pre {
 .name-menu[hidden] {
   display: none;
 }
+/*
+ * A member's category in its command's Information Elements tables, after the end of its line: laid over the text,
+ * never moving a column, as tall as the line, and its letter drawn by CSS, so a copy of the text leaves it.
+ */
+.element-mark {
+  position: absolute;
+  margin-left: 2ch;
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--ui-border);
+  color: var(--ui-muted);
+  font: 600 0.75em/2 var(--sans);
+  font-style: normal;
+  text-decoration: none;
+  user-select: none;
+  cursor: default;
+}
+.element-mark::before {
+  content: attr(data-category);
+}
+/* An Information Elements row's category is no flag, which the grammar takes an M for: one colour for M, C and O. */
+.dad-line.element-row [class*="avp-flag"] {
+  color: inherit;
+  background: none;
+  font-weight: inherit;
+}
 .dad-line {
   display: block;
 }

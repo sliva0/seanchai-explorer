@@ -1,6 +1,8 @@
 import type { DadFile } from './blocks.ts';
 import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
+import { emptyElements, markElements } from './elements.ts';
+import type { ElementIndex } from './elements.ts';
 import { READ_SCHEMAS, readsSchema } from './schema.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
@@ -202,12 +204,21 @@ export interface Site {
   loadCommands(): Promise<CommandIndex>;
   /** That index once loaded, which a document's view waits for. */
   commands(): CommandIndex | undefined;
+  /** The corpus's Information Elements tables by the commands they describe, an empty index where the build derived none. */
+  loadElements(): Promise<ElementIndex>;
+  /** That index once loaded, which a document's view waits for too. */
+  elements(): ElementIndex | undefined;
 }
 
-/** A value table's rows and a command's names link as other names do from the moment a file is read. */
+/**
+ * The readers of the block types that mark tokens as names on their first reading of a file: a value table's rows, a
+ * command's names, an element's AVPs. A new block type whose lines name something adds its reader here.
+ */
+const readers: ((file: DadFile) => unknown)[] = [valueTables, commandFacts, markElements];
+
+/** A file whose names link as other names do from the moment it is read. */
 function marked<T extends DadFile>(file: T): T {
-  valueTables(file);
-  commandFacts(file);
+  for (const read of readers) read(file);
   return file;
 }
 
@@ -218,6 +229,8 @@ export function createSite(index: Index): Site {
   const held = new Map<string, Document>();
   let commands: CommandIndex | undefined;
   let commandsLoading: Promise<CommandIndex> | undefined;
+  let elements: ElementIndex | undefined;
+  let elementsLoading: Promise<ElementIndex> | undefined;
   function cached<T>(path: string): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
     if (!result) {
@@ -253,6 +266,11 @@ export function createSite(index: Index): Site {
         .catch(() => emptyIndex(SCHEMA_VERSION))
         .then(index => (commands = index))),
     commands: () => commands,
+    loadElements: () =>
+      (elementsLoading ??= loadJSON<ElementIndex>('elements.json')
+        .catch(() => emptyElements(SCHEMA_VERSION))
+        .then(index => (elements = index))),
+    elements: () => elements,
   };
 }
 

@@ -338,11 +338,13 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
         const loading = setTimeout(() => {
           if (generation === request) draw({ page: { kind: 'loading', label: site.label(meta) } });
         }, 150);
-        // The command index comes with the first document, for its commands' names to know where they go.
+        // The command and element indexes come with the first document, for its commands' names to know where they
+        // go and its members what tables say of them.
         const [doc, raw] = await Promise.all([
           site.loadDocument(meta.id),
           parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined,
           site.loadCommands(),
+          site.loadElements(),
         ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         sourcePane.mount(doc);

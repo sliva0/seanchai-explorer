@@ -7,7 +7,10 @@ import type { ClickAction, ClickContext } from './clicks.ts';
 import { commandKey } from './commands.ts';
 import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
+import { lineAnnotations } from './annotations.ts';
+import type { LineAnnotation } from './annotations.ts';
 import { compactComment } from './comments.ts';
+import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
@@ -93,11 +96,29 @@ function tokenNode(
   return node;
 }
 
-function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer: ClickTarget): HTMLPreElement {
+/** Puts a node at the end of a line's text, before its newline, where one laid over the text starts after its end. */
+function beforeNewline(row: HTMLElement, node: Node) {
+  let last: Node | null = row.lastChild;
+  while (last && last.nodeType !== Node.TEXT_NODE) last = last.lastChild;
+  const text = last as Text | null;
+  if (!text?.data.endsWith('\n')) return void row.append(node);
+  const newline = text.splitText(text.data.length - 1);
+  newline.parentNode!.insertBefore(node, newline);
+}
+
+function renderLines(
+  lines: HighlightedLine[],
+  doc: Document,
+  site: Site,
+  prefer: ClickTarget,
+  annotations: Map<number, LineAnnotation>,
+): HTMLPreElement {
   const pre = element('pre');
   let correction = 0;
   lines.forEach((line, lineIndex) => {
     const row = element('span', undefined, `dad-line ${line.decoration}`.trim());
+    const annotation = annotations.get(lineIndex);
+    if (annotation) row.classList.add(...annotation.classes);
     row.dataset.line = String(lineIndex);
     if (line.section) row.dataset.section = line.section;
     if (line.warning) {
@@ -114,6 +135,7 @@ function renderLines(lines: HighlightedLine[], doc: Document, site: Site, prefer
         row.append(node);
       } else row.append(tokenNode(token, index, line, lines, doc, site, prefer));
     });
+    if (annotation?.after) beforeNewline(row, annotation.after);
     pre.append(row);
   });
   return pre;
@@ -180,7 +202,7 @@ function createText(
   markDetails(file, doc);
   const lines = services.highlight(file.lines);
   const scroller = createScroller(documentPane);
-  const pre = renderLines(lines, doc, site, settings.prefer());
+  const pre = renderLines(lines, doc, site, settings.prefer(), lineAnnotations(file, doc.id, site));
   documentPane.replaceChildren(pre);
   const rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
   const sectionRows = rows.filter(row => row.dataset.section);
@@ -438,18 +460,32 @@ function tablesNote(doc: Document, section: string): string {
     .join(', ');
 }
 
+/**
+ * A clause's title: the export's, but for a clause of Information Elements tables, which it titles by their type
+ * alone, with the commands they describe, each by its abbreviation where the corpus prints one.
+ */
+function sectionTitle(site: Site, doc: Document, section: string, title: string): string {
+  const short = (name: string) =>
+    site.commands()?.commands.find(command => command.name.toLowerCase() === name.toLowerCase() && command.abbreviation)
+      ?.abbreviation ?? name;
+  return elementsTitle(doc, section, title, short);
+}
+
 function SectionList({
+  site,
   doc,
   sectionLink,
   current,
 }: {
+  site: Site;
   doc: Document;
   sectionLink(section: string): ComponentChildren;
   current: string | undefined;
 }) {
   return (
     <ul class="section-list">
-      {doc.sections.map(({ section, page, title }) => {
+      {doc.sections.map(({ section, page, title: exported }) => {
+        const title = sectionTitle(site, doc, section, exported);
         const tables = tablesNote(doc, section);
         return (
           <li key={section} data-section={section} aria-current={section === current ? 'location' : undefined}>
@@ -630,10 +666,14 @@ export function DocumentPage({
   const panels: [Panel, ComponentChildren][] = [
     ['Findings', <FindingList key="findings" doc={doc} sectionLink={sectionLink} />],
     ['Holes', <HoleList key="holes" doc={doc} sectionLink={sectionLink} />],
-    ['Sections', <SectionList key="sections" doc={doc} sectionLink={sectionLink} current={shown?.section} />],
+    [
+      'Sections',
+      <SectionList key="sections" site={site} doc={doc} sectionLink={sectionLink} current={shown?.section} />,
+    ],
   ];
+  const crumbEntry = crumb ? doc.sections.find(section => section.section === crumb) : undefined;
   const crumbTitle =
-    crumb && [crumb, doc.sections.find(section => section.section === crumb)?.title].filter(Boolean).join(' · ');
+    crumb && [crumb, crumbEntry && sectionTitle(site, doc, crumb, crumbEntry.title)].filter(Boolean).join(' · ');
   return (
     <>
       <div id="document-tools">

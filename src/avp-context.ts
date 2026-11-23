@@ -1,6 +1,7 @@
 import { avpRows, blockAt, byName, cell, perFile } from './blocks.ts';
 import type { AvpRow, DadFile } from './blocks.ts';
-import type { Block } from './types.ts';
+import { elementRowAt } from './elements.ts';
+import type { Block, ElementRow } from './types.ts';
 import type { Member, Presence } from './types.ts';
 
 export { avpRows } from './blocks.ts';
@@ -20,11 +21,12 @@ export interface Rule {
   members: Member[];
 }
 
-/** What one line says of a name on it: a member of a rule, the rule's own head, or a table's row. */
+/** What one line says of a name on it: a member of a rule, the rule's own head, a table's row, or an information element's. */
 export type Use =
   | { kind: 'member'; rule: Rule; member: Member }
   | { kind: 'head'; rule: Rule }
-  | { kind: 'row'; row: AvpRow };
+  | { kind: 'row'; row: AvpRow }
+  | { kind: 'element'; block: Block; row: ElementRow };
 
 const rulesOf = perFile(
   ({ blocks }) =>
@@ -64,6 +66,8 @@ export function useAt(file: DadFile, index: number, name: string): Use | undefin
     const found = rule.members.find(item => item.line === index && item.name === name);
     return found && { kind: 'member', rule, member: found };
   }
+  const element = elementRowAt(block, index);
+  if (element) return element.avps?.includes(name) ? { kind: 'element', block, row: element } : undefined;
   const row = avpRows(file, name).find(item => item.line === index);
   return row && { kind: 'row', row };
 }

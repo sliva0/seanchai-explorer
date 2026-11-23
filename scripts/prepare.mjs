@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { commandIndex } from '../src/commands.ts';
+import { elementIndex } from '../src/elements.ts';
 import { PLUGIN_PATH } from '../src/plugin-file.ts';
 import { READ_SCHEMAS, readsSchema } from '../src/schema.ts';
 import { hasCommand, pluginVersions, project, release, runSeanchai, seanchai, specifications } from './seanchai.mjs';
@@ -65,12 +66,13 @@ if (problem) {
   throw new Error(problem);
 }
 
-// What a command's popup says of the corpus, for an export of schema 2, which has no commands.json.
+// What a member's information elements are, which a document's tables may say of another's commands, and for an
+// export of schema 2, which has no commands.json, what a command's popup says of the corpus.
 const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
-if (!existsSync(path.join(temporary, 'commands.json'))) {
-  const documents = await Promise.all(index.documents.map(async doc => ({ ...(await read(doc.path)), id: doc.id })));
+const documents = await Promise.all(index.documents.map(async doc => ({ ...(await read(doc.path)), id: doc.id })));
+await writeFile(path.join(temporary, 'elements.json'), JSON.stringify(elementIndex(documents, index.schema_version)));
+if (!existsSync(path.join(temporary, 'commands.json')))
   await writeFile(path.join(temporary, 'commands.json'), JSON.stringify(commandIndex(documents, index.schema_version)));
-}
 
 await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });

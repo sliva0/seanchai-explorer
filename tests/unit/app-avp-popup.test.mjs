@@ -290,6 +290,7 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
       'Here: in command User-Data-Request (UDR) · 6.1.1',
       'Required { } · must be present, in any position · exactly once',
       'Bold in the source: the document defines or modifies it here',
+      'Element: User Identity (See 7.1) · M, mandatory',
     ]);
     assert.deepEqual(
       texts(popup, '.popup-row-title'),
