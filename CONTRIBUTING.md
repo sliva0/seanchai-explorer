@@ -56,7 +56,7 @@ walks the whole document: without the cap, one failing `assert.equal(node, null)
 take all the machine's memory. For one file or one test, keep the cap:
 
 ```sh
-node --max-old-space-size=1024 --test --test-timeout=120000 --test-name-pattern='<name>' tests/unit/app-targets.test.mjs
+node --import ./tests/tsx.mjs --max-old-space-size=1024 --test --test-timeout=120000 --test-name-pattern='<name>' tests/unit/app-targets.test.mjs
 ```
 
 In a test, check a node with `absent`, `present`, `same` or `notSame` from
@@ -145,9 +145,10 @@ The site is plain DOM, built with `element()` from `dom.ts`, except for islands:
 closes through a small imperative API, as `main.ts` and `document-view.ts` call `createPopups()`'s `show()` and
 `close()`. The popups are the one island. Inside it the state is the components' and every change draws the same nodes
 again, so what the reader opened, scrolled or focused stays without being put back by hand; outside it nothing knows
-Preact is there. Components are written with Preact's typed `h()` in plain `.ts` files, never JSX or `.tsx`: the unit
-tests and scripts import `src/*.ts` straight into Node, which strips types but compiles nothing, and `tsconfig.json`
-allows only erasable syntax. An island is mounted with `island.ts`'s `mount`, which also makes Preact render
+Preact is there. Components are written in TSX, in `.tsx` files, for Preact's automatic JSX runtime. Node strips
+the types of `src/*.ts` but compiles no JSX, so `npm test` loads `tests/tsx.mjs`, which compiles a `.tsx` module with
+oxc as Vite does; run a single test file with `--import ./tests/tsx.mjs` too. Code that the scripts import, as
+`src/commands.ts` and `src/plugin-file.ts`, stays `.ts` with no JSX. An island is mounted with `island.ts`'s `mount`, which also makes Preact render
 synchronously, so the code and tests around it read the page right after what they did. Make a part an island where
 what it shows changes in place while the reader works in it, with state to keep across those changes; a part drawn
 once and replaced whole, or changed by a class or attribute here and there, stays vanilla.

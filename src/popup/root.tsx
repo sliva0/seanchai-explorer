@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
@@ -6,9 +5,9 @@ import type { HighlightedLine, HighlightedToken } from '../highlight.ts';
 import { attempt } from '../notice.ts';
 import type { SourcePane } from '../source-pane.ts';
 import type { Document } from '../types.ts';
-import { AvpPopup } from './avp.ts';
-import { CommandPopup } from './command.ts';
-import { ValuePopup } from './value.ts';
+import { AvpPopup } from './avp.tsx';
+import { CommandPopup } from './command.tsx';
+import { ValuePopup } from './value.tsx';
 
 export interface PopupRequest {
   token: HighlightedToken;
@@ -33,6 +32,8 @@ export interface PopupProps {
   site: Site;
   pane: SourcePane;
   request: PopupRequest;
+  /** Drawn in the source pane's inspector, not over the text by its name. */
+  inline?: boolean;
   /** The use or row a walk has gone to, none until one has. */
   at: number | undefined;
   /** The name the popup is placed by: the one opened on, or the one a walk has gone to. */
@@ -62,23 +63,19 @@ interface IslandProps {
 export function Island({ request, opened, ...shared }: IslandProps) {
   const [keyOpen, setKeyOpen] = useState(false);
   if (!request) return null;
-  return h(Popup, {
-    key: opened,
-    ...shared,
-    request,
-    keyOpen,
-    toggleKey: () => setKeyOpen(open => !open),
-  });
+  return (
+    <Popup key={opened} {...shared} request={request} keyOpen={keyOpen} toggleKey={() => setKeyOpen(open => !open)} />
+  );
 }
 
-type RootProps = Pick<PopupProps, 'site' | 'pane' | 'request' | 'keyOpen' | 'toggleKey' | 'close'>;
+export type RootProps = Pick<PopupProps, 'site' | 'pane' | 'request' | 'keyOpen' | 'toggleKey' | 'close' | 'inline'>;
 
 /**
  * One popup, which a value's name opens as its table, a command's as its definitions and an AVP's as its uses. It holds
  * where a walk through it stands and what it has loaded; a step or a load draws it again over the same nodes, so the
  * sections the reader opened, the lists' scroll and the focus stay where they are.
  */
-function Popup(props: RootProps) {
+export function Popup(props: RootProps) {
   const { site, request } = props;
   const [stood, setStood] = useState<{ at?: number; anchor: HTMLElement }>({ anchor: request.opener });
   const [, setLoads] = useState(0);
@@ -106,7 +103,7 @@ function Popup(props: RootProps) {
     demand,
   };
   const { token } = request;
-  if (token.valueRow) return h(ValuePopup, { ...popup, row: token.valueRow });
-  if (token.command) return h(CommandPopup, { ...popup, command: token.command });
-  return h(AvpPopup, popup);
+  if (token.valueRow) return <ValuePopup {...popup} row={token.valueRow} />;
+  if (token.command) return <CommandPopup {...popup} command={token.command} />;
+  return <AvpPopup {...popup} />;
 }

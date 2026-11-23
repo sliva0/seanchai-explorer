@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise"],
+  "plugins": ["eslint", "typescript", "unicorn", "oxc", "import", "promise", "react"],
   "categories": {
     "correctness": "error",
     "suspicious": "error",
@@ -31,7 +31,14 @@
     // The copies are deliberate: records shared with other readers are never mutated.
     "oxc/no-map-spread": "off",
     // A `then` run for its effect needs no value, and TypeScript types what each chain yields.
-    "promise/always-return": "off"
+    "promise/always-return": "off",
+    // Components are compiled for Preact's automatic JSX runtime, which imports what JSX needs itself.
+    "react/react-in-jsx-scope": "off",
+    // An effect run once a popup or view is drawn reads what it was drawn with, on purpose: its dependencies are what
+    // should run it again, not every value it reads.
+    "react-hooks/exhaustive-deps": "off",
+    // A list drawn whole from data that does not move, as a rule's members or a popup's uses, is keyed by its place.
+    "react/no-array-index-key": "off"
   },
   "overrides": [
     {

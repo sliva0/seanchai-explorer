@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import { useLayoutEffect } from 'preact/hooks';
 import { originPlace } from '../avp-places.ts';
 import { sourceHref } from '../data.ts';
@@ -6,8 +5,8 @@ import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import { valueRowLabel } from '../values.ts';
 import type { ValueRow } from '../values.ts';
-import type { PopupProps } from './root.ts';
-import { counted, Entries, externalLink, Panel, placeRows, Steps } from './shared.ts';
+import type { PopupProps } from './root.tsx';
+import { Counted, Entries, ExternalLink, Panel, placeRows, Steps } from './shared.tsx';
 
 /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
 function originLabel(site: Site, { origin }: ValueRow): string {
@@ -46,63 +45,63 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
   const originRow =
     origin &&
     placeRow('Defined in', 'place-origin', origin, [originLabel(site, row), origin.target!.section].join(' · '));
-  return h(
-    Panel,
-    { ...props, heading: row.name, data: { 'data-value': row.name } },
-    h(
-      'p',
-      null,
-      `${valueRowLabel(table.kind)} ${row.value} of `,
-      table.avp &&
-        (table.avp.target
-          ? h('a', { href: routeFor({ ...table.avp.target, name: table.avp.name }) }, table.avp.name)
-          : table.avp.name),
-      table.featureListId !== null && ` · list ${table.featureListId}`,
-      table.application && ` · ${table.application}`,
-      row.mark && ` · ${row.mark}`,
-    ),
-    h(
-      'p',
-      null,
-      'Source: ',
-      pane.shows(doc)
-        ? h(
-            'button',
-            {
-              class: 'usage-link source-link',
-              onClick: () => {
-                pane.setVisible(true);
-                pane.show(table.rows[active].position, doc, true);
-              },
-            },
-            where,
-          )
-        : href
-          ? externalLink(where, href.href)
-          : where,
-    ),
-    row.origin &&
-      (originRow
-        ? h('div', { class: 'popup-places' }, originRow)
-        : h('p', { class: 'value-origin' }, `Defined in ${row.origin.reference}`)),
-    h(Steps, {
-      count: `Row ${active + 1}/${table.rows.length}`,
-      widest: `Row ${table.rows.length}/${table.rows.length}`,
-      select: by => select(active + by),
-    }),
-    h(
-      'div',
-      { class: 'usage-details' },
-      h('div', null, counted('Table', table.rows.length)),
-      h(Entries, {
-        entries: table.rows.map(item => ({
-          text: [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(site, item)}`]
-            .filter(Boolean)
-            .join(' · '),
-        })),
-        active,
-        select,
-      }),
-    ),
+  return (
+    <Panel {...props} heading={row.name} data={{ 'data-value': row.name }}>
+      <p>
+        {`${valueRowLabel(table.kind)} ${row.value} of `}
+        {table.avp &&
+          (table.avp.target ? (
+            <a href={routeFor({ ...table.avp.target, name: table.avp.name })}>{table.avp.name}</a>
+          ) : (
+            table.avp.name
+          ))}
+        {table.featureListId !== null && ` · list ${table.featureListId}`}
+        {table.application && ` · ${table.application}`}
+        {row.mark && ` · ${row.mark}`}
+      </p>
+      <p>
+        {'Source: '}
+        {pane.shows(doc) ? (
+          <button
+            class="usage-link source-link"
+            onClick={() => {
+              pane.setVisible(true);
+              pane.show(table.rows[active].position, doc, true);
+            }}
+          >
+            {where}
+          </button>
+        ) : href ? (
+          <ExternalLink href={href.href}>{where}</ExternalLink>
+        ) : (
+          where
+        )}
+      </p>
+      {row.origin &&
+        (originRow ? (
+          <div class="popup-places">{originRow}</div>
+        ) : (
+          <p class="value-origin">{`Defined in ${row.origin.reference}`}</p>
+        ))}
+      <Steps
+        count={`Row ${active + 1}/${table.rows.length}`}
+        widest={`Row ${table.rows.length}/${table.rows.length}`}
+        select={by => select(active + by)}
+      />
+      <div class="usage-details">
+        <div>
+          <Counted title="Table" count={table.rows.length} />
+        </div>
+        <Entries
+          entries={table.rows.map(item => ({
+            text: [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(site, item)}`]
+              .filter(Boolean)
+              .join(' · '),
+          }))}
+          active={active}
+          select={select}
+        />
+      </div>
+    </Panel>
   );
 }

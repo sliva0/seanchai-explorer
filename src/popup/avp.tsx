@@ -1,4 +1,4 @@
-import { h } from 'preact';
+import { Fragment } from 'preact';
 import type { ComponentChild } from 'preact';
 import { useLayoutEffect, useMemo, useState } from 'preact/hooks';
 import {
@@ -25,8 +25,8 @@ import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
 import { valueTableTitle } from '../values.ts';
-import type { PopupProps, PopupRequest } from './root.ts';
-import { counted, Entries, Panel, placeRows, RuleContents, Steps } from './shared.ts';
+import type { PopupProps, PopupRequest } from './root.tsx';
+import { Counted, Entries, Panel, placeRows, RuleContents, Steps } from './shared.tsx';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
@@ -64,53 +64,44 @@ function UseContext({ use }: { use: Use }) {
   const lines: ComponentChild[] = [];
   if (use.kind === 'member') {
     const { rule, member } = use;
-    lines.push(h('p', null, `Here: in ${ruleName(rule)}${rule.section ? ` · ${rule.section}` : ''}`));
-    lines.push(h('p', { class: 'presence' }, presenceText(member)));
-    if (member.bold)
-      lines.push(h('p', { class: 'fact-note' }, 'Bold in the source: the document defines or modifies it here'));
-    if (member.struck)
-      lines.push(h('p', { class: 'fact-note' }, 'Struck through in the source, and left out of the rule'));
-    else if (member.strikethrough) lines.push(h('p', { class: 'fact-note' }, 'Struck through in the source'));
+    lines.push(<p>{`Here: in ${ruleName(rule)}${rule.section ? ` · ${rule.section}` : ''}`}</p>);
+    lines.push(<p class="presence">{presenceText(member)}</p>);
+    if (member.bold) lines.push(<p class="fact-note">Bold in the source: the document defines or modifies it here</p>);
+    if (member.struck) lines.push(<p class="fact-note">Struck through in the source, and left out of the rule</p>);
+    else if (member.strikethrough) lines.push(<p class="fact-note">Struck through in the source</p>);
   } else if (use.kind === 'head') {
-    lines.push(
-      h('p', null, `Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`),
-    );
-  } else lines.push(h('p', null, `Here: a row of ${tableOf(use.row)}`));
-  return h('div', { class: 'popup-context' }, lines);
+    lines.push(<p>{`Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`}</p>);
+  } else lines.push(<p>{`Here: a row of ${tableOf(use.row)}`}</p>);
+  return <div class="popup-context">{lines}</div>;
 }
 
 /** A row's M and V bits as its table prints them, only the columns that hold one, each cell's meaning its tip. */
 function FlagsTable({ columns }: { columns: ReturnType<typeof flagTable> }) {
-  return h(
-    'table',
-    { class: 'popup-flags' },
-    h(
-      'thead',
-      null,
-      h(
-        'tr',
-        null,
-        columns.map(([rule]) => h('th', { scope: 'col' }, flagHeading[rule])),
-      ),
-    ),
-    h(
-      'tbody',
-      null,
-      h(
-        'tr',
-        null,
-        columns.map(([rule, bits]) =>
-          h(
-            'td',
-            {
-              class: `flag-${rule.replace(' ', '-')}`,
-              title: bits.map(bit => `${bit} ${flagWords[rule]}. ${bitMeaning[bit]}`).join('\n'),
-            },
-            bits.join(', '),
-          ),
-        ),
-      ),
-    ),
+  return (
+    <table class="popup-flags">
+      <thead>
+        <tr>
+          {columns.map(([rule]) => (
+            <th key={rule} scope="col">
+              {flagHeading[rule]}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          {columns.map(([rule, bits]) => (
+            <td
+              key={rule}
+              class={`flag-${rule.replace(' ', '-')}`}
+              title={bits.map(bit => `${bit} ${flagWords[rule]}. ${bitMeaning[bit]}`).join('\n')}
+            >
+              {bits.join(', ')}
+            </td>
+          ))}
+        </tr>
+      </tbody>
+    </table>
   );
 }
 
@@ -131,26 +122,34 @@ function RowFacts({
 }) {
   const columns = flagTable(row);
   const cells = otherCells(row);
-  return h(
-    'div',
-    { class: applies ? 'popup-row popup-row-here' : 'popup-row' },
-    title !== undefined &&
-      h(
-        'div',
-        { class: 'popup-row-title' },
-        title,
-        applies && h('span', { class: 'popup-row-applies' }, ' · applies here'),
-      ),
-    columns.length > 0 && h('div', { class: 'popup-flags-line' }, h(FlagsTable, { columns }), keyButton),
-    cells.length > 0 &&
-      h(
-        'dl',
-        { class: 'popup-facts' },
-        cells.map(([column, text], index) => [
-          h('dt', { title: columnNotes[column] || undefined }, column),
-          h('dd', null, text, keyButton && !columns.length && !index && [' ', keyButton]),
-        ]),
-      ),
+  return (
+    <div class={applies ? 'popup-row popup-row-here' : 'popup-row'}>
+      {title !== undefined && (
+        <div class="popup-row-title">
+          {title}
+          {applies && <span class="popup-row-applies"> · applies here</span>}
+        </div>
+      )}
+      {columns.length > 0 && (
+        <div class="popup-flags-line">
+          <FlagsTable columns={columns} />
+          {keyButton}
+        </div>
+      )}
+      {cells.length > 0 && (
+        <dl class="popup-facts">
+          {cells.map(([column, text], index) => (
+            <Fragment key={column}>
+              <dt title={columnNotes[column] || undefined}>{column}</dt>
+              <dd>
+                {text}
+                {keyButton && !columns.length && !index && [' ', keyButton]}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+    </div>
   );
 }
 
@@ -327,21 +326,19 @@ export function AvpPopup(props: PopupProps) {
   const key = definitionRows.length ? keyEntries(definitionRows.map(({ row }) => row)) : [];
   const keyed = definitionRows.find(({ row }) => flagTable(row).length) ?? definitionRows[0];
   const keyButton =
-    key.length > 0
-      ? h(
-          'button',
-          {
-            class: 'control popup-key-button',
-            type: 'button',
-            title: 'What these mean',
-            'aria-label': 'What these mean',
-            'aria-controls': keyId,
-            'aria-expanded': String(keyOpen),
-            onClick: toggleKey,
-          },
-          '?',
-        )
-      : undefined;
+    key.length > 0 ? (
+      <button
+        class="control popup-key-button"
+        type="button"
+        title="What these mean"
+        aria-label="What these mean"
+        aria-controls={keyId}
+        aria-expanded={keyOpen}
+        onClick={toggleKey}
+      >
+        ?
+      </button>
+    ) : undefined;
   const { definition, details } = namePlaces(token, lines, doc);
   const placed = [
     definition && placeRow('Definition', 'place-definition', definition),
@@ -364,68 +361,85 @@ export function AvpPopup(props: PopupProps) {
     step(to, node);
   };
 
-  return h(
-    Panel,
-    { ...props, heading: name, data: { 'data-avp': name }, alignLabels: true },
-    identities.length > 0 &&
-      h(
-        'div',
-        { class: 'popup-identity' },
-        identities.map(text => h('p', null, text)),
-      ),
-    use && h(UseContext, { use }),
-    definitionRows.map(item =>
-      h(RowFacts, {
-        title:
-          use?.kind === 'row' && item.row === use.row
-            ? undefined
-            : [
-                tableOf(item.row),
-                item.applications.join(', '),
-                item.document !== doc.id && site.summary(item.document) ? site.label(site.summary(item.document)!) : '',
-              ]
-                .filter(Boolean)
-                .join(' · '),
-        row: item.row,
-        applies: item.applies && definitionRows.length > 1,
-        keyButton: item === keyed ? keyButton : undefined,
-      }),
-    ),
-    key.length > 0 &&
-      h(
-        'dl',
-        { class: 'popup-key', id: keyId, hidden: !keyOpen },
-        key.map(([term, text, value]) => [
-          h('dt', null, term),
-          h('dd', null, value && [h('b', null, value), ' · '], text),
-        ]),
-      ),
-    rule?.members.length ? h(RuleContents, { rule, open: use?.kind === 'head', title: 'Contents' }) : null,
-    hasPlaces &&
-      h(
-        'div',
-        { class: 'popup-places' },
-        placed,
-        // In the targets' grid, for their columns to line up.
-        tables.length > 0 && h('div', { class: 'popup-tables', role: 'group', 'aria-label': 'Value tables' }, tables),
-      ),
-    h(Steps, {
-      count: `.dad ${active + 1}/${uses.length}`,
-      widest: `.dad ${uses.length}/${uses.length}`,
-      select: by => select(active + by),
-    }),
-    // Closed, as a Grouped AVP's contents are: Previous and Next above step through the uses without it.
-    h(
-      'details',
-      {
-        class: 'usage-details popup-uses',
-        onToggle: (event: Event) => {
+  return (
+    <Panel {...props} heading={name} data={{ 'data-avp': name }} alignLabels>
+      {identities.length > 0 && (
+        <div class="popup-identity">
+          {identities.map((text, index) => (
+            <p key={index}>{text}</p>
+          ))}
+        </div>
+      )}
+      {use && <UseContext use={use} />}
+      {definitionRows.map((item, index) => (
+        <RowFacts
+          key={index}
+          title={
+            use?.kind === 'row' && item.row === use.row
+              ? undefined
+              : [
+                  tableOf(item.row),
+                  item.applications.join(', '),
+                  item.document !== doc.id && site.summary(item.document)
+                    ? site.label(site.summary(item.document)!)
+                    : '',
+                ]
+                  .filter(Boolean)
+                  .join(' · ')
+          }
+          row={item.row}
+          applies={item.applies && definitionRows.length > 1}
+          keyButton={item === keyed ? keyButton : undefined}
+        />
+      ))}
+      {key.length > 0 && (
+        <dl class="popup-key" id={keyId} hidden={!keyOpen}>
+          {key.map(([term, text, value]) => (
+            <Fragment key={term}>
+              <dt>{term}</dt>
+              <dd>
+                {value && (
+                  <>
+                    <b>{value}</b>
+                    {' · '}
+                  </>
+                )}
+                {text}
+              </dd>
+            </Fragment>
+          ))}
+        </dl>
+      )}
+      {rule?.members.length ? <RuleContents rule={rule} open={use?.kind === 'head'} title="Contents" /> : null}
+      {hasPlaces && (
+        <div class="popup-places">
+          {placed}
+          {/* In the targets' grid, for their columns to line up. */}
+          {tables.length > 0 && (
+            <div class="popup-tables" role="group" aria-label="Value tables">
+              {tables}
+            </div>
+          )}
+        </div>
+      )}
+      <Steps
+        count={`.dad ${active + 1}/${uses.length}`}
+        widest={`.dad ${uses.length}/${uses.length}`}
+        select={by => select(active + by)}
+      />
+      {/* Closed, as a Grouped AVP's contents are: Previous and Next above step through the uses without it. */}
+      <details
+        class="usage-details popup-uses"
+        onToggle={event => {
           const node = event.currentTarget as HTMLDetailsElement;
           if (node.open) node.querySelector('[aria-current]')?.scrollIntoView?.({ block: 'nearest' });
-        },
-      },
-      h('summary', null, counted('Uses', uses.length)),
-      h(Entries, { entries, active, select }),
-    ),
+        }}
+      >
+        <summary>
+          <Counted title="Uses" count={uses.length} />
+        </summary>
+        <Entries entries={entries} active={active} select={select} />
+      </details>
+    </Panel>
   );
 }

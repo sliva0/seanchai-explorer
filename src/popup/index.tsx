@@ -1,12 +1,11 @@
-import { h } from 'preact';
 import type { Site } from '../data.ts';
 import { element } from '../dom.ts';
 import { mount } from '../island.ts';
 import type { SourcePane } from '../source-pane.ts';
-import { Island } from './root.ts';
-import type { PopupRequest } from './root.ts';
+import { Island } from './root.tsx';
+import type { PopupRequest } from './root.tsx';
 
-export type { PopupRequest } from './root.ts';
+export type { PopupRequest } from './root.tsx';
 export type Popups = ReturnType<typeof createPopups>;
 
 /**
@@ -17,7 +16,7 @@ export function createPopups(site: Site, pane: SourcePane) {
   const host = element('div', undefined, 'popup-host');
   let shown: PopupRequest | undefined;
   let opened = 0;
-  const draw = () => mount(h(Island, { site, pane, request: shown, opened, close }), host);
+  const draw = () => mount(<Island site={site} pane={pane} request={shown} opened={opened} close={close} />, host);
 
   function close(returnFocus = false) {
     if (!shown) return;

@@ -1,4 +1,3 @@
-import { h } from 'preact';
 import type { ComponentChild } from 'preact';
 import { useLayoutEffect } from 'preact/hooks';
 import { ruleAt } from '../avp-context.ts';
@@ -17,8 +16,8 @@ import {
 import type { Command } from '../command-places.ts';
 import { commandKey, isRequest } from '../commands.ts';
 import type { CommandRef } from '../commands.ts';
-import type { PopupProps } from './root.ts';
-import { counted, Panel, placeRows, RuleContents } from './shared.ts';
+import type { PopupProps } from './root.tsx';
+import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
 
 /** "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none. */
 function commandIdentity(command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope'>): string[] {
@@ -56,12 +55,14 @@ function group(
   const kept = rows.filter(row => row !== undefined);
   if (!kept.length) return [];
   return [
-    h(
-      'div',
-      { class: `popup-group ${className}`, role: 'group', 'aria-label': title },
-      titled && h('div', { class: 'popup-group-title' }, counted(title, kept.length)),
-      kept,
-    ),
+    <div key={title} class={`popup-group ${className}`} role="group" aria-label={title}>
+      {titled && (
+        <div class="popup-group-title">
+          <Counted title={title} count={kept.length} />
+        </div>
+      )}
+      {kept}
+    </div>,
   ];
 }
 
@@ -160,17 +161,17 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     );
   }
   const kept = rows.filter(row => row !== undefined);
-  return h(
-    Panel,
-    { ...props, heading, data: { 'data-command': commandKey(ref) } },
-    h(
-      'div',
-      { class: 'popup-identity' },
-      (command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(text =>
-        h('p', null, text),
-      ),
-    ),
-    rule?.members.length ? h(RuleContents, { rule, open: false, title: 'AVPs' }) : null,
-    kept.length > 0 && h('div', { class: 'popup-places command-places' }, kept),
+  return (
+    <Panel {...props} heading={heading} data={{ 'data-command': commandKey(ref) }}>
+      <div class="popup-identity">
+        {(command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(
+          (text, index) => (
+            <p key={index}>{text}</p>
+          ),
+        )}
+      </div>
+      {rule?.members.length ? <RuleContents rule={rule} open={false} title="AVPs" /> : null}
+      {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}
+    </Panel>
   );
 }

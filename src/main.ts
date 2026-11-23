@@ -14,7 +14,7 @@ import { WIRESHARK, namesDocument, pageOf, parseRoute, routeFor } from './naviga
 import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
-import { createPopups } from './popup/index.ts';
+import { createPopups } from './popup/index.tsx';
 import { renderSearch } from './search-view.ts';
 import { createSourcePane } from './source-pane.ts';
 import type { SourcePane } from './source-pane.ts';
