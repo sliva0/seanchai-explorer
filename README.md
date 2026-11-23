@@ -113,7 +113,8 @@ Self-hosted output is for an organisation's own use behind its own access contro
 ## Building
 
 Node 24 or newer with npm, and [uv](https://docs.astral.sh/uv/). Nothing else: the
-build runs the released `seanchai` from PyPI through `uvx`.
+build runs the release of `seanchai` and `seanchai-corpus` that `seanchai-release.json`
+pins, from PyPI through `uvx`, so one commit always builds one corpus.
 
 ```sh
 npm ci
@@ -138,7 +139,34 @@ Which `seanchai` runs is the first of:
 1. a Seanchaí checkout, through `uv run`: the one named by `SEANCHAI_ROOT`, or the one
    this repository is inside at `.local/seanchai-explorer`;
 2. a `seanchai` command on `PATH`, which needs the `extract` extra for `npm run sources`;
-3. the PyPI release, through `uvx`.
+3. the PyPI release `seanchai-release.json` pins, through `uvx`. With `SEANCHAI_PINNED=1`
+   it is the only one, even inside a checkout. A build that ran it fails if its export
+   names other versions than the pin.
+
+A plugin passed in `SEANCHAI_PLUGIN` must name the export's `seanchai` and corpus
+versions on its `-- seanchai:versions` line, or the build fails.
+
+### Bumping the pinned release
+
+Once both packages are on PyPI, set their versions in `seanchai-release.json`:
+
+```json
+{
+  "seanchai": "0.2.0",
+  "seanchai-corpus": "2026.11.12"
+}
+```
+
+Then build with the new pin and run the checks. Where the export's schema changed,
+regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says.
+
+```sh
+SEANCHAI_PINNED=1 npm run build
+npm test
+```
+
+Commit the file on its own, and run the deploy workflow: it fails if the site it built
+is not the pinned release's, and its summary says what it published.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the other commands, the tests and the export
 contract.
@@ -148,6 +176,7 @@ contract.
 | Variable | Meaning |
 |---|---|
 | `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the release. |
+| `SEANCHAI_PINNED` | `1` runs the release `seanchai-release.json` pins, even inside a checkout or with a `seanchai` on `PATH`. |
 | `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |

@@ -87,12 +87,13 @@ esac
 `,
   );
   await chmod(uv, 0o755);
-  // Its export, not one the environment names, and no plugin made already.
+  // Its export, not one the environment names or the pinned release's, and no plugin made already.
   return {
     SEANCHAI_ROOT: directory,
     PATH: `${bin}${path.delimiter}${process.env.PATH}`,
     SEANCHAI_EXPORT: '',
     SEANCHAI_PLUGIN: '',
+    SEANCHAI_PINNED: '',
   };
 }
 
@@ -117,6 +118,81 @@ test('a seanchai too old for the plugin fails a build it exported for, and not o
       /Building without the Wireshark plugin: this seanchai has no wireshark-plugin command/,
     );
     assert.ok(!existsSync(plugin));
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+/** A `uvx` standing in for the pinned release: it says what it was asked on stderr, and exports the fixture. */
+async function pinnedStandIn(directory) {
+  const bin = path.join(directory, 'bin');
+  await mkdir(bin);
+  const uvx = path.join(bin, 'uvx');
+  await writeFile(
+    uvx,
+    `#!/bin/sh
+echo "uvx $*" >&2
+case "$6" in
+  export) cp -r '${fixture}.' "$8" ;;
+  wireshark-plugin) cp '${standIn}' "$8" ;;
+esac
+`,
+  );
+  await chmod(uvx, 0o755);
+  return {
+    SEANCHAI_PINNED: '1',
+    PATH: `${bin}${path.delimiter}${process.env.PATH}`,
+    SEANCHAI_EXPORT: '',
+    SEANCHAI_PLUGIN: '',
+  };
+}
+
+test('SEANCHAI_PINNED runs the release seanchai-release.json pins, and a build fails where it exports other versions', async () => {
+  const pin = JSON.parse(await readFile(path.join(root, 'seanchai-release.json'), 'utf8'));
+  const exported = JSON.parse(await readFile(path.join(fixture, 'index.json'), 'utf8'));
+  const directory = await mkdtemp(path.join(tmpdir(), 'seanchai-pinned-'));
+  try {
+    const result = run(await pinnedStandIn(directory));
+    assert.match(
+      result.stderr,
+      new RegExp(
+        `uvx --from seanchai\\[corpus\\]==${pin.seanchai} --with seanchai-corpus==${pin['seanchai-corpus']} seanchai export`,
+      ),
+    );
+    if (exported.seanchai_version === pin.seanchai && exported.corpus_version === pin['seanchai-corpus'])
+      assert.equal(result.status, 0, result.stderr);
+    else {
+      assert.notEqual(result.status, 0);
+      assert.match(
+        result.stderr,
+        new RegExp(
+          `The release pinned in seanchai-release.json, seanchai ${pin.seanchai}, corpus ${pin['seanchai-corpus']}, exported seanchai ${exported.seanchai_version}, corpus ${exported.corpus_version}`,
+        ),
+      );
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+
+test('a build refuses SEANCHAI_PLUGIN made by another seanchai or corpus than the export, or naming none', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'seanchai-plugin-'));
+  try {
+    const text = await readFile(standIn, 'utf8');
+    const other = path.join(directory, 'other.lua');
+    await writeFile(other, text.replace(/corpus \S+$/m, 'corpus 1999.01.01'));
+    const failed = run({ SEANCHAI_EXPORT: fixture, SEANCHAI_PLUGIN: other });
+    assert.notEqual(failed.status, 0);
+    assert.match(
+      failed.stderr,
+      /was made by seanchai \S+, corpus 1999\.01\.01, and the export by seanchai \S+, corpus /,
+    );
+    const unsaid = path.join(directory, 'unsaid.lua');
+    await writeFile(unsaid, text.replace(/^-- seanchai:versions .*\n/m, ''));
+    const none = run({ SEANCHAI_EXPORT: fixture, SEANCHAI_PLUGIN: unsaid });
+    assert.notEqual(none.status, 0);
+    assert.match(none.stderr, /names no versions/);
+    prepare(fixture);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

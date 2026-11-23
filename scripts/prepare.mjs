@@ -5,7 +5,7 @@ import path from 'node:path';
 import { commandIndex } from '../src/commands.ts';
 import { PLUGIN_PATH } from '../src/plugin-file.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
-import { hasCommand, project, runSeanchai, seanchai, specifications } from './seanchai.mjs';
+import { hasCommand, pluginVersions, project, release, runSeanchai, seanchai, specifications } from './seanchai.mjs';
 
 const selfHosted = process.argv.includes('--self-hosted');
 const mode = selfHosted ? 'self-hosted' : 'public';
@@ -24,22 +24,42 @@ function runExport(output) {
   if (selfHosted) args.push('--include-pdfs');
   if (existsSync(path.join(specifications, 'wireshark')))
     args.push('--wireshark', path.join(specifications, 'wireshark'));
-  seanchai(args);
+  return seanchai(args);
 }
 
 const temporary = path.join(project, '.data-tmp');
 await rm(temporary, { recursive: true, force: true });
+/**
+ * What is wrong with `SEANCHAI_PLUGIN` beside this export, if anything: a plugin made from another corpus than the
+ * export's would check traffic against other rules than the site shows. An export naming no versions is not checked.
+ */
+async function suppliedPluginProblem() {
+  if (!process.env.SEANCHAI_PLUGIN || !exported.seanchai || !exported.corpus) return null;
+  const given = path.resolve(process.env.SEANCHAI_PLUGIN);
+  const versions = pluginVersions(await readFile(given, 'utf8'));
+  if (!versions) return `SEANCHAI_PLUGIN ${given} names no versions: it has no -- seanchai:versions line`;
+  return versions.seanchai === exported.seanchai && versions.corpus === exported.corpus
+    ? null
+    : `SEANCHAI_PLUGIN ${given} was made by ${said(versions)}, and the export by ${said(exported)}: make both with one seanchai`;
+}
+
+let pinned = false;
 if (prebuilt) await cp(path.resolve(process.env.SEANCHAI_EXPORT), temporary, { recursive: true });
-else runExport(temporary);
+else pinned = runExport(temporary);
 
 const index = JSON.parse(await readFile(path.join(temporary, 'index.json'), 'utf8'));
 const anySchema = process.argv.includes('--any-schema');
+const said = versions => `seanchai ${versions.seanchai}, corpus ${versions.corpus}`;
+const exported = { seanchai: index.seanchai_version, corpus: index.corpus_version };
+const pin = { seanchai: release.seanchai, corpus: release['seanchai-corpus'] };
 const problem =
   !anySchema && index.schema_version !== SCHEMA_VERSION
     ? `Export schema ${index.schema_version}, expected ${SCHEMA_VERSION}`
     : index.mode !== mode
       ? `A ${mode} build cannot use a ${index.mode} export`
-      : null;
+      : pinned && (exported.seanchai !== pin.seanchai || exported.corpus !== pin.corpus)
+        ? `The release pinned in seanchai-release.json, ${said(pin)}, exported ${said(exported)}`
+        : await suppliedPluginProblem();
 if (problem) {
   await rm(temporary, { recursive: true, force: true });
   throw new Error(problem);

@@ -177,6 +177,8 @@ the Actions tab: it runs every check CI runs on the tree being published, builds
 mode, checks no PDF is in `dist/`, and publishes with the Pages actions. Pages must be set to deploy from
 GitHub Actions.
 
-The build runs the PyPI release unless the repository variable `SEANCHAI_GIT_REF`, or
-the run's `seanchai_git_ref` input, names a ref of <https://github.com/sliva0/seanchai>,
-whose two packages it then installs from that ref.
+The build runs the PyPI release `seanchai-release.json` pins (see README.md, "Bumping the
+pinned release"), and fails if the site it built names other versions, unless the
+repository variable `SEANCHAI_GIT_REF`, or the run's `seanchai_git_ref` input, names a ref
+of <https://github.com/sliva0/seanchai>, whose two packages it then installs from that ref.
+The run's summary says which versions it published.

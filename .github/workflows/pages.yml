@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # With no ref, the build runs the PyPI release through uvx.
+      # With no ref, the build runs the PyPI release seanchai-release.json pins, through uvx.
       - uses: astral-sh/setup-uv@v7
       - uses: actions/setup-node@v7
         with:
@@ -57,6 +57,22 @@ jobs:
       - name: Check no PDF is published
         run: |
           if find dist -iname '*.pdf' | grep .; then exit 1; fi
+      # One commit publishes one corpus: the pinned release's, unless a ref was asked for.
+      - name: Check the export is the pinned release, and say what is published
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const pin = JSON.parse(fs.readFileSync("seanchai-release.json", "utf8"));
+            const index = JSON.parse(fs.readFileSync("dist/data/index.json", "utf8"));
+            const published = `seanchai ${index.seanchai_version}, corpus ${index.corpus_version}`;
+            const pinned = `seanchai ${pin.seanchai}, corpus ${pin["seanchai-corpus"]}`;
+            const ref = process.env.SEANCHAI_GIT_REF;
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Publishing ${published}${ref ? ` from ${ref}` : ""}\n`);
+            if (!ref && published !== pinned) {
+              console.error(`The export is ${published}, and seanchai-release.json pins ${pinned}`);
+              process.exit(1);
+            }
+          '
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist
