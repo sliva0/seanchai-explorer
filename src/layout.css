@@ -36,6 +36,13 @@ nav {
   display: flex;
   gap: var(--space-2);
 }
+/* The page shown, marked as a pressed control. */
+nav .control[aria-current="page"] {
+  border-color: var(--ui-link);
+  background: var(--ui-selected);
+  color: var(--ui-fg);
+  font-weight: 600;
+}
 .header-actions {
   display: flex;
   align-items: center;
@@ -695,6 +702,21 @@ pre .avp-current {
 .versions {
   color: var(--ui-muted);
   font-size: var(--text-sm);
+}
+/* Above the list: what the site is, its versions and links, and what a click does. */
+.index-intro {
+  max-width: 72rem;
+  margin-bottom: var(--space-6);
+}
+.index-intro p {
+  max-width: 80ch;
+  margin: 0 0 var(--space-1);
+}
+.document-table th {
+  padding: 0 var(--space-4) var(--space-1) 0;
+  color: var(--ui-muted);
+  font: var(--text-xs)/1.4 var(--sans);
+  text-align: left;
 }
 /* As wide as the source pane's cut-off: number and interfaces on a line, the title under them. */
 @media (max-width: 760px) {

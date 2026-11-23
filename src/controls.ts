@@ -45,6 +45,7 @@ export const controlGroups: ControlGroup[] = [
       { keys: [']d'], does: 'The place after on the list in another document' },
       { keys: ['Menu', 'Shift+F10'], does: 'On a name with the focus, what a right-click does' },
       { keys: ['←', '→'], does: 'On the divider between the panes, widens or narrows the source pane' },
+      { keys: ['/'], does: 'Goes to search: its box, from any page' },
       { keys: ['Escape'], does: 'Closes a popup, or this help' },
       { keys: ['?'], does: 'Opens this help' },
     ],

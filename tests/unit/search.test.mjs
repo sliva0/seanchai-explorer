@@ -25,7 +25,7 @@ import {
   TYPO_IN_WORD,
   WORD,
 } from '../../src/search.ts';
-import { absent, boot, readFixture, same } from './helpers.mjs';
+import { absent, boot, readFixture, same, settle } from './helpers.mjs';
 
 const avp = (name, vendor_id, code, more = {}) => ({
   name,
@@ -653,7 +653,7 @@ test('a search matching nothing has no headings', async () => {
   }
 });
 
-test('the header links to the index, search and the Wireshark plugin, and / is left to the browser', async () => {
+test('the header links to the index, search and the Wireshark plugin, marking the page shown, and / goes to search', async () => {
   const page = await boot({ hash: '#29153-j00' });
   try {
     const { document, window } = page;
@@ -667,13 +667,24 @@ test('the header links to the index, search and the Wireshark plugin, and / is l
     );
     assert.ok(document.querySelector('header .theme-toggle'));
     absent(document.querySelector('header input'));
-    assert.equal(
-      document.body.dispatchEvent(new window.KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true })),
-      true,
-    );
-    assert.notEqual(document.activeElement?.tagName, 'INPUT');
-    await page.go('#search');
+    const current = () => [...document.querySelectorAll('header nav a[aria-current="page"]')].map(a => a.textContent);
+    assert.deepEqual(current(), [], 'a document is none of them');
+    const slash = (target = document.body) =>
+      target.dispatchEvent(new window.KeyboardEvent('keydown', { key: '/', bubbles: true, cancelable: true }));
+    assert.equal(slash(), false, 'taken');
+    await settle();
+    assert.equal(window.location.hash, '#search');
     same(document.activeElement, document.querySelector('.search-form input'));
+    assert.deepEqual(current(), ['Search']);
+    assert.equal(slash(document.activeElement), true, "in a text box it is the box's");
+    await page.go('#wireshark');
+    assert.deepEqual(current(), ['Wireshark']);
+    await page.go('');
+    assert.deepEqual(current(), ['Index']);
+    document.activeElement.blur?.();
+    assert.equal(slash(), false);
+    same(document.activeElement, document.querySelector('main .search-form input'), "the index's own box");
+    assert.equal(window.location.hash, '');
   } finally {
     await page.close();
   }

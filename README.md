@@ -13,7 +13,9 @@ with a toggle for the rest. It is unofficial and not affiliated with or endorsed
 specifications' publishers. The site holds no Python and reads only what
 `seanchai export` writes.
 
-Pressing `?` in the site shows the same list of mouse and keyboard controls as below.
+The index opens with a search box, which `/` focuses from any page, and lists every
+document by publisher and release. Pressing `?` in the site shows the same list of mouse
+and keyboard controls as below.
 
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
 copy of the site it is downloaded from.
@@ -74,6 +76,7 @@ documents, the index and search.
 | `]d` | the place after on the list in another document |
 | `Menu`, `Shift+F10` | on a name with the focus, what a right-click does |
 | `←`, `→` | on the divider between the panes, widen or narrow the source pane |
+| `/` | goes to search: its box, from any page |
 | `Escape` | closes a popup, or the help |
 | `?` | opens the help |
 

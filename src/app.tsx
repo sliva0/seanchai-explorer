@@ -1,10 +1,12 @@
 import type { ComponentChildren } from 'preact';
+import { useLayoutEffect } from 'preact/hooks';
 import type { Site } from './data.ts';
 import { DocumentPage } from './document-view.tsx';
 import type { DocumentView, ViewServices } from './document-view.tsx';
 import { HelpDialog, HelpToggle, useHelp } from './help.tsx';
 import { IndexView } from './index-view.tsx';
 import { JumpControls } from './jump-controls.tsx';
+import { takesTyping } from './keys.ts';
 import type { JumpTargets } from './jump-controls.tsx';
 import type { JumpWalk } from './jump-list.ts';
 import { WIRESHARK } from './navigation.ts';
@@ -104,10 +106,40 @@ function Content({ site, page, jumps, walk }: Omit<AppProps, 'theme' | 'toggleTh
   }
 }
 
+/**
+ * `/` outside a text box goes to search: the box of the page shown, the index's or the search page's, or else the search
+ * page, which takes the focus to its box as it opens. The help, open, keeps the keys.
+ */
+function useSearchKey() {
+  useLayoutEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (
+        event.defaultPrevented ||
+        event.key !== '/' ||
+        event.ctrlKey ||
+        event.altKey ||
+        event.metaKey ||
+        takesTyping(document.activeElement) ||
+        document.getElementById('help')?.hidden === false
+      )
+        return;
+      event.preventDefault();
+      const box = document.querySelector<HTMLInputElement>('#content .search-form input');
+      if (box) {
+        box.focus();
+        box.select();
+      } else location.hash = '#search';
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+}
+
 /** The site: the header, and the page the route shows under it. */
 export function App(props: AppProps) {
   const { page, theme, toggleTheme } = props;
   const help = useHelp();
+  useSearchKey();
   const other = theme === 'light' ? 'Dark' : 'Light';
   return (
     <>

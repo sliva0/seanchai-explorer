@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SCHEMA_VERSION } from '../../src/types.ts';
-import { absent, boot, click, notSame, same } from './helpers.mjs';
+import { absent, boot, click, notSame, readFixture, same, settle } from './helpers.mjs';
 
 test('an unknown document and an unsupported export say so, the second before any other fetch', async () => {
   const page = await boot({ hash: '#does-not-exist' });
@@ -167,17 +167,42 @@ test('an index row is number, interfaces and title, with what its heading says l
   }
 });
 
-test('the index says once what clicks on a name do', async () => {
+test('the index opens with a search box, what the site is, its corpus and links, and once what a click does', async () => {
   const page = await boot();
   try {
+    const { document, window } = page;
+    const main = document.querySelector('main');
+    const form = main.firstElementChild;
+    assert.ok(form.matches('form.search-form[role="search"]'), 'the search box first');
+    const input = form.querySelector('input');
+    assert.equal(input.placeholder, 'Search AVP name, vendor:code, command, or interface');
+    const intro = main.querySelector('.index-intro');
+    assert.ok(intro.compareDocumentPosition(main.querySelector('.publisher-group')) & 4, 'above the list');
     assert.equal(
-      [...page.document.querySelectorAll('main > .versions')].filter(
-        node =>
-          node.textContent ===
-          'Click an AVP or command name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where an AVP is used or where else a command is printed.',
-      ).length,
-      1,
+      intro.querySelector('p').textContent,
+      'Diameter command and AVP definitions extracted from 3GPP specifications, RFCs and other documents, searchable and cross-linked to their sources. Unofficial, and not affiliated with any publisher.',
     );
+    const { corpus_version: corpus } = await readFixture('index.json');
+    const meta = intro.querySelectorAll('p')[1];
+    assert.equal(meta.textContent, `Corpus ${corpus} · GitHub · PyPI`);
+    assert.deepEqual(
+      [...meta.querySelectorAll('a')].map(a => a.href),
+      ['https://github.com/sliva0/seanchai', 'https://pypi.org/project/seanchai/'],
+    );
+    const hint = 'Click a name for details beside the text, right-click for uses, ? for controls.';
+    assert.equal([...main.querySelectorAll('p')].filter(node => node.textContent === hint).length, 1);
+    const headings = main.querySelector('.document-table thead');
+    assert.ok(!headings.classList.contains('sr-only'), 'the column headings show');
+    assert.deepEqual(
+      [...headings.querySelectorAll('th')].map(th => th.textContent),
+      ['Number', 'Interfaces', 'Title'],
+    );
+    input.value = ' Session-Id ';
+    input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    form.dispatchEvent(new window.Event('submit', { bubbles: true, cancelable: true }));
+    await settle();
+    assert.equal(window.location.hash, '#search?q=Session-Id');
+    assert.equal(document.querySelector('main .search-form input').value, 'Session-Id');
   } finally {
     await page.close();
   }

@@ -1,13 +1,12 @@
+import { useState } from 'preact/hooks';
 import { docNumber, docSubject, interfacesOf, publisherRank } from './data.ts';
 import type { Site } from './data.ts';
 import { routeFor } from './navigation.ts';
+import { CLICK_HINT, INTRO, PYPI, REPOSITORY, SEARCH_PLACEHOLDER } from './site-text.ts';
 import type { DocumentSummary } from './types.ts';
 
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
 const MAX_INTERFACES_WIDTH = 24;
-
-const FOOTER_HELP =
-  'Click an AVP or command name to see its details or its definition in the source pane, alt-click to move the text there too, right-click to see where an AVP is used or where else a command is printed.';
 
 function byName(a: DocumentSummary, b: DocumentSummary) {
   return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
@@ -48,9 +47,9 @@ function DocumentTable({ docs, site }: { docs: DocumentSummary[]; site: Site }) 
         <col class="interfaces-column" />
         <col class="title-column" />
       </colgroup>
-      <thead class="sr-only">
+      <thead>
         <tr>
-          <th>Specification</th>
+          <th>Number</th>
           <th>Interfaces</th>
           <th>Title</th>
         </tr>
@@ -118,7 +117,32 @@ function Publisher({
   );
 }
 
-/** The index page: every document by publisher and release. */
+/** The box at the top of the index, which goes to the search page with what is typed in it. */
+function IndexSearch() {
+  const [text, setText] = useState('');
+  return (
+    <form
+      class="search-form"
+      role="search"
+      onSubmit={event => {
+        event.preventDefault();
+        location.hash = `#search?q=${encodeURIComponent(text.trim())}`;
+      }}
+    >
+      <input
+        class="control"
+        aria-label="Search"
+        type="search"
+        value={text}
+        placeholder={SEARCH_PLACEHOLDER}
+        onInput={event => setText(event.currentTarget.value)}
+      />
+      <button class="control">Search</button>
+    </form>
+  );
+}
+
+/** The index page: a search box, what the site is, and every document by publisher and release. */
 export function IndexView({ site }: { site: Site }) {
   const publishers = new Map<string, Map<number | null, DocumentSummary[]>>();
   for (const doc of site.index.documents) {
@@ -129,12 +153,22 @@ export function IndexView({ site }: { site: Site }) {
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
   return (
     <>
+      <IndexSearch />
+      <div class="index-intro">
+        <p>{INTRO}</p>
+        <p class="versions">
+          {corpus && `Corpus ${corpus} · `}
+          <a href={REPOSITORY}>GitHub</a>
+          {' · '}
+          <a href={PYPI}>PyPI</a>
+        </p>
+        <p class="versions">{CLICK_HINT}</p>
+      </div>
       {[...publishers]
         .toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))
         .map(([publisher, releases]) => (
           <Publisher key={publisher} publisher={publisher} releases={releases} site={site} />
         ))}
-      <p class="versions">{FOOTER_HELP}</p>
       <footer class="versions">
         {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
           .filter(Boolean)
