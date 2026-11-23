@@ -73,9 +73,10 @@ file in its own process; the other unit tests cover one module each.
 `src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
 `schema.json`. The site reads the versions `src/schema.ts` lists, its own and, while the
 pinned release writes it, schema 2 (see "Schema 2" below), and refuses any other before
-fetching anything else. `tests/fixtures/export` is eight real documents cut from a real
+fetching anything else. `tests/fixtures/export` is nine real documents cut from a real
 public export, TS 29.328 among them for its Information Elements tables of TS 29.329's
-commands.
+commands, and TS 29.272 for its Interpreted Constraints blocks. TS 29.272 is the longest,
+seconds to draw in the unit tests, so a test file booting it shares one page among its checks.
 
 The site reads a document's structure from the export and never from its text: each
 file's `blocks` give its rules and their members, its AVP tables and registries row by
@@ -101,6 +102,17 @@ and a row's member where the rule is. It comes with the first document too, and 
 without it shows no categories. The site matches a table to a block by document, clause
 and command name, so a raw view finds its own blocks' lines.
 
+An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
+its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
+`Command` with `Application-ID`) and `Versions`, and `readings`, each `quotes` and `rules`
+by line. `src/constraints.ts` reads them: which hold where a name is read (unscoped ones
+always, a `Within` one as a member of that grouped AVP, a `Command` one in that command's
+Message block or Information Elements table), a rule in words, and the lines a hide leaves
+out. A rule's `kind` the site does not know, as `default` may be, is said as its line
+prints it, never refused. A raw view reads them from the corrected document by its
+blocks' names, as it reads the element index, and goes to the corrected text for a block.
+`search.json` has no entries for them.
+
 ### Schema 2
 
 The PyPI release `seanchai-release.json` pins, seanchai 0.2.0, writes schema 2: no
@@ -108,7 +120,9 @@ The PyPI release `seanchai-release.json` pins, seanchai 0.2.0, writes schema 2: 
 schema 3 has a `Grouped AVP` with `; Reprints:`. Until the pin writes schema 3, prepare
 derives `commands.json` itself where the export has none, with `commandIndex` in
 `src/commands.ts`, which `tests/unit/commands.test.mjs` holds to what schema 3 exports.
-Once the pin is bumped to a release writing schema 3, delete:
+Neither writes Interpreted Constraints blocks, which the site reads only where they are,
+so a schema-2 export shows none and no "Interpreted" control. Once the pin is bumped to a
+release writing schema 3, delete:
 
 - the `2` in `READ_SCHEMAS` in `src/schema.ts`, and the module itself if only
   `SCHEMA_VERSION` is left, as `src/data.ts` and `scripts/prepare.mjs` then compare
@@ -159,11 +173,11 @@ Do not edit `src/types.ts` by hand.
 |---|---|
 | `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
 | `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
-| `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command or a command's information elements |
+| `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
 | `schema.ts` | the export schemas the site reads |
-| `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `shared.tsx` what they share, `place.ts` where they go by their name |
+| `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
 | `index-view.tsx`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page and search |
@@ -182,7 +196,9 @@ A block type is read in one module of its own, as `values.ts`, `commands.ts` and
 shows plugs in at a few places, each a list or a switch to add to:
 
 - a reader marking the tokens its lines name, run once per file: `readers` in `data.ts`;
-- what a line of it adds beside the highlighting: `annotators` in `annotations.ts`;
+- what a line of it adds beside the highlighting: `annotators` in `annotations.ts`, a class
+  and a part of the one mark after the line's end, which joins the parts of every type, as
+  a member's category and its interpreted constraints' i;
 - what a name's line in it is: a kind of `Use` in `avp-context.ts`'s `useAt`, which
   `UseContext` in `popup/avp.tsx` says under "Here:", with the facts and places it
   offers drawn beside `elementFacts`; the inspector draws the same components;
