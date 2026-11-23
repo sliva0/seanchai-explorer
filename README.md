@@ -9,7 +9,9 @@ source document, and search covers specifications, AVPs, commands, applications,
 registry rows, result codes, bits, features and every line of text; a name is also
 found by its initials or a misspelling, labelled approximate and listed after the
 precise matches. A result lists its documents one a line, and past ten, the first ten
-with a toggle for the rest. It is unofficial and not affiliated with or endorsed by any of the
+with a toggle for the rest. A command's members carry what its specification's
+Information Elements tables say of them, their element and category (M, C or O), with
+the way from a member to its row and back, in that document or another. It is unofficial and not affiliated with or endorsed by any of the
 specifications' publishers. The site holds no Python and reads only what
 `seanchai export` writes.
 
@@ -26,7 +28,7 @@ copy of the site it is downloaded from.
 |---|---|
 | Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane |
-| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is and where else it is printed, each place offering the same two |
+| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member |
 | `▾` | beside the name under the pointer or with the focus, laid over the text: what a right-click does |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
@@ -50,7 +52,8 @@ narrow window) a click does what an alt-click does. A popup offers only `Jump to
 place the pane cannot show.
 
 A value's name goes to its row the same way, and a `; Section:` or `; Page:` link to its
-clause, or with no pane to the publisher's copy in a new tab. A result code's `from`
+clause, or with no pane to the publisher's copy in a new tab. The document a `; Bases:`,
+`; Obsoletes:`, `; Reprints:` or `; From:` line names goes to that document. A result code's `from`
 document goes to the code's row there, and its popup says the code is defined there.
 
 A command is a name too: its name and abbreviation in its `; Type: Message` block, a
@@ -60,6 +63,18 @@ in the document the row cites; it has no Details. Its popup says what its header
 and where its application id comes from, and offers the other half, its registry row,
 every other document printing it, and apart from them those printing its name for
 another command.
+
+An `Information Elements` block is a specification's table of a command's information
+elements, the AVP each maps to and its category: M mandatory, C conditional, O
+optional. A member of the command's `; Type: Message` block that a table names has its
+category beside its line, laid over the text after its end and left out of a copy, and
+its popup or inspector names the element and goes to the table's row, `Element`. An AVP
+in a row goes back to the member, `Member`, which may be in another document: TS 29.328's
+and TS 29.228's tables describe TS 29.329's and TS 29.229's commands, and those two
+documents hold nothing else. A row naming an AVP the rule lacks says so, as does a table
+naming no command, and a command's popup lists its tables and each AVP's category. The
+section list titles a clause of tables by the commands they describe, as `Information
+Elements ULR, ULA`.
 
 ## Keyboard
 
@@ -159,7 +174,9 @@ Once both packages are on PyPI, set their versions in `seanchai-release.json`:
 ```
 
 Then build with the new pin and run the checks. Where the export's schema changed,
-regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says.
+regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says. The
+first release writing schema 3 ends the site's support of schema 2, which
+CONTRIBUTING.md's "Schema 2" lists to delete.
 
 ```sh
 SEANCHAI_PINNED=1 npm run build

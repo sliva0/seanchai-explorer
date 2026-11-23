@@ -71,8 +71,11 @@ file in its own process; the other unit tests cover one module each.
 ## The export contract
 
 `src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
-`schema.json`, and the site refuses another schema version before fetching anything
-else. `tests/fixtures/export` is seven real documents cut from a real public export.
+`schema.json`. The site reads the versions `src/schema.ts` lists, its own and, while the
+pinned release writes it, schema 2 (see "Schema 2" below), and refuses any other before
+fetching anything else. `tests/fixtures/export` is eight real documents cut from a real
+public export, TS 29.328 among them for its Information Elements tables of TS 29.329's
+commands.
 
 The site reads a document's structure from the export and never from its text: each
 file's `blocks` give its rules and their members, its AVP tables and registries row by
@@ -84,11 +87,39 @@ reading of a file marks the tokens naming a value or a command, so they link as 
 names do. The index of documents gives each one's interfaces, which the index page and
 search show beside its title, a blank where it has none or the corpus does not say.
 
-Prepare also writes `public/data/commands.json`, which `src/commands.ts` derives from the
-export's documents: every command block and Command Codes registry row, about 130 kB,
-which a command's popup needs from documents not loaded and which `search.json` holds
-only inside 8 MB the document pages never fetch. It comes with the first document, and a
-build without it leaves a popup with what the open document says.
+The export's `commands.json` holds every command block and Command Codes registry row,
+about 130 kB, which a command's popup needs from documents not loaded and which
+`search.json` holds only inside 8 MB the document pages never fetch. It comes with the
+first document, and a build without it leaves a popup with what the open document says.
+
+Prepare writes `public/data/elements.json`, which `src/elements.ts` derives from the
+export's documents: every `Information Elements` table the export finds its command for
+(`described`), once for each Message block it describes, with the lines of the members
+each row maps to there, about 180 kB and 20 kB compressed. A member's category and row
+need it where the tables are another document's (TS 29.328's of TS 29.329's commands),
+and a row's member where the rule is. It comes with the first document too, and a build
+without it shows no categories. The site matches a table to a block by document, clause
+and command name, so a raw view finds its own blocks' lines.
+
+### Schema 2
+
+The PyPI release `seanchai-release.json` pins, seanchai 0.2.0, writes schema 2: no
+`commands.json`, and a reprinted rule as a `Reprinted AVP` block with `; From:` where
+schema 3 has a `Grouped AVP` with `; Reprints:`. Until the pin writes schema 3, prepare
+derives `commands.json` itself where the export has none, with `commandIndex` in
+`src/commands.ts`, which `tests/unit/commands.test.mjs` holds to what schema 3 exports.
+Once the pin is bumped to a release writing schema 3, delete:
+
+- the `2` in `READ_SCHEMAS` in `src/schema.ts`, and the module itself if only
+  `SCHEMA_VERSION` is left, as `src/data.ts` and `scripts/prepare.mjs` then compare
+  with that again;
+- `commandIndex` in `src/commands.ts`, the `commands.json` branch of
+  `scripts/prepare.mjs`, and the tests calling it in `tests/unit/commands.test.mjs`;
+- `'Reprinted AVP'` in `groupedRules` in `src/avp-context.ts`;
+- the schema-2 test at the end of `tests/unit/app-elements.test.mjs`, and the one of
+  `tests/build/prepare.test.mjs` deriving a schema-2 export's command index;
+- the condition on the schema version around the grammar's check in
+  `tests/build/build.test.mjs`, which a schema-2 export's older grammar fails.
 
 Prepare also writes `public/plugin/seanchai_diameter.lua`, the Wireshark plugin, with
 `seanchai wireshark-plugin` from the same `seanchai` as the export, or copies `SEANCHAI_PLUGIN`. It ships in both
@@ -116,8 +147,9 @@ npm run types               # node scripts/generate-types.mjs [schema.json], def
 npm test
 ```
 
-`npm run fixture` rewrites `tests/fixtures/export` and `syntax/dad.tmLanguage.json`, and
-the tests hold the copy to the exported grammar. `--any-schema` lets through an export of
+`npm run fixture` rewrites `tests/fixtures/export`, the export's `commands.json` cut to
+its documents, and `syntax/dad.tmLanguage.json`, and the tests hold the copy to the
+exported grammar. `--any-schema` lets through an export of
 another schema version, which `npm run build` refuses until the types are regenerated.
 Do not edit `src/types.ts` by hand.
 
@@ -127,8 +159,10 @@ Do not edit `src/types.ts` by hand.
 |---|---|
 | `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
 | `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
-| `blocks.ts`, `values.ts`, `commands.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value or a command |
-| `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts` | what a click on a name does, and the places it can go |
+| `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command or a command's information elements |
+| `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
+| `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
+| `schema.ts` | the export schemas the site reads |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
@@ -139,7 +173,23 @@ Do not edit `src/types.ts` by hand.
 | `types.ts` | generated from the export's schema |
 
 `controls.ts` is the list README.md's Mouse and Keyboard sections follow: change both
-together. `scripts/` holds prepare, the sources download, the fixture and type
+together.
+
+### A new block type
+
+A block type is read in one module of its own, as `values.ts`, `commands.ts` and
+`elements.ts` are, from the export's `blocks` by line, never from the text. What it
+shows plugs in at a few places, each a list or a switch to add to:
+
+- a reader marking the tokens its lines name, run once per file: `readers` in `data.ts`;
+- what a line of it adds beside the highlighting: `annotators` in `annotations.ts`;
+- what a name's line in it is: a kind of `Use` in `avp-context.ts`'s `useAt`, which
+  `UseContext` in `popup/avp.tsx` says under "Here:", with the facts and places it
+  offers drawn beside `elementFacts`; the inspector draws the same components;
+- a clause's title where the export's says only the type: `sectionTitle` in
+  `document-view.tsx`;
+- an index across documents, where a page needs what another document says: derived in
+  `scripts/prepare.mjs`, fetched in `data.ts` beside `elements.json`. `scripts/` holds prepare, the sources download, the fixture and type
 generators and the public build's check.
 
 ### Components
