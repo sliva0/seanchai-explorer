@@ -23,13 +23,15 @@ export const Counted = ({ title, count }: { title: string; count: number }) => (
 export const ExternalLink = ({
   href,
   class: className,
+  title,
   children,
 }: {
   href: string;
   class?: string;
+  title?: string;
   children: string;
 }) => (
-  <a class={className} href={href} target="_blank" rel="noopener">
+  <a class={className} href={href} title={title} target="_blank" rel="noopener">
     {children}
   </a>
 );

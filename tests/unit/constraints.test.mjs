@@ -54,7 +54,7 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
   );
   assert.equal(words({ kind: 'absent-if', conditions: [{ avp: 'Other' }] }), 'absent if Other is present');
   assert.equal(words({ kind: 'excludes', conditions: [{ avp: 'Other' }] }), 'never present if Other is present');
-  assert.equal(words({ kind: 'text-only' }), 'not checkable: read the quote');
+  assert.equal(words({ kind: 'text-only' }), 'not checkable from one message');
   assert.equal(words({ kind: 'default', value: 0 }), 'read as 0 when absent');
   assert.equal(words({ kind: 'default', value: 'NOT_RELAY_NODE' }), 'read as NOT_RELAY_NODE when absent');
   assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: [3, 6] }), 'at most one of bits 3, 6 set');

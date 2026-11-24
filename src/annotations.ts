@@ -1,5 +1,5 @@
 import type { DadFile } from './blocks.ts';
-import { blocksSummary, constraintLines, interpretedLines } from './constraints.ts';
+import { constraintLines, interpretedLines, markTitle } from './constraints.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import { categoriesOf, categoryNote, categoryWords, memberMarks } from './elements.ts';
@@ -22,6 +22,8 @@ interface MarkPart {
   class: string;
   data: Record<string, string>;
   title: string[];
+  /** A click on the mark opens what it is about: a mark with such a part is a button. */
+  control?: boolean;
 }
 
 /** A block type's annotations of a file's lines, by line index, read from its blocks and the site's indexes. */
@@ -64,7 +66,8 @@ const elements: Annotator = (file, document, site) => {
  * Interpreted Constraints: a block's lines are `interpreted`, its quotes `interpreted-quote`, its rules
  * `interpreted-rule`, and the blank lines before
  * it `interpreted-gap`, which hiding the blocks leaves out with them. A line reading an AVP that the corrected file's
- * constraints hold for there has an italic i in its mark, its title the rules in words.
+ * constraints hold for there has a ¶ in its mark, read from prose, its title where from and the rules in words, and a
+ * click on it opens the AVP's popup or inspector at them; `reads` names the AVPs, to find the name on the line.
  */
 const constraints: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
@@ -77,13 +80,15 @@ const constraints: Annotator = (file, document, site) => {
   for (const [line, kind] of interpretedLines(file)) lines.set(line, { class: classes[kind] });
   const source = site.held(document) ?? file;
   for (const [line, found] of constraintLines(file, source)) {
-    const rules = blocksSummary(source, found);
-    const title = rules.length
-      ? `Interpreted: ${rules.join('; ')}`
-      : `Interpreted: ${found.length === 1 ? 'a rule' : 'rules'} only its quote says`;
+    const reads = [...new Set(found.map(item => item.avp))].join(' ');
     lines.set(line, {
       ...lines.get(line),
-      mark: { class: 'constraint-mark', data: { interpreted: String(found.length) }, title: [title] },
+      mark: {
+        class: 'constraint-mark',
+        data: { interpreted: String(found.length), reads },
+        title: markTitle(file, source, line, found),
+        control: true,
+      },
     });
   }
   return lines;
@@ -92,12 +97,23 @@ const constraints: Annotator = (file, document, site) => {
 /** Every block type's annotator: a new type that marks its lines adds its own here. */
 const annotators: Annotator[] = [elements, constraints];
 
-/** One mark of a line's parts, laid over the text after its end, `aria-hidden`: its title says what it means. */
+/**
+ * One mark of a line's parts, laid over the text after its end, its title saying what it means: `aria-hidden`, or a
+ * button named by its title where a part opens something.
+ */
 function markNode(parts: MarkPart[]): HTMLElement {
-  const mark = element('span', undefined, ['line-mark', ...parts.map(part => part.class)].join(' '));
+  const control = parts.some(part => part.control);
+  const mark = element(
+    control ? 'button' : 'span',
+    undefined,
+    ['line-mark', ...parts.map(part => part.class)].join(' '),
+  );
   for (const part of parts) Object.assign(mark.dataset, part.data);
-  mark.setAttribute('aria-hidden', 'true');
   mark.title = parts.flatMap(part => part.title).join('\n');
+  if (control) {
+    (mark as HTMLButtonElement).type = 'button';
+    mark.setAttribute('aria-label', mark.title);
+  } else mark.setAttribute('aria-hidden', 'true');
   return mark;
 }
 

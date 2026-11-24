@@ -73,26 +73,81 @@ test('the corrected text of TS 29.272', async t => {
       },
     );
 
-    await t.test("a member's mark joins its category and an italic i, its title the rules; a copy leaves both", () => {
-      const line = lineAt(document, DSR_MEMBER);
-      const mark = line.querySelector('.line-mark');
-      present(mark);
-      assert.ok(mark.classList.contains('element-mark') && mark.classList.contains('constraint-mark'));
-      assert.equal(mark.dataset.category, 'C');
-      assert.equal(mark.dataset.interpreted, '1');
-      assert.equal(mark.textContent, '');
-      assert.equal(mark.getAttribute('aria-hidden'), 'true');
-      assert.equal(
-        mark.title,
-        [
+    await t.test(
+      "a member's mark joins its category and a ¶, its title where the rules were read and the rules in words, a button; a copy leaves both",
+      () => {
+        const line = lineAt(document, DSR_MEMBER);
+        const mark = line.querySelector('.line-mark');
+        present(mark);
+        assert.ok(mark.classList.contains('element-mark') && mark.classList.contains('constraint-mark'));
+        assert.equal(mark.dataset.category, 'C');
+        assert.equal(mark.dataset.interpreted, '1');
+        assert.equal(mark.textContent, '');
+        assert.equal(mark.tagName, 'BUTTON');
+        assert.equal(mark.getAttribute('aria-hidden'), null);
+        assert.equal(mark.getAttribute('aria-label'), mark.title);
+        assert.equal(mark.dataset.reads, 'Context-Identifier');
+        assert.deepEqual(mark.title.split('\n'), [
           'C: conditional · Context Identifier (See 7.3.27) · table 5.2.2.2.1/1',
-          'Interpreted: present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set (in Delete-Subscriber-Data-Request); not 0 (in Delete-Subscriber-Data-Request)',
-        ].join('\n'),
+          "Read from the description of this member's row in table 5.2.2.2.1/1:",
+          '• present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
+          mark.title.split('\n')[3],
+          '• not 0',
+          'Click for each rule with its quote, and the way to it in the text.',
+        ]);
+        assert.match(
+          mark.title.split('\n')[3],
+          /^• not checkable from one message: “In the "PDN subscription contexts Withdrawal" case, .{20,100}…”$/,
+          'a rule no checker can run, as its quote, shortened',
+        );
+        assert.equal(line.querySelectorAll('.line-mark').length, 1, 'one mark');
+        assert.equal(mark.nextSibling.textContent, '\n');
+        const onlyRules = lineAt(document, APN_MEMBER).querySelector('.line-mark');
+        assert.ok(onlyRules.classList.contains('constraint-mark') && !onlyRules.classList.contains('element-mark'));
+        assert.match(
+          onlyRules.title,
+          /^Read from clause 7\.3\.35's text:\n• not 0\n• differs from one APN-Configuration/,
+        );
+        assert.match(
+          onlyRules.title,
+          /\n• not checkable from one message: “NOTE: If interworking with MAP is needed[^”]*”\n/,
+        );
+      },
+    );
+
+    await t.test(
+      "an Information Elements row's mark says it was read from that row's description, and a text-only rule plainly",
+      () => {
+        const row = [...document.querySelectorAll('.dad-line')].find(
+          line => line.textContent.startsWith('"SGSN number (See 7.3.102)"') && line.dataset.section === '5A.2.1.1.1',
+        );
+        assert.equal(
+          row.querySelector('.constraint-mark').title,
+          [
+            'Read from the description of this row:',
+            '• not checkable from one message: “It shall be present when the message is sent on the S7d interface.”',
+            "Read from clause 7.3.102's text:",
+            '• TBCD-encoded E.164 number',
+            'Click for each rule with its quote, and the way to it in the text.',
+          ].join('\n'),
+        );
+      },
+    );
+
+    await t.test('a click on the mark opens the inspector at the interpreted constraints, flashing them', async () => {
+      const mark = lineAt(document, APN_MEMBER).querySelector('.constraint-mark');
+      click(page, mark);
+      await settle();
+      const entry = document.querySelector('.inspector-entry');
+      present(entry);
+      assert.equal(
+        entry.querySelector('.popup-title strong, h2, h3')?.textContent ?? entry.getAttribute('aria-label'),
+        'Context-Identifier',
       );
-      assert.equal(line.querySelectorAll('.line-mark').length, 1, 'one mark');
-      assert.equal(mark.nextSibling.textContent, '\n');
-      const onlyRules = lineAt(document, APN_MEMBER).querySelector('.line-mark');
-      assert.ok(onlyRules.classList.contains('constraint-mark') && !onlyRules.classList.contains('element-mark'));
+      const section = entry.querySelector('.popup-constraints');
+      present(section);
+      assert.ok(section.classList.contains('landing'), 'brought into view with a flash');
+      absent(document.querySelector('.avp-popup'));
     });
 
     await t.test(
@@ -108,19 +163,27 @@ test('the corrected text of TS 29.272', async t => {
           'https://github.com/sliva0/seanchai/blob/main/docs/constraints.md',
         );
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
-        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-printed'), ['exclude 0', 'unique']);
-        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-words'), [
+        assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
+        assert.deepEqual(texts(section, '.constraint-reading .constraint-words').slice(0, 2), [
           'not 0',
           'differs from one APN-Configuration to the next',
         ]);
-        assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
-        assert.match(
-          section.querySelector('.constraint-reading details q').textContent,
-          /shall not have a value of zero/,
+        const first = section.querySelector('.constraint-rule');
+        assert.deepEqual(
+          [...first.children].map(part => part.className),
+          ['constraint-words', 'constraint-printed'],
+          'the words first, as printed under them',
         );
+        assert.equal(
+          section.querySelector('.constraints-about').title,
+          'Rules a reader of the specification took from its prose, each beside the sentence it was read from. The specification prints none of them as a table or ABNF rule, so each is as sure as its quote.',
+        );
+        assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
+        assert.match(section.querySelector('.constraint-reading q').textContent, /shall not have a value of zero/);
         const textOnly = texts(section, '.constraint-text-only');
         assert.equal(textOnly.length, 1);
-        assert.deepEqual(texts(section, '.constraint-text-only .constraint-printed'), ['text-only']);
+        assert.deepEqual(texts(section, '.constraint-text-only .constraint-words'), ['Not checkable from one message']);
+        absent(section.querySelector('.constraint-text-only .constraint-printed'));
         assert.match(
           section.querySelector('.constraint-text-only q').textContent,
           /^NOTE: If interworking with MAP is needed/,
@@ -133,12 +196,13 @@ test('the corrected text of TS 29.272', async t => {
         const inCommand = await popupOf(page, nameOn(document, 'Context-Identifier', DSR_MEMBER));
         const dsr = inCommand.querySelector('.popup-constraints');
         assert.deepEqual(texts(dsr, '.constraint-scope'), ['in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1']);
-        assert.deepEqual(texts(dsr, '.constraint-reading summary .constraint-printed'), [
+        assert.deepEqual(texts(dsr, '.constraint-reading .constraint-printed'), [
           'requires DSR-Flags bit "PDN subscription contexts Withdrawal" or DSR-Flags bit "PDP contexts Withdrawal"',
           'exclude 0',
         ]);
-        assert.deepEqual(texts(dsr, '.constraint-reading summary .constraint-words'), [
+        assert.deepEqual(texts(dsr, '.constraint-reading .constraint-words'), [
           'present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
+          'Not checkable from one message',
           'not 0',
         ]);
         assert.ok(!dsr.textContent.includes('APN-Configuration'));
@@ -179,7 +243,7 @@ test('the corrected text of TS 29.272', async t => {
       await closePopup(page);
       assert.match(
         lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
-        /read as 0 when absent \(in Notify-Request\)/,
+        /^Read from the description of this member's row in table 5\.2\.5\.1\.1\/1:\n• read as 0 when absent$/m,
       );
     });
 
@@ -201,7 +265,7 @@ test('the corrected text of TS 29.272', async t => {
       await closePopup(page);
       assert.match(
         lineAt(document, NOR_TERMINAL_MEMBER).querySelector('.line-mark').title,
-        /no member present but IMEI, Software-Version \(in Notify-Request\)/,
+        /^• no member present but IMEI, Software-Version$/m,
       );
       const member = await popupOf(page, nameOn(document, 'IMEI', NOR_MEMBERS_RULE));
       assert.equal(

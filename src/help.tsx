@@ -42,9 +42,11 @@ function ConstraintsHelp() {
         What a clause's prose says of an AVP's value or presence, as a reader read it, pinned to the sentences quoted:
         no document prints it as structure. Its blocks read as the rest of the corrected text, with a thin rule left of
         their lines and an ";; interpreted" note opening the declaration's record; "Interpreted" in the strip hides and
-        shows them for every document. A line reading an AVP they hold for has an italic i after it, and a name's popup
-        lists them, each rule as the text prints it and in words, with its quote. Trust a rule as far as its quote. A
-        rule is one of these kinds:
+        shows them for every document. A line reading an AVP they hold for has a ¶ after it, a paragraph's mark: read
+        from prose. Its title says where from, the description of a table's row or a clause's text, and each rule in
+        words, and a click on it, or Enter on it, opens the name's popup or the inspector at them, as does the name's
+        own: each rule in words, as the text prints it, and its quote, a rule no checker can run on one message said so.
+        Trust a rule as far as its quote. A rule is one of these kinds:
       </p>
       <dl class="help-list help-rule-kinds">
         {Object.entries(ruleKinds).map(([kind, { printed, says }]) => (

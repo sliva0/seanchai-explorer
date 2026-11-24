@@ -35,7 +35,7 @@
   --ui-shadow: rgb(60 50 30 / 22%);
   --pdf-surround: #d8d4c8;
   --corrected-bg: #f3edfa;
-  /* An interpreted rule's hue: the i beside a name, and the rule beside a block's lines, lighter. */
+  /* An interpreted rule's hue: the ¶ beside a name, and the rule beside a block's lines, lighter. */
   --interpreted: #6d5490;
   --interpreted-edge: #b9a5d0;
   --warning-bg: #fde8d4;

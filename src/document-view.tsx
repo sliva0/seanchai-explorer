@@ -291,11 +291,47 @@ function createText(
     }
   }
 
+  /**
+   * A mark of interpreted constraints opens what a plain click on its name opens where that shows them, the inspector,
+   * or else the name's popup, and brings their section into view with a flash.
+   */
+  function showConstraints(mark: HTMLElement) {
+    const reads = (mark.dataset.reads ?? '').split(' ');
+    const node = [...mark.closest('.dad-line')!.querySelectorAll<HTMLElement>('[data-avp]')].find(name =>
+      reads.includes(name.dataset.avp!),
+    );
+    if (!node) return;
+    const plain = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
+    const action = clickAction(
+      tokenOf(node),
+      placeOf(node),
+      plain,
+      { ...clickContext(), uses: false },
+      fallbackOf(node),
+    );
+    if (action.type === 'inspect') perform(action, node);
+    else showUses(node);
+    const section = [...mark.ownerDocument.querySelectorAll<HTMLElement>('.popup-constraints')].find(
+      found => found.closest('.avp-popup') || found.closest('.inspector'),
+    );
+    if (!section) return;
+    section.scrollIntoView?.({ block: 'nearest' });
+    section.classList.remove('landing');
+    void section.offsetWidth;
+    section.classList.add('landing');
+    section.addEventListener('animationend', () => section.classList.remove('landing'), { once: true });
+  }
+
   pre.addEventListener('click', event => {
     const target = event.target as Element;
     const correction = target.closest<HTMLButtonElement>('.correction-toggle');
     if (correction) {
       toggleCorrection(correction);
+      return;
+    }
+    const mark = target.closest<HTMLElement>('.line-mark.constraint-mark');
+    if (mark) {
+      showConstraints(mark);
       return;
     }
     const node = target.closest<HTMLElement>('[data-token]');

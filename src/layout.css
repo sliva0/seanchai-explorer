@@ -496,7 +496,7 @@ pre {
 }
 /*
  * After the end of a line, what the tables and the interpreted constraints say of the name it reads: a member's
- * category in its command's Information Elements tables, and an italic i where interpreted constraints hold for it.
+ * category in its command's Information Elements tables, and a ¶ where interpreted constraints hold for it.
  * Laid over the text, never moving a column, as tall as the line, and drawn by CSS, so a copy of the text leaves it.
  */
 .line-mark {
@@ -520,14 +520,22 @@ pre {
   color: var(--warning);
   box-shadow: inset 0 0 0 1px var(--warning);
 }
-/* Interpreted, not printed: an i in the hue of the rule beside an Interpreted Constraints block's lines. */
+/*
+ * Read from prose, not printed as structure: a pilcrow, a paragraph's mark, in the hue of the rule beside an Interpreted
+ * Constraints block's lines. A button, which opens the name's popup or inspector at them.
+ */
 .constraint-mark::after {
-  content: "i";
+  content: "¶";
   color: var(--interpreted);
-  font:
-    italic 600 1.15em/1 Georgia,
-    "Times New Roman",
-    serif;
+  font: 600 1.05em/1 var(--sans);
+}
+button.line-mark {
+  border: 0;
+  background: none;
+  cursor: pointer;
+}
+button.line-mark:hover {
+  background: var(--ui-hover);
 }
 .constraint-mark:not(.element-mark) {
   box-shadow: inset 0 0 0 1px var(--interpreted-edge);
@@ -667,7 +675,7 @@ pre [class*="empty-cell"] {
 /*
  * An Interpreted Constraints block: a reader's reading of a clause's prose, which the document prints as no structure.
  * It is .dad text and reads as any other block does, in the same font and colours. What marks it as interpreted is one
- * thin rule in the gutter left of its lines, in the hue of the i beside a name it holds for, and its `; Type:` line's
+ * thin rule in the gutter left of its lines, in the hue of the ¶ beside a name it holds for, and its `; Type:` line's
  * `;; interpreted` note, which opens the declaration's record: that line has no corrected line's tint.
  */
 .dad-line.interpreted {
@@ -726,7 +734,8 @@ pre [class*="empty-cell"] {
     background-color: var(--target-flash);
   }
 }
-.dad-line.landing {
+.dad-line.landing,
+.popup-constraints.landing {
   animation: landing 600ms ease-out;
 }
 .dad-line.corrected-line {
@@ -1344,25 +1353,21 @@ mark {
   padding: 0;
   list-style: none;
 }
-/* A reading: each rule as the text prints it, its words under it, and the sentences it was read from, dimmer. */
+/* A reading: each rule in words, as the text prints it under them, dimmer, then the sentences it was read from. */
 .constraint-reading + .constraint-reading {
-  margin-top: 2px;
-}
-/* Its marker beside the first rule's line, every rule in the column after it. */
-.constraint-reading summary {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  row-gap: 2px;
-}
-.constraint-reading summary::before {
-  margin: 0.4em 0.35em 0 0;
+  margin-top: var(--space-1);
 }
 .constraint-rule {
   display: block;
-  grid-column: 2;
+}
+.constraint-rule + .constraint-rule {
+  margin-top: 2px;
 }
 .constraint-printed {
+  display: block;
+  color: var(--ui-muted);
   font: inherit;
+  font-family: var(--mono);
   overflow-wrap: anywhere;
 }
 .constraint-keyword {
@@ -1371,15 +1376,11 @@ mark {
 }
 .constraint-words {
   display: block;
-  color: var(--ui-muted);
+  color: var(--ui-fg);
 }
 /* A members rule's names, each a link to its AVP, wrap between names, not inside one. */
 .constraint-avp {
   white-space: nowrap;
-}
-.constraint-text-only,
-.constraint-quote {
-  padding-left: calc(0.45em + 0.35em);
 }
 .constraint-quote {
   display: block;
@@ -1388,9 +1389,6 @@ mark {
   font-style: normal;
   overflow-wrap: anywhere;
   quotes: '"' '"';
-}
-.constraint-text-only .constraint-quote {
-  padding-left: 0;
 }
 .constraint-group + .constraint-group {
   padding-top: var(--space-1);

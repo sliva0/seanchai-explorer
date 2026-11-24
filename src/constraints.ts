@@ -1,4 +1,4 @@
-import { allAvpRows, perFile } from './blocks.ts';
+import { allAvpRows, blockAt, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import type { Block, Codec, ConstraintCondition, ConstraintRule } from './types.ts';
 
@@ -298,7 +298,7 @@ export function ruleWords(rule: ConstraintRule, printed: string, within?: string
       return `is ${said} if ${(rule.conditions ?? []).map(conditionWords).join(' or ')}`;
     }
     case 'text-only':
-      return 'not checkable: read the quote';
+      return 'not checkable from one message';
     default: {
       const conditions = (rule.conditions ?? []).map(conditionWords);
       return `${predicateWords[kind]} ${conditions.join(' or ')}`;
@@ -324,20 +324,51 @@ export const lineText = (file: DadFile, line: number) =>
     .join('')
     .replace(/\n$/, '');
 
-/** The rules of a set of blocks in plain words, one a line: a mark's title. */
-export const blocksSummary = (file: DadFile, blocks: ConstraintBlock[]) =>
-  blocks
-    .flatMap(({ block, scope }) =>
-      (block.readings ?? []).flatMap(reading =>
-        textOnly(reading.rules)
-          ? []
-          : reading.rules.map(
-              rule =>
-                `${ruleWords(rule, lineText(file, rule.line), scope.within)}${scope.within || scope.command ? ` (${scopeWords({ scope })})` : ''}`,
-            ),
-      ),
-    )
-    .filter((text, index, all) => all.indexOf(text) === index);
+/** A quote cut at a word near `length` characters, for a title. */
+function shortQuote(text: string, length = 100): string {
+  if (text.length <= length) return text;
+  const cut = text.slice(0, length);
+  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), length / 2)).replace(/[\s,;:]+$/, '')}…`;
+}
+
+/**
+ * Where a block was read from, as a mark on line `line` of `file` says it: the description of that line's own row in
+ * the block's table, of another row there, as a command member's, or a clause's text.
+ */
+export function readFrom(file: DadFile, line: number, { block }: Pick<ConstraintBlock, 'block'>): string {
+  const table = block.fields.Table;
+  if (!table) return `Read from clause ${block.section}'s text`;
+  const here = blockAt(file, line);
+  if (here?.fields.Table === table) return 'Read from the description of this row';
+  if (here?.rule) return `Read from the description of this member's row in table ${table}`;
+  return `Read from the description of its row in table ${table}`;
+}
+
+export const MARK_CLICK = 'Click for each rule with its quote, and the way to it in the text.';
+
+/**
+ * A mark's title, in plain words: where its rules were read from, then each in words, a rule no checker can run as
+ * its quote, shortened; blocks read from the same place under one heading. `file` is the file whose line `line` the
+ * mark is on, `source` the corrected one holding the blocks.
+ */
+export function markTitle(file: DadFile, source: DadFile, line: number, blocks: ConstraintBlock[]): string[] {
+  const groups = new Map<string, string[]>();
+  for (const item of blocks) {
+    const heading = readFrom(file, line, item);
+    const said = groups.get(heading) ?? [];
+    for (const reading of item.block.readings ?? []) {
+      const words = textOnly(reading.rules)
+        ? `not checkable from one message: “${shortQuote(reading.quotes.map(quote => quote.text).join(' '))}”`
+        : reading.rules
+            .filter(rule => rule.kind !== 'text-only')
+            .map(rule => ruleWords(rule, lineText(source, rule.line), item.scope.within))
+            .join('; ');
+      if (!said.includes(words)) said.push(words);
+    }
+    groups.set(heading, said);
+  }
+  return [...[...groups].flatMap(([heading, said]) => [`${heading}:`, ...said.map(words => `• ${words}`)]), MARK_CLICK];
+}
 
 /**
  * The lines of a file reading an AVP that `source`'s constraints hold for there, and those blocks: a command's or

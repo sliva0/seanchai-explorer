@@ -1911,3 +1911,42 @@ test(
     await done();
   },
 );
+
+test(
+  "public: an interpreted rule's ¶ says where it was read, and a click or Enter opens the inspector, or the popup, at them",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29272-j60/5A.2.1.1.1');
+    const row = page.locator('.dad-line[data-section="5A.2.1.1.1"]', { hasText: /^"SGSN number \(See 7\.3\.102\)"/ });
+    const mark = row.locator('button.constraint-mark');
+    assert.match(
+      await mark.getAttribute('title'),
+      /^Read from the description of this row:\n• not checkable from one message: /,
+    );
+    assert.deepEqual(
+      await mark.evaluate(node => [getComputedStyle(node).cursor, getComputedStyle(node, '::after').content]),
+      ['pointer', '"¶"'],
+    );
+    await mark.focus();
+    await page.keyboard.press('Enter');
+    const section = page.locator('.inspector .popup-constraints');
+    await section.waitFor();
+    assert.equal(await page.locator('.inspector-entry').getAttribute('aria-label'), 'SGSN-Number');
+    assert.ok(await section.evaluate(node => node.classList.contains('landing')), 'flashing');
+    const inView = await section.evaluate(node => {
+      const box = node.getBoundingClientRect();
+      return box.top >= 0 && box.top < innerHeight;
+    });
+    assert.ok(inView, 'in view');
+    assert.match(await section.locator('.constraint-words').first().textContent(), /^Not checkable from one message$/);
+
+    // Too narrow for the pane, the name's popup.
+    await page.setViewportSize({ width: 700, height: 800 });
+    await mark.click();
+    const popup = page.locator('.avp-popup .popup-constraints');
+    await popup.waitFor();
+    assert.equal(await page.locator('.avp-popup').getAttribute('data-avp'), 'SGSN-Number');
+    await page.keyboard.press('Escape');
+    await done();
+  },
+);

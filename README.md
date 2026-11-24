@@ -39,7 +39,7 @@ copy of the site it is downloaded from.
 |---|---|
 | Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane |
-| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read |
+| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
@@ -105,7 +105,7 @@ read as the rest of it, in the same font and colours: a quote is a string, a lit
 than the rules read from it, wrapped at the pane's edge under its first letter, and a rule
 its kind and operands as the grammar scopes them, a long one wrapped at the pane's edge
 four characters in past its own indent. Two things mark a block as interpreted: a
-thin rule left of its lines, in the hue of the i below, and its `;; interpreted` note,
+thin rule left of its lines, in the hue of the ¶ below, and its `;; interpreted` note,
 which opens the declaration's record as a correction's `;; corrected`, `;; supplied`,
 `;; inserted` or `;; deleted` does: under the line, which keeps its short note, what the
 note cites on a line of its own, then why. The raw text has none.
@@ -113,16 +113,20 @@ note cites on a line of its own, then why. The raw text has none.
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
 command (`; Command:`). A member, table row or Information Elements row reading an AVP
-that blocks hold for there has an italic i after its line, beside any category, its title
-the rules in words, and the AVP's popup and the inspector list them, each rule as the text
-prints it and, under it, in words ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
+that blocks hold for there has a ¶ after its line, a paragraph's mark for a rule read from
+prose, beside any category. Its title says where the rules were read from, "Read from the
+description of this row:", "… of this member's row in table 5.2.2.2.1/1" or "… from clause
+7.3.102's text", then each in words, a text-only one as "not checkable from one message"
+and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
+pane is one, at them, flashing. The popup and the inspector list them, each rule in words
+and, under it, as the text prints it ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
 "present only if DSR-Flags has bit … set", "read as FALSE when absent" for a `default`,
 "at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bit set but 9"
 for `bits`, of an unsigned integer or an OctetString's octets read as one big-endian
 number, "at least one of A, B present" or "no member present but IMEI, Software-Version"
 for `members`, "differs from one APN-Configuration to the next" for `unique` within one,
 "is 1 if Monitoring-Type is 1" for `values`), with its quote, and a text-only one, a rule
-no checker can run, as its quote. An `encoding element` rule names another document's
+no checker can run on one message, as "Not checkable from one message" and its quote. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
 rule's names link to their AVPs as the text's do. Each block offers `Read in`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read

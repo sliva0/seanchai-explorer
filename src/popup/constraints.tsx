@@ -143,12 +143,13 @@ function Printed({ text }: { text: string }) {
   );
 }
 
-const INTERPRETED_NOTE =
-  "Interpreted: a reader's reading of the clause's prose, pinned to the sentence quoted. The document prints no such rule as structure: trust it as far as the quote.";
+/** What the section is, in two sentences: the title of its link to the corpus's account of them. */
+export const INTERPRETED_NOTE =
+  'Rules a reader of the specification took from its prose, each beside the sentence it was read from. The specification prints none of them as a table or ABNF rule, so each is as sure as its quote.';
 
 /**
- * What the Interpreted Constraints say of the name where it stands, each block's rules as the text prints them and in
- * plain words, with the sentences they were read from, where they hold, and the way to the block and its clause. The block is in the
+ * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words and under them
+ * as the text prints them, with the sentences they were read from, where they hold, and the way to the block and its clause. The block is in the
  * corrected text, which a raw view's way goes to.
  */
 export function ConstraintFacts({
@@ -187,8 +188,11 @@ export function ConstraintFacts({
             if (textOnly(reading.rules))
               return (
                 <li key={index} class="constraint-reading constraint-text-only">
-                  <span class="constraint-rule" title="A rule no checker can run: the quote says it">
-                    <Printed text="text-only" />
+                  <span
+                    class="constraint-rule"
+                    title="No checker can run it on one message: the quote is the whole of it, as the text prints text-only"
+                  >
+                    <span class="constraint-words">Not checkable from one message</span>
                   </span>
                   {quotes}
                 </li>
@@ -196,22 +200,18 @@ export function ConstraintFacts({
             const rules = reading.rules.filter(rule => rule.kind !== 'text-only');
             return (
               <li key={index} class="constraint-reading">
-                <details>
-                  <summary title="The quote it was read from">
-                    {rules.map(rule => {
-                      const printed = lineText(doc, rule.line);
-                      return (
-                        <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
-                          <Printed text={printed} />
-                          <span class="constraint-words">
-                            <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
-                          </span>
-                        </span>
-                      );
-                    })}
-                  </summary>
-                  {quotes}
-                </details>
+                {rules.map(rule => {
+                  const printed = lineText(doc, rule.line);
+                  return (
+                    <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
+                      <span class="constraint-words">
+                        <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
+                      </span>
+                      <Printed text={printed} />
+                    </span>
+                  );
+                })}
+                {quotes}
               </li>
             );
           })}
@@ -224,9 +224,9 @@ export function ConstraintFacts({
   });
   return (
     <section class="popup-constraints" aria-label="Interpreted constraints">
-      <div class="constraints-title" title={INTERPRETED_NOTE}>
+      <div class="constraints-title">
         <Counted title="Interpreted" count={found.length} />
-        <ExternalLink class="constraints-about" href={CONSTRAINTS_DOC}>
+        <ExternalLink class="constraints-about" href={CONSTRAINTS_DOC} title={INTERPRETED_NOTE}>
           what these are
         </ExternalLink>
       </div>
