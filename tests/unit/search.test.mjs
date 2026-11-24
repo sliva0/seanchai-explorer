@@ -65,6 +65,16 @@ const registry = (name, code) => ({
   abbreviation: null,
   defined_in: [],
 });
+const element = (name, command, category, avps, more = {}) => ({
+  name,
+  kind: 'element',
+  document: 'a',
+  identity: { kind: 'element', category, avps, command },
+  wireshark_name: null,
+  abbreviation: null,
+  defined_in: [],
+  ...more,
+});
 const names = groups => groups.map(group => group.name);
 const searchEntries = (entries, ...rest) => searchIndex(indexEntries(entries), ...rest);
 const filterMentions = (mentions, ...rest) => filterFolded(foldMentions(mentions), ...rest);
@@ -426,7 +436,37 @@ test('identities read per kind', () => {
   bare.identity.application = 'S6a';
   assert.equal(identityLabel(bare), 'Command 316 · application 16777251 (S6a) · header none');
   assert.equal(identityLabel(command('X', 316, 4)), 'Command 316 · application 4');
+  assert.equal(
+    identityLabel(element('IMSI', 'Update-Location-Request', 'M', ['User-Name'])),
+    'M, mandatory · AVP User-Name · Update-Location-Request',
+  );
+  assert.equal(
+    identityLabel(element('Result', null, null, ['Result-Code', 'Experimental-Result'])),
+    'AVPs Result-Code, Experimental-Result · no command',
+  );
   assert.equal(identityLabel({ identity: null }), '');
+});
+
+test('an information element is found by its name, in a section of its own, and not by its AVP or a number', () => {
+  const entries = [
+    avp('User-Name', 0, 1),
+    element('IMSI', 'Update-Location-Request', 'M', ['User-Name']),
+    element('IMSI', 'Authentication-Information-Request', 'M', ['User-Name']),
+    element('IMSI', 'Cancel-Location-Request', 'C', ['User-Name']),
+  ];
+  const found = searchEntries(entries, 'imsi');
+  assert.deepEqual(names(found.element), ['IMSI'], "one group, every command's table in it");
+  assert.equal(found.element[0].entries.length, 3);
+  assert.deepEqual(names(found.avp), []);
+  assert.deepEqual(names(searchEntries(entries, 'user-name').element), [], 'an AVP finds its own entry');
+  assert.deepEqual(names(searchEntries(entries, '1').element), []);
+  const facts = groupFacts(found.element[0].entries);
+  assert.deepEqual(facts.shared, ['AVP User-Name']);
+  assert.deepEqual(found.element[0].entries.map(facts.differing), [
+    ['of Update-Location-Request', 'M'],
+    ['of Authentication-Information-Request', 'M'],
+    ['of Cancel-Location-Request', 'C'],
+  ]);
 });
 
 test('specifications match by number or title, best match and newest first', () => {
@@ -575,6 +615,29 @@ test('mentions match on every word or a found AVP, newest release first', () => 
     [2, 1, 3],
   );
   assert.deepEqual(filterMentions(sorted, '', new Set(['Session-Id'])), []);
+});
+
+test("the search page lists information elements apart, each row's link its table's clause", async () => {
+  const page = await boot({ hash: `#search?q=${encodeURIComponent('ULR Flags')}` });
+  try {
+    const { document } = page;
+    const headings = [...document.querySelectorAll('#search-results h2')].map(node => node.textContent);
+    assert.ok(
+      headings.some(heading => /^Information elements 1(\+|$)/.test(heading)),
+      headings.join('\n'),
+    );
+    const entry = document.querySelector('.search-element .search-entry');
+    assert.match(entry.querySelector('.entry-line').textContent, /^ULR Flags \(See 7\.3\.7\)/);
+    assert.match(
+      entry.querySelector('.entry-facts').textContent,
+      /of Update-Location-Request · M, mandatory · AVP ULR-Flags/,
+    );
+    const anchor = entry.querySelector('.entry-document a');
+    assert.equal(anchor.textContent, 'TS 29.272 · 5.2.1.1.1');
+    assert.equal(anchor.getAttribute('href'), '#29272-j60/5.2.1.1.1');
+  } finally {
+    await page.close();
+  }
 });
 
 test('the search page shows a section per kind with matches over the fixture, and focuses its input', async () => {

@@ -9,7 +9,8 @@ import {
   wordTypos,
 } from './fuzzy.ts';
 import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
-import type { DocumentSummary, Mention, SearchEntry } from './types.ts';
+import { categoryWords } from './elements.ts';
+import type { Category, DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
 
 type Kind = SearchEntry['kind'];
@@ -384,10 +385,19 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
           : '';
       return `Command ${identity.command_code}${application}${header}`;
     }
+    case 'element':
+      return [elementCategory(identity.category), elementAvps(identity.avps), identity.command ?? 'no command']
+        .filter(Boolean)
+        .join(' · ');
     default:
       return '';
   }
 }
+
+/** "M, mandatory": an information element's category, or nothing where its row prints none. */
+const elementCategory = (category: Category | null) => (category ? `${category}, ${categoryWords[category]}` : '');
+/** "AVP User-Name", "AVPs Result-Code, Experimental-Result": what an information element maps to. */
+const elementAvps = (avps: string[]) => (avps.length ? `${avps.length > 1 ? 'AVPs' : 'AVP'} ${avps.join(', ')}` : '');
 
 /** What is said of an entry, in order; `brief` beside a document's label, where the entry's name is already said. */
 interface Fact {
@@ -419,6 +429,13 @@ function entryFacts(entry: SearchEntry): Fact[] {
         { text: name && id ? `${id} (${name})` : id || name, brief: name.replace(/^Diameter /, '') || id },
       ];
     }
+    // The command first: an element's name is the same in every table of a specification, its command what differs.
+    case 'element':
+      return [
+        { text: identity.command ? `of ${identity.command}` : 'of no command' },
+        { text: elementCategory(identity.category), brief: identity.category ?? '' },
+        { text: elementAvps(identity.avps) },
+      ];
     default:
       return [];
   }

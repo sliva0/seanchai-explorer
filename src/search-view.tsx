@@ -31,6 +31,7 @@ const sections: { kind: SearchEntry['kind']; title: string }[] = [
   { kind: 'command', title: 'Commands' },
   { kind: 'application', title: 'Applications' },
   { kind: 'registry', title: 'Registry rows' },
+  { kind: 'element', title: 'Information elements' },
 ];
 
 /** Text with its spans in `mark`s. */
@@ -130,6 +131,9 @@ function Families({ documents }: { documents: ListedDocument[] }) {
   );
 }
 
+/** A value's or an information element's entry is a row of a table, which its clause says where to find. */
+const rowOf = (entry: Pick<SearchEntry, 'kind'>) => entry.kind === 'value' || entry.kind === 'element';
+
 /** Where an entry's link goes: a value's row, its own definition, or else its document. */
 function entryTarget({ kind, name, document, target }: SearchEntry): Target {
   if (kind === 'value' && target) return { ...target, name };
@@ -168,7 +172,7 @@ function Group({ group, site, query }: { group: NameGroup; site: Site; query: st
     const detail: ComponentChildren[] = facts.differing(entry).map(fact => fact);
     if (entry.name !== group.name) detail.unshift(<>as {mark(entry.name)}</>);
     // Twice in one document, only its clause tells which.
-    if (target?.section && entry.kind !== 'value' && perDocument.get(entry.document)! > 1) detail.push(target.section);
+    if (target?.section && !rowOf(entry) && perDocument.get(entry.document)! > 1) detail.push(target.section);
     if (usual && own && definition.document !== usual.document) detail.push('defines it');
     if (entry.across_releases) {
       // Which edition stands in for a citation is the point here, so its version stays.
@@ -189,7 +193,7 @@ function Group({ group, site, query }: { group: NameGroup; site: Site; query: st
         <span key={index} class="entry-document">
           {/* A row of the document's table: the link says which, and the page marks it. */}
           <DetailedLink
-            text={entry.kind === 'value' && target ? `${label} · ${target.section}` : label}
+            text={rowOf(entry) && target ? `${label} · ${target.section}` : label}
             target={entryTarget(entry)}
             title={title}
             detail={detail}
