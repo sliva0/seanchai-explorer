@@ -17,7 +17,9 @@ text in the order of the document, and in words where the AVP is read. It is uno
 and not affiliated with or endorsed by any of the specifications' publishers. The site
 holds no Python and reads only what `seanchai export` writes.
 
-The index opens with a search box, which `/` focuses from any page, and lists the
+The index opens with a search box, which `/` focuses from any page, what the site is, and
+one line of what it was built from, its corpus, seanchai and build mode, with links to the
+project on GitHub and PyPI. It lists the
 documents a publisher at a time, in a tab each, with how many it holds. 3GPP's, or any
 publisher's with releases, are a release at a time, in a lighter row of tabs: each release
 the corpus holds whole, newest first, and `Older copies`, the copies of older releases held

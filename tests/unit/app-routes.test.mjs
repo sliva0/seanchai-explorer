@@ -79,10 +79,8 @@ test('the index has a tab per publisher, and in one with releases a tab per rele
   try {
     const { document } = page;
     absent(document.querySelector('main h1'));
-    assert.match(
-      document.querySelector('main').lastElementChild.textContent,
-      /^Corpus 2026\.\d+\.\d+ · seanchai \d+\.\d+\.\d+ · public build$/,
-    );
+    assert.equal(document.querySelectorAll('main .versions').length, 2, 'the status line and the hint, no footer');
+    absent(document.querySelector('main footer'));
     absent(document.querySelector('.demo-badge'));
     assert.deepEqual(tabsOf(document, 'nav.index-tabs[aria-label="Publishers"]'), [
       ['3GPP', '2', '#', 'true'],
@@ -326,7 +324,13 @@ test('the index opens with a search box, what the site is, its corpus and links,
     );
     const { corpus_version: corpus } = await readFixture('index.json');
     const meta = intro.querySelectorAll('p')[1];
-    assert.equal(meta.textContent, `Corpus ${corpus} · GitHub · PyPI`);
+    assert.match(
+      meta.textContent,
+      new RegExp(
+        `^Corpus ${corpus.replaceAll('.', '\\.')} · seanchai \\d+\\.\\d+\\.\\d+ · public build · GitHub · PyPI$`,
+      ),
+      'one line: what it was built from, and the project',
+    );
     assert.deepEqual(
       [...meta.querySelectorAll('a')].map(a => a.href),
       ['https://github.com/sliva0/seanchai', 'https://pypi.org/project/seanchai/'],

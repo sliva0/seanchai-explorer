@@ -196,8 +196,12 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
       <IndexSearch />
       <div class="index-intro">
         <p>{INTRO}</p>
+        {/* What this site was built from, and the project's two pages, on one line. */}
         <p class="versions">
-          {corpus && `Corpus ${corpus} · `}
+          {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
+            .filter(Boolean)
+            .join(' · ')}
+          {' · '}
           <a href={REPOSITORY}>GitHub</a>
           {' · '}
           <a href={PYPI}>PyPI</a>
@@ -232,11 +236,6 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
           <TabPanel tab={tab} site={site} />
         </>
       )}
-      <footer class="versions">
-        {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
-          .filter(Boolean)
-          .join(' · ')}
-      </footer>
     </>
   );
 }
