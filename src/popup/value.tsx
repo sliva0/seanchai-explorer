@@ -6,7 +6,7 @@ import { routeFor } from '../navigation.ts';
 import { valueRowLabel } from '../values.ts';
 import type { ValueRow } from '../values.ts';
 import type { PopupProps } from './root.tsx';
-import { Counted, Entries, ExternalLink, Panel, placeRows, Steps } from './shared.tsx';
+import { ExternalLink, Panel, placeRows } from './shared.tsx';
 
 /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
 function originLabel(site: Site, { origin }: ValueRow): string {
@@ -15,30 +15,19 @@ function originLabel(site: Site, { origin }: ValueRow): string {
 }
 
 /**
- * A value table's name: what its number is of, the document defining a result code another document defines, and
- * the table around it, whose rows go to the source too. Opening only shows where the row is: the pane moves when a
- * row is chosen, not from under what it was sent to.
+ * A value table's row: what its number is of, where the source prints it, and the document defining a result code
+ * another document defines. The table itself is there in the text, so the popup is of this row alone. Opening only
+ * shows where the row is: the pane moves when its source is asked for, not from under what it was sent to.
  */
 export function ValuePopup(props: PopupProps & { row: ValueRow }) {
-  const { site, pane, request, row, at, anchor, step } = props;
-  const { doc, documentPane, recordJump, jumpTo } = request;
+  const { site, pane, request, row } = props;
+  const { doc, documentPane } = request;
   const { table } = row;
-  const active = at ?? table.rows.indexOf(row);
-  const nameNode = (index: number) =>
-    documentPane.querySelector<HTMLElement>(`[data-line="${table.rows[index].line}"] .value-name`);
   useLayoutEffect(() => {
     if (props.inline) return;
     for (const node of documentPane.querySelectorAll('.avp-current')) node.classList.remove('avp-current');
-    nameNode(active)?.classList.add('avp-current');
-  }, [active]);
-  const select = (index: number) => {
-    recordJump();
-    const to = (index + table.rows.length) % table.rows.length;
-    if (pane.readsDocument()) pane.show(table.rows[to].position, doc, true);
-    const node = nameNode(to);
-    if (node) jumpTo(node);
-    step(to, node ?? anchor);
-  };
+    documentPane.querySelector(`[data-line="${row.line}"] .value-name`)?.classList.add('avp-current');
+  }, []);
   const placeRow = placeRows(site, pane, request);
   const where = `${row.position.section}${row.position.page ? ` · p. ${row.position.page}` : ''}`;
   const href = pane.shows(doc) ? undefined : sourceHref(doc, row.position, site.mode);
@@ -67,7 +56,7 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
             class="usage-link source-link"
             onClick={() => {
               pane.setVisible(true);
-              pane.show(table.rows[active].position, doc, true);
+              pane.show(row.position, doc, true);
             }}
           >
             {where}
@@ -84,25 +73,6 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
         ) : (
           <p class="value-origin">{`Defined in ${row.origin.reference}`}</p>
         ))}
-      <Steps
-        count={`Row ${active + 1}/${table.rows.length}`}
-        widest={`Row ${table.rows.length}/${table.rows.length}`}
-        select={by => select(active + by)}
-      />
-      <div class="usage-details">
-        <div>
-          <Counted title="Table" count={table.rows.length} />
-        </div>
-        <Entries
-          entries={table.rows.map(item => ({
-            text: [String(item.value), item.name, item.mark, item.origin && `from ${originLabel(site, item)}`]
-              .filter(Boolean)
-              .join(' · '),
-          }))}
-          active={active}
-          select={select}
-        />
-      </div>
     </Panel>
   );
 }

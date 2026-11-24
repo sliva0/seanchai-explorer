@@ -89,7 +89,7 @@ async function open(hash, options = {}, prepare = async () => {}) {
 }
 
 test(
-  'public, desktop: a value row: search groups it, its link marks the row, its name keeps a popup with its table',
+  'public, desktop: a value row: search groups it, its link marks the row, its name keeps a popup of the row',
   { skip },
   async () => {
     const { page, done } = await open('#search?q=DIAMETER_ERROR_SERVICE_AREA');
@@ -109,15 +109,11 @@ test(
     );
     await page.locator('.target-line .value-name').click({ button: 'right' });
     assert.match(await page.locator('.avp-popup').textContent(), /Result code 5123 of Experimental-Result-Code/);
-    await page.locator('.avp-popup .popup-actions button', { hasText: 'Next' }).click();
-    assert.match(
-      await page.locator('.avp-popup .usage-link[aria-current]').textContent(),
-      /DIAMETER_ERROR_OUT_OF_RESOURCES/,
-    );
+    assert.equal(await page.locator('.avp-popup .popup-actions, .avp-popup .usage-list').count(), 0, 'no table');
     assert.equal(
       await page.locator('.avp-current').evaluate(node => getComputedStyle(node).backgroundColor),
       'rgb(213, 227, 248)',
-      "the walked row shows over its token's tint",
+      "the row shows over its token's tint",
     );
     await page.keyboard.press('Escape');
     assert.equal(await page.locator('.avp-popup').count(), 0);

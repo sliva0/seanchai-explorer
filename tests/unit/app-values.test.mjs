@@ -6,7 +6,7 @@ import { absent, boot, click, frameSrc, readFixture, rightClick, settle } from '
 const rowOf = (document, name) =>
   [...document.querySelectorAll('pre a.value-name')].find(node => node.textContent.replace(/^"|"$/g, '') === name);
 
-test('public: right-click on a value name shows its table, with its AVP and source, and walks the rows', async () => {
+test('public: right-click on a value name shows its row, with its AVP and source, and not the table the text shows', async () => {
   const page = await boot({ hash: '#29061-6f0' });
   try {
     const { document, window } = page;
@@ -21,16 +21,10 @@ test('public: right-click on a value name shows its table, with its AVP and sour
     assert.match(popup.textContent, /Result code 5123 of Experimental-Result-Code/);
     assert.equal(popup.querySelector('p a').getAttribute('href').split('?')[0], '#rfc6733/7.7');
     assert.match(popup.querySelector('a[target="_blank"]').href, /etsi\.org.*#page=92$/);
-    assert.equal(popup.querySelector('.usage-link[aria-current]').textContent, '5123 · DIAMETER_ERROR_SERVICE_AREA');
-    assert.ok(name.classList.contains('avp-current'));
-    assert.match(popup.querySelector('.popup-actions span').textContent, /^Row 4\/\d+$/);
-    [...popup.querySelectorAll('.popup-actions button')].at(-1).click();
-    assert.equal(
-      popup.querySelector('.usage-link[aria-current]').textContent,
-      '4121 · DIAMETER_ERROR_OUT_OF_RESOURCES',
-    );
-    assert.ok(rowOf(document, 'DIAMETER_ERROR_OUT_OF_RESOURCES').classList.contains('avp-current'));
-    assert.ok(!name.classList.contains('avp-current'));
+    assert.ok(name.classList.contains('avp-current'), 'its row is marked in the text');
+    absent(popup.querySelector('.popup-actions'), 'no walk through the rows');
+    absent(popup.querySelector('.usage-list'), 'and no list of them');
+    assert.doesNotMatch(popup.textContent, /\bRow \d|Table \d/);
     popup.querySelector('.popup-title button').click();
     absent(document.querySelector('.avp-popup'));
     const ctrl = new window.MouseEvent('click', { bubbles: true, cancelable: true, ctrlKey: true });
@@ -98,7 +92,7 @@ test('self-hosted: a value name and its clause drive the pane to the row, and th
   }
 });
 
-test("self-hosted: opening a value's popup leaves the pane where it was, and choosing a row moves it", async () => {
+test("self-hosted: opening a value's popup leaves the pane where it was, and its Source moves it", async () => {
   const page = await boot({ hash: '#29217-j00', mode: 'self-hosted' });
   try {
     const { document } = page;
@@ -113,7 +107,7 @@ test("self-hosted: opening a value's popup leaves the pane where it was, and cho
     await settle();
     assert.equal(document.querySelector('.avp-popup').dataset.value, second.name);
     assert.equal(pane(), first.name, 'the popup opening moves nothing');
-    document.querySelector('.avp-popup .usage-link[aria-current]').click();
+    document.querySelector('.avp-popup .source-link').click();
     await settle();
     assert.equal(pane(), second.name);
   } finally {
@@ -198,10 +192,6 @@ test("a value's popup says the document defining it, both ways to its row there,
       /^#29329-j10\/6\.2\.2\.1\?name=DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED&source=29329-j10&sourceSection=6\.2\.2\.1&/,
     );
     assert.ok(origin.querySelector('.pane-action'));
-    assert.equal(
-      popup.querySelector('.usage-link[aria-current]').textContent,
-      '5100 · DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED · from TS 29.329',
-    );
     origin.querySelector('.pane-action').click();
     await settle();
     assert.match(new URL(frameSrc(document)).searchParams.get('file'), /29329-j10\.pdf$/);
@@ -210,10 +200,6 @@ test("a value's popup says the document defining it, both ways to its row there,
     popup = document.querySelector('.avp-popup');
     absent(popup.querySelector('.place-origin'));
     assert.equal(popup.querySelector('.value-origin').textContent, 'Defined in TS29.229');
-    assert.equal(
-      popup.querySelector('.usage-link[aria-current]').textContent,
-      '5001 · DIAMETER_ERROR_USER_UNKNOWN · from TS29.229',
-    );
   } finally {
     await page.close();
   }
