@@ -1,8 +1,17 @@
-/** A `;;` note less its citations, which its toggle opens: `;; interpreted: (TS29.272.py#imei-digits)` is `;; interpreted`. */
+/**
+ * A citation's declaration, as the grammar scopes it: a correction's in the corrections module, `TS29.272.py#area-scope-code`,
+ * or an interpretation's in a `.dadx` file of interpreted-constraint blocks, `TS29.272.dadx#imei-digits`.
+ */
+const declaration = String.raw`[\w.+-]+\.(?:py|dadx)#[\w.-]+`;
+const endCitation = new RegExp(String.raw`:\s*\(${declaration}\)\s*$`);
+const anyCitation = new RegExp(String.raw`\s*\(${declaration}\)`, 'g');
+const citation = new RegExp(String.raw`\((?:${declaration}|occurr?ence\s+\d+)\)`, 'gi');
+
+/** A `;;` note less its citations, which its toggle opens: `;; interpreted: (TS29.272.dadx#imei-digits)` is `;; interpreted`. */
 export function compactComment(text: string): string {
   return text
-    .replace(/:\s*\([\w.-]+\.py#[\w-]+\)\s*$/, '')
-    .replace(/\s*\([\w.-]+\.py#[\w-]+\)/g, '')
+    .replace(endCitation, '')
+    .replace(anyCitation, '')
     .replace(/\s*\(occurr?ence\s+\d+\)/gi, '')
     .trimEnd();
 }
@@ -12,7 +21,7 @@ export function compactComment(text: string): string {
  * `(occurrence 2)` and `(TS29.229.py#x)`.
  */
 export function citationSpans(text: string): { text: string; index: number }[] {
-  return [...text.matchAll(/\((?:[\w.-]+\.py#[\w-]+|occurr?ence\s+\d+)\)/gi)].map(match => ({
+  return [...text.matchAll(citation)].map(match => ({
     text: match[0],
     index: match.index,
   }));
@@ -21,6 +30,6 @@ export function citationSpans(text: string): { text: string; index: number }[] {
 /** The citations of `citationSpans`, as the note's record prints them: `(occurrence 2) (TS29.229.py#x)`. */
 export function commentCitations(text: string): string {
   return citationSpans(text)
-    .map(citation => citation.text)
+    .map(found => found.text)
     .join(' ');
 }

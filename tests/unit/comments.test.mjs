@@ -13,7 +13,7 @@ test('compact comments remove only citation and occurrence markers', () => {
   );
   assert.equal(compactComment(';; note (keep this explanation)'), ';; note (keep this explanation)');
   assert.equal(
-    compactComment(';; interpreted: (TS29.272.py#imei-digits)'),
+    compactComment(';; interpreted: (TS29.272.dadx#imei-digits)'),
     ';; interpreted',
     'no colon left before nothing',
   );
@@ -43,6 +43,11 @@ test("a note's citations are what its compact form leaves out, in order", () => 
   assert.equal(
     commentCitations(';; inserted: from clause 16.4.7 (TS29.061.py#3gpp-sgsn-mcc-mnc-row)'),
     '(TS29.061.py#3gpp-sgsn-mcc-mnc-row)',
+  );
+  assert.equal(
+    commentCitations(';; interpreted: (TS29.272.dadx#imei-digits)'),
+    '(TS29.272.dadx#imei-digits)',
+    "an interpretation's .dadx file",
   );
   assert.equal(commentCitations(';; note (keep this explanation)'), '', 'none');
 });

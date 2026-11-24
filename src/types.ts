@@ -310,7 +310,8 @@ export interface Mention {
 }
 /**
  * `documents/<id>.json`: one corrected file, with what the page shows of
- * it. `corrections` is keyed by citation, `TS29.272.py#area-scope-code`.
+ * it. `corrections` is keyed by citation, `TS29.272.py#area-scope-code`
+ * or an interpretation's `TS29.272.dadx#imei-digits`.
  * `blocks` are its `; Type:` blocks in file order, by index into `lines`.
  */
 export interface Document {

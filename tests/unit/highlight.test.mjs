@@ -233,7 +233,7 @@ test('a region opens and closes over lines, with its scopes, and one empty at a 
 });
 
 test('comment and correction-note tokens keep their kind and are not split by the grammar', () => {
-  const [row, excluded] = highlight([
+  const [row, excluded, interpreted] = highlight([
     {
       tokens: [
         { text: 'Mode ' },
@@ -243,6 +243,17 @@ test('comment and correction-note tokens keep their kind and are not split by th
       ],
     },
     { tokens: [{ text: ';; excluded: clause 8 (Sh-ee), see TS29.329.toml', kind: 'comment' }, { text: '\n' }] },
+    {
+      tokens: [
+        { text: '; Type: Interpreted Constraints ' },
+        {
+          text: ';; interpreted: (TS29.272.dadx#imei-digits)',
+          kind: 'correction-note',
+          correction: 'TS29.272.dadx#imei-digits',
+        },
+        { text: '\n' },
+      ],
+    },
   ]);
   assert.deepEqual(
     row.tokens.filter(token => token.kind).map(token => [token.text, token.scope]),
@@ -265,6 +276,24 @@ test('comment and correction-note tokens keep their kind and are not split by th
     ['excluded', 'keyword.other.note.dad'],
     ['TS29.329.toml', 'markup.underline.link.declaration.dad'],
   ]);
+  assert.deepEqual(parts(interpreted.tokens.find(token => token.correction)), [
+    ['interpreted', 'keyword.other.note.dad'],
+    ['TS29.272.dadx#imei-digits', 'markup.underline.link.declaration.dad'],
+  ]);
+});
+
+test("a .dadx file's ; Interprets: header is a directive of free text, as ; Specification: is", () => {
+  const [interprets, specification] = highlight([
+    line('; Interprets: TS29.272'),
+    line('; Specification: 3GPP TS 29.272'),
+  ]);
+  for (const [highlighted, key, value] of [
+    [interprets, 'Interprets', 'TS29.272'],
+    [specification, 'Specification', '3GPP TS 29.272'],
+  ]) {
+    assert.equal(scopeFor(highlighted, key), 'keyword.other.directive.dad');
+    assert.equal(scopeFor(highlighted, value), 'string.unquoted.directive-value.dad');
+  }
 });
 
 test('syntax splitting preserves corpus bytes and every navigation or correction annotation', async () => {

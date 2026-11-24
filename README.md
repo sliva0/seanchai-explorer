@@ -128,10 +128,12 @@ read as the rest of it, in the same font and colours: a quote is a string, a lit
 than the rules read from it, wrapped at the pane's edge under its first letter, and a rule
 its kind and operands as the grammar scopes them, a long one wrapped at the pane's edge
 four characters in past its own indent. Two things mark a block as interpreted: a
-thin rule left of its lines, in the hue of the ¶ below, and its `;; interpreted` note,
-which opens the declaration's record as a correction's `;; corrected`, `;; supplied`,
-`;; inserted` or `;; deleted` does: under the line, which keeps its short note, what the
-note cites on a line of its own, then why. The raw text has none.
+thin rule left of its lines, in the hue of the ¶ below, and its `;; interpreted` note.
+The note cites the block in the `.dadx` file of interpreted-constraint blocks it is written
+in, `(TS29.272.dadx#imei-digits)`, as a correction's cites the corrections module, and opens
+its record as a correction's `;; corrected`, `;; supplied`, `;; inserted` or `;; deleted`
+does: under the line, which keeps its short note, what the note cites on a line of its own,
+then why. The raw text has none.
 "Interpreted" in a document toolbar hides them and shows them again, kept in the browser
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
@@ -278,7 +280,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "d3fd1b1fd942b6b9e419dbfaad66e52f6dc9cf2b"
+  "commit": "c39f25aae344a46b08cfdc431911de0305e7c883"
 }
 ```
 

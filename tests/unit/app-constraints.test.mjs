@@ -64,7 +64,13 @@ test('the corrected text of TS 29.272', async t => {
         assert.equal(note.textContent, ';; interpreted');
         click(page, note);
         assert.equal(note.textContent, ';; interpreted', 'open as shut');
-        assert.match(type.querySelector('.correction-citation').textContent, /^\(TS29\.272\.py#[\w-]+\)$/);
+        const citation = type.querySelector('.correction-citation');
+        assert.match(citation.textContent, /^\(TS29\.272\.dadx#[\w-]+\)$/, 'the .dadx file the block is written in');
+        assert.equal(
+          citation.querySelector('.markup\\.underline\\.link\\.declaration\\.dad')?.textContent,
+          citation.textContent.slice(1, -1),
+          'scoped as the grammar scopes a declaration',
+        );
         assert.match(
           type.querySelector('.correction-reason').textContent,
           /^— interpreted from table 5\.2\.2\.2\.1\/1: /,

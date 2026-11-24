@@ -28,7 +28,8 @@ export interface HighlightedToken extends ValueToken {
   scope: string;
   /**
    * A `;;` note the export keeps whole, a comment or a correction's: the stretches inside it the grammar scopes apart
-   * from the comment, its kind (`corrected`) and the declaration it cites (`TS29.272.py#imei-digits`).
+   * from the comment, its kind (`corrected`) and the declaration it cites, a correction's (`TS29.272.py#area-scope-code`)
+   * or an interpretation's (`TS29.272.dadx#imei-digits`).
    */
   parts?: NotePart[];
 }

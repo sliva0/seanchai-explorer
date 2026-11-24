@@ -44,7 +44,8 @@ export interface ViewServices {
 
 /**
  * A note's text from `from` to `to`, with the stretches the grammar scopes inside it, its kind and the declaration it
- * cites, in spans of their scope: no link, as a declaration is a file of the corpus's corrections, not a page.
+ * cites, in spans of their scope: no link, as a declaration is a file of the corpus's corrections or interpretations,
+ * not a page.
  */
 function noteText(token: HighlightedToken, from: number, to: number): (Node | string)[] {
   const nodes: (Node | string)[] = [];
