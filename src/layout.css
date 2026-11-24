@@ -494,31 +494,6 @@ pre {
   width: max-content;
   min-width: 100%;
 }
-/* Over the end of the name under the pointer, the way to its popup: laid over the text, never moving a column. */
-.name-menu {
-  position: absolute;
-  width: 1.5ch;
-  margin-left: 1px;
-  padding: 0;
-  border: 1px solid var(--ui-border);
-  border-radius: var(--radius);
-  background: var(--ui-raised);
-  color: var(--ui-link);
-  font: inherit;
-  line-height: 1;
-  cursor: pointer;
-  user-select: none;
-}
-.name-menu::before {
-  content: "▾";
-  font-size: 1.25em;
-}
-.name-menu:hover {
-  border-color: var(--ui-link);
-}
-.name-menu[hidden] {
-  display: none;
-}
 /*
  * After the end of a line, what the tables and the interpreted constraints say of the name it reads: a member's
  * category in its command's Information Elements tables, and an italic i where interpreted constraints hold for it.

@@ -25,7 +25,7 @@ test('public: a PDF gets the pane and its toggle, with an inspector in place of 
     assert.match(inspector.querySelector('.inspector-empty').textContent, /^Click a name for details beside the text/);
     assert.match(
       inspector.querySelector('.inspector-empty').textContent,
-      /an alt-click moves it to the name\. The ▾ beside the name/,
+      /an alt-click moves it to the name\. A right-click shows where it is used, as do Menu and Shift\+F10/,
     );
     assert.match(
       inspector.querySelector('.inspector-note').textContent,
