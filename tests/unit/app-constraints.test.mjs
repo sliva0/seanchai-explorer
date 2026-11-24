@@ -25,9 +25,24 @@ const DSR_QUOTE = 1328;
 const DSR_MEMBER = 286;
 const APN_MEMBER = 2301;
 const APN_BLOCK = 2331;
+const DSR_FLAGS_MEMBER = 284;
+const NOR_FLAGS_MEMBER = 512;
+
+/**
+ * No element rule of TS 29.272 names a document the corpus holds, so RAND's, which names TS 33.401, stands in for one
+ * naming TS 29.329, which the fixture has.
+ */
+function heldElement(path, data) {
+  if (path !== 'data/documents/29272-j60.json') return data;
+  for (const block of data.blocks)
+    if (block.name === 'RAND' && block.readings)
+      for (const reading of block.readings)
+        for (const rule of reading.rules) if (rule.codec === 'element') rule.document = 'TS29.329';
+  return data;
+}
 
 test('the corrected text of TS 29.272', async t => {
-  const page = await boot({ hash: '#29272-j60/5.2.2.2.1' });
+  const page = await boot({ hash: '#29272-j60/5.2.2.2.1', transform: heldElement });
   const { document, window } = page;
   try {
     await t.test(
@@ -123,6 +138,41 @@ test('the corrected text of TS 29.272', async t => {
         texts(condition, '.popup-context p')[0],
         'Here: a condition of an interpreted rule on Context-Identifier · in Delete-Subscriber-Data-Request · 5.2.2.2.1',
       );
+      await closePopup(page);
+    });
+
+    await t.test("a default and a rule on an AVP's own bits are said in words, in the popup and the mark", async () => {
+      const bits = await popupOf(page, nameOn(document, 'DSR-Flags', DSR_FLAGS_MEMBER));
+      assert.ok(
+        texts(bits, '.constraint-reading summary').includes('at most one of bits 3, 6 set'),
+        texts(bits, '.constraint-reading summary').join('\n'),
+      );
+      await closePopup(page);
+      assert.match(
+        lineAt(document, DSR_FLAGS_MEMBER).querySelector('.line-mark').title,
+        /at most one of bits 3, 6 set/,
+      );
+      const nor = await popupOf(page, nameOn(document, 'NOR-Flags', NOR_FLAGS_MEMBER));
+      assert.ok(texts(nor, '.constraint-reading summary').includes('read as 0 when absent'));
+      await closePopup(page);
+      assert.match(
+        lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
+        /read as 0 when absent \(in Notify-Request\)/,
+      );
+    });
+
+    await t.test("an element rule's document links where the corpus holds it, and is text where not", async () => {
+      const held = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="RAND"]'));
+      const link = held.querySelector('.constraint-rule a.constraint-document');
+      present(link);
+      assert.equal(link.textContent, 'TS 29.329');
+      assert.equal(link.getAttribute('href'), '#29329-j10');
+      assert.equal(held.querySelector('.constraint-rule').textContent, 'encoded as TS 29.329 “RAND”');
+      await closePopup(page);
+      const zone = '.dad-line.interpreted [data-avp="Regional-Subscription-Zone-Code"]';
+      const unheld = await popupOf(page, document.querySelector(zone));
+      absent(unheld.querySelector('.constraint-rule a'));
+      assert.equal(unheld.querySelector('.constraint-rule').textContent, 'encoded as TS23.003 clause 4.4 “Zone Code”');
       await closePopup(page);
     });
 

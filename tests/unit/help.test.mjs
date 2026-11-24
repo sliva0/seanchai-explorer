@@ -77,6 +77,10 @@ test("it lists every control of controls.ts, the README's keys among them", asyn
     ])
       assert.ok(terms.flat().includes(key), key);
     assert.match(help.querySelector('dt').nextElementSibling.textContent, /source pane/);
+    const kinds = [...help.querySelectorAll('.help-rule-kinds dt')].map(node => node.textContent);
+    assert.ok(kinds.includes('default FALSE') && kinds.includes('bits at-most-one 3 6'), kinds.join('\n'));
+    const said = [...help.querySelectorAll('.help-rule-kinds dd')].map(node => node.textContent);
+    assert.ok(said.includes('what the AVP is read as when it is absent'));
   } finally {
     await page.close();
   }

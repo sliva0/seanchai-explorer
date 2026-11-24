@@ -1540,7 +1540,11 @@ mark {
 .help-list dd {
   margin: 0;
 }
-.help-codecs code {
+.help-rule-kinds {
+  margin-bottom: var(--space-2);
+}
+.help-codecs code,
+.help-rule-kinds code {
   font: var(--text-xs)/1.5 var(--mono);
   white-space: nowrap;
 }

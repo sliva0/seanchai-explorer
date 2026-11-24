@@ -1,6 +1,6 @@
 import { Fragment } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { codecs, CONSTRAINTS_DOC } from './constraints.ts';
+import { codecs, CONSTRAINTS_DOC, ruleKinds } from './constraints.ts';
 import { controlGroups } from './controls.ts';
 import type { ControlGroup } from './controls.ts';
 import { takesTyping } from './keys.ts';
@@ -32,7 +32,7 @@ function Group({ title, note, controls }: ControlGroup) {
 
 /**
  * What interpreted constraints are, said once for every popup naming one: the text's blocks and marks, the strip's
- * control, and each codec's layout, with the corpus's page on them.
+ * control, each kind of rule as the text prints it and each codec's layout, with the corpus's page on them.
  */
 function ConstraintsHelp() {
   return (
@@ -42,9 +42,20 @@ function ConstraintsHelp() {
         What a clause's prose says of an AVP's value or presence, as a reader read it, pinned to the sentences quoted:
         no document prints it as structure. Its blocks have a dashed edge in the corrected text, which "Interpreted" in
         the strip hides and shows for every document; a line reading an AVP they hold for has an italic i after it, and
-        a name's popup lists them in words, each with its quote. Trust a rule as far as its quote. An encoding names one
-        of these layouts:
+        a name's popup lists them in words, each with its quote. Trust a rule as far as its quote. A rule is one of
+        these kinds:
       </p>
+      <dl class="help-list help-rule-kinds">
+        {Object.entries(ruleKinds).map(([kind, { printed, says }]) => (
+          <Fragment key={kind}>
+            <dt>
+              <code>{printed}</code>
+            </dt>
+            <dd>{says}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      <p class="help-note">An encoding names one of these layouts:</p>
       <dl class="help-list help-codecs">
         {Object.entries(codecs).map(([codec, { layout }]) => (
           <Fragment key={codec}>

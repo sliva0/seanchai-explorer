@@ -6,8 +6,10 @@ import {
   constraintBlocks,
   constraintLines,
   constraintsFor,
+  elementParts,
   holdsIn,
   interpretedLines,
+  ruleKinds,
   ruleWords,
   scopeWords,
 } from '../../src/constraints.ts';
@@ -53,7 +55,44 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
   assert.equal(words({ kind: 'absent-if', conditions: [{ avp: 'Other' }] }), 'absent if Other is present');
   assert.equal(words({ kind: 'excludes', conditions: [{ avp: 'Other' }] }), 'never present if Other is present');
   assert.equal(words({ kind: 'text-only' }), 'not checkable: read the quote');
-  assert.equal(words({ kind: 'default', value: 5 }, '    default 5'), 'default 5', 'an unknown kind, not a failure');
+  assert.equal(words({ kind: 'default', value: 0 }), 'read as 0 when absent');
+  assert.equal(words({ kind: 'default', value: 'NOT_RELAY_NODE' }), 'read as NOT_RELAY_NODE when absent');
+  assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: [3, 6] }), 'at most one of bits 3, 6 set');
+  assert.equal(words({ kind: 'bits', relation: 'at-least-one', bits: [0, 1] }), 'at least one of bits 0, 1 set');
+  assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: ['A', 2] }), 'at most one of bits “A”, 2 set');
+  assert.equal(words({ kind: 'bits', relation: 'every', bits: [1] }, '    bits every 1'), 'bits every 1');
+  assert.equal(words({ kind: 'pattern', value: 5 }, '    pattern 5'), 'pattern 5', 'an unknown kind, not a failure');
+});
+
+test("an element rule's document is apart from its words, for a popup to link", () => {
+  const rule = { kind: 'encoding', codec: 'element', document: 'TS23.003', clause: '4.4', element: 'Zone Code' };
+  assert.deepEqual(elementParts(rule), { before: 'encoded as', document: 'TS23.003', after: 'clause 4.4 “Zone Code”' });
+  assert.deepEqual(elementParts({ document: 'TS29.002' }), { before: 'encoded as', document: 'TS29.002', after: '' });
+  assert.equal(
+    words({ kind: 'encoding', codec: 'element', element: 'RAND' }),
+    "encoded as another document's element “RAND”",
+  );
+  assert.equal(words({ kind: 'encoding', codec: 'element', clause: '4.4' }), 'encoded as clause 4.4');
+});
+
+test('every rule kind the schema has is said in words and in the help', async () => {
+  const schema = await readFixture('schema.json');
+  const kinds = schema.$defs.ConstraintRule.properties.kind.enum;
+  assert.deepEqual(Object.keys(ruleKinds).toSorted(), kinds.toSorted());
+  for (const kind of kinds) assert.match(ruleKinds[kind].printed, new RegExp(`^${kind}\\b`));
+});
+
+test("TS 29.272's default and bits rules are read with the rest of their blocks", async () => {
+  const file = await readFixture('documents/29272-j60.json');
+  const rules = constraintBlocks(file).flatMap(({ avp, block }) =>
+    (block.readings ?? []).flatMap(reading => reading.rules.map(rule => ({ avp, rule }))),
+  );
+  const dsr = rules.find(({ avp, rule }) => avp === 'DSR-Flags' && rule.kind === 'bits');
+  assert.equal(ruleWords(dsr.rule, ''), 'at most one of bits 3, 6 set');
+  const nor = rules.find(({ avp, rule }) => avp === 'NOR-Flags' && rule.kind === 'default');
+  assert.equal(ruleWords(nor.rule, ''), 'read as 0 when absent');
+  assert.equal(rules.filter(({ rule }) => rule.kind === 'default').length, 9);
+  assert.equal(rules.filter(({ rule }) => rule.kind === 'bits').length, 2);
 });
 
 test('a block holds wherever its AVP is read, within its grouped AVP, or in its command of its application', () => {

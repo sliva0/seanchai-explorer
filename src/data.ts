@@ -105,6 +105,12 @@ const compareEditions = (a: Edition, b: Edition) =>
   (a.release ?? -1) - (b.release ?? -1) ||
   (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true });
 
+/** The corpus's newest edition of the document a reference names, `TS29.272` or `RFC6733`, if it holds one. */
+export const newestOf = <T extends Edition & Pick<DocumentSummary, 'reference'>>(documents: T[], reference: string) =>
+  documents
+    .filter(doc => doc.reference === reference)
+    .reduce<T | undefined>((held, doc) => (!held || compareEditions(doc, held) > 0 ? doc : held), undefined);
+
 /** What tells each edition from a newer one of its specification in the corpus. The newest has nothing to say. */
 function olderEditions(documents: Edition[]): Map<string, string> {
   const newest = new Map<string, Edition>();

@@ -101,18 +101,31 @@ export function blockContext(file: DadFile, block: Block | undefined): ReadConte
   return {};
 }
 
-/** The rule kinds the site says in words; a kind the export adds later is said as the file prints it. */
-const KNOWN_KINDS = new Set([
-  'length',
-  'range',
-  'exclude',
-  'encoding',
-  'present-if',
-  'absent-if',
-  'requires',
-  'excludes',
-  'text-only',
-]);
+/**
+ * Each rule kind as the text prints one and what it says, for the help: the kinds the site says in words. A kind the
+ * export adds later is said as the file prints it.
+ */
+export const ruleKinds: Record<ConstraintRule['kind'], { printed: string; says: string }> = {
+  length: { printed: 'length 3', says: "the payload's octets, or the digits or characters it carries" },
+  range: { printed: 'range 0 255', says: 'the values an integer may take' },
+  exclude: { printed: 'exclude 0', says: 'values it may not take' },
+  encoding: {
+    printed: 'encoding e164-tbcd',
+    says: "how the payload is laid out: a codec below, or another document's element",
+  },
+  'present-if': { printed: 'present-if Other-AVP', says: 'present when a condition on a sibling AVP holds' },
+  'absent-if': { printed: 'absent-if Other-AVP', says: 'absent when a condition holds' },
+  requires: { printed: 'requires Flags bit 3', says: 'present only if a condition holds' },
+  excludes: { printed: 'excludes Other-AVP', says: 'never present if a condition holds' },
+  default: { printed: 'default FALSE', says: 'what the AVP is read as when it is absent' },
+  bits: {
+    printed: 'bits at-most-one 3 6',
+    says: "of these bits of the AVP's own value, at most one is set (at-most-one), or at least one (at-least-one)",
+  },
+  'text-only': { printed: 'text-only', says: 'a rule no checker can run: the quote says it' },
+};
+
+const KNOWN_KINDS = new Set<string>(Object.keys(ruleKinds));
 
 /** A reading's rules are all `text-only`: the quote is the whole of it. */
 export const textOnly = (rules: Pick<ConstraintRule, 'kind'>[]) =>
@@ -174,9 +187,12 @@ function boundsWords(low: number | null | undefined, high: number | null | undef
   return unit ? `any number of ${unit}` : 'any value';
 }
 
+/** A bit as a rule names it: its number, or its bit table's name. */
+const bitWords = (bit: number | string) => (typeof bit === 'number' ? String(bit) : `“${bit}”`);
+
 /** A condition on a sibling AVP: "DSR-Flags has bit “Trace Data Withdrawal” set", "Result-Code is DIAMETER_SUCCESS". */
 export function conditionWords({ avp, value, bit }: ConstraintCondition): string {
-  if (bit != null) return `${avp} has bit ${typeof bit === 'number' ? bit : `“${bit}”`} set`;
+  if (bit != null) return `${avp} has bit ${bitWords(bit)} set`;
   if (value != null) return `${avp} is ${value}`;
   return `${avp} is present`;
 }
@@ -188,11 +204,21 @@ const predicateWords: Record<string, string> = {
   excludes: 'never present if',
 };
 
+/**
+ * An element rule's words around its document, which a popup links where the corpus holds it: "encoded as", the
+ * document as printed, and "clause 4.4 “Zone Code”".
+ */
+export function elementParts(rule: Pick<ConstraintRule, 'document' | 'clause' | 'element'>) {
+  const after = [rule.clause && `clause ${rule.clause}`, rule.element && `“${rule.element}”`].filter(Boolean).join(' ');
+  return { before: 'encoded as', document: rule.document ?? null, after };
+}
+
 /** The codec an encoding rule names, an element with its document, clause and name. */
 function encodingWords(rule: ConstraintRule): string {
   if (rule.codec === 'element') {
-    const where = [rule.document, rule.clause && `clause ${rule.clause}`].filter(Boolean).join(' ');
-    return `encoded as ${where || "another document's element"}${rule.element ? ` “${rule.element}”` : ''}`;
+    const { before, document, after } = elementParts(rule);
+    const placeholder = rule.clause ? '' : "another document's element";
+    return [before, document ?? placeholder, after].filter(Boolean).join(' ');
   }
   const codec = rule.codec ? codecs[rule.codec] : undefined;
   return codec ? codec.words : `encoded as ${rule.codec ?? 'a codec'}`;
@@ -200,7 +226,7 @@ function encodingWords(rule: ConstraintRule): string {
 
 /**
  * A rule in plain words: "3 octets", "0 to 255", "not 0", "TBCD-encoded E.164 number", "present only if DSR-Flags
- * has bit “X” set". `printed` is the rule's line as the file prints it, which a kind the site does not know is said by.
+ * has bit “X” set", "read as FALSE when absent", "at most one of bits 3, 6 set". `printed` is the rule's line as the file prints it, which a kind the site does not know is said by.
  */
 export function ruleWords(rule: ConstraintRule, printed: string): string {
   const kind = rule.kind as string;
@@ -214,6 +240,15 @@ export function ruleWords(rule: ConstraintRule, printed: string): string {
       return (rule.values ?? []).length > 1 ? `none of ${rule.values!.join(', ')}` : `not ${rule.values?.[0] ?? ''}`;
     case 'encoding':
       return encodingWords(rule);
+    case 'default':
+      return `read as ${rule.value ?? 'a default'} when absent`;
+    case 'bits': {
+      const bits = (rule.bits ?? []) as (number | string)[];
+      const said = `${bits.length > 1 ? 'bits' : 'bit'} ${bits.map(bitWords).join(', ')}`;
+      if (rule.relation === 'at-most-one') return `at most one of ${said} set`;
+      if (rule.relation === 'at-least-one') return `at least one of ${said} set`;
+      return printed.trim();
+    }
     case 'text-only':
       return 'not checkable: read the quote';
     default: {

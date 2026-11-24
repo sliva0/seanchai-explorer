@@ -7,6 +7,7 @@ import {
   blockContext,
   CONSTRAINTS_DOC,
   constraintsFor,
+  elementParts,
   lineText,
   ruleNote,
   ruleWords,
@@ -15,8 +16,10 @@ import {
   unscoped,
 } from '../constraints.ts';
 import type { ConstraintBlock, ReadContext } from '../constraints.ts';
+import { newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
-import type { Document } from '../types.ts';
+import { routeFor } from '../navigation.ts';
+import type { ConstraintRule, Document } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
 import { Counted, ExternalLink, placeRows } from './shared.tsx';
 
@@ -54,6 +57,26 @@ function scopeLine(site: Site, { block, scope }: ConstraintBlock): string {
   return [scopeWords({ scope }, short), block.section, block.fields.Table && `table ${block.fields.Table}`]
     .filter(Boolean)
     .join(' · ');
+}
+
+/**
+ * A rule in words, an element rule's document a link to its newest edition where the corpus holds it, TS 24.008 text
+ * where it does not.
+ */
+function RuleText({ site, rule, printed }: { site: Site; rule: ConstraintRule; printed: string }) {
+  const held = rule.kind === 'encoding' && rule.codec === 'element' && rule.document;
+  const doc = held ? newestOf(site.index.documents, rule.document!) : undefined;
+  if (!doc) return <>{ruleWords(rule, printed)}</>;
+  const { before, after } = elementParts(rule);
+  return (
+    <>
+      {`${before} `}
+      <a class="constraint-document" href={routeFor({ document: doc.id })}>
+        {site.label(doc)}
+      </a>
+      {after && ` ${after}`}
+    </>
+  );
 }
 
 const INTERPRETED_NOTE =
@@ -114,7 +137,7 @@ export function ConstraintFacts({
                     {rules.map((rule, at) => (
                       <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
                         {at > 0 && ' · '}
-                        {ruleWords(rule, lineText(doc, rule.line))}
+                        <RuleText site={site} rule={rule} printed={lineText(doc, rule.line)} />
                       </span>
                     ))}
                   </summary>
