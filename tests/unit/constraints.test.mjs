@@ -179,6 +179,7 @@ test("TS 29.272's blocks are read with their scope, and only the corrected file 
   const block = dsr[0].block;
   assert.equal(kinds.get(block.line), 'interpreted');
   assert.equal(kinds.get(block.readings[0].quotes[0].line), 'quote');
+  assert.equal(kinds.get(block.readings[0].rules[0].line), 'rule');
   assert.equal(kinds.get(block.line - 1), 'gap');
   assert.equal(kinds.get(block.last + 1), 'gap', 'the next block follows');
   const sole = constraintBlocks(doc).find(item => item.block.section === '7.3.9').block;

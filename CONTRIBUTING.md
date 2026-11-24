@@ -114,8 +114,9 @@ its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`,
 by line. `src/constraints.ts` reads them: which hold where a name is read (unscoped ones
 always, a `Within` one as a member of that grouped AVP, a `Command` one in that command's
 Message block or Information Elements table), a rule in words, and the lines a hide leaves
-out. `ruleKinds` there lists every kind the schema has, each as the text prints one and
-what it says, for `ruleWords` and the help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
+out, of which the quotes and rules wrap at the pane's edge. `ruleKinds` there lists every
+kind the schema has, each as the text prints one and what it says, for `ruleWords` and the
+help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
 or `members` relation, is said as its line prints it, never refused. A `unique` rule is
 said of its block's `Within`, and a `members` rule's `members` link in a popup to their
 AVPs by the tokens naming them on its line. An `encoding

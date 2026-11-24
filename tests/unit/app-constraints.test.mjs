@@ -56,6 +56,8 @@ test('the corrected text of TS 29.272', async t => {
         assert.ok(lineAt(document, DSR_QUOTE).classList.contains('interpreted-quote'));
         assert.ok(lineAt(document, DSR_QUOTE).classList.contains('interpreted'));
         assert.ok(!lineAt(document, DSR_QUOTE + 1).classList.contains('interpreted-quote'), 'a rule is no quote');
+        assert.ok(lineAt(document, DSR_QUOTE + 1).classList.contains('interpreted-rule'), 'it wraps as a rule');
+        assert.ok(!lineAt(document, DSR_BLOCK).classList.contains('interpreted-rule'));
         assert.ok(lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted-gap'));
         assert.ok(!lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted'));
         const note = type.querySelector('.correction-toggle');

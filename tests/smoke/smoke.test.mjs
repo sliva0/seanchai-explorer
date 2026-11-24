@@ -226,7 +226,7 @@ test(
 );
 
 test(
-  'an Interpreted Constraints block reads as the text: one font, its quote wrapped at the pane under its first letter, one rule left of it',
+  'an Interpreted Constraints block reads as the text: one font, its quote wrapped at the pane under its first letter, a long rule four characters in past its indent, one rule left of it',
   { skip },
   async () => {
     const { page, done } = await open('#29272-j60/5.2.2.2.1');
@@ -256,6 +256,18 @@ test(
       const unwrapped = quote.scrollWidth;
       quote.style.whiteSpace = '';
       const gutter = getComputedStyle(line(1320), '::before');
+      // The rule read from the quote is longer than the pane: its lines after the first start 8 characters in.
+      const rule = line(1329);
+      const range = document.createRange();
+      range.selectNodeContents(rule);
+      const boxes = [...range.getClientRects()].filter(box => box.width > 0);
+      const top = Math.min(...boxes.map(box => box.top));
+      const later = boxes.filter(box => box.top > top + char / 2);
+      const ruleFirst = Math.min(...boxes.filter(box => box.top <= top + char / 2).map(box => box.left));
+      const ruleLater = Math.min(...later.map(box => box.left));
+      rule.style.whiteSpace = 'pre';
+      const ruleUnwrapped = rule.scrollWidth;
+      rule.style.whiteSpace = '';
       return {
         sameFont: [font(quote), font(string), font(line(1329)), font(line(1300))].every(f => f === font(line(1300))),
         lines: parts.length,
@@ -265,6 +277,15 @@ test(
         widensNothing: unwrapped > pre,
         gutter: [gutter.content, gutter.width, gutter.backgroundColor !== 'rgba(0, 0, 0, 0)'],
         typeTint: getComputedStyle(line(1320)).backgroundColor,
+        rule: {
+          wraps: later.length > 0,
+          firstAtLine: Math.round(ruleFirst - content),
+          hanging: Math.abs(ruleLater - ruleFirst - 8 * char) < 1,
+          withinPane: Math.max(...boxes.map(box => box.right)) <= pane.getBoundingClientRect().right,
+          // Unwrapped it ran off the pane, though the text others scroll in may be wider still.
+          offPaneUnwrapped: ruleUnwrapped > pane.clientWidth,
+          sameFont: font(rule) === font(line(1300)),
+        },
       };
     });
     assert.deepEqual(laid, {
@@ -276,6 +297,7 @@ test(
       widensNothing: true,
       gutter: ['""', '2px', true],
       typeTint: 'rgba(0, 0, 0, 0)',
+      rule: { wraps: true, firstAtLine: 0, hanging: true, withinPane: true, offPaneUnwrapped: true, sameFont: true },
     });
     assert.match(await rule.textContent(), /^ {4}requires DSR-Flags bit/);
     assert.equal(await type.locator('.correction-toggle').textContent(), ';; interpreted');

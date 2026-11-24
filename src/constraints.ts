@@ -365,14 +365,18 @@ export function constraintLines(file: DadFile, source: DadFile): Map<number, Con
 
 /**
  * The lines of a file's Interpreted Constraints blocks, and of the blank lines before each that part it from the
- * block above: what hiding them leaves out. Each block's own lines are `interpreted`, its quotes `quote` too.
+ * block above: what hiding them leaves out. Each block's own lines are `interpreted`, its quotes `quote` and its rules
+ * `rule` too.
  */
 export const interpretedLines = perFile(({ lines, blocks }) => {
-  const kinds = new Map<number, 'interpreted' | 'quote' | 'gap'>();
+  const kinds = new Map<number, 'interpreted' | 'quote' | 'rule' | 'gap'>();
   for (const block of blocks) {
     if (!isInterpreted(block)) continue;
     for (let line = block.line; line <= block.last; line++) kinds.set(line, 'interpreted');
-    for (const reading of block.readings ?? []) for (const quote of reading.quotes) kinds.set(quote.line, 'quote');
+    for (const reading of block.readings ?? []) {
+      for (const quote of reading.quotes) kinds.set(quote.line, 'quote');
+      for (const rule of reading.rules) kinds.set(rule.line, 'rule');
+    }
     for (let line = block.line - 1; line >= 0 && !kinds.has(line); line--) {
       const text = (lines[line]?.tokens ?? []).map(token => token.text).join('');
       if (text.trim()) break;

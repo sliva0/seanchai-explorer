@@ -678,14 +678,26 @@ pre [class*="empty-cell"] {
 /*
  * A quote is one long line: it wraps at the pane's edge, in the same font, each line after its first under the first
  * letter after its opening quote, never widening the text that the other blocks scroll in. A little dimmer than the
- * rules read from it, so the eye lands on the rules.
+ * rules read from it, so the eye lands on the rules. A rule too long for the pane wraps the same way, each line after
+ * its first four characters further in than the rule's own four-space indent.
  */
-.dad-line.interpreted-quote {
+.dad-line.interpreted-quote,
+.dad-line.interpreted-rule {
   max-width: max(40ch, 100cqi);
-  padding-left: 1ch;
-  text-indent: -1ch;
   white-space: pre-wrap;
   overflow-wrap: break-word;
+}
+.dad-line.interpreted-quote {
+  padding-left: 1ch;
+  text-indent: -1ch;
+}
+.dad-line.interpreted-rule {
+  padding-left: 8ch;
+  text-indent: -8ch;
+}
+/* A rule wraps between its operands, never inside a name at its hyphens. */
+.dad-line.interpreted-rule [data-avp] {
+  white-space: nowrap;
 }
 .dad-line.interpreted-quote [class*="string.quoted"] {
   color: color-mix(in srgb, var(--syntax-string) 72%, var(--ui-bg));

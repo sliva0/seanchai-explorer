@@ -94,7 +94,8 @@ No document prints it as structure, so the site marks it as interpreted wherever
 it, quietly. The blocks stand in the corrected text after the blocks of their clause and
 read as the rest of it, in the same font and colours: a quote is a string, a little dimmer
 than the rules read from it, wrapped at the pane's edge under its first letter, and a rule
-its kind and operands as the grammar scopes them. Two things mark a block as interpreted: a
+its kind and operands as the grammar scopes them, a long one wrapped at the pane's edge
+four characters in past its own indent. Two things mark a block as interpreted: a
 thin rule left of its lines, in the hue of the i below, and its `;; interpreted` note,
 which opens the declaration's record as a correction's does. The raw text has none.
 "Interpreted" in a document's strip hides them and shows them again, kept in the browser
