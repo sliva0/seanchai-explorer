@@ -1117,6 +1117,41 @@ mark {
 .plugin-about p {
   margin: var(--space-2) 0 0;
 }
+.wireshark-view pre.plugin-finding {
+  margin-block: var(--space-2) 0;
+  overflow-x: auto;
+  white-space: pre;
+}
+.plugin-finding code {
+  overflow-wrap: normal;
+}
+/* Narrower than its codes, a phone's screen scrolls the table sideways rather than the page. */
+.plugin-findings {
+  display: block;
+  max-width: 100%;
+  margin-top: var(--space-3);
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+.plugin-findings th,
+.plugin-findings td {
+  padding: var(--space-1) var(--space-4) var(--space-1) 0;
+  text-align: left;
+  vertical-align: baseline;
+}
+.plugin-findings thead th {
+  color: var(--ui-muted);
+  font-weight: 400;
+}
+.plugin-findings tbody th {
+  font-weight: 400;
+}
+.plugin-findings tbody tr {
+  border-top: 1px solid var(--ui-divider);
+}
+.plugin-findings code {
+  white-space: nowrap;
+}
 .wireshark-view h2 {
   margin-block: var(--space-6) var(--space-2);
   padding-bottom: var(--space-1);

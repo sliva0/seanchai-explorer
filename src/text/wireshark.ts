@@ -7,11 +7,33 @@ export const wiresharkPage = {
   /** The first paragraph: what the plugin does. */
   about:
     "Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to the publisher's copy and to this site.",
-  /** The second paragraph, around the filter `seanchai.errors > 0`, which follows this. */
-  filter: 'Filter for messages breaking a rule with ',
-  /** The rest of it, around the tshark command, which follows this; a full stop closes it. */
-  severities:
-    '. An error breaks a rule a document states, a warning a "should not" or a value no document defines, and a note is what the corpus cannot complete or an interpreted constraint broken. It runs in Wireshark 4.2 and later, and in tshark: ',
+  /**
+   * The second paragraph, around the form of a finding's line, which follows this in code type, its words standing for
+   * what the plugin writes there; then an example of one, which is not words.
+   */
+  findingLine: 'Each finding is one line under the message, on the octets it is about, in the form ',
+  findingForm: 'Severity: place: problem [source]',
+  findingExample: ', as:',
+  /** The findings table: its name for a screen reader and its headings. */
+  findings: 'Findings',
+  severity: 'Severity',
+  expertInfo: 'Expert info',
+  messages: 'Messages with one',
+  reports: 'Reports',
+  /** Each row of the table, beside the expert info field and the filter for messages, which are not words. */
+  rows: [
+    { severity: 'Error', reports: 'a rule a document states, broken' },
+    { severity: 'Warning', reports: 'a "should not" broken, or a value no document defines' },
+    {
+      severity: 'Note',
+      reports: 'what the corpus cannot complete, or an AVP or command no document defines, its M bit clear',
+    },
+    { severity: 'Note', reports: 'an interpreted constraint broken, the source ending in interpreted' },
+  ],
+  /** Under the table, around `seanchai.notes`, which follows this. */
+  notesCount: 'The interpreted notes count among ',
+  /** Then, around the tshark command, which follows this; a full stop closes it. */
+  runs: '. It runs in Wireshark 4.2 and later, and in tshark: ',
   /** The install section's name, for a screen reader. */
   install: 'Install',
   /** Where the build has no plugin. [unlinked] */

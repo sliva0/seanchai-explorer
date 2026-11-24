@@ -23,6 +23,21 @@ const FOLDERS = [
   [words.windows, '%APPDATA%\\Wireshark\\plugins\\'],
 ];
 
+/**
+ * A finding's line as the plugin writes it, `Severity: place: problem [source]`: an interpreted constraint broken deep in
+ * a ULR, the place cut to its last two names.
+ */
+const EXAMPLE_FINDING =
+  'Note: … > MIP-Home-Agent-Host > Destination-Realm: not epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org [TS 29.272 7.3.43, interpreted]';
+
+/** Each severity's expert info field and the filter for the messages with one, in the order of `words.rows`. */
+const FINDING_FIELDS = [
+  ['seanchai.violation', 'seanchai.errors > 0'],
+  ['seanchai.warning', 'seanchai.warnings > 0'],
+  ['seanchai.note', 'seanchai.notes > 0'],
+  ['seanchai.interpreted', 'seanchai.interpreted'],
+] as const;
+
 /** The head of the file, which holds its versions line: the page is shown without fetching all 1.5 MB. */
 const HEAD_BYTES = 16384;
 
@@ -256,9 +271,41 @@ export function WiresharkView({ site }: { site: Site }) {
       <div class="plugin-about">
         <p>{words.about}</p>
         <p>
-          {words.filter}
-          <code>seanchai.errors {'>'} 0</code>
-          {words.severities}
+          {words.findingLine}
+          <code>{words.findingForm}</code>
+          {words.findingExample}
+        </p>
+        <pre class="plugin-finding">
+          <code>{EXAMPLE_FINDING}</code>
+        </pre>
+        <table class="plugin-findings" aria-label={words.findings}>
+          <thead>
+            <tr>
+              <th>{words.severity}</th>
+              <th>{words.expertInfo}</th>
+              <th>{words.messages}</th>
+              <th>{words.reports}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {words.rows.map((row, index) => (
+              <tr key={FINDING_FIELDS[index][0]}>
+                <th>{row.severity}</th>
+                <td>
+                  <code>{FINDING_FIELDS[index][0]}</code>
+                </td>
+                <td>
+                  <code>{FINDING_FIELDS[index][1]}</code>
+                </td>
+                <td>{row.reports}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p>
+          {words.notesCount}
+          <code>seanchai.notes</code>
+          {words.runs}
           <code>tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors {'>'} 0"</code>
           {'.'}
         </p>

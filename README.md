@@ -33,7 +33,10 @@ shown in the browser. Pressing `?` in the site shows the same list of mouse and 
 controls as below.
 
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
-copy of the site it is downloaded from.
+copy of the site it is downloaded from, and says what a finding's line is, `Severity:
+place: problem [source]`, and which expert info field and filter each severity has: an
+error `seanchai.violation`, a warning `seanchai.warning`, a note `seanchai.note`, and an
+interpreted constraint broken a note too, under `seanchai.interpreted`.
 
 ## Mouse
 
