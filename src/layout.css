@@ -1290,6 +1290,10 @@ mark {
   display: block;
   color: var(--ui-muted);
 }
+/* A members rule's names, each a link to its AVP, wrap between names, not inside one. */
+.constraint-avp {
+  white-space: nowrap;
+}
 .constraint-text-only,
 .constraint-quote {
   padding-left: calc(0.45em + 0.35em);

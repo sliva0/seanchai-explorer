@@ -91,7 +91,9 @@ function UseContext({ use, elements }: { use: Use; elements: string[] }) {
         ? `the AVP of interpreted constraints${scope}`
         : role === 'scope'
           ? `the grouped AVP interpreted constraints on ${on} hold within`
-          : `a condition of an interpreted rule on ${on}${scope}`;
+          : role === 'member'
+            ? `a member an interpreted rule on ${on} names${scope}`
+            : `a condition of an interpreted rule on ${on}${scope}`;
     lines.push(<p>{`Here: ${what} · ${block.section}`}</p>);
   } else if (use.kind === 'element') {
     const { block } = use;

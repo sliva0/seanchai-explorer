@@ -23,10 +23,12 @@ const closePopup = async page => {
 const DSR_BLOCK = 1320;
 const DSR_QUOTE = 1328;
 const DSR_MEMBER = 286;
-const APN_MEMBER = 2301;
-const APN_BLOCK = 2331;
+const APN_MEMBER = 2315;
+const APN_BLOCK = 2345;
 const DSR_FLAGS_MEMBER = 284;
 const NOR_FLAGS_MEMBER = 512;
+const NOR_TERMINAL_MEMBER = 505;
+const NOR_MEMBERS_RULE = 1487;
 
 /**
  * No element rule of TS 29.272 names a document the corpus holds, so RAND's, which names TS 33.401, stands in for one
@@ -102,18 +104,21 @@ test('the corrected text of TS 29.272', async t => {
           'https://github.com/sliva0/seanchai/blob/main/docs/constraints.md',
         );
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
-        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-printed'), ['exclude 0']);
-        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-words'), ['not 0']);
+        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-printed'), ['exclude 0', 'unique']);
+        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-words'), [
+          'not 0',
+          'differs from one APN-Configuration to the next',
+        ]);
         assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
         assert.match(
           section.querySelector('.constraint-reading details q').textContent,
           /shall not have a value of zero/,
         );
         const textOnly = texts(section, '.constraint-text-only');
-        assert.equal(textOnly.length, 2);
-        assert.deepEqual(texts(section, '.constraint-text-only .constraint-printed'), ['text-only', 'text-only']);
+        assert.equal(textOnly.length, 1);
+        assert.deepEqual(texts(section, '.constraint-text-only .constraint-printed'), ['text-only']);
         assert.match(
-          section.querySelectorAll('.constraint-text-only q')[1].textContent,
+          section.querySelector('.constraint-text-only q').textContent,
           /^NOTE: If interworking with MAP is needed/,
         );
         const route = routeOf(section.querySelector('.place-constraint .view-action').getAttribute('href'));
@@ -172,6 +177,34 @@ test('the corrected text of TS 29.272', async t => {
         lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
         /read as 0 when absent \(in Notify-Request\)/,
       );
+    });
+
+    await t.test("a members rule's names link to their AVPs, and a name on it says it is one", async () => {
+      const popup = await popupOf(page, nameOn(document, 'Terminal-Information', NOR_TERMINAL_MEMBER));
+      const rule = [...popup.querySelectorAll('.constraint-rule')].find(node =>
+        node.querySelector('.constraint-printed').textContent.startsWith('members'),
+      );
+      present(rule);
+      assert.equal(rule.querySelector('.constraint-printed').textContent, 'members only IMEI Software-Version');
+      assert.equal(rule.querySelector('.constraint-words').textContent, 'no member present but IMEI, Software-Version');
+      assert.deepEqual(
+        [...rule.querySelectorAll('a.constraint-avp')].map(link => [link.textContent, link.getAttribute('href')]),
+        [
+          ['IMEI', '#29272-j60/7.3.4?name=IMEI'],
+          ['Software-Version', '#29272-j60/7.3.5?name=Software-Version'],
+        ],
+      );
+      await closePopup(page);
+      assert.match(
+        lineAt(document, NOR_TERMINAL_MEMBER).querySelector('.line-mark').title,
+        /no member present but IMEI, Software-Version \(in Notify-Request\)/,
+      );
+      const member = await popupOf(page, nameOn(document, 'IMEI', NOR_MEMBERS_RULE));
+      assert.equal(
+        texts(member, '.popup-context p')[0],
+        'Here: a member an interpreted rule on Terminal-Information names · in Notify-Request · 5.2.5.1.1',
+      );
+      await closePopup(page);
     });
 
     await t.test("an element rule's document links where the corpus holds it, and is text where not", async () => {

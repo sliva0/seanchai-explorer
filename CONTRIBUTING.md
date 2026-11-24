@@ -115,8 +115,10 @@ by line. `src/constraints.ts` reads them: which hold where a name is read (unsco
 always, a `Within` one as a member of that grouped AVP, a `Command` one in that command's
 Message block or Information Elements table), a rule in words, and the lines a hide leaves
 out. `ruleKinds` there lists every kind the schema has, each as the text prints one and
-what it says, for `ruleWords` and the help, and a test holds it to the schema's list; a
-kind the export adds later is said as its line prints it, never refused. An `encoding
+what it says, for `ruleWords` and the help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
+or `members` relation, is said as its line prints it, never refused. A `unique` rule is
+said of its block's `Within`, and a `members` rule's `members` link in a popup to their
+AVPs by the tokens naming them on its line. An `encoding
 element` rule's `document` is a reference, as `TS24.008`, which a popup links to the
 corpus's newest edition of (`newestOf` in `src/data.ts`) and leaves as text where it holds
 none. A raw view reads them from the corrected document by its blocks' names, as it reads

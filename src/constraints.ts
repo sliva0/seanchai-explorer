@@ -119,7 +119,19 @@ export const ruleKinds: Record<ConstraintRule['kind'], { printed: string; says: 
   default: { printed: 'default FALSE', says: 'what the AVP is read as when it is absent' },
   bits: {
     printed: 'bits at-most-one 3 6',
-    says: "of these bits of the AVP's own value, at most one is set (at-most-one), or at least one (at-least-one)",
+    says: "of these bits of the AVP's own value, at most one is set (at-most-one), at least one (at-least-one), each is set (set), each is clear (clear), or none but these is set (only); an OctetString's octets are read as one big-endian number, bit 0 the lowest of its last octet",
+  },
+  members: {
+    printed: 'members at-least-one A B',
+    says: "of the grouped AVP's members, at least one of these is present (at-least-one; with one name, it is), or none but these (only)",
+  },
+  unique: {
+    printed: 'unique',
+    says: 'no two of the grouped AVPs it is read within (; Within:) beside each other hold it with the same value',
+  },
+  values: {
+    printed: 'values 1 if Other-AVP = 1',
+    says: 'the values an integer may take when a condition on a sibling AVP holds',
   },
   'text-only': { printed: 'text-only', says: 'a rule no checker can run: the quote says it' },
 };
@@ -189,6 +201,31 @@ function boundsWords(low: number | null | undefined, high: number | null | undef
 /** A bit as a rule names it: its number, or its bit table's name. */
 const bitWords = (bit: number | string) => (typeof bit === 'number' ? String(bit) : `“${bit}”`);
 
+/**
+ * A `bits` rule in words by its relation, `said` its bits as "bit 1" or "bits 4, 5, 6, 7" and `list` them alone; none
+ * for a relation the site does not know.
+ */
+const bitsRelations: Record<string, (said: string, list: string) => string> = {
+  'at-most-one': said => `at most one of ${said} set`,
+  'at-least-one': said => `at least one of ${said} set`,
+  set: said => `${said} set`,
+  clear: said => `${said} clear`,
+  only: (_, list) => `no bit set but ${list}`,
+};
+
+/**
+ * A `members` rule's words around the names it lists, which a popup links as AVP names: "at least one of", the names,
+ * "present"; one name "present" alone; `only` "no member present but" them. Nothing for a relation the site does not
+ * know.
+ */
+export function membersParts(rule: Pick<ConstraintRule, 'relation' | 'members'>) {
+  const names = rule.members ?? [];
+  if (rule.relation === 'at-least-one')
+    return { before: names.length > 1 ? 'at least one of' : '', names, after: 'present' };
+  if (rule.relation === 'only') return { before: 'no member present but', names, after: '' };
+  return undefined;
+}
+
 /** A condition on a sibling AVP: "DSR-Flags has bit “Trace Data Withdrawal” set", "Result-Code is DIAMETER_SUCCESS". */
 export function conditionWords({ avp, value, bit }: ConstraintCondition): string {
   if (bit != null) return `${avp} has bit ${bitWords(bit)} set`;
@@ -225,9 +262,11 @@ function encodingWords(rule: ConstraintRule): string {
 
 /**
  * A rule in plain words: "3 octets", "0 to 255", "not 0", "TBCD-encoded E.164 number", "present only if DSR-Flags
- * has bit “X” set", "read as FALSE when absent", "at most one of bits 3, 6 set". `printed` is the rule's line as the file prints it, which a kind the site does not know is said by.
+ * has bit “X” set", "read as FALSE when absent", "at most one of bits 3, 6 set", "at least one of A, B present",
+ * "differs from one APN-Configuration to the next" for a `unique` rule `within` it, "is 1 if Monitoring-Type is 1".
+ * `printed` is the rule's line as the file prints it, which a kind or relation the site does not know is said by.
  */
-export function ruleWords(rule: ConstraintRule, printed: string): string {
+export function ruleWords(rule: ConstraintRule, printed: string, within?: string): string {
   const kind = rule.kind as string;
   if (!KNOWN_KINDS.has(kind)) return printed.trim();
   switch (rule.kind) {
@@ -243,10 +282,20 @@ export function ruleWords(rule: ConstraintRule, printed: string): string {
       return `read as ${rule.value ?? 'a default'} when absent`;
     case 'bits': {
       const bits = (rule.bits ?? []) as (number | string)[];
-      const said = `${bits.length > 1 ? 'bits' : 'bit'} ${bits.map(bitWords).join(', ')}`;
-      if (rule.relation === 'at-most-one') return `at most one of ${said} set`;
-      if (rule.relation === 'at-least-one') return `at least one of ${said} set`;
-      return printed.trim();
+      const list = bits.map(bitWords).join(', ');
+      const say = bitsRelations[rule.relation ?? ''];
+      return say ? say(`${bits.length > 1 ? 'bits' : 'bit'} ${list}`, list) : printed.trim();
+    }
+    case 'members': {
+      const parts = membersParts(rule);
+      return parts ? [parts.before, parts.names.join(', '), parts.after].filter(Boolean).join(' ') : printed.trim();
+    }
+    case 'unique':
+      return `differs from one ${within ?? 'grouped AVP'} to the next`;
+    case 'values': {
+      const values = rule.values ?? [];
+      const said = values.length > 1 ? `one of ${values.join(', ')}` : String(values[0] ?? '');
+      return `is ${said} if ${(rule.conditions ?? []).map(conditionWords).join(' or ')}`;
     }
     case 'text-only':
       return 'not checkable: read the quote';
@@ -284,7 +333,7 @@ export const blocksSummary = (file: DadFile, blocks: ConstraintBlock[]) =>
           ? []
           : reading.rules.map(
               rule =>
-                `${ruleWords(rule, lineText(file, rule.line))}${scope.within || scope.command ? ` (${scopeWords({ scope })})` : ''}`,
+                `${ruleWords(rule, lineText(file, rule.line), scope.within)}${scope.within || scope.command ? ` (${scopeWords({ scope })})` : ''}`,
             ),
       ),
     )

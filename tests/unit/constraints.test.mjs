@@ -15,7 +15,7 @@ import {
 } from '../../src/constraints.ts';
 import { readFixture } from './helpers.mjs';
 
-const words = (rule, printed = '') => ruleWords({ line: 0, ...rule }, printed);
+const words = (rule, printed = '', within) => ruleWords({ line: 0, ...rule }, printed, within);
 
 test('a rule is said in plain words, and a kind the site does not know as the file prints it', () => {
   assert.equal(words({ kind: 'length', unit: 'octets', low: 3, high: 3 }), '3 octets');
@@ -60,7 +60,31 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
   assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: [3, 6] }), 'at most one of bits 3, 6 set');
   assert.equal(words({ kind: 'bits', relation: 'at-least-one', bits: [0, 1] }), 'at least one of bits 0, 1 set');
   assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: ['A', 2] }), 'at most one of bits “A”, 2 set');
+  assert.equal(words({ kind: 'bits', relation: 'set', bits: [1] }), 'bit 1 set');
+  assert.equal(words({ kind: 'bits', relation: 'clear', bits: [4, 5, 6, 7] }), 'bits 4, 5, 6, 7 clear');
+  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9] }), 'no bit set but 9');
+  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9, 'A'] }), 'no bit set but 9, “A”');
   assert.equal(words({ kind: 'bits', relation: 'every', bits: [1] }, '    bits every 1'), 'bits every 1');
+  assert.equal(
+    words({ kind: 'members', relation: 'at-least-one', members: ['A', 'B'] }),
+    'at least one of A, B present',
+  );
+  assert.equal(words({ kind: 'members', relation: 'at-least-one', members: ['SCEF-Realm'] }), 'SCEF-Realm present');
+  assert.equal(
+    words({ kind: 'members', relation: 'only', members: ['IMEI', 'Software-Version'] }),
+    'no member present but IMEI, Software-Version',
+  );
+  assert.equal(words({ kind: 'members', relation: 'every', members: ['A'] }, '    members every A'), 'members every A');
+  assert.equal(words({ kind: 'unique' }, '', 'APN-Configuration'), 'differs from one APN-Configuration to the next');
+  assert.equal(words({ kind: 'unique' }), 'differs from one grouped AVP to the next');
+  assert.equal(
+    words({ kind: 'values', values: [1], conditions: [{ avp: 'Monitoring-Type', value: 1 }] }),
+    'is 1 if Monitoring-Type is 1',
+  );
+  assert.equal(
+    words({ kind: 'values', values: [1, 2], conditions: [{ avp: 'A', value: 1 }, { avp: 'B' }] }),
+    'is one of 1, 2 if A is 1 or B is present',
+  );
   assert.equal(words({ kind: 'pattern', value: 5 }, '    pattern 5'), 'pattern 5', 'an unknown kind, not a failure');
 });
 
@@ -82,17 +106,30 @@ test('every rule kind the schema has is said in words and in the help', async ()
   for (const kind of kinds) assert.match(ruleKinds[kind].printed, new RegExp(`^${kind}\\b`));
 });
 
-test("TS 29.272's default and bits rules are read with the rest of their blocks", async () => {
+test("TS 29.272's default, bits, members, unique and values rules are read with the rest of their blocks", async () => {
   const file = await readFixture('documents/29272-j60.json');
   const rules = constraintBlocks(file).flatMap(({ avp, block }) =>
     (block.readings ?? []).flatMap(reading => reading.rules.map(rule => ({ avp, rule }))),
   );
-  const dsr = rules.find(({ avp, rule }) => avp === 'DSR-Flags' && rule.kind === 'bits');
-  assert.equal(ruleWords(dsr.rule, ''), 'at most one of bits 3, 6 set');
+  const said = (avp, kind) =>
+    rules.filter(item => item.avp === avp && item.rule.kind === kind).map(({ rule }) => ruleWords(rule, ''));
+  assert.deepEqual(said('DSR-Flags', 'bits'), [
+    'at most one of bits 1, 3 set',
+    'at most one of bits 5, 6 set',
+    'at most one of bits 3, 6 set',
+    'no bit set but 9',
+  ]);
+  assert.deepEqual(said('Reachability-Type', 'bits'), ['bit 0 clear', 'bit 1 set']);
+  assert.deepEqual(said('eDRX-Cycle-Length-Value', 'bits'), ['bits 4, 5, 6, 7 clear']);
+  assert.deepEqual(said('Terminal-Information', 'members'), ['no member present but IMEI, Software-Version']);
+  assert.deepEqual(said('Monitoring-Event-Configuration', 'members'), ['SCEF-Realm present']);
+  assert.deepEqual(said('Reachability-Information', 'values'), ['is 1 if Monitoring-Type is 1']);
+  assert.deepEqual(said('Service-Selection', 'unique'), ['differs from one grouped AVP to the next']);
   const nor = rules.find(({ avp, rule }) => avp === 'NOR-Flags' && rule.kind === 'default');
   assert.equal(ruleWords(nor.rule, ''), 'read as 0 when absent');
   assert.equal(rules.filter(({ rule }) => rule.kind === 'default').length, 9);
-  assert.equal(rules.filter(({ rule }) => rule.kind === 'bits').length, 2);
+  const count = kind => rules.filter(({ rule }) => rule.kind === kind).length;
+  assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [9, 3, 2, 1]);
 });
 
 test('a block holds wherever its AVP is read, within its grouped AVP, or in its command of its application', () => {
@@ -118,7 +155,7 @@ test('a block holds wherever its AVP is read, within its grouped AVP, or in its 
 test("TS 29.272's blocks are read with their scope, and only the corrected file has them", async () => {
   const doc = await readFixture('documents/29272-j60.json');
   const raw = await readFixture('documents/29272-j60.raw.json');
-  assert.equal(constraintBlocks(doc).length, 154);
+  assert.equal(constraintBlocks(doc).length, 157);
   assert.equal(constraintBlocks(raw).length, 0);
   assert.equal(interpretedLines(raw).size, 0);
   const context = constraintsFor(doc, 'Context-Identifier', {}).map(item => item.block.section);

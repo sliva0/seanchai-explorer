@@ -103,12 +103,17 @@ for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), 
 command (`; Command:`). A member, table row or Information Elements row reading an AVP
 that blocks hold for there has an italic i after its line, beside any category, its title
 the rules in words, and the AVP's popup and the inspector list them, each rule as the text
-prints it and, under it, in words ("3 octets", "0 to 255", "TBCD-encoded E.164 number", "present only if DSR-Flags has bit …
-set", "read as FALSE when absent" for a `default`, "at most one of bits 3, 6 set" for
-`bits`), with its quote, and a text-only one, a rule no checker can run, as its quote. An
-`encoding element` rule names another document's element; where the corpus holds that
-document, its name links to it. Each block offers `Read in`, its clause in the publisher's
-copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
+prints it and, under it, in words ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
+"present only if DSR-Flags has bit … set", "read as FALSE when absent" for a `default`,
+"at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bit set but 9"
+for `bits`, of an unsigned integer or an OctetString's octets read as one big-endian
+number, "at least one of A, B present" or "no member present but IMEI, Software-Version"
+for `members`, "differs from one APN-Configuration to the next" for `unique` within one,
+"is 1 if Monitoring-Type is 1" for `values`), with its quote, and a text-only one, a rule
+no checker can run, as its quote. An `encoding element` rule names another document's
+element; where the corpus holds that document, its name links to it, and a `members`
+rule's names link to their AVPs as the text's do. Each block offers `Read in`, its clause
+in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
 its origin. The help says what each kind of rule says, as the text prints one, and what
 each encoding's codec is, and

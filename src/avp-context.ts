@@ -25,14 +25,14 @@ export interface Rule {
 /**
  * What one line says of a name on it: a member of a rule, the rule's own head, a table's row, an information element's,
  * or a line of Interpreted Constraints: the AVP they are on (`subject`), the grouped AVP they hold within (`scope`), or
- * a condition of a rule (`condition`).
+ * a member a `members` rule names (`member`), or a condition of a rule (`condition`).
  */
 export type Use =
   | { kind: 'member'; rule: Rule; member: Member }
   | { kind: 'head'; rule: Rule }
   | { kind: 'row'; row: AvpRow }
   | { kind: 'element'; block: Block; row: ElementRow }
-  | { kind: 'constraint'; block: Block; role: 'subject' | 'scope' | 'condition' };
+  | { kind: 'constraint'; block: Block; role: 'subject' | 'scope' | 'member' | 'condition' };
 
 const rulesOf = perFile(
   ({ blocks }) =>
@@ -74,7 +74,13 @@ export function useAt(file: DadFile, index: number, name: string): Use | undefin
   }
   if (isInterpreted(block)) {
     const text = lineText(file, index);
-    const role = text.startsWith('; AVP:') ? 'subject' : text.startsWith('; Within:') ? 'scope' : 'condition';
+    const role = text.startsWith('; AVP:')
+      ? 'subject'
+      : text.startsWith('; Within:')
+        ? 'scope'
+        : /^\s+members\s/.test(text)
+          ? 'member'
+          : 'condition';
     return { kind: 'constraint', block, role };
   }
   const element = elementRowAt(block, index);

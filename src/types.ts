@@ -101,10 +101,20 @@ export type Codec =
   | 'time-zone'
   | 'element';
 /**
- * What a `bits` rule says of the bits it names: at most one of them set
- * ("excluding alternatives", "shall not both be set"), or at least one.
+ * What a `bits` rule says of the bits it names, and a `members` rule of
+ * the members it names.
+ *
+ * - `at-most-one`: at most one of them is set ("excluding alternatives",
+ *   "shall not both be set");
+ * - `at-least-one`: at least one is set, or present ("At least one of the
+ *   bits 0 and 1 shall be set to 1");
+ * - `set`: each is set ("it shall have bit 1 set");
+ * - `clear`: each is clear ("shall have bit 0 cleared", "the 4 most
+ *   significant bits of the octet ... shall be set to 0");
+ * - `only`: none but these is set, or present ("only the bit 9 ... is
+ *   meaningful, other bits shall be cleared").
  */
-export type BitsRelation = 'at-most-one' | 'at-least-one';
+export type BitsRelation = 'at-most-one' | 'at-least-one' | 'set' | 'clear' | 'only';
 /**
  * What a `length` rule counts: the payload's octets, the decimal digits
  * an encoding carries (a TBCD-string's, or a digit string's), or the
@@ -494,8 +504,9 @@ export interface ConstraintQuote {
  * `low` and `high`; `exclude` `values`; `encoding` `codec`, and an
  * `element`'s `document`, `clause` and `element`; `present-if`,
  * `absent-if`, `requires` and `excludes` their `conditions`, alternatives;
- * `default` its `value`; `bits` its `relation` and `bits`; `text-only`
- * nothing.
+ * `default` its `value`; `bits` its `relation` and `bits`; `members` its
+ * `relation` and `members`; `values` its `values` and `conditions`;
+ * `unique` and `text-only` nothing.
  */
 export interface ConstraintRule {
   bits?: number[];
@@ -516,9 +527,13 @@ export interface ConstraintRule {
     | 'excludes'
     | 'default'
     | 'bits'
+    | 'members'
+    | 'unique'
+    | 'values'
     | 'text-only';
   line: number;
   low?: number | null;
+  members?: string[];
   relation?: BitsRelation | null;
   unit?: LengthUnit | null;
   value?: number | string | null;

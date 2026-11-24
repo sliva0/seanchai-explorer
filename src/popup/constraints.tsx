@@ -1,3 +1,4 @@
+import { Fragment } from 'preact';
 import type { ComponentChild } from 'preact';
 import type { Use } from '../avp-context.ts';
 import type { Place } from '../avp-places.ts';
@@ -9,6 +10,7 @@ import {
   constraintsFor,
   elementParts,
   lineText,
+  membersParts,
   ruleNote,
   ruleWords,
   scopeWords,
@@ -60,13 +62,61 @@ function scopeLine(site: Site, { block, scope }: ConstraintBlock): string {
 }
 
 /**
- * A rule in words, an element rule's document a link to its newest edition where the corpus holds it, TS 24.008 text
- * where it does not.
+ * The names a `members` rule lists, each a link to its definition as its token on the rule's line has it, as an AVP's
+ * name links in a value's popup, or text where the line links it nowhere.
  */
-function RuleText({ site, rule, printed }: { site: Site; rule: ConstraintRule; printed: string }) {
+function MemberNames({ doc, rule, names }: { doc: Document; rule: ConstraintRule; names: string[] }) {
+  const tokens = doc.lines[rule.line]?.tokens ?? [];
+  return (
+    <>
+      {names.map((name, index) => {
+        const target = tokens.find(token => token.avp === name)?.target;
+        return (
+          <Fragment key={name}>
+            {index > 0 && ', '}
+            {target ? (
+              <a class="constraint-avp" href={routeFor({ ...target, name })}>
+                {name}
+              </a>
+            ) : (
+              name
+            )}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+/**
+ * A rule in words, an element rule's document a link to its newest edition where the corpus holds it, TS 24.008 text
+ * where it does not, and a `members` rule's names links to their AVPs. A `unique` rule is said of `within`.
+ */
+function RuleText({
+  site,
+  doc: file,
+  rule,
+  printed,
+  within,
+}: {
+  site: Site;
+  doc: Document;
+  rule: ConstraintRule;
+  printed: string;
+  within?: string;
+}) {
+  const members = rule.kind === 'members' ? membersParts(rule) : undefined;
+  if (members)
+    return (
+      <>
+        {members.before && `${members.before} `}
+        <MemberNames doc={file} rule={rule} names={members.names} />
+        {members.after && ` ${members.after}`}
+      </>
+    );
   const held = rule.kind === 'encoding' && rule.codec === 'element' && rule.document;
   const doc = held ? newestOf(site.index.documents, rule.document!) : undefined;
-  if (!doc) return <>{ruleWords(rule, printed)}</>;
+  if (!doc) return <>{ruleWords(rule, printed, within)}</>;
   const { before, after } = elementParts(rule);
   return (
     <>
@@ -154,7 +204,7 @@ export function ConstraintFacts({
                         <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
                           <Printed text={printed} />
                           <span class="constraint-words">
-                            <RuleText site={site} rule={rule} printed={printed} />
+                            <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
                           </span>
                         </span>
                       );
