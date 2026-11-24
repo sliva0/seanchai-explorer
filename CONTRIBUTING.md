@@ -151,8 +151,13 @@ that lacks one. `src/highlight.ts` runs a grammar's `match` rules and its `begin
 regions, held on a stack from line to line, as the Information Elements block whose rows
 end in a category (`constant.language.category.dad`, which `layout.css` colours, where the
 older grammar took an M for an AVP flag); it refuses any other key, as `while`, rather
-than match nothing. A build copies the export's grammar, or else this one, to the
-generated `public/syntax/` and never changes this one.
+than match nothing. A `;;` note, which the export keeps whole as a comment or a correction's
+token, keeps its kind as its scope, and the highlighter gives it `parts`, what the grammar
+scopes inside it: its kind, `corrected`, and the declaration it cites,
+`markup.underline.link.declaration.dad`, which the text draws in spans of their own and never
+as a link, as it does only a `markup.underline.link` scope over an `http(s)` address. A build
+copies the export's grammar, or else this one, to the generated `public/syntax/` and never
+changes this one.
 
 ## Generated files
 

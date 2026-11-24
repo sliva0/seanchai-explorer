@@ -73,7 +73,11 @@ test("a directive's list gives each entry its own scope, past the first comma", 
     ref('TS29.229'),
     comma,
     ref('ETSI-ES283.035'),
-    [';; corrected: (TS29.109.py#bases-cx)', 'comment.line.double-semicolon.dad'],
+    [';; ', 'comment.line.double-semicolon.dad'],
+    ['corrected', 'keyword.other.note.dad'],
+    [': (', 'comment.line.double-semicolon.dad'],
+    ['TS29.109.py#bases-cx', 'markup.underline.link.declaration.dad'],
+    [')', 'comment.line.double-semicolon.dad'],
   ]);
   assert.deepEqual(value(obsoletes), [ref('RFC3588'), comma, ref('RFC5719')]);
   assert.deepEqual(value(versions), [
@@ -229,7 +233,7 @@ test('a region opens and closes over lines, with its scopes, and one empty at a 
 });
 
 test('comment and correction-note tokens keep their kind and are not split by the grammar', () => {
-  const [row] = highlight([
+  const [row, excluded] = highlight([
     {
       tokens: [
         { text: 'Mode ' },
@@ -238,6 +242,7 @@ test('comment and correction-note tokens keep their kind and are not split by th
         { text: '\n' },
       ],
     },
+    { tokens: [{ text: ';; excluded: clause 8 (Sh-ee), see TS29.329.toml', kind: 'comment' }, { text: '\n' }] },
   ]);
   assert.deepEqual(
     row.tokens.filter(token => token.kind).map(token => [token.text, token.scope]),
@@ -246,6 +251,20 @@ test('comment and correction-note tokens keep their kind and are not split by th
       [';; inserted: (TS.py#x)', 'correction-note'],
     ],
   );
+  const parts = token => token.parts?.map(part => [token.text.slice(part.from, part.to), part.scope]);
+  assert.equal(parts(row.tokens[1]), undefined, 'a plain note has no parts');
+  assert.deepEqual(
+    parts(row.tokens[2]),
+    [
+      ['inserted', 'keyword.other.note.dad'],
+      ['TS.py#x', 'markup.underline.link.declaration.dad'],
+    ],
+    "within a note, the grammar's scopes of its kind and the declaration it cites",
+  );
+  assert.deepEqual(parts(excluded.tokens[0]), [
+    ['excluded', 'keyword.other.note.dad'],
+    ['TS29.329.toml', 'markup.underline.link.declaration.dad'],
+  ]);
 });
 
 test('syntax splitting preserves corpus bytes and every navigation or correction annotation', async () => {

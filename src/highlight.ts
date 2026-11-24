@@ -18,13 +18,28 @@ export interface Grammar extends Pattern {
   repository: Record<string, Pattern>;
 }
 
-export interface HighlightedToken extends ValueToken {
+/** A stretch of a note's text, `from` to `to` within it, that the grammar gives a scope of its own. */
+export interface NotePart {
+  from: number;
+  to: number;
   scope: string;
 }
+export interface HighlightedToken extends ValueToken {
+  scope: string;
+  /**
+   * A `;;` note the export keeps whole, a comment or a correction's: the stretches inside it the grammar scopes apart
+   * from the comment, its kind (`corrected`) and the declaration it cites (`TS29.272.py#imei-digits`).
+   */
+  parts?: NotePart[];
+}
+
 export interface HighlightedLine extends Line {
   decoration: string;
   tokens: HighlightedToken[];
 }
+
+/** The scope the grammar gives a `;;` comment as a whole, which a note's parts are scoped apart from. */
+const commentScope = 'comment.line.double-semicolon.dad';
 
 const supportedKeys = new Set(['include', 'name', 'match', 'patterns', 'captures', 'comment']);
 /** A begin/end rule's keys: a region over lines, which the scanner holds on a stack from line to line. */
@@ -179,8 +194,17 @@ export function createHighlighter(grammar: Grammar) {
       let offset = 0;
       const tokens: HighlightedToken[] = [];
       for (const token of line.tokens) {
-        if (token.correction || token.kind) tokens.push({ ...token, scope: token.kind ?? '' });
-        else {
+        if (token.correction || token.kind) {
+          const parts: NotePart[] = [];
+          for (let at = 0; at < token.text.length;) {
+            const scope = scopes[offset + at];
+            let to = at + 1;
+            while (to < token.text.length && scopes[offset + to] === scope) to++;
+            if (scope && scope !== commentScope) parts.push({ from: at, to, scope });
+            at = to;
+          }
+          tokens.push({ ...token, scope: token.kind ?? '', ...(parts.length ? { parts } : {}) });
+        } else {
           let start = 0;
           while (start < token.text.length) {
             const scope = scopes[offset + start];

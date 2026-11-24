@@ -30,6 +30,15 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
       'the record opens with what the note cites, on a line of its own, then why',
     );
     assert.match(detail.firstElementChild.textContent, /^\(TS29\.153\.py#[\w-]+\)$/);
+    assert.deepEqual(
+      [...note.children].map(part => [part.className, part.textContent]),
+      [['keyword.other.note.dad', shut.slice(3)]],
+      "the note's kind is scoped as the grammar scopes it",
+    );
+    const declaration = detail.firstElementChild.firstElementChild;
+    assert.equal(declaration.className, 'markup.underline.link.declaration.dad');
+    assert.equal(declaration.tagName, 'SPAN', 'the declaration it cites is no link');
+    assert.equal(`(${declaration.textContent})`, detail.firstElementChild.textContent);
     click(page, note);
     assert.equal(detail.hidden, true);
     await page.go('#29153-j00?raw=1');

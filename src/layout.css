@@ -636,6 +636,21 @@ pre [class*="enum-note"] {
 pre [class*="empty-cell"] {
   color: var(--ui-muted);
 }
+/*
+ * Inside a `;;` note, the grammar scopes its kind, `corrected`, and the declaration it cites, `TS29.272.py#imei-digits`,
+ * as the editors mark them, a special comment and an underline: in the note's own colour, the kind upright in the
+ * italic, the declaration underlined though it is no link.
+ */
+pre [class*="keyword.other.note"] {
+  color: inherit;
+  background: none;
+  font-style: normal;
+  font-weight: inherit;
+}
+pre [class*="link.declaration"] {
+  text-decoration: underline 1px color-mix(in srgb, currentColor 35%, transparent);
+  text-underline-offset: 3px;
+}
 .correction-toggle {
   display: inline;
   padding: 0;

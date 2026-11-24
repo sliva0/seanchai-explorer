@@ -9,7 +9,7 @@ import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { lineAnnotations } from './annotations.ts';
 import type { LineAnnotation } from './annotations.ts';
-import { commentCitations, compactComment } from './comments.ts';
+import { citationSpans, compactComment } from './comments.ts';
 import { interpretedLines } from './constraints.ts';
 import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
@@ -43,19 +43,47 @@ export interface ViewServices {
 // diffed whenever anything around it changed.
 
 /**
+ * A note's text from `from` to `to`, with the stretches the grammar scopes inside it, its kind and the declaration it
+ * cites, in spans of their scope: no link, as a declaration is a file of the corpus's corrections, not a page.
+ */
+function noteText(token: HighlightedToken, from: number, to: number): (Node | string)[] {
+  const nodes: (Node | string)[] = [];
+  let at = from;
+  for (const part of token.parts ?? []) {
+    const start = Math.max(part.from, from);
+    const end = Math.min(part.to, to);
+    if (start >= end) continue;
+    if (start > at) nodes.push(token.text.slice(at, start));
+    nodes.push(element('span', token.text.slice(start, end), part.scope));
+    at = end;
+  }
+  if (at < to) nodes.push(token.text.slice(at, to));
+  return nodes;
+}
+
+/**
  * A `;;` note, as short open as shut, which opens the declaration's record under its line: what the note cites, on a
  * line of its own, then why. The record goes at the line's end, after its newline (see `renderLines`), which would
  * otherwise leave an empty line under it.
  */
 function correctionNode(token: HighlightedToken, reason: string, id: string): HTMLElement {
   const comment = element('span', undefined, 'correction correction-note');
-  const toggle = element('button', compactComment(token.text), 'correction-toggle');
+  const toggle = element('button', undefined, 'correction-toggle');
+  const compact = compactComment(token.text);
+  toggle.append(...(token.text.startsWith(compact) ? noteText(token, 0, compact.length) : [compact]));
   toggle.type = 'button';
   toggle.title = `${token.text}\n${reason}`;
   toggle.setAttribute('aria-expanded', 'false');
   const full = element('span', undefined, 'correction-detail');
-  const citations = commentCitations(token.text);
-  if (citations) full.append(element('span', citations, 'correction-citation'));
+  const citations = citationSpans(token.text);
+  if (citations.length) {
+    const line = element('span', undefined, 'correction-citation');
+    for (const [index, citation] of citations.entries()) {
+      if (index) line.append(' ');
+      line.append(...noteText(token, citation.index, citation.index + citation.text.length));
+    }
+    full.append(line);
+  }
   full.append(element('span', `— ${reason}`, 'correction-reason'));
   full.id = id;
   full.hidden = true;
@@ -89,10 +117,14 @@ function tokenNode(
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
   if (token.target) node = link(token.text, { ...token.target, name: token.target.name ?? token.avp });
   else if (source) node = externalLink(token.text, source.href);
-  else if (token.scope.startsWith('markup.underline.link')) node = externalLink(token.text, token.text);
+  else if (token.scope.startsWith('markup.underline.link') && /^https?:\/\//.test(token.text))
+    node = externalLink(token.text, token.text);
   else if (token.avp || token.command) node = element('button', token.text, 'avp-name');
   else if (!token.scope) return document.createTextNode(token.text);
-  else node = element('span', token.text);
+  else if (token.parts) {
+    node = element('span');
+    node.append(...noteText(token, 0, token.text.length));
+  } else node = element('span', token.text);
   if (token.scope) node.classList.add(token.scope);
   if (token.avp) node.dataset.avp = token.avp;
   if (token.command) node.dataset.command = commandKey(token.command);
