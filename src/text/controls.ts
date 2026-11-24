@@ -32,10 +32,13 @@ export const controlGroups: ControlGroup[] = [
         keys: ['Click'],
         does: 'Open the name\'s Details or Definition (per "Click goes to" in the document toolbar, or under "Click options" in narrow windows) in the source pane only, opening the pane if hidden. When "Click shows uses" is enabled, opens the popup instead.',
       },
-      { keys: ['Alt-click'], does: 'Jump both the document view and the source pane to that location.' },
+      {
+        keys: ['Alt-click'],
+        does: 'Jump both the document view and the source pane to that location. On the rule a document prints for an AVP it reuses from another, it jumps to the definition in that document.',
+      },
       {
         keys: ['Right-click'],
-        does: 'Open the name\'s popup: uses, flags, Definition, and Details (with "Jump to" for both panes and "Show in source" for the source pane only); for commands, identity, other definitions, and Information Elements tables. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used.',
+        does: 'Open the name\'s popup: uses, flags, and every place it is declared but the one opened on, each with "Jump to" for both panes and "Show in source" for the source pane only: Definition (where it gets its code, in the defining document for an AVP reused from another, or a note where this build lacks it), Reused (this document\'s Reused AVPs row), Rule (its Grouped AVP rule here) and Details; for commands, identity, other definitions, and Information Elements tables. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used.',
       },
       {
         keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],

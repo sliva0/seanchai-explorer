@@ -252,7 +252,7 @@ test("a row's either AVP and one the rule lacks say so, and in a document's own 
   }
 });
 
-test("a command's popup lists the tables describing it and each AVP's category", async () => {
+test("a command's popup lists the tables describing it, and in its own block not its members again", async () => {
   const page = await boot({ hash: '#29329-j10' });
   try {
     const popup = await popupOf(page, commandNames(page.document, '306 request')[0]);
@@ -261,11 +261,7 @@ test("a command's popup lists the tables describing it and each AVP's category",
       rows.map(row => row.querySelector('.place-cell').textContent),
       ['TS 29.328 · 6.1.1 · table 6.1.1.1'],
     );
-    const notes = texts(popup, '.popup-contents .fact-note');
-    assert.ok(
-      notes.some(note => note.endsWith('category M')),
-      notes.join('\n'),
-    );
+    absent(popup.querySelector('.popup-contents'), 'its block prints them, their categories beside them');
   } finally {
     await page.close();
   }

@@ -229,7 +229,10 @@ test('the corrected text of TS 29.272', async t => {
       const popup = await popupOf(page, subject);
       assert.equal(texts(popup, '.popup-context p')[0], 'Here: subject of interpreted constraints · 7.3.9');
       const rule = popup.querySelector('.constraint-rule');
-      assert.match(rule.querySelector('.constraint-printed').textContent, /^encoding plmn-id\b/);
+      // In its own block, which prints the rule, its quote and its place: the popup says the rule in words alone.
+      assert.equal(rule.querySelector('.constraint-printed'), null);
+      assert.equal(popup.querySelector('.constraint-quote'), null);
+      assert.equal(popup.querySelector('.place-constraint'), null);
       assert.equal(rule.querySelector('.constraint-words').textContent, 'PLMN ID (MCC and MNC in 3 octets)');
       assert.match(rule.title, /^MCC and MNC in 3 octets/);
       await closePopup(page);

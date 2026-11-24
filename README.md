@@ -45,8 +45,8 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 | On a name | |
 |---|---|
 | Click | its Details or its definition, as "Click goes to" in the document toolbar says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
-| Alt-click | the same place in the text and the pane |
-| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
+| Alt-click | the same place in the text and the pane; on the Grouped rule a document prints for an AVP it reuses from another, the definition in that document |
+| Right-click | where it is used, and every place it is declared but the one opened on, each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden: `Definition`, `Reused`, `Rule` and `Details` (see below); for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 | `; Section:`, `; Page:` or `; Table:` in a block header | that place in the source document, a `; Table:` its table's caption |
 | `; Command-Section:` in an Information Elements header | the section printing the command the table describes |
@@ -63,9 +63,28 @@ text where it is. "Click goes to" is kept in the browser for every document. In 
 too narrow for the pane, it and "Click shows uses" fold under the toolbar's "Click options".
 
 A definition is the row of the first AVP table listing the name, or the clause its link
-names where that is another document's or there is no row. Details are the clause that
-row points to, and are left out where it points nowhere else; a click then goes to the
-definition. A row of a `Reused AVPs` block with no `; Table:`, an origin a clause's
+names where that is another document's or there is no row. Where that row lists the AVP
+as another document's, a `Reused AVPs` row's From or a table's Defined-In, it is no
+definition: the definition is the clause the From cell links to in the document defining
+the AVP, the edition of the release being read where the build holds it, else its newest,
+followed on where that document reuses it in turn and stopping where a chain comes back,
+and the row is where it is `Reused`. A popup lists every place an AVP is declared, each
+one click away, but the one it was opened on: `Definition`, a note saying so where the
+build does not hold the defining document; `Reused`; `Rule`, its Grouped AVP rule in this
+document, as TS 29.272 prints one in 7.3.194 for Communication-Pattern-Set, reused from TS
+29.336; and `Details`. Details are the clause that row points to, and are left out where it
+points nowhere else; a click then goes to the definition. A reused row's Details are the
+clause its name links to in its own document, its From cell keeping its link to the
+defining one. An alt-click on the rule of a reused AVP, whose Details it is, goes to the
+definition instead, and Back returns to the rule.
+
+A popup says nothing the place it was opened on prints: on a Grouped AVP's rule, no
+Contents, which the rule's lines print, and no Rule; on a table's row, its flags in one
+line of words with `?` for what its columns mean, rather than its cells again, and not
+the row as a place; in a command's own block, neither its AVPs nor its block as its
+Definition; in an Interpreted Constraints block, that block's rules in words and element
+entry alone, not its scope, rules as printed, quotes or place. Opened anywhere else, those
+sections are there. A row of a `Reused AVPs` block with no `; Table:`, an origin a clause's
 prose states, is that clause, which is its name's Details.
 
 Where the pane cannot show a document's source, as for a public build's PDFs, it is an

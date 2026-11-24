@@ -130,9 +130,19 @@ export const avpPopup = {
   /** A row set off under grouped AVP rows, TS 32.299's: the AVPs it is under, outermost first, joined by `parentsBetween`. */
   setOffUnder: (parents: string) => `A member of ${parents}`,
   parentsBetween: ' › ',
-  /** [limit] Labels of a place, before its colon. A word or two. */
+  /**
+   * [limit] Labels of a place, before its colon. A word or two. Every place an AVP is declared at: its Definition, the
+   * row giving it its code, in the document defining it for an AVP another document reuses; Reused, this document's
+   * row of a Reused AVPs table listing it as another's; Rule, its Grouped AVP rule here; and its Details.
+   */
   definition: 'Definition',
+  reused: 'Reused',
+  rule: 'Rule',
   details: 'Details',
+  /** A Definition in a document the build does not hold: `reference` as the row prints it, "TS 29.999". */
+  notHeld: (reference: string) => `${reference}, which this build does not hold`,
+  /** The row opened on, in one line, after its flags in words: "M must not be set". */
+  flagLine: (bits: string, rule: string) => `${bits} ${rule}`,
   elementPlace: 'Element',
   member: 'Member',
   /** The row of the grouped AVP a row is set off under, in its table. */

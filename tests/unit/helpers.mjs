@@ -231,6 +231,11 @@ export const rightClick = (page, node) =>
 /** TS 29.061's TMGI table row name. */
 export const tmgi = document =>
   [...document.querySelectorAll('.table-row a[data-avp]')].find(node => node.dataset.avp === 'TMGI');
+/** TMGI where the text reads it, not its row: a popup there names its row as its Definition. */
+export const tmgiMention = document =>
+  [...document.querySelectorAll('pre a[data-avp]')].find(
+    node => node.dataset.avp === 'TMGI' && !node.closest('.table-row'),
+  );
 /** The names a command `key` such as `265 answer` is printed as in the text. */
 export const commandNames = (document, key) => [...document.querySelectorAll(`pre [data-command="${key}"]`)];
 

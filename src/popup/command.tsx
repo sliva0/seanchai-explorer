@@ -93,6 +93,12 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
   // This file's as the view shows them: a raw view's rule is the one the raw lines print.
   const blockFile = command && (command.document === doc.id ? file : site.held(command.document));
   const rule = blockFile && ruleAt(blockFile, command.line);
+  // Opened in its own block, the text prints its members and is its definition: the popup says neither again.
+  const ownBlock =
+    !!command &&
+    command.document === doc.id &&
+    !!rule &&
+    ruleAt(file, Number(opener.closest<HTMLElement>('.dad-line')?.dataset.line)) === rule;
   const all = allCommands(file, doc, index);
   // The Information Elements tables describing the block, which may be another document's: a block of the file at hand
   // by its place among its clause's, one from the index by its line in the corrected text.
@@ -104,7 +110,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     site.summary(place.document) ? site.label(site.summary(place.document)!) : place.document;
   const rows: (ComponentChild | undefined)[] = [];
   if (command) {
-    rows.push(placeRow(words.definition, 'place-definition', blockPlace(command, doc)));
+    if (!ownBlock) rows.push(placeRow(words.definition, 'place-definition', blockPlace(command, doc)));
     const partner = partnerOf(command, all);
     if (partner) {
       const place = blockPlace(partner, doc);
@@ -198,7 +204,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
           <p key={index}>{text}</p>
         ))}
       </div>
-      {rule?.members.length ? (
+      {rule?.members.length && !ownBlock ? (
         <RuleContents rule={rule} open={false} title={words.avps} categories={categories} />
       ) : null}
       {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}

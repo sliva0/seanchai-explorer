@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { after, before, test } from 'node:test';
 import { chromium } from 'playwright-core';
+import { standIn, standInSummary } from '../fixtures/stand-in-29336.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = path.join(root, '.smoke-dist');
@@ -1450,13 +1451,15 @@ test(
   { skip },
   async () => {
     const { page, done } = await open('#rfc7944');
-    await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
+    // Where the text reads it, as its own row opened on says no Definition.
+    const mention = page.locator('pre .dad-line:not(.table-row) a[data-avp]', { hasText: 'DRMP' }).first();
+    await mention.click({ button: 'right' });
     const row = page.locator('.avp-popup .place-definition');
     for (const theme of ['light', 'dark']) {
       if (theme === 'dark') {
         await page.keyboard.press('Escape');
         await page.locator('.theme-toggle').click();
-        await page.locator('pre a[data-avp]', { hasText: 'DRMP' }).first().click({ button: 'right' });
+        await mention.click({ button: 'right' });
       }
       assert.deepEqual(
         [await row.locator('a').textContent(), await row.locator('button').textContent()],
@@ -1573,7 +1576,8 @@ test(
         selfScrolls: node.scrollHeight > node.clientHeight,
       };
     });
-    assert.deepEqual(look.labels, ['Definition:', 'Request:']);
+    // Opened in its own block, which is its Definition.
+    assert.deepEqual(look.labels, ['Request:']);
     assert.equal(new Set(look.jumps).size, 1, `one column of Jump to: ${look.jumps}`);
     assert.ok(look.width <= 80 * 8 && look.height <= 22 * 16, JSON.stringify(look));
     assert.equal(look.inside, true);
@@ -2012,3 +2016,41 @@ test('a document that fails as it is drawn says which and why in the page, and l
   );
   await context.close();
 });
+
+test(
+  "a reused AVP's popup goes to its definition in the document defining it, and an alt-click on its rule there and Back again",
+  { skip },
+  async () => {
+    // TS 29.272 reuses Communication-Pattern-Set from TS 29.336, which the fixture lacks: a stand-in serves it.
+    const { page, done } = await open('#29272-j60/7.3.1', {}, async page => {
+      await page.route('**/data/index.json', async route => {
+        const response = await route.fetch();
+        const index = await response.json();
+        await route.fulfill({ response, json: { ...index, documents: [...index.documents, standInSummary(index)] } });
+      });
+      await page.route('**/data/documents/29336-j10.json', async route => {
+        const index = JSON.parse(await readFile(path.join(dist, 'data/index.json'), 'utf8'));
+        await route.fulfill({ json: standIn(index) });
+      });
+    });
+    const row = page.locator('.dad-line[data-line="939"] [data-avp="Communication-Pattern-Set"]');
+    await row.scrollIntoViewIfNeeded();
+    await row.click({ button: 'right' });
+    const definition = page.locator('.avp-popup .place-definition');
+    await definition.locator('.view-action').waitFor();
+    assert.equal(await definition.locator('.place-where').textContent(), 'TS 29.336 · 8.4.26');
+    assert.equal(await page.locator('.avp-popup .place-rule .place-where').textContent(), '7.3.194');
+    await definition.locator('.view-action').click();
+    await page.waitForFunction(() => location.hash.startsWith('#29336-j10/8.4.26'));
+    await page.goBack();
+    await page.waitForFunction(() => location.hash.startsWith('#29272-j60'));
+    const rule = page.locator('.dad-line[data-line="4146"] [data-avp="Communication-Pattern-Set"]');
+    await rule.scrollIntoViewIfNeeded();
+    await rule.click({ modifiers: ['Alt'] });
+    await page.waitForFunction(() => location.hash.startsWith('#29336-j10/8.4.26'));
+    await page.goBack();
+    await page.waitForFunction(() => location.hash.startsWith('#29272-j60'));
+    await page.locator('.dad-line[data-line="4146"]').waitFor();
+    await done();
+  },
+);

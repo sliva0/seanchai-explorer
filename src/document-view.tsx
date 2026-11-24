@@ -16,7 +16,8 @@ import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { PopupRequest, Popups } from './popup/index.tsx';
-import { fallbackPlace, markDetails, placeRoute, tokenPlace } from './avp-places.ts';
+import { fallbackPlace, markDetails, placeRoute, resolverOf, tokenPlace } from './avp-places.ts';
+import type { NameSources } from './avp-places.ts';
 import type { ScrollPosition } from './positions.ts';
 import { createScroller } from './scroll.ts';
 import { SourceToggle, Workspace } from './source-pane.tsx';
@@ -113,6 +114,7 @@ function tokenNode(
   doc: Document,
   site: Site,
   prefer: ClickTarget,
+  names: NameSources,
 ): Node {
   let node: HTMLElement | undefined;
   const source = token.source && !token.target ? sourceHref(doc, token.source, site.mode) : null;
@@ -134,9 +136,9 @@ function tokenNode(
   if (token.avp || token.valueRow || token.command)
     node.title = nameTitle(
       token,
-      tokenPlace(token, lines, doc, line.section ?? undefined, prefer, commands),
+      tokenPlace(token, lines, doc, line.section ?? undefined, prefer, commands, names),
       paneless,
-      fallbackPlace(token, lines, doc, prefer, commands),
+      fallbackPlace(token, lines, doc, prefer, commands, { ...names, section: line.section ?? undefined }),
     );
   if (token.avp || token.command || token.target || token.source) node.dataset.token = String(index);
   return node;
@@ -158,6 +160,7 @@ function renderLines(
   site: Site,
   prefer: ClickTarget,
   annotations: Map<number, LineAnnotation>,
+  names: NameSources,
 ): HTMLPreElement {
   const pre = element('pre');
   let correction = 0;
@@ -179,7 +182,7 @@ function renderLines(
         const node = correctionNode(token, reason, `correction-${doc.id}-${correction++}`);
         node.dataset.token = String(index);
         row.append(node);
-      } else row.append(tokenNode(token, index, line, lines, doc, site, prefer));
+      } else row.append(tokenNode(token, index, line, lines, doc, site, prefer, names));
     });
     if (annotation?.after) beforeNewline(row, annotation.after);
     for (const record of row.querySelectorAll('.correction-detail')) row.append(record);
@@ -253,7 +256,9 @@ function createText(
   markDetails(file, doc);
   const lines = services.highlight(file.lines);
   const scroller = createScroller(documentPane);
-  const pre = renderLines(lines, doc, site, settings.prefer(), lineAnnotations(file, doc.id, site));
+  // A name reused from another document goes to its definition there, through the documents the build holds.
+  const names: NameSources = { resolve: resolverOf(site, doc), file };
+  const pre = renderLines(lines, doc, site, settings.prefer(), lineAnnotations(file, doc.id, site), names);
   documentPane.replaceChildren(pre);
   const rows = [...pre.querySelectorAll<HTMLElement>('.dad-line')];
   // Hidden Interpreted Constraints blocks have no box, so a search down the page by its boxes passes over them.
@@ -305,9 +310,12 @@ function createText(
     inspects: document => pane.inspects(document),
   });
   const placeOf = (node: HTMLElement) =>
-    tokenPlace(tokenOf(node), lines, doc, sectionAt(node), settings.prefer(), site.commands());
+    tokenPlace(tokenOf(node), lines, doc, sectionAt(node), settings.prefer(), site.commands(), names);
   const fallbackOf = (node: HTMLElement) =>
-    fallbackPlace(tokenOf(node), lines, doc, settings.prefer(), site.commands());
+    fallbackPlace(tokenOf(node), lines, doc, settings.prefer(), site.commands(), {
+      ...names,
+      section: sectionAt(node),
+    });
 
   function perform(action: ClickAction, node: HTMLElement) {
     if (action.type === 'uses') {

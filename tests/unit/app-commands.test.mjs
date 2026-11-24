@@ -59,10 +59,9 @@ test("self-hosted: a command's popup says its header, where its application come
       'Code 265 · Answer · PXY',
       'Application-ID 16777223 · Gmb · from section 17 (not in header)',
     ]);
-    assert.deepEqual(placeRows(popup, '.popup-place'), [
-      ['Definition:', '17.6.2', 'Jump to', 'Show in source'],
-      ['Request:', '17.6.1 · AAR', 'Jump to', 'Show in source'],
-    ]);
+    // Opened on its own block's ; Name: line, which is its Definition and prints its members.
+    assert.deepEqual(placeRows(popup, '.popup-place'), [['Request:', '17.6.1 · AAR', 'Jump to', 'Show in source']]);
+    assert.equal(popup.querySelector('.popup-contents'), null, 'no AVPs list: the block prints them');
     assert.deepEqual(groupTitles(popup), [], 'no other document prints it, nor a registry');
     assert.match(
       popup.querySelector('.place-partner .view-action').getAttribute('href'),
@@ -194,10 +193,7 @@ test('a build with no command index still gives a command its block and partner,
     const popup = await popupOf(page, commandNames(page.document, '275 request')[0]);
     assert.deepEqual(
       placeRows(popup, '.popup-place').map(cells => cells.slice(0, 2)),
-      [
-        ['Definition:', '17.6.3'],
-        ['Answer:', '17.6.4 · STA'],
-      ],
+      [['Answer:', '17.6.4 · STA']],
     );
     await page.go('#29109-j00');
     assert.equal(page.fetched.filter(path => path === 'data/commands.json').length, 1);
@@ -206,13 +202,15 @@ test('a build with no command index still gives a command its block and partner,
   }
 });
 
-test("a raw view's command popup lists the members its raw rule prints", async () => {
+test("a command's popup opened in its own block, raw or corrected, repeats neither its members nor its place", async () => {
   const page = await boot({ hash: '#29061-6f0?raw=1' });
   try {
-    const popup = await popupOf(page, commandNames(page.document, '258 answer')[0]);
-    const members = [...popup.querySelectorAll('.contents-list code')].map(node => node.textContent);
-    assert.ok(members.includes('* [ Redirected-Host ]'), members.join());
-    assert.ok(!members.includes('* [ Redirect-Host ]'));
+    for (const name of commandNames(page.document, '258 answer')) {
+      const popup = await popupOf(page, name);
+      assert.equal(popup.querySelector('.popup-contents'), null, `line ${name.closest('.dad-line').dataset.line}`);
+      assert.equal(popup.querySelector('.place-definition'), null);
+      popup.querySelector('.popup-title button').click();
+    }
   } finally {
     await page.close();
   }

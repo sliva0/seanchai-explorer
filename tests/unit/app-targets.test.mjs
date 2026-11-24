@@ -2,6 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  tmgiMention,
   absent,
   boot,
   click,
@@ -126,7 +127,8 @@ test('self-hosted: the popup gives each target both panels first and the pane al
     layOut(page);
     pane(document).scrollTop = 407;
     const jumps = () => JSON.parse(window.sessionStorage.getItem('seanchai-jumps') ?? '{"entries":[]}').entries.length;
-    rightClick(page, tmgi(document));
+    // Opened where the text reads it: on its row, the row is the Here: line, and no Definition.
+    rightClick(page, tmgiMention(document));
     await settle();
     const popup = document.querySelector('.avp-popup');
     const definition = popup.querySelector('.place-definition');
@@ -237,7 +239,8 @@ test("the popup shows one target where a row's clause is its table's", async () 
     rightClick(page, tmgi(document));
     await settle();
     const popup = document.querySelector('.avp-popup');
-    assert.equal(popup.querySelector('.place-definition .place-where').textContent, '17.7');
+    // Its one place is its row, the one opened on, which the Here: line names.
+    absent(popup.querySelector('.place-definition'));
     absent(popup.querySelector('.place-details'));
   } finally {
     await page.close();
@@ -249,7 +252,7 @@ test("public: the popup has only the view's way to a target, under the publisher
   try {
     const { document, window } = page;
     const name = tmgi(document);
-    rightClick(page, name);
+    rightClick(page, tmgiMention(document));
     await settle();
     const definition = document.querySelector('.avp-popup .place-definition');
     absent(definition.querySelector('button'));
@@ -263,8 +266,10 @@ test("public: the popup has only the view's way to a target, under the publisher
     absent(document.querySelector('.avp-popup'));
     const entry = document.querySelector('.inspector-entry');
     assert.equal(entry.dataset.avp, 'TMGI');
-    assert.equal(entry.querySelector('.place-definition .view-action').textContent, 'Jump to');
-    assert.match(entry.querySelector('.place-definition .place-where').href, /etsi\.org.*#page=\d+$/);
+    // Shown for its row, which is its Definition: the inspector offers its Details, as the popup opened there does.
+    absent(entry.querySelector('.place-definition'));
+    assert.equal(entry.querySelector('.place-details .view-action').textContent, 'Jump to');
+    assert.match(entry.querySelector('.place-details .place-where').href, /etsi\.org.*#page=\d+$/);
     click(page, name, { altKey: true });
     await settle();
     assert.equal(new URLSearchParams(window.location.hash.split('?')[1]).get('name'), 'TMGI', 'alt-click goes there');

@@ -400,7 +400,9 @@ test("public: a click on a command shows its popup's content in the inspector, i
     const entry = document.querySelector('#source-pane .inspector-entry');
     assert.equal(entry.dataset.command, '265 request');
     assert.match(entry.querySelector('.popup-title').textContent, /^AA-Request/);
-    assert.ok(entry.querySelector('.command-places .place-definition'));
+    // Clicked in its own block, which is its definition: the places it adds, its answer first.
+    absent(entry.querySelector('.command-places .place-definition'));
+    assert.ok(entry.querySelector('.command-places .place-partner'));
     assert.ok(!commandNames(document, '265 request')[0].classList.contains('avp-current'), 'marking no name');
   } finally {
     await page.close();

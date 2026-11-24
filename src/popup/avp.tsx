@@ -19,11 +19,12 @@ import {
 import type { AvpRow, FlagRule, Rule, Use } from '../avp-context.ts';
 import { avpIdentities, avpTables } from '../avp-facts.ts';
 import type { AvpIdentity } from '../avp-facts.ts';
-import { namePlaces } from '../avp-places.ts';
+import { namePlaces, resolverOf } from '../avp-places.ts';
 import type { Place } from '../avp-places.ts';
-import { blockAt } from '../blocks.ts';
+import { avpRows as rowsOf, blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
+import { referenceText } from '../constraints.ts';
 import { elementPlace, memberPlaces } from '../element-places.ts';
 import { blockRowKey, elementText, memberElements, sameElementRow, tablesFor, tablesOf } from '../elements.ts';
 import type { ElementTable } from '../elements.ts';
@@ -31,7 +32,7 @@ import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
 import { Counted, Entries, Panel, placeRows, RuleContents, Steps, TableLink } from './shared.tsx';
-import { avpPopup as words, flagText } from '../text/popup.ts';
+import { avpPopup as words, flagText, popupShared } from '../text/popup.ts';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
@@ -39,12 +40,21 @@ const identityText = ({ code, vendor, type }: AvpIdentity) =>
     .filter(Boolean)
     .join(' · ');
 
-/** The files at hand for a name: the one its link names if that has been loaded, then this one. */
-function filesOf(site: Site, { token, doc, file }: PopupRequest): { file: DadFile; name: string; document: string }[] {
+/**
+ * The files at hand for a name: the one defining it, where a row here lists it as another document's and that one is
+ * loaded, or else the one its link names if loaded, then this one.
+ */
+function filesOf(
+  site: Site,
+  { token, doc, file }: PopupRequest,
+  defining?: string,
+): { file: DadFile; name: string; document: string }[] {
   const name = token.avp!;
-  const away = token.target && token.target.document !== doc.id ? site.held(token.target.document) : undefined;
+  const linked = token.target && token.target.document !== doc.id ? token.target.document : undefined;
+  const id = defining && defining !== doc.id ? defining : linked;
+  const away = id ? site.held(id) : undefined;
   return [
-    ...(away ? [{ file: away, name: token.target!.name ?? name, document: away.id }] : []),
+    ...(away ? [{ file: away, name: (id === linked && token.target!.name) || name, document: away.id }] : []),
     { file, name, document: doc.id },
   ];
 }
@@ -193,6 +203,21 @@ function RowFacts({
   );
 }
 
+/**
+ * The row the popup was opened on, which the text prints beside it: its flags in words, in one line, and the "?" with
+ * what its columns mean, rather than its cells again.
+ */
+function RowLine({ row, keyButton }: { row: AvpRow; keyButton?: ComponentChild }) {
+  const said = flagTable(row).map(([rule, bits]) => words.flagLine(bits.join(', '), flagWords[rule]));
+  if (!said.length && !keyButton) return null;
+  return (
+    <p class="popup-row-line">
+      {said.join(' · ')}
+      {keyButton && [said.length ? ' ' : '', keyButton]}
+    </p>
+  );
+}
+
 /** What the "?" button opens: what the flags' bits and the rows' columns mean, said for every AVP alike. */
 function keyEntries(rows: AvpRow[]): [string, string, string?][] {
   const entries: [string, string, string?][] = [];
@@ -227,8 +252,8 @@ const NAMED_APPLICATIONS = 3;
  * document one for its application. Each row has the applications its table's commands are of, as their document or
  * the registry names them.
  */
-function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined) {
-  const files = filesOf(site, request);
+function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined, defining?: string) {
+  const files = filesOf(site, request, defining);
   const here = use?.kind === 'member' ? blockAt(request.file, use.rule.line) : undefined;
   const all = files.flatMap(({ file, name, document }) =>
     avpRows(file, name).map(row => {
@@ -403,6 +428,11 @@ export function AvpPopup(props: PopupProps) {
   const placeRow = placeRows(site, pane, request);
   const away = token.target?.document;
   useLayoutEffect(() => demand(away), [away]);
+  // Where it is declared: its definition, through the documents reusing it, its row here, its rule and its Details.
+  const declared = namePlaces(token, lines, doc, resolverOf(site, doc), request.file);
+  const defining = declared.definition?.document;
+  // Each document the way to the definition passes through, loaded as it is reached.
+  useLayoutEffect(() => demand(declared.pending), [declared.pending]);
   useLayoutEffect(() => {
     // The inspector marks no name: a popup's mark goes when it closes, which the inspector never does.
     if (!stepped || props.inline) return;
@@ -413,7 +443,7 @@ export function AvpPopup(props: PopupProps) {
   // What the files at hand say a name is, and the tables of its numbers: this one's, and the one its link names if
   // that has been loaded already. A table here is gone to in the pane at its first row, a result code's at its clause,
   // an `Enumerated AVP` block as Details are; one in another document at its clause there.
-  const files = filesOf(site, request);
+  const files = filesOf(site, request, defining);
   const identities = avpIdentities(files).map(identityText).filter(Boolean);
   const tables = files
     .toReversed()
@@ -436,7 +466,7 @@ export function AvpPopup(props: PopupProps) {
     )
     .filter(row => row !== undefined);
   const use = useAt(request.file, Number(lineOf(here).dataset.line), name);
-  const { rows: definitionRows, rule } = definitionFacts(site, request, use);
+  const { rows: definitionRows, rule } = definitionFacts(site, request, use, defining);
   const key = definitionRows.length ? keyEntries(definitionRows.map(({ row }) => row)) : [];
   const keyed = definitionRows.find(({ row }) => flagTable(row).length) ?? definitionRows[0];
   const keyButton =
@@ -453,11 +483,48 @@ export function AvpPopup(props: PopupProps) {
         ?
       </button>
     ) : undefined;
-  const { definition, details } = namePlaces(token, lines, doc);
+  const { definition, details, listed, missing } = declared;
   const elements = elementFacts(site, request, use, placeRow);
+  // Every place it is declared, but the one opened on, which the "Here:" line names.
+  const openedRow = use?.kind === 'row' ? use.row.line : undefined;
+  const onRow = (place: Place | undefined) => place?.document === doc.id && place.line === openedRow;
+  const ownRule = groupedRules(request.file, name)[0];
+  const rulePlace: Place | undefined = ownRule && {
+    document: doc.id,
+    position: { section: ownRule.section, page: blockAt(request.file, ownRule.line)?.page ?? null },
+    target: { document: doc.id, section: ownRule.section, name },
+    line: ownRule.line,
+  };
+  const listedTable = listed && rowsOf(request.file, name).find(row => row.line === listed.line)?.table;
+  const definitionLabel = (place: Place) => {
+    const summary = site.summary(place.document);
+    const section = place.target?.section ?? place.position?.section ?? '';
+    return place.document === doc.id || !summary ? undefined : [site.label(summary), section].join(' · ');
+  };
   const placed = [
-    definition && placeRow(words.definition, 'place-definition', definition),
-    details && placeRow(words.details, 'place-details', details),
+    definition && !onRow(definition)
+      ? placeRow(words.definition, 'place-definition', definition, definitionLabel(definition))
+      : missing && (
+          <div key="missing" class="popup-place place-definition place-missing">
+            <span>{popupShared.placeLabel(words.definition)}</span>
+            <span class="place-cell">{words.notHeld(referenceText(missing))}</span>
+          </div>
+        ),
+    listed &&
+      !onRow(listed) &&
+      placeRow(
+        words.reused,
+        'place-reused',
+        listed,
+        undefined,
+        listedTable ? { document: doc.id, table: listedTable } : undefined,
+      ),
+    rulePlace && use?.kind !== 'head' && placeRow(words.rule, 'place-rule', rulePlace),
+    // A clause the rule is in, or the one opened on, says no more than the rule's own place.
+    details &&
+      details.position?.section !== rulePlace?.position?.section &&
+      !(use?.kind === 'head' && details.position?.section === use.rule.section) &&
+      placeRow(words.details, 'place-details', details),
     ...elements.places,
   ];
   const hasPlaces = placed.some(Boolean) || tables.length > 0;
@@ -488,27 +555,31 @@ export function AvpPopup(props: PopupProps) {
       )}
       {use && <UseContext site={site} document={doc.id} use={use} elements={elements.notes} />}
       <ConstraintFacts site={site} pane={pane} request={request} use={use} />
-      {definitionRows.map((item, index) => (
-        <RowFacts
-          key={index}
-          title={
-            use?.kind === 'row' && item.row === use.row
-              ? undefined
-              : [
-                  tableOf(item.row),
-                  item.applications.join(', '),
-                  item.document !== doc.id && site.summary(item.document)
-                    ? site.label(site.summary(item.document)!)
-                    : '',
-                ]
-                  .filter(Boolean)
-                  .join(' · ')
-          }
-          row={item.row}
-          applies={item.applies && definitionRows.length > 1}
-          keyButton={item === keyed ? keyButton : undefined}
-        />
-      ))}
+      {definitionRows.map((item, index) =>
+        use?.kind === 'row' && item.row === use.row ? (
+          <RowLine key={index} row={item.row} keyButton={item === keyed ? keyButton : undefined} />
+        ) : (
+          <RowFacts
+            key={index}
+            title={
+              use?.kind === 'row' && item.row === use.row
+                ? undefined
+                : [
+                    tableOf(item.row),
+                    item.applications.join(', '),
+                    item.document !== doc.id && site.summary(item.document)
+                      ? site.label(site.summary(item.document)!)
+                      : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+            }
+            row={item.row}
+            applies={item.applies && definitionRows.length > 1}
+            keyButton={item === keyed ? keyButton : undefined}
+          />
+        ),
+      )}
       {key.length > 0 && (
         <dl class="popup-key" id={keyId} hidden={!keyOpen}>
           {key.map(([term, text, value]) => (
@@ -527,7 +598,10 @@ export function AvpPopup(props: PopupProps) {
           ))}
         </dl>
       )}
-      {rule?.members.length ? <RuleContents rule={rule} open={use?.kind === 'head'} title={words.contents} /> : null}
+      {/* Opened on the rule's own head, the text prints its members right there. */}
+      {rule?.members.length && use?.kind !== 'head' ? (
+        <RuleContents rule={rule} open={false} title={words.contents} />
+      ) : null}
       {hasPlaces && (
         <div class="popup-places">
           {placed}

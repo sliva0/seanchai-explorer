@@ -266,9 +266,14 @@ export function ConstraintFacts({
 }) {
   const found = constraintsHere(site, request, use);
   if (!found.length) return null;
+  // Opened in a block of them, the text prints its scope, rules and quotes right there: of that block the popup says
+  // only what the text does not, its rules in words and an element rule's registry entry.
+  const opened = (doc: Document, item: ConstraintBlock) =>
+    use?.kind === 'constraint' && doc.id === request.doc.id && item.block.line === use.block.line;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
   const groups: ComponentChild[] = found.map(({ doc, item }) => {
     const { block } = item;
+    const here = opened(doc, item);
     const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
     const place: Place = {
       document: doc.id,
@@ -278,10 +283,10 @@ export function ConstraintFacts({
     };
     return (
       <div key={`${doc.id}:${block.line}`} class="constraint-group">
-        <ScopeLine site={site} doc={doc} item={item} />
+        {!here && <ScopeLine site={site} doc={doc} item={item} />}
         <ul class="constraint-readings">
           {(block.readings ?? []).map((reading, index) => {
-            const quotes = reading.quotes.map(quote => (
+            const quotes = (here ? [] : reading.quotes).map(quote => (
               <q key={quote.line} class="constraint-quote">
                 {quote.text}
               </q>
@@ -306,7 +311,7 @@ export function ConstraintFacts({
                       <span class="constraint-words">
                         <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
                       </span>
-                      <Printed doc={doc} line={rule.line} />
+                      {!here && <Printed doc={doc} line={rule.line} />}
                       {entry && <ElementRows site={site} entry={entry} />}
                     </span>
                   );
@@ -316,14 +321,16 @@ export function ConstraintFacts({
             );
           })}
         </ul>
-        <div class="popup-places constraint-places">
-          {placeRow(
-            constraintsSection.readIn,
-            'place-constraint',
-            place,
-            [label, block.section].filter(Boolean).join(' · '),
-          )}
-        </div>
+        {!here && (
+          <div class="popup-places constraint-places">
+            {placeRow(
+              constraintsSection.readIn,
+              'place-constraint',
+              place,
+              [label, block.section].filter(Boolean).join(' · '),
+            )}
+          </div>
+        )}
       </div>
     );
   });

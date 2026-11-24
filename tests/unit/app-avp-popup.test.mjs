@@ -5,7 +5,6 @@ import {
   absent,
   boot,
   click,
-  commandNames,
   identities,
   pane,
   paneAt,
@@ -30,10 +29,8 @@ test("self-hosted: a name's popup says its code, vendor and type, and gives its 
     assert.deepEqual(identities(popup), ['Code 4003 · Vendor-ID 10415 · Unsigned32']);
     assert.equal(popup.firstElementChild.nextElementSibling.className, 'popup-identity', 'under the title');
     assert.deepEqual(tableRows(popup), [['Bits:', '5.3.5', 'Jump to', 'Show in source']]);
-    present(
-      popup.querySelector('.popup-tables').closest('.popup-places').querySelector('.place-definition'),
-      "in the targets' grid, after them",
-    );
+    present(popup.querySelector('.popup-tables').closest('.popup-places'), "in the targets' grid");
+    absent(popup.querySelector('.place-definition'), 'opened on its definition row, which the Here: line names');
     const before = pane(document).scrollTop;
     popup.querySelector('.place-table .pane-action').click();
     await settle();
@@ -330,19 +327,27 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     popup.querySelector('.popup-title button').click();
     popup = await popupOf(page, at('User-Identity', '318'));
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
-    assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule');
+    absent(popup.querySelector('.popup-contents'), 'not on its own rule, whose members the text prints');
+    absent(popup.querySelector('.place-rule'), 'nor the rule as a place');
+    absent(popup.querySelector('.place-details'), 'nor the clause it is in');
     popup.querySelector('.popup-title button').click();
     popup = await popupOf(page, at('External-Identifier', '279'));
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: a row of Reused AVPs 6.3/2']);
     assert.deepEqual(texts(popup, '.popup-row-title'), [], 'the "Here:" line names the row opened on');
-    assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M'], 'its M-bit cell as the M flag');
-    assert.deepEqual(texts(popup, '.popup-facts dt, .popup-facts dd'), ['From', 'TS29.336']);
+    absent(popup.querySelector('.popup-flags'), 'nor its cells again');
+    absent(popup.querySelector('.popup-facts'));
+    assert.equal(
+      popup.querySelector('.popup-row-line').firstChild.textContent,
+      'M must be set',
+      'its M-bit cell in words',
+    );
+    assert.deepEqual(
+      texts(popup, '.place-definition > *'),
+      ['Definition:', 'TS 29.336, which this build does not hold'],
+      'its From, which the fixture lacks',
+    );
     assert.equal(popup.querySelector('.popup-key').hidden, false, 'the key stays open from the last popup');
     assert.deepEqual(texts(popup, '.popup-key dt'), ['M', 'V', 'From'], 'a Reused AVPs row has no P or Encrypt to say');
-    popup.querySelector('.popup-title button').click();
-    popup = await popupOf(page, commandNames(document, '306 request')[0]);
-    assert.match(popup.querySelector('.popup-contents summary').textContent, /^AVPs \d+$/);
-    assert.deepEqual(texts(popup, '.contents-list > *').slice(0, 2), ['< Session-Id >', 'fixed, exactly once']);
     popup.querySelector('.popup-title button').click();
     rightClick(page, at('DRMP', '16'));
     await settle();
@@ -512,7 +517,7 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     popup = document.querySelector('.avp-popup');
     same(popup, first, 'drawn again over its own nodes');
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
-    assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule, as if opened there');
+    absent(popup.querySelector('.popup-contents'), 'no Contents on its rule, as if opened there');
     assert.equal(popup.querySelector('.popup-uses').open, true, 'the uses stay open');
     assert.equal(popup.querySelector('.popup-key').hidden, false, 'the key stays open');
     assert.equal(popup.querySelectorAll('.usage-link')[head].getAttribute('aria-current'), 'location');
@@ -525,7 +530,6 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     const line = Number(use.closest('.dad-line').dataset.line);
     const bottom = 100 + line * 20 - pane(document).scrollTop + 20;
     assert.equal(parseFloat(popup.style.top), bottom + 8, 'below the use gone to, once the text is there');
-    popup.querySelector('.popup-contents').open = false;
     const next = [...popup.querySelectorAll('.popup-actions button')].find(node => node.textContent === 'Next');
     next.focus();
     next.click();
@@ -533,7 +537,7 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     assert.equal(document.activeElement.textContent, 'Next', 'the focus on Next');
     assert.ok(popup.contains(document.activeElement));
     assert.notDeepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
-    assert.equal(popup.querySelector('.popup-contents')?.open ?? false, false, 'closed as the reader left it');
+    assert.equal(popup.querySelector('.popup-contents')?.open ?? false, false, 'closed away from its rule');
     document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
     absent(document.querySelector('.avp-popup'));
     same(document.activeElement, opener, 'Escape gives the focus back to the name opened on');

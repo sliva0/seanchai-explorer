@@ -65,18 +65,20 @@ test("one place is one target: no Details where the clause is the table's own", 
   assert.equal(marked([name('Y', '7.1', { document: 'd', section: '7.1' })])[0].details, undefined);
 });
 
-test('a cell naming another document leaves the row as it is', () => {
+test('a cell naming another document leaves the row as it is, but for the clause its name links here', () => {
   const [row, cell] = marked([
     name('Y', '20.5', { document: 'rfc7155', section: '4.2.5' }),
     { text: 'RFC7155', target: { document: 'rfc7155', section: '4.2.5', name: 'Y' } },
   ]);
   assert.equal(row.details, undefined);
   assert.equal(cell.details, undefined);
+  // TS 29.272's Communication-Pattern-Set: reused From TS 29.336, and given its own Grouped rule in 7.3.194.
   const same = marked([
     name('Y', '6.4.1', { document: 'd', section: '6.4.2' }),
     { text: 'TS29.336', target: { document: '29336', section: '8.4.2', name: 'Y' } },
   ]);
-  assert.equal(same[0].details, undefined);
+  assert.equal(same[0].details.section, '6.4.2', 'the clause its name links to in this document');
+  assert.equal(same[1].details, undefined, 'the From cell keeps its link to the defining document');
   assert.equal(marked([name('Y', '5.4'), { text: ' TS29.061 ' }])[0].details, undefined);
 });
 
