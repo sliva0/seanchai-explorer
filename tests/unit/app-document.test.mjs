@@ -158,6 +158,27 @@ test("; Reprints: links to the document a reprint comes from, and the block's na
   }
 });
 
+test('each clause of an ; Applies-To: list is drawn as the first is, coloured and no link', async () => {
+  const page = await boot({ hash: '#29272-j60/7.2.2' });
+  try {
+    const { document } = page;
+    const applies = [...document.querySelectorAll('.dad-line')].find(line =>
+      line.textContent.startsWith('; Applies-To:'),
+    );
+    assert.equal(applies.textContent, '; Applies-To: 7.2.21.*, 7.2.22.*, 7.2.23.*, 7.2.24.*\n');
+    const clauses = [...applies.querySelectorAll('*')].filter(node =>
+      node.classList.contains('constant.other.section.wildcard.dad'),
+    );
+    assert.deepEqual(
+      clauses.map(node => [node.tagName, node.textContent]),
+      ['7.2.21.*', '7.2.22.*', '7.2.23.*', '7.2.24.*'].map(text => ['SPAN', text]),
+    );
+    absent(applies.querySelector('a'));
+  } finally {
+    await page.close();
+  }
+});
+
 test("the section list says what a clause's value tables hold", async () => {
   const page = await boot({ hash: '#29217-j00' });
   try {

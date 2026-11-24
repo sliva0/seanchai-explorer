@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile, readdir } from 'node:fs/promises';
 import test from 'node:test';
 import { createHighlighter } from '../../src/highlight.ts';
-import { fixture } from './helpers.mjs';
+import { fixture, readFixture } from './helpers.mjs';
 
 const grammar = JSON.parse(await readFile(new URL('../../syntax/dad.tmLanguage.json', import.meta.url), 'utf8'));
 const highlight = createHighlighter(grammar);
@@ -36,6 +36,80 @@ test('viewer uses the editor grammar for directives, presence, enums, types, fla
   assert.equal(scopeFor(lines[8], 'M,V'), 'constant.language.avp-flag.dad');
   assert.ok(lines[9].decoration.includes('striped'));
   assert.equal(scopeFor(lines[10], 'https://example.org/a.pdf'), 'markup.underline.link.dad');
+});
+
+test("a directive's list gives each entry its own scope, past the first comma", () => {
+  // The value's tokens, past `; `, the key and `: `, leaving out the spaces between them.
+  const value = line =>
+    line.tokens
+      .slice(3)
+      .filter(token => token.text.trim())
+      .map(token => [token.text, token.scope]);
+  const [applies, bases, obsoletes, versions, open, transcribed, name] = highlight([
+    line('; Applies-To: 7.2.21.*, 7.2.22.*, E.6.*, 7.2.24.*'),
+    line('; Bases: RFC6733, TS29.229, ETSI-ES283.035 ;; corrected: (TS29.109.py#bases-cx)'),
+    line('; Obsoletes: RFC3588, RFC5719'),
+    line('; Versions: 18.7.0..19.6.0'),
+    line('; Versions: *..19.6.0'),
+    line('; Transcribed: by hand from https://example.org/a.pdf'),
+    line('; Name: Update-Location-Request, ULR'),
+  ]);
+  const comma = [',', 'punctuation.separator.comma.dad'];
+  const clause = text => [text, 'constant.other.section.wildcard.dad'];
+  const ref = text => [text, 'entity.name.tag.spec-ref.dad'];
+  assert.equal(scopeFor(applies, 'Applies-To'), 'keyword.other.directive.dad');
+  assert.deepEqual(value(applies), [
+    clause('7.2.21.*'),
+    comma,
+    clause('7.2.22.*'),
+    comma,
+    clause('E.6.*'),
+    comma,
+    clause('7.2.24.*'),
+  ]);
+  assert.deepEqual(value(bases), [
+    ref('RFC6733'),
+    comma,
+    ref('TS29.229'),
+    comma,
+    ref('ETSI-ES283.035'),
+    [';; corrected: (TS29.109.py#bases-cx)', 'comment.line.double-semicolon.dad'],
+  ]);
+  assert.deepEqual(value(obsoletes), [ref('RFC3588'), comma, ref('RFC5719')]);
+  assert.deepEqual(value(versions), [
+    ['18.7.0', 'constant.other.section.dad'],
+    ['..', 'keyword.operator.range.dad'],
+    ['19.6.0', 'constant.other.section.dad'],
+  ]);
+  assert.deepEqual(value(open), [
+    ['*', 'keyword.operator.dad'],
+    ['..', 'keyword.operator.range.dad'],
+    ['19.6.0', 'constant.other.section.dad'],
+  ]);
+  assert.equal(scopeFor(transcribed, 'https://example.org/a.pdf'), 'markup.underline.link.dad', 'a link past words');
+  assert.equal(scopeFor(transcribed, 'hand'), 'string.unquoted.directive-value.dad');
+  assert.equal(
+    scopeFor(name, 'Update-Location-Request, ULR'),
+    'string.unquoted.directive-value.dad',
+    'a free-text value stays one string',
+  );
+});
+
+test("TS 29.272's Applies-To line scopes each of its clauses alike, none of them a link", async () => {
+  const { lines } = await readFixture('documents/29272-j60.json');
+  const original = lines.find(line =>
+    line.tokens
+      .map(token => token.text)
+      .join('')
+      .startsWith('; Applies-To:'),
+  );
+  const [highlighted] = highlight([original]);
+  const clauses = highlighted.tokens.filter(token => token.scope === 'constant.other.section.wildcard.dad');
+  assert.deepEqual(
+    clauses.map(token => token.text),
+    ['7.2.21.*', '7.2.22.*', '7.2.23.*', '7.2.24.*'],
+  );
+  assert.ok(clauses.every(token => !token.target && !token.source));
 });
 
 test('void values highlight like reserved ones, single or ranged', () => {
