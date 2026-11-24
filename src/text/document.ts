@@ -97,4 +97,7 @@ export const markWords = {
     `ABNF brackets mark ${member} as required, but ${where} lists it as ${category} (element-required-in-abnf)`,
   bracketsOptional: (member: string, where: string) =>
     `ABNF brackets mark ${member} as optional, but ${where} lists it as M, mandatory (element-optional-in-abnf)`,
+  /** A member a TS 32.299 table marks not used, a dash, which the command's ABNF still holds. */
+  unusedInAbnf: (member: string, where: string) =>
+    `The ABNF holds ${member}, but ${where} marks it not used (element-unused-in-abnf)`,
 };

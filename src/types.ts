@@ -47,13 +47,18 @@ export type RegistryKind = 'Application IDs' | 'Command Codes' | 'AVP Codes' | '
 /**
  * What the numbers of a `ValueTable` are, as `; Kind:` writes it.
  */
-export type ValueKind = 'result-codes' | 'bits' | 'features';
+export type ValueKind = 'result-codes' | 'bits' | 'features' | 'values';
 /**
  * An information element's category, the "Cat." column of a stage-3
  * document's per-command tables (TS 29.272 clause 5.2: "M" mandatory, "C"
- * conditional, "O" optional).
+ * conditional, "O" optional), or the "Category" column of TS 32.299's
+ * message tables, which clauses 6.2.1.2 and 6.4.1.2 say are "as specified in
+ * TS 32.240": "M" and "C" again, "OM" and "OC" operator provisionable,
+ * mandatory and conditional ("all operator provisionable parameters (Oc and
+ * Om)", clause 7.1.12), and a printed dash, "Not used in 3GPP" or "Not used
+ * in CCR" in the row's description.
  */
-export type Category = 'M' | 'C' | 'O';
+export type Category = 'M' | 'C' | 'O' | 'OM' | 'OC' | '-';
 export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
 /**
  * The layouts a clause names for an AVP's payload, each defined in the
@@ -471,17 +476,21 @@ export interface ElementTableRef {
 }
 /**
  * A row of an Information Elements block at `line`, `cells` as a
- * `TableRow`'s: the element's `name` unquoted, the `avps` its mapping cell
- * names (`either`: one of them) or the cell as `printed`, and its
- * `category`, `M`, `C` or `O`.
+ * `TableRow`'s: the element's `name` unquoted, null where the block's
+ * columns are `AVP Cat` (TS 32.299's), the `avps` its mapping cell names
+ * (`either`: one of them) or the cell as `printed`, its `category`, `M`,
+ * `C`, `O`, `OM`, `OC` or `-` (not used), null for a blank cell, and
+ * `depth`, how many levels it is set off under the grouped AVP rows above
+ * it.
  */
 export interface ElementRow {
   avps?: string[];
   category?: Category | null;
   cells: string[];
+  depth?: number;
   either?: boolean;
   line: number;
-  name: string;
+  name: string | null;
   printed?: string | null;
 }
 /**

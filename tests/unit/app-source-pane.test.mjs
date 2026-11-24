@@ -253,7 +253,7 @@ test('public: an RFC page shows itself in the pane, and names go there when they
     click(page, away);
     await settle();
     assert.equal(page.window.location.hash, away.getAttribute('href'), 'not in the fixture, so its page is tried');
-    assert.equal(document.querySelector('main').textContent, 'Document not found');
+    assert.equal(document.querySelector('main h1').textContent, 'Document not found');
   } finally {
     await page.close();
   }

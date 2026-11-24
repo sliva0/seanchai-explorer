@@ -136,5 +136,6 @@ try {
   }
   navigate();
 } catch (error) {
+  console.error(error);
   container.textContent = String(error);
 }

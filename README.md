@@ -6,11 +6,12 @@ specifications and RFCs as one page, highlighted with the corpus's own TextMate 
 with a source pane beside the text showing the document it was read from. AVP and command
 names link to their definitions and details, section and page numbers to the source
 document, and search covers specifications, AVPs, commands, applications, registry rows,
-result codes, bits, features, information elements and every line of text; a name is also
+result codes, bits, features, an integer AVP's named values, information elements and every line of text; a name is also
 found by its initials or a misspelling, labelled approximate and listed after the precise
 matches. A result lists its documents one a line, and past ten, the first ten with a
 toggle for the rest. A command's members carry what its specification's Information
-Elements tables say of them, their element and category (M, C or O), with the way from a
+Elements tables say of them, their element and category (M, C or O, and TS 32.299's OM, OC
+and dash), with the way from a
 member to its row and back, in that document or another. What a clause's prose says of an
 AVP's value or presence, as a reader read it, is shown as interpreted constraints: in the
 text in the order of the document, and in words where the AVP is read. It is unofficial
@@ -48,12 +49,13 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 | Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 | `; Section:`, `; Page:` or `; Table:` in a block header | that place in the source document, a `; Table:` its table's caption |
+| `; Command-Section:` in an Information Elements header | the section printing the command the table describes |
 | a table in a popup or the inspector | the table's block in the text |
 
 | Line marks, after a line's end and left out of a copy | |
 |---|---|
-| `C` | a member's category C, conditional, in its command's Information Elements table, which its brackets cannot say |
-| `M`, `O`, `C` in a warning's colour | a category its brackets contradict, as an M on `[ ]`; its title says how |
+| `C`, `OC`, `OM` | a member's category in its command's Information Elements table that its brackets cannot say: C conditional, TS 32.299's OC and OM conditional or mandatory where the operator provisions it |
+| `M`, `O`, `C`, `-` in a warning's colour | a category its brackets contradict, as an M on `[ ]`, or a member the ABNF holds, not struck out, that the table marks `-`, not used; its title says how |
 | `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
@@ -101,16 +103,24 @@ another command.
 
 An `Information Elements` block is a specification's table of a command's information
 elements, the AVP each maps to and its category: M mandatory, C conditional, O optional,
-which the text colours as the grammar scopes it. The tables describing a command are those
+which the text colours as the grammar scopes it. TS 32.299's tables name no element, only
+the AVPs, each grouped AVP's members set off four spaces a level under its row, and use
+TS 32.240's categories too, OM and OC, mandatory or conditional where the operator
+provisions it, and a dash, not used. A row set off so is a member of the grouped AVP above
+it: its popup says which, `A member of Multiple-Services-Credit-Control › Requested-Service-Unit`,
+and goes to that row, `Under`, and its interpreted constraints are those holding within
+that AVP. Where a document prints a command more than once under one application, as TS
+29.273 does Diameter-EAP-Request for SWa, STa and SWd, the block's `; Command-Section:`
+names the clause of the one it describes, a link to it. The tables describing a command are those
 the export lists for its block, so where a clause prints a command twice, as TS 29.272's
 7.2.9 does IDR for S6a's and S6d's application ids, each block has its own. A member of
 the command's `; Type: Message` block that a table names has its popup or inspector name
 the element and its category and go to the table's row, `Element`. Its line shows the
 category only where it says what the brackets do not, laid over the text after its end and
-left out of a copy: a C, which no brackets say, and, in a warning's colour with a title
-saying how, a category the brackets contradict, an M on `[ ]` or an O or C on `{ }` or
-`< >`, which the corpus's linter notes as `element-optional-in-abnf` and
-`element-required-in-abnf`. An M on `{ }` and an O on `[ ]` the brackets say already, so
+left out of a copy: a C, OC or OM, which no brackets say, and, in a warning's colour with a
+title saying how, a category the brackets contradict, an M on `[ ]`, an O, C, OC or OM on
+`{ }` or `< >`, or a dash on a member the body holds, which the corpus's linter notes as
+`element-optional-in-abnf`, `element-required-in-abnf` and `element-unused-in-abnf`. An M on `{ }` and an O on `[ ]` the brackets say already, so
 their lines show none, nor does a row offering one of several AVPs, as `Result-Code` or
 `Experimental-Result`. An AVP in a row goes back to the
 member, `Member`, which may be in another document: TS 29.328's and TS 29.228's tables
@@ -249,7 +259,8 @@ npm run build               # the public site, in dist/
 ```
 
 A self-hosted site also ships the source documents, which are downloaded once, about
-200 MB, into `specifications/` here:
+200 MB, into `specifications/` here, or into the Seanchaí checkout's where this repository
+is inside one:
 
 ```sh
 npm ci
@@ -261,14 +272,21 @@ npm run preview             # serve dist/
 A public build uses `specifications/` too if it is there, for Wireshark's AVP names in
 search and for the RFC texts, which the browser otherwise fetches from rfc-editor.org.
 
-Which `seanchai` runs is the first of:
+Every build runs what `seanchai-release.json` pins, through `uvx`, unless told otherwise,
+even where this repository is checked out inside a Seanchaí checkout at
+`.local/seanchai-explorer`: a site built by the steps above is always the one the pin
+names, and a build fails if its export names other versions than the pin. To run another
+`seanchai`, say so:
 
-1. a Seanchaí checkout, through `uv run`: the one named by `SEANCHAI_ROOT`, or the one
-   this repository is inside at `.local/seanchai-explorer`;
-2. a `seanchai` command on `PATH`, which needs the `extract` extra for `npm run sources`;
-3. what `seanchai-release.json` pins, through `uvx`. With `SEANCHAI_PINNED=1` it is the
-   only one, even inside a checkout. A build that ran it fails if its export names other
-   versions than the pin.
+- `SEANCHAI_ROOT` names a Seanchaí checkout to run through `uv run`, its working tree as it
+  is: `SEANCHAI_ROOT=../.. npm run build` runs the one this repository is inside;
+- `SEANCHAI_ON_PATH=1` runs the `seanchai` command on `PATH`, which needs the `extract`
+  extra for `npm run sources`;
+- `SEANCHAI_PINNED=1` runs the pin whatever else is set.
+
+Either of the first two writes the export of whatever code it runs, which the site reads
+only if it is of the site's schema and in a shape the site knows; a page that cannot read
+its data says so.
 
 A plugin passed in `SEANCHAI_PLUGIN` must name the export's `seanchai` and corpus
 versions on its `-- seanchai:versions` line, or the build fails.
@@ -286,7 +304,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "ec92b3caab6c511bbd242b49faa5ca29c1a28ab0"
+  "commit": "067fae85d65f7344ea9f1edcd38b3f7d95fe763a"
 }
 ```
 
@@ -298,7 +316,7 @@ Then build with the new pin and run the checks. Where the export's schema change
 regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says.
 
 ```sh
-SEANCHAI_PINNED=1 npm run build
+npm run build               # runs the pin, as every build does by default
 npm test
 ```
 
@@ -313,9 +331,10 @@ contract.
 
 | Variable | Meaning |
 |---|---|
-| `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the pinned one. |
-| `SEANCHAI_PINNED` | `1` runs what `seanchai-release.json` pins, even inside a checkout or with a `seanchai` on `PATH`. |
-| `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
+| `SEANCHAI_ROOT` | A Seanchaí checkout to run through `uv run` instead of the pin, its working tree as it is; `../..` is the one this repository is inside. |
+| `SEANCHAI_ON_PATH` | `1` runs the `seanchai` on `PATH` instead of the pin. |
+| `SEANCHAI_PINNED` | `1` runs what `seanchai-release.json` pins, whatever else is set; it is the default. |
+| `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout `SEANCHAI_ROOT` names or this repository is inside, otherwise here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 | `SEANCHAI_UNLINKED` | `1` builds a site naming nothing of the open-source project (see "Two build modes"). |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |

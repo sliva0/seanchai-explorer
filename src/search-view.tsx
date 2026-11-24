@@ -25,6 +25,9 @@ import type { Span } from './fuzzy.ts';
 import type { DocumentSummary, SearchEntry, Target } from './types.ts';
 import { valueKinds } from './values.ts';
 import { searchPage as words } from './text/search.ts';
+import { describeFailure, reportError } from './errors.ts';
+import type { Failure } from './errors.ts';
+import { FailurePanel } from './failure-view.tsx';
 
 const pageSize = 20;
 const sections: { kind: SearchEntry['kind']; title: string }[] = [
@@ -387,7 +390,7 @@ function Results({
   site: Site;
   query: string;
   data: Loaded | undefined;
-  failed: string | undefined;
+  failed: Failure | undefined;
   expanded: Set<string>;
   expand(name: string): void;
 }) {
@@ -422,7 +425,7 @@ function Results({
     return (
       <>
         {specificationSection}
-        <p>{failed}</p>
+        <FailurePanel failure={failed} indexHref="#" inline />
       </>
     );
   if (!data)
@@ -504,7 +507,7 @@ export function SearchView({
   const [query, setQuery] = useState(initial);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [data, setData] = useState<Loaded | undefined>(undefined);
-  const [failed, setFailed] = useState<string | undefined>(undefined);
+  const [failed, setFailed] = useState<Failure | undefined>(undefined);
   const [ready, setReady] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const results = useRef<HTMLElement>(null);
@@ -525,7 +528,8 @@ export function SearchView({
           });
       })
       .catch((error: unknown) => {
-        if (live) setFailed(String(error));
+        reportError(error);
+        if (live) setFailed(describeFailure(error, { seanchai: site.index.seanchai_version ?? undefined }));
       })
       .finally(() => {
         if (live) setReady(true);

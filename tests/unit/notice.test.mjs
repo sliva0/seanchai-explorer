@@ -15,12 +15,14 @@ async function logged(run) {
   return errors;
 }
 
-/** The fixture, but every document other than TS 29.153 fails to load while `offline.on` is set. */
+/** The fixture, but every document other than TS 29.153 fails to load while `offline.on` is set: its JSON cannot be read. */
 const offline = { on: false };
 const flaky = (path, data) => {
   if (offline.on && path.startsWith('data/documents/') && !path.includes('29153')) throw new Error('offline');
   return data;
 };
+/** What a document failing so logs: the error saying which file, and why. */
+const OFFLINE = 'DataError: data/documents/rfc7944.json is not JSON: Error: offline';
 
 test('a failed pane load says what failed, is logged, and its Retry loads it', async () => {
   offline.on = false;
@@ -37,16 +39,19 @@ test('a failed pane load says what failed, is logged, and its Retry loads it', a
       click(page, document.querySelector('pre a[data-avp][href^="#rfc7944"]'));
       await page.settle();
     });
-    assert.deepEqual(errors, ['Error: offline']);
+    assert.deepEqual(errors, [OFFLINE]);
     const notices = () => [...document.querySelectorAll('#notices .notice')];
     assert.equal(notices().length, 1);
-    assert.match(notices()[0].textContent, /^Could not load RFC 7944 for the source pane\. Error: offline/);
+    assert.match(
+      notices()[0].textContent,
+      /^Could not load RFC 7944 for the source pane\. DataError: data\/documents\/rfc7944\.json is not JSON: Error: offline/,
+    );
     assert.match(document.querySelector('.source-document').textContent, /^TS 29\.153/, 'the pane stays where it was');
     const again = await logged(async () => {
       notices()[0].querySelector('button').click();
       await page.settle();
     });
-    assert.deepEqual(again, ['Error: offline']);
+    assert.deepEqual(again, [OFFLINE]);
     assert.equal(notices().length, 1, 'a second failure replaces the first');
     offline.on = false;
     const retry = [...notices()[0].querySelectorAll('button')].find(button => button.textContent === 'Retry');
@@ -105,7 +110,7 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
       await page.settle();
     });
     assert.ok(document.querySelector('.avp-popup') !== null);
-    assert.ok(errors.includes('Error: offline'), errors.join());
+    assert.ok(errors.includes(OFFLINE), errors.join());
     const notice = [...document.querySelectorAll('#notices .notice')].find(node =>
       /referenced document/.test(node.textContent),
     );

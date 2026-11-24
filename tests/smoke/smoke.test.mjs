@@ -81,9 +81,18 @@ async function open(hash, options = {}, prepare = async () => {}) {
     page,
     context,
     errors,
-    done: async () => {
+    /** Closes the page, which must have logged no error but those `expected` match, each logged at least once. */
+    done: async (expected = []) => {
       await context.close();
-      assert.deepEqual(errors, []);
+      for (const pattern of expected)
+        assert.ok(
+          errors.some(error => pattern.test(error)),
+          `logged ${pattern}`,
+        );
+      assert.deepEqual(
+        errors.filter(error => !expected.some(pattern => pattern.test(error))),
+        [],
+      );
     },
   };
 }
@@ -212,12 +221,14 @@ test(
       .click({ modifiers: ['Alt'] });
     await page.waitForTimeout(50);
     assert.equal(await page.locator('.avp-popup').count(), 0, 'alt lists nothing');
+    // Its definition is RFC 6733's, which the fixture does not hold: the page says so, and logs it.
+    assert.equal(await page.locator('main h1').textContent(), 'Document not found');
     await page.goto(`${base}#29061-6f0`);
     await page.waitForSelector('pre a[data-avp]');
     await page.locator('pre a[data-avp]').first().click();
     await page.waitForTimeout(50);
     assert.equal(await page.locator('.avp-popup').count(), 0, 'a name is followed');
-    await done();
+    await done([/^DataError: Document not found: rfc6733/]);
   },
 );
 
@@ -313,7 +324,9 @@ test('public, desktop: ; Reprints: links to the document a reprint comes from', 
   await from.click();
   await page.waitForFunction(() => location.hash === '#rfc6733');
   assert.deepEqual(pages, []);
-  await done();
+  // The fixture holds no RFC 6733: the page says so, and logs it.
+  await page.waitForSelector('main .failure');
+  await done([/^DataError: Document not found: rfc6733/]);
 });
 
 test(
@@ -1953,3 +1966,49 @@ test(
     await done();
   },
 );
+
+test(
+  "a document's data file the server answers with a web page says so in the page, and logs the error",
+  { skip },
+  async () => {
+    // As vite preview does for a file it does not have: index.html, in the file's place.
+    const { page, context, errors } = await open('#29153-j00', {}, async page =>
+      page.route('**/data/documents/29153-j00.json', route =>
+        route.fulfill({ status: 200, contentType: 'text/html', body: '<!doctype html><title>Seanchaí</title>' }),
+      ),
+    );
+    assert.equal(await page.locator('main h1').textContent(), 'Data file missing');
+    assert.match(
+      await page.locator('main .failure-summary').textContent(),
+      /^data\/documents\/29153-j00\.json is not in this build's data: the server sent a web page in its place/,
+    );
+    assert.ok(await page.locator('main .failure-actions a', { hasText: 'Back to the index' }).isVisible());
+    assert.equal(await page.locator('main .failure-details pre').isVisible(), false, 'the stack is folded');
+    assert.equal(await page.title(), 'Data file missing — Seanchaí');
+    assert.equal(errors.length, 1, errors.join('\n'));
+    assert.match(errors[0], /DataError: data\/documents\/29153-j00\.json: the server sent a web page, not JSON/);
+    // The way back works.
+    await page.locator('main .failure-actions a').click();
+    await page.waitForSelector('main.index-view');
+    await context.close();
+  },
+);
+
+test('a document that fails as it is drawn says which and why in the page, and logs the error', { skip }, async () => {
+  const { page, context, errors } = await open('#29153-j00', {}, async page =>
+    page.route('**/data/documents/29153-j00.json', async route => {
+      const response = await route.fetch();
+      const data = await response.json();
+      await route.fulfill({ response, json: { ...data, sections: [null, ...data.sections] } });
+    }),
+  );
+  assert.match(await page.locator('main h1').textContent(), /^Could not show TS 29\.153/);
+  assert.match(await page.locator('main .failure-message').textContent(), /TypeError: /);
+  assert.ok(await page.locator('header nav').isVisible(), 'the header is drawn');
+  assert.ok(errors.length >= 1, 'logged');
+  assert.ok(
+    errors.every(error => /TypeError/.test(error)),
+    errors.join('\n'),
+  );
+  await context.close();
+});

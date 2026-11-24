@@ -5,14 +5,21 @@ import type { ValueToken } from './values.ts';
 import { markWords } from './text/document.ts';
 import { categoryText, categoryWords as words, oneOf, tableIn, tableName, tablesCount } from './text/terms.ts';
 
-/** A row of an Information Elements table as `elements.json` carries it. `members` are the members it maps to, by their lines in the described document's corrected text. */
+/**
+ * A row of an Information Elements table as `elements.json` carries it. `name` is null in a table naming its rows by
+ * their AVPs alone (TS 32.299's). `parents` are the AVPs of the grouped AVP rows it is set off under, outermost first,
+ * `depth` levels; `members` are the members it maps to, by their lines in the described document's corrected text: a
+ * row set off under another describes a member of that grouped AVP, not of the command, so has none.
+ */
 export interface IndexedElementRow {
   line: number;
-  name: string;
+  name: string | null;
   avps: string[];
   either: boolean;
   printed: string | null;
   category: Category | null;
+  depth: number;
+  parents: string[];
   members: { name: string; line: number }[];
 }
 
@@ -42,6 +49,35 @@ export interface ElementIndex {
 }
 
 export const categoryWords: Record<Category, string> = words;
+
+/** "M, mandatory", "OC, conditional where the operator provisions it", "not used": a category in words, a newer one by its letters. */
+export const categoryLabel = (category: Category) => categoryText(category, categoryWords[category] ?? category);
+
+/** A row's AVP as a parent of the rows set off under it: the one it maps to, or its cell as printed. */
+const rowAvp = (row: Pick<ElementRow, 'avps' | 'printed' | 'cells'>) =>
+  row.avps?.[0] ?? row.printed ?? row.cells[0] ?? '';
+
+/**
+ * Each row's parents, the AVPs of the grouped AVP rows it is set off under, outermost first: the rows above it of each
+ * lower depth, as the table sets them off. A row set deeper than one level under the row above (the linter's
+ * `element-misplaced`) is under the nearest rows there are.
+ */
+export function rowParents(rows: Pick<ElementRow, 'avps' | 'printed' | 'cells' | 'depth'>[]): string[][] {
+  const open: { depth: number; avp: string }[] = [];
+  return rows.map(row => {
+    const depth = row.depth ?? 0;
+    while (open.length && open[open.length - 1].depth >= depth) open.pop();
+    const parents = open.map(item => item.avp);
+    open.push({ depth, avp: rowAvp(row) });
+    return parents;
+  });
+}
+
+/** Whether two rows of one table, a raw mirror's and the corrected one's, are the same row: by name, AVPs and parents. */
+export const sameElementRow = (
+  a: { name: string | null; avps: string[]; parents: string[] },
+  b: { name: string | null; avps: string[]; parents: string[] },
+) => a.name === b.name && a.avps.join() === b.avps.join() && a.parents.join() === b.parents.join();
 
 /** The table describes a command its block names; one TS 29.338 table spells it in another case. */
 const sameName = (a: string | null | undefined, b: string | null | undefined) =>
@@ -109,17 +145,24 @@ export function elementIndex(documents: (DadFile & { id: string })[], schemaVers
             line: message.line,
             ordinal: messageOrdinal(file, message),
           },
-          rows: (block.element_rows ?? []).map(row => ({
-            line: row.line,
-            name: row.name,
-            avps: row.avps ?? [],
-            either: row.either ?? false,
-            printed: row.printed ?? null,
-            category: row.category ?? null,
-            members: members
-              .filter(member => row.avps?.includes(member.name))
-              .map(member => ({ name: member.name, line: member.line })),
-          })),
+          rows: (block.element_rows ?? []).map((row, at, rows) => {
+            const parents = rowParents(rows)[at];
+            return {
+              line: row.line,
+              name: row.name ?? null,
+              avps: row.avps ?? [],
+              either: row.either ?? false,
+              printed: row.printed ?? null,
+              category: row.category ?? null,
+              depth: row.depth ?? 0,
+              parents,
+              members: parents.length
+                ? []
+                : members
+                    .filter(member => row.avps?.includes(member.name))
+                    .map(member => ({ name: member.name, line: member.line })),
+            };
+          }),
         });
       }
     }
@@ -168,9 +211,14 @@ export interface MemberElement {
   row: IndexedElementRow;
 }
 
-/** The rows of the tables naming a member. */
+/**
+ * The rows of the tables naming a member: those of the command's own level, as a row set off under a grouped AVP's
+ * describes that AVP's member of the name.
+ */
 export const memberElements = (tables: ElementTable[], member: string): MemberElement[] =>
-  tables.flatMap(table => table.rows.filter(row => row.avps.includes(member)).map(row => ({ table, row })));
+  tables.flatMap(table =>
+    table.rows.filter(row => !row.parents?.length && row.avps.includes(member)).map(row => ({ table, row })),
+  );
 
 /** A member's categories in the tables, each once in table order: `M`, or `M/O` where two tables differ. */
 export const categoriesOf = (elements: MemberElement[]) =>
@@ -179,38 +227,59 @@ export const categoriesOf = (elements: MemberElement[]) =>
 /** Whether a member's brackets require it, `{ }` or `< >` at least once, as the corpus's linter reads them. */
 const bracketsRequire = (member: Pick<Member, 'presence' | 'min'>) => member.presence !== 'optional' && member.min >= 1;
 
+/** The categories a member's brackets say already where they agree: an M or an O. */
+const SAID_BY_BRACKETS: ReadonlySet<string> = new Set(['M', 'O']);
+
 /**
  * What a member's categories say that its brackets do not, or nothing where the brackets say it already, an M on
- * `{ }` or `< >` and an O on `[ ]`: `conditional` for a C, which no brackets say, and `disagrees` where a row's
- * category contradicts them, an M on `[ ]` (the corpus linter's `element-optional-in-abnf`) or an O or C on `{ }` or
- * `< >` (`element-required-in-abnf`), with a sentence for each such row. A row offering one of several AVPs says
- * nothing of each, so is not compared, as the linter does not compare it.
+ * `{ }` or `< >` and an O on `[ ]`: `conditional` for a C, TS 32.299's OM or OC, operator provisionable, or its dash,
+ * not used, which no brackets say, and `disagrees` where a row's category contradicts them, as the corpus linter
+ * reads them: an M on `[ ]` (`element-optional-in-abnf`), an O, C, OM or OC on `{ }` or `< >`
+ * (`element-required-in-abnf`), or a dash on a member the body holds, not struck out, though the table does not use
+ * it (`element-unused-in-abnf`), with a sentence for each such row. A row offering one of several AVPs says nothing of
+ * each, so is not compared, as the linter does not compare it.
  */
 export function categoryNote(
-  member: Pick<Member, 'name' | 'presence' | 'min'>,
+  member: Pick<Member, 'name' | 'presence' | 'min' | 'struck' | 'strikethrough'>,
   elements: MemberElement[],
 ): { kind: 'conditional' | 'disagrees'; disagreements: string[] } | undefined {
   const required = bracketsRequire(member);
   const disagreements = elements.flatMap(({ table, row }) => {
-    if (row.either || !row.category || (row.category === 'M') === required) return [];
+    if (row.either || !row.category) return [];
     const where = table.table ? tableName(table.table) : tableIn(table.section);
+    // A member the body strikes out, as TS 32.299 strikes those its table does not use, agrees with a dash.
+    if (row.category === '-')
+      return member.struck || member.strikethrough ? [] : markWords.unusedInAbnf(member.name, where);
+    if ((row.category === 'M') === required) return [];
     return required
-      ? markWords.bracketsRequire(member.name, where, categoryText(row.category, categoryWords[row.category]))
+      ? markWords.bracketsRequire(member.name, where, categoryLabel(row.category))
       : markWords.bracketsOptional(member.name, where);
   });
   if (disagreements.length) return { kind: 'disagrees', disagreements };
-  return elements.some(({ row }) => row.category === 'C') ? { kind: 'conditional', disagreements } : undefined;
+  // A struck member's line says already that a dash's member is not used.
+  const struck = member.struck || member.strikethrough;
+  return elements.some(
+    ({ row }) => row.category && !SAID_BY_BRACKETS.has(row.category) && !(struck && row.category === '-'),
+  )
+    ? { kind: 'conditional', disagreements }
+    : undefined;
 }
 
 /** "IMSI · M, mandatory · one of Result-Code, Experimental-Result": what a row says its member is. */
 export const elementText = (row: Pick<ElementRow, 'name' | 'category' | 'either' | 'avps'>) =>
-  [
-    row.name,
-    row.category && categoryText(row.category, categoryWords[row.category]),
-    row.either && row.avps?.length && oneOf(row.avps),
-  ]
+  [row.name, row.category && categoryLabel(row.category), row.either && row.avps?.length && oneOf(row.avps)]
     .filter(Boolean)
     .join(' · ');
+
+/** A block's row as `sameElementRow` compares it: its name, AVPs and parents in the block. */
+export function blockRowKey(block: Block, row: ElementRow): { name: string | null; avps: string[]; parents: string[] } {
+  const rows = block.element_rows ?? [];
+  return { name: row.name ?? null, avps: row.avps ?? [], parents: rowParents(rows)[rows.indexOf(row)] ?? [] };
+}
+
+/** The row of a block, of the file at hand, that is a table's row: the same by name, AVPs and parents. */
+export const blockRowOf = (block: Block | undefined, row: IndexedElementRow): ElementRow | undefined =>
+  block?.element_rows?.find(other => sameElementRow(blockRowKey(block, other), row));
 
 /** The row at a line of the Information Elements block it is in, if it is in one. */
 export function elementRowAt(block: Block | undefined, line: number): ElementRow | undefined {
@@ -268,19 +337,59 @@ function markAvp(line: Line, start: number, end: number, avp: string) {
   }
 }
 
+const COMMAND_SECTION = '; Command-Section: ';
+
+/**
+ * Splits a block's `; Command-Section:` number out of its line into a link to that clause: in the document its
+ * `; Command:` name links to, which a `; From:` table's is another's, else the one the export found it described in,
+ * else the file's own. A line the export split already is left as it is.
+ */
+function markCommandSection(file: DadFile, block: Block) {
+  const section = block.fields['Command-Section'];
+  if (!section) return;
+  const own = (file as DadFile & { id?: string }).id;
+  let document: string | undefined;
+  for (let index = block.line; index <= block.last; index++) {
+    const tokens = file.lines[index]?.tokens;
+    if (!tokens) continue;
+    if (tokens[0]?.text === '; Command: ') document ??= tokens[1]?.target?.document;
+    const first = tokens[0];
+    if (!first || first.target || first.source || first.kind || !first.text.startsWith(COMMAND_SECTION + section))
+      continue;
+    const rest = first.text.slice(COMMAND_SECTION.length + section.length);
+    if (rest && !/^\s/.test(rest)) return;
+    document ??= block.described?.[0]?.document ?? own;
+    if (!document) return;
+    tokens.splice(
+      0,
+      1,
+      { text: COMMAND_SECTION },
+      { text: section, target: { document, section } },
+      ...(rest ? [{ text: rest }] : []),
+    );
+    return;
+  }
+}
+
 /**
  * Marks the names in an Information Elements row's mapping cell as AVPs where the export left them a plain link, as
  * in a document that only prints the tables (TS 29.328), or plain text, as `Result-Code/Experimental-Result` (TS
  * 29.283), so they open what an AVP's name does. Each is looked for after the row's first cell, in the order it names them.
+ * A block's `; Command-Section:` number becomes a link to that clause, where the command its table describes is printed.
  */
-export const markElements = perFile(({ lines, blocks }) => {
+export const markElements = perFile(file => {
+  const { lines, blocks } = file;
   for (const block of blocks) {
     if (!isElements(block)) continue;
+    markCommandSection(file, block);
     for (const row of block.element_rows ?? []) {
       const line = lines[row.line];
       if (!line) continue;
       const text = line.tokens.map(token => token.text).join('');
-      let from = text.startsWith(row.cells[0] ?? '') ? (row.cells[0] ?? '').length : 0;
+      // Past the indent of a row set off under a grouped AVP's, and past the element's name where the table names it.
+      const indent = text.length - text.trimStart().length;
+      const first = row.cells[0] ?? '';
+      let from = indent + (row.name != null && text.startsWith(first, indent) ? first.length : 0);
       for (const avp of row.avps ?? []) {
         const start = text.indexOf(avp, from);
         if (start < 0) continue;

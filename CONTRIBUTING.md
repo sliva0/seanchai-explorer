@@ -3,7 +3,9 @@
 ## Setup
 
 Node 24 or newer with npm, and [uv](https://docs.astral.sh/uv/) for the builds, which run
-`seanchai` (see [Building](README.md#building)). Run `npm ci`. The unit tests need
+the `seanchai` that `seanchai-release.json` pins (see [Building](README.md#building)), even
+inside a Seanchaí checkout; `SEANCHAI_ROOT=../..` runs that checkout's working tree
+instead. Run `npm ci`. The unit tests need
 neither uv nor an export: they read `tests/fixtures/export`.
 
 ## Commands
@@ -94,6 +96,20 @@ reading of a file marks the tokens naming a value or a command, so they link as 
 names do. The index of documents gives each one's interfaces, which the index page and
 search show beside its title, a blank where it has none or the corpus does not say.
 
+Every data file is checked as it arrives, in `loadJSON` (`src/data.ts`): a 404, or a web
+page sent in its place as `vite preview` sends `index.html` for a file it does not have, is
+the file missing; then it must be JSON, of the schema the site reads, and have the parts
+every file of its kind has. Each failure is a `DataError` (`src/errors.ts`) naming its
+problem, which `describeFailure` turns into the page's words: the file, the HTTP status,
+both schema numbers, or a document the data does not list. A page that throws as it is
+drawn, in a component or an effect, is held by `FailureBoundary` (`src/failure-view.tsx`),
+which shows the failure in its place, and the router says which document failed; where
+the frame itself fails, `main.tsx` draws the message without Preact. An error nothing
+caught, in a handler or a promise, is a notice at the foot of the page. Each failure is
+logged once with `console.error`, the error object itself. `commands.json`,
+`elements.json` and `tables.json` are indexes the pages go on without: one failing is
+empty, said in a notice and logged.
+
 The export's `commands.json` holds every command block and Command Codes registry row,
 about 130 kB, which a command's popup needs from documents not loaded and which
 `search.json` holds only inside 8 MB the document pages never fetch. It comes with the
@@ -111,6 +127,18 @@ is: TS 29.272's 7.2.9 prints IDR twice, for S6a's and S6d's application ids, eac
 described by its own table, which matching by name alone gave both. The corrected text and
 `commands.json` find a block's tables by its line, a raw view, whose blocks list no
 `described_by` and whose lines differ, by its clause, name and ordinal.
+
+A row's `name` is null in a table naming its rows by their AVPs alone (`; Columns: AVP
+Cat`, TS 32.299's), and its `depth` the levels it is set off under the grouped AVP rows
+above it; the index gives each row its `parents`, those rows' AVPs outermost first
+(`rowParents`), and maps a member of the command only from a row of the command's own
+level, as the corpus's model does: a row set off under Requested-Service-Unit describes
+that AVP's CC-Time, not the command's. A row of the file at hand and the index's are the
+same by name, AVPs and parents (`sameElementRow`), where a name alone tells no row of such
+a table from another. A category is the export's: M, C, O, TS 32.299's OM and OC, a dash
+for not used, or null for a blank cell; `categoryNote` compares them with the brackets as
+the corpus's linter does. A block's `; Command-Section:`, the clause printing the command
+its table describes where a document prints it more than once, links to that clause.
 
 Prepare writes `public/data/tables.json` too, which `src/tables.ts` derives from the
 export's documents: each document's tables by their `; Table:` number, at the first block
@@ -189,6 +217,7 @@ Do not edit `src/types.ts` by hand.
 | Files in `src/` | Hold |
 |---|---|
 | `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
+| `errors.ts`, `failure-view.tsx` | what a failure is and says, and the page shown in its place and the boundary holding it |
 | `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and toolbar |
 | `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |

@@ -51,7 +51,7 @@ export const header = {
 export const pageMessages = {
   /** The page's content while a document over 150 ms to load loads: `label` is its name, "TS 29.272". */
   loading: (label: string) => `Loading ${label}…`,
-  /** The heading of the page shown for an error; the error's own message is under it. */
+  /** The heading of the page shown for an error no other heading names, and the page's title. */
   failed: 'Something went wrong',
   /** The heading of the page for an address naming no document the corpus holds, and the page's title. */
   notFound: 'Document not found',
@@ -60,10 +60,81 @@ export const pageMessages = {
   /** An error's message: the build's export is of another schema than the site reads; `path` the file, the numbers versions. */
   unsupportedSchema: (found: number, path: string, reads: number) =>
     `Unsupported export schema ${found} in ${path} (expected schema ${reads})`,
+  /** An error's message: a data file the server answered with an error; `status` its HTTP status, "404 Not Found". */
+  httpFailed: (path: string, status: string) => `${path}: HTTP ${status}`,
+  /** An error's message: a data file the server answered with a web page, not JSON. */
+  servedPage: (path: string) => `${path}: the server sent a web page, not JSON`,
+  /** An error's message: a data file that is not JSON; `reason` is the parser's. */
+  notJson: (path: string, reason: string) => `${path} is not JSON: ${reason}`,
+  /** An error's message: a data file that could not be fetched at all; `reason` is the browser's. */
+  unreachable: (path: string, reason: string) => `${path} could not be fetched: ${reason}`,
+  /** An error's message: a data file of the right schema missing a part every such file has. */
+  badShape: (path: string, field: string, kind: string) => `${path} has no ${field} ${kind}`,
+  /** The kinds of part `badShape` names. */
+  list: 'list',
+  record: 'record',
+  text: 'text',
   /** An error's message, only where a build's grammar is broken: a key the highlighter cannot run, at a path in it. */
   grammarKey: (key: string, where: string) => `Unsupported grammar key "${key}" at ${where}`,
   /** An error's message, only where a build's grammar is broken. */
   grammarRegion: (where: string) => `Grammar rule at ${where} must define both "begin" and "end"`,
+};
+
+/**
+ * The page shown where something failed: a heading, what failed in plain words, what to do where there is something,
+ * the way back, and the technical detail, folded. Each case has its own heading and words; `file` is a data file's path,
+ * "data/documents/29272-j60.json", `label` a document's name, "TS 29.272 V19.6.0".
+ */
+export const failure = {
+  /** A document the build's data does not list, by its id in the address. */
+  noDocument: (id: string) => `This build's data has no document "${id}".`,
+  noDocumentHint: 'The address may be mistyped, or come from another build of the site.',
+  /** A data file the server does not have: a 404, or a web page sent in its place, as vite preview sends index.html. */
+  missingHeading: 'Data file missing',
+  missing: (file: string, status: string) => `${file} is not in this build's data (HTTP ${status}).`,
+  missingPage: (file: string) =>
+    `${file} is not in this build's data: the server sent a web page in its place, as vite preview does for a file it does not have.`,
+  missingHint: "The build's data is incomplete. Building the site again writes it whole.",
+  /** A data file the server failed on otherwise. */
+  httpHeading: 'Could not load the data',
+  http: (file: string, status: string) => `The server could not send ${file} (HTTP ${status}).`,
+  /** A data file that could not be fetched at all, as offline. */
+  unreachable: (file: string) => `${file} could not be fetched: the server did not answer.`,
+  unreachableHint: 'Check the connection, then reload.',
+  /** A data file that is not JSON. */
+  notJsonHeading: 'Broken data file',
+  notJson: (file: string) => `${file} is not valid JSON.`,
+  /** A data file of another export schema than this build reads: both numbers. */
+  schemaHeading: 'Data of another export schema',
+  schema: (file: string, found: string, reads: number) =>
+    `${file} was written by export schema ${found}, and this build reads schema ${reads}.`,
+  schemaHint:
+    'The site and its data come from different builds. Building the site again with the seanchai it pins writes data it reads.',
+  /** A data file of the right schema, but not shaped as the build reads it. */
+  shapeHeading: 'Unexpected data',
+  shape: (file: string, reads: number) =>
+    `${file} is of export schema ${reads}, which this build reads, but not in the shape it reads.`,
+  /** A document's page that failed as it was drawn: its data has something this build does not handle. */
+  renderHeading: (label: string) => `Could not show ${label}`,
+  render: (label: string) => `${label} failed as it was drawn.`,
+  /** After `shape` and `render`: `seanchai` is the version the build's data names, "0.2.0". */
+  newerHint: (seanchai: string) =>
+    `The data may come from a newer seanchai than this build was made for (seanchai ${seanchai}). Building the site with the seanchai it pins writes data it reads.`,
+  /** A page of the site's own that failed as it was drawn: `page` is its name, "Search". */
+  pageRender: (page: string) => `The ${page} page failed as it was drawn.`,
+  /** Anything else. */
+  other: 'The site stopped on an error it did not expect.',
+  /** Before the error's own message. */
+  error: 'Error:',
+  /** [limit] The way back: links of a word or two. */
+  toIndex: 'Back to the index',
+  reload: 'Reload',
+  /** The fold holding the stack. */
+  details: 'Technical details',
+  /** The notice of an error a page did not catch, at the foot of the page, before its message. */
+  unexpected: 'Something went wrong',
+  /** A data file a page can go on without, which failed: `file` is its path; the error follows. */
+  partFailed: (file: string) => `Could not load ${file}; the pages go on without it`,
 };
 
 /** A notice at the foot of any page, saying what failed, over the page until dismissed. */

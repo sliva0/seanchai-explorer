@@ -17,6 +17,7 @@ import {
   scopeWords,
   textOnly,
   unscoped,
+  elementRowContext,
 } from '../constraints.ts';
 import type { ConstraintBlock, ReadContext } from '../constraints.ts';
 import { docName, newestOf } from '../data.ts';
@@ -31,6 +32,7 @@ import { constraintsSection, elementDepth, elementText } from '../text/rules.ts'
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
   if (!use || use.kind === 'head' || use.kind === 'row') return {};
   if (use.kind === 'member') return blockContext(file, blockAt(file, use.rule.line));
+  if (use.kind === 'element') return elementRowContext(use.block, use.row, blockContext(file, use.block));
   return blockContext(file, use.block);
 }
 

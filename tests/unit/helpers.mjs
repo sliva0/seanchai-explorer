@@ -54,7 +54,8 @@ globalThis.cancelAnimationFrame ??= () => {};
  * `session` is what the tab's storage already holds, `clickTarget` the stored place a click on a name goes to first,
  * `commands` whether the export has its command index, `elements` whether the build derived an index of Information
  * Elements tables, `plugin` whether it has the Wireshark plugin, whose text
- * `transform` is given too, and `prepare` runs on the page before it starts.
+ * `transform` is given too, `serve` answers a fetched path in the fixture's place where it returns a response, and
+ * `prepare` runs on the page before it starts.
  */
 export async function boot({
   hash = '',
@@ -73,6 +74,7 @@ export async function boot({
   elements = true,
   plugin = true,
   transform = (_path, data) => data,
+  serve = () => undefined,
 } = {}) {
   const window = new Window({
     url: url ?? `http://localhost/${hash}`,
@@ -100,6 +102,8 @@ export async function boot({
     const parsed = new URL(input);
     const path = parsed.pathname.replace(/^\//, '');
     fetched.push(parsed.hostname === 'localhost' ? path : parsed.href);
+    const served = await serve(path);
+    if (served) return served;
     if (path === 'syntax/dad.tmLanguage.json')
       return { ok: true, json: async () => JSON.parse(await readFile(grammar, 'utf8')) };
     if (path === 'plugin/seanchai_diameter.lua') {

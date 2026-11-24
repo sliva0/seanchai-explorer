@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      # With a ref, the build runs the seanchai on PATH: the repository's two workspace packages at that ref.
+      # With a ref, the build runs the seanchai on PATH, SEANCHAI_ON_PATH=1: the repository's two workspace packages at that ref.
       - name: Install seanchai from a ref
         if: env.SEANCHAI_GIT_REF != ''
         run: |
@@ -40,6 +40,7 @@ jobs:
             "seanchai @ git+$SEANCHAI_REPOSITORY@$SEANCHAI_GIT_REF" \
             "seanchai-corpus @ git+$SEANCHAI_REPOSITORY@$SEANCHAI_GIT_REF#subdirectory=packages/seanchai-corpus"
           echo "$RUNNER_TEMP/seanchai/bin" >> "$GITHUB_PATH"
+          echo "SEANCHAI_ON_PATH=1" >> "$GITHUB_ENV"
       - run: npm ci
       - run: npm run lint
       - run: npm run format:check

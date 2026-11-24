@@ -1,7 +1,8 @@
 import { allAvpRows, blockAt, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import { codecs, elementText, markText, ruleKinds, ruleText, scopeText } from './text/rules.ts';
-import type { Block, ConstraintCondition, ConstraintRule } from './types.ts';
+import { blockRowKey } from './elements.ts';
+import type { Block, ConstraintCondition, ConstraintRule, ElementRow } from './types.ts';
 
 /*
  * Interpreted Constraints: what a clause's prose says of an AVP's value or presence, as a reader declared it, pinned to
@@ -98,6 +99,12 @@ export function blockContext(file: DadFile, block: Block | undefined): ReadConte
     if (command) return { command: { name: command, application } };
   }
   return {};
+}
+
+/** Where an Information Elements row reads its AVP: within the grouped AVP it is set off under, or else the block's command. */
+export function elementRowContext(block: Block, row: ElementRow, context: ReadContext): ReadContext {
+  const parents = blockRowKey(block, row).parents;
+  return parents.length ? { within: parents[parents.length - 1] } : context;
 }
 
 export { codecs, ruleKinds };
@@ -333,7 +340,8 @@ export function constraintLines(file: DadFile, source: DadFile): Map<number, Con
     if (block.rule && block.type !== 'Answer Message')
       for (const member of block.rule.members) add(member.line, constraintsFor(source, member.name, context));
     for (const row of block.element_rows ?? [])
-      for (const avp of row.avps ?? []) add(row.line, constraintsFor(source, avp, context));
+      for (const avp of row.avps ?? [])
+        add(row.line, constraintsFor(source, avp, elementRowContext(block, row, context)));
   }
   for (const row of allAvpRows(file)) add(row.line, constraintsFor(source, row.name, {}).filter(unscoped));
   return lines;

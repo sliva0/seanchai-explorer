@@ -9,11 +9,10 @@ import {
   wordTypos,
 } from './fuzzy.ts';
 import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
-import { categoryWords } from './elements.ts';
+import { categoryLabel } from './elements.ts';
 import type { Category, DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
 import { identityWords } from './text/search.ts';
-import { categoryText } from './text/terms.ts';
 
 type Kind = SearchEntry['kind'];
 export const EXACT = 0;
@@ -401,8 +400,7 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
 }
 
 /** "M, mandatory": an information element's category, or nothing where its row prints none. */
-const elementCategory = (category: Category | null) =>
-  category ? categoryText(category, categoryWords[category]) : '';
+const elementCategory = (category: Category | null) => (category ? categoryLabel(category) : '');
 /** "AVP User-Name", "AVPs Result-Code, Experimental-Result": what an information element maps to. */
 const elementAvps = (avps: string[]) => (avps.length ? identityWords.elementAvps(avps.length, avps.join(', ')) : '');
 

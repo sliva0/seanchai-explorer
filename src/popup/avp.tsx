@@ -25,7 +25,7 @@ import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
 import { elementPlace, memberPlaces } from '../element-places.ts';
-import { elementText, memberElements, tablesFor, tablesOf } from '../elements.ts';
+import { blockRowKey, elementText, memberElements, sameElementRow, tablesFor, tablesOf } from '../elements.ts';
 import type { ElementTable } from '../elements.ts';
 import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
@@ -304,9 +304,26 @@ function elementFacts(
   }
   if (use?.kind !== 'element') return { notes: [], places: [] };
   const { block, row } = use;
+  const key = blockRowKey(block, row);
+  // A row set off under a grouped AVP's row describes that AVP's member: it goes to the row it is set off under.
+  if (key.parents.length) {
+    const rows = block.element_rows ?? [];
+    const parent = rows.slice(0, rows.indexOf(row)).findLast(other => (other.depth ?? 0) < (row.depth ?? 0));
+    const avp = key.parents[key.parents.length - 1];
+    const place = parent && {
+      document: doc.id,
+      position: { section: block.section, page: block.page, name: avp, row: true },
+      target: { document: doc.id, section: block.section, name: avp },
+      line: parent.line,
+    };
+    return {
+      notes: [words.elementLine(elementText(row)), words.setOffUnder(key.parents.join(words.parentsBetween))],
+      places: place ? [placeRow(words.underRow, 'place-element', place, avp)].filter(item => item !== undefined) : [],
+    };
+  }
   const tables = tablesOf(index, doc.id, block);
   const places = tables.flatMap(table => {
-    const indexed = table.rows.find(other => other.name === row.name && other.avps.includes(name));
+    const indexed = table.rows.find(other => sameElementRow(other, key) && other.avps.includes(name));
     const { message } = table;
     return indexed
       ? memberPlaces(table, indexed, file, doc)

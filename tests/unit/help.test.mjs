@@ -77,12 +77,20 @@ test("it lists every control of controls.ts but the PDF viewer's, the README's k
     assert.deepEqual(
       marks,
       [
-        [[['C', 'help-mark help-mark-category']], 0],
+        [
+          [
+            ['C', 'help-mark help-mark-category'],
+            ['OC', 'help-mark help-mark-category'],
+            ['OM', 'help-mark help-mark-category'],
+          ],
+          0,
+        ],
         [
           [
             ['M', 'help-mark help-mark-disagrees'],
             ['O', 'help-mark help-mark-disagrees'],
             ['C', 'help-mark help-mark-disagrees'],
+            ['-', 'help-mark help-mark-disagrees'],
           ],
           0,
         ],
@@ -121,8 +129,8 @@ test("it lists every control of controls.ts but the PDF viewer's, the README's k
     assert.equal(mouse.querySelectorAll('.help-note').length, 1);
     assert.equal(mouse.querySelector('.help-note').textContent.split('. ').length, 1, 'one sentence of note');
     assert.deepEqual(
-      [...mouse.querySelectorAll('dt')].slice(-2).map(node => node.textContent),
-      ['; Section: or ; Page: or ; Table:', 'Table link'],
+      [...mouse.querySelectorAll('dt')].slice(-3).map(node => node.textContent),
+      ['; Section: or ; Page: or ; Table:', '; Command-Section:', 'Table link'],
       "a block header's links and a popup's table as rows of their own",
     );
     const codec = [...help.querySelectorAll('.help-codecs dt')].findIndex(node => node.textContent === 'element');

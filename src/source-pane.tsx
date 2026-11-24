@@ -378,7 +378,11 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
         .loadRaw(doc.id)
         .then(
           raw => printedRow(doc, raw, position),
-          () => null,
+          // Without the raw mirror, the pane looks for the row as corrected, which a renamed one may not print.
+          (error: unknown) => {
+            console.warn(error);
+            return null;
+          },
         )
         .then(printed => place(printed ? { ...position, printed } : position));
     },

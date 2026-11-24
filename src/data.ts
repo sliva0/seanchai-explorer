@@ -3,13 +3,16 @@ import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
 import { emptyElements, markElements } from './elements.ts';
 import type { ElementIndex } from './elements.ts';
+import { DataError } from './errors.ts';
+import type { DataProblem } from './errors.ts';
+import { notifyFailure } from './notice.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
 import { emptyTables, markTables } from './tables.ts';
 import type { TableIndex } from './tables.ts';
 import { valueTables } from './values.ts';
-import { indexPage, pageMessages } from './text/site.ts';
+import { failure, indexPage, pageMessages } from './text/site.ts';
 
 export type Mode = Index['mode'];
 export type PaneKind = 'pdf' | 'rfc' | 'placeholder';
@@ -17,14 +20,80 @@ export type PaneKind = 'pdf' | 'rfc' | 'placeholder';
 export const siteURL = (path: string) => new URL(path, new URL('.', location.href));
 export const dataURL = (path: string) => siteURL(`data/${path}`);
 
-async function loadJSON<T>(path: string): Promise<T> {
-  const response = await fetch(dataURL(path));
-  if (!response.ok) throw new Error(`${response.status}: ${path}`);
-  const data = (await response.json()) as T & { schema_version: number };
-  if (data.schema_version !== SCHEMA_VERSION)
-    throw new Error(pageMessages.unsupportedSchema(data.schema_version, path, SCHEMA_VERSION));
+/** The parts every file of a kind has, and what each is: what tells a file of the right schema from a misshapen one. */
+export type Shape = Record<string, 'list' | 'record' | 'text'>;
+
+const isKind = (value: unknown, kind: Shape[string]) =>
+  kind === 'list'
+    ? Array.isArray(value)
+    : kind === 'text'
+      ? typeof value === 'string'
+      : typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** An HTTP status as a browser's response says it: "404 Not Found", or the number alone. */
+const statusOf = (response: Response) => `${response.status}${response.statusText ? ` ${response.statusText}` : ''}`;
+
+/**
+ * Fetches a data file and checks it is what the site reads: there, JSON, of the export schema the site reads, and with
+ * the parts `shape` names. Each failure is a `DataError` saying which; a web page sent in a file's place, as
+ * `vite preview` sends index.html for a file it does not have, is the file missing.
+ */
+export async function loadJSON<T>(path: string, shape: Shape = {}): Promise<T> {
+  const file = `data/${path}`;
+  let response: Response;
+  try {
+    response = await fetch(dataURL(path));
+  } catch (error) {
+    throw new DataError({ kind: 'unreachable', file }, pageMessages.unreachable(file, String(error)), { cause: error });
+  }
+  if (!response.ok) {
+    const status = statusOf(response);
+    const problem: DataProblem =
+      response.status === 404 || response.status === 410
+        ? { kind: 'missing', file, status, page: false }
+        : { kind: 'http', file, status };
+    throw new DataError(problem, pageMessages.httpFailed(file, status));
+  }
+  const page = response.headers?.get('content-type')?.includes('text/html') ?? false;
+  if (page)
+    throw new DataError(
+      { kind: 'missing', file, status: statusOf(response), page: true },
+      pageMessages.servedPage(file),
+    );
+  let data: T & { schema_version?: unknown };
+  try {
+    data = (await response.json()) as T & { schema_version?: unknown };
+  } catch (error) {
+    throw new DataError({ kind: 'not-json', file }, pageMessages.notJson(file, String(error)), { cause: error });
+  }
+  const version = typeof data === 'object' && data !== null ? data.schema_version : undefined;
+  if (version !== SCHEMA_VERSION) {
+    const found = version === undefined ? '?' : String(version);
+    throw new DataError(
+      { kind: 'schema', file, found, reads: SCHEMA_VERSION },
+      pageMessages.unsupportedSchema(version as number, path, SCHEMA_VERSION),
+    );
+  }
+  for (const [field, kind] of Object.entries(shape)) {
+    if (isKind((data as Record<string, unknown>)[field], kind)) continue;
+    throw new DataError(
+      { kind: 'shape', file, reads: SCHEMA_VERSION },
+      pageMessages.badShape(file, field, pageMessages[kind]),
+    );
+  }
   return data;
 }
+
+/** The parts of each kind of data file the site reads. */
+const shapes = {
+  index: { mode: 'text', documents: 'list' },
+  document: { id: 'text', lines: 'list', blocks: 'list', sections: 'list' },
+  raw: { lines: 'list', blocks: 'list' },
+  search: { entries: 'list', mentions: 'list' },
+  commands: { commands: 'list' },
+  elements: { tables: 'list' },
+  tables: { tables: 'record' },
+} satisfies Record<string, Shape>;
 
 export function docLabel(doc: Pick<DocumentSummary, 'specification' | 'version'>): string {
   return `${doc.specification}${doc.version ? ` V${doc.version}` : ''}`;
@@ -235,6 +304,17 @@ function marked<T extends DadFile>(file: T): T {
   return file;
 }
 
+/**
+ * What an index the pages can go on without becomes where it fails: empty, the failure said in a notice and logged, as
+ * every build writes the three indexes and one missing is a broken build. The pages show the text without what it gives.
+ */
+const partFailed =
+  <T>(path: string, empty: (schemaVersion: number) => T) =>
+  (error: unknown): T => {
+    notifyFailure(failure.partFailed(`data/${path}`), error);
+    return empty(SCHEMA_VERSION);
+  };
+
 export function createSite(index: Index): Site {
   const summaries = new Map(index.documents.map(doc => [doc.id, doc]));
   const editions = olderEditions(index.documents);
@@ -246,10 +326,10 @@ export function createSite(index: Index): Site {
   let elementsLoading: Promise<ElementIndex> | undefined;
   let tables: TableIndex | undefined;
   let tablesLoading: Promise<TableIndex> | undefined;
-  function cached<T>(path: string): Promise<T> {
+  function cached<T>(path: string, shape: Shape): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
     if (!result) {
-      result = loadJSON<T>(path);
+      result = loadJSON<T>(path, shape);
       cache.set(path, result);
       result.catch(() => cache.delete(path));
     }
@@ -257,7 +337,7 @@ export function createSite(index: Index): Site {
   }
   const known = (id: string) => {
     const summary = summaries.get(id);
-    if (!summary) throw new Error(pageMessages.noSuchDocument(id));
+    if (!summary) throw new DataError({ kind: 'no-document', id }, pageMessages.noSuchDocument(id));
     return summary;
   };
   return {
@@ -267,28 +347,28 @@ export function createSite(index: Index): Site {
     edition: doc => editions.get(doc.id) ?? '',
     label: doc => [docName(doc), editions.get(doc.id)].filter(Boolean).join(' '),
     loadDocument: id =>
-      cached<Document>(known(id).path)
+      cached<Document>(known(id).path, shapes.document)
         .then(marked)
         .then(doc => {
           held.set(id, doc);
           return doc;
         }),
     held: id => held.get(id),
-    loadRaw: id => cached<RawDocument>(known(id).raw!).then(marked),
-    loadSearch: () => cached<Search>('search.json'),
+    loadRaw: id => cached<RawDocument>(known(id).raw!, shapes.raw).then(marked),
+    loadSearch: () => cached<Search>('search.json', shapes.search),
     loadCommands: () =>
-      (commandsLoading ??= loadJSON<CommandIndex>('commands.json')
-        .catch(() => emptyIndex(SCHEMA_VERSION))
+      (commandsLoading ??= loadJSON<CommandIndex>('commands.json', shapes.commands)
+        .catch(partFailed('commands.json', emptyIndex))
         .then(index => (commands = index))),
     commands: () => commands,
     loadElements: () =>
-      (elementsLoading ??= loadJSON<ElementIndex>('elements.json')
-        .catch(() => emptyElements(SCHEMA_VERSION))
+      (elementsLoading ??= loadJSON<ElementIndex>('elements.json', shapes.elements)
+        .catch(partFailed('elements.json', emptyElements))
         .then(index => (elements = index))),
     elements: () => elements,
     loadTables: () =>
-      (tablesLoading ??= loadJSON<TableIndex>('tables.json')
-        .catch(() => emptyTables(SCHEMA_VERSION))
+      (tablesLoading ??= loadJSON<TableIndex>('tables.json', shapes.tables)
+        .catch(partFailed('tables.json', emptyTables))
         .then(index => (tables = index))),
     tables: () => tables,
   };
@@ -296,5 +376,5 @@ export function createSite(index: Index): Site {
 
 /** Checks the export's schema before anything else is fetched. */
 export async function openSite(): Promise<Site> {
-  return createSite(await loadJSON<Index>('index.json'));
+  return createSite(await loadJSON<Index>('index.json', shapes.index));
 }

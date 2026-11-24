@@ -21,7 +21,12 @@ export const popupShared = {
   anyOtherAvp: 'any other AVP',
   bold: 'bold',
   struckThrough: 'struck through',
-  category: (categories: string) => `category ${categories}`,
+  /** `categories` its letters, M or M/O; TS 32.299's dash, not used, said so. */
+  category: (categories: string) =>
+    `category ${categories
+      .split('/')
+      .map(category => (category === '-' ? 'not used' : category))
+      .join('/')}`,
   /** A notice where a document a popup or the inspector needs fails to load: `label` is its name. */
   loadFailed: (label: string) => `Could not load referenced document ${label}`,
 };
@@ -122,11 +127,16 @@ export const avpPopup = {
   noCommand: 'This table does not specify a command',
   noRule: (command: string) => `No unique rule for ${command} matches this table`,
   notMember: (command: string) => `Not a member of the ${command} rule`,
+  /** A row set off under grouped AVP rows, TS 32.299's: the AVPs it is under, outermost first, joined by `parentsBetween`. */
+  setOffUnder: (parents: string) => `A member of ${parents}`,
+  parentsBetween: ' › ',
   /** [limit] Labels of a place, before its colon. A word or two. */
   definition: 'Definition',
   details: 'Details',
   elementPlace: 'Element',
   member: 'Member',
+  /** The row of the grouped AVP a row is set off under, in its table. */
+  underRow: 'Under',
   /** An Enumerated AVP's values, as a place, where no value table holds them. */
   enumerated: 'Enumerated',
   /** [limit] The toggles over a Grouped AVP's members, and over its uses, each with a count. */

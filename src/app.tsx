@@ -1,6 +1,9 @@
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect } from 'preact/hooks';
+import { docVersioned } from './data.ts';
 import type { Site } from './data.ts';
+import type { Failure, FailureContext } from './errors.ts';
+import { FailureBoundary, FailurePanel } from './failure-view.tsx';
 import { DocumentPage } from './document-view.tsx';
 import type { DocumentView, ViewServices } from './document-view.tsx';
 import { HelpDialog, HelpToggle, useHelp } from './help.tsx';
@@ -15,7 +18,7 @@ import { SearchView } from './search-view.tsx';
 import type { Theme } from './theme.ts';
 import type { Document, RawDocument } from './types.ts';
 import { WiresharkView } from './wireshark-view.tsx';
-import { header, pageMessages } from './text/site.ts';
+import { header, jumpPlaces, pageMessages } from './text/site.ts';
 
 /** What the content shows, as the router has worked it out. */
 export type Page =
@@ -26,7 +29,8 @@ export type Page =
   /** A search; `key` is the arrival, each of which starts the page afresh. */
   | { kind: 'search'; key: number; query: string; returning: boolean; onReady(): void }
   | { kind: 'wireshark' }
-  | { kind: 'message'; heading: string; detail?: string }
+  /** Something failed: the page says what, and the way back. */
+  | { kind: 'failure'; failure: Failure }
   | { kind: 'loading'; label: string }
   /** A document's text, drawn afresh for each `key`: each load of it, which the router then positions. */
   | {
@@ -48,10 +52,13 @@ export interface AppProps {
   walk(walk: JumpWalk): void;
   /** Where the header's Index goes: the index's tab last shown in this browser. */
   indexHref: string;
+  /** Told of a failure as a page was drawn, which the page shows in its place. */
+  onRenderError?(error: unknown): void;
 }
 
 /** The content's class, which the stylesheet lays each page out by. */
 const pageClass: Partial<Record<Page['kind'], string>> = {
+  failure: 'failure-view',
   index: 'index-view',
   wireshark: 'wireshark-view',
   document: 'document-view',
@@ -81,7 +88,8 @@ function Content({
   page,
   jumps,
   walk,
-}: Omit<AppProps, 'theme' | 'toggleTheme' | 'indexHref'>): ComponentChildren {
+  indexHref,
+}: Omit<AppProps, 'theme' | 'toggleTheme' | 'onRenderError'>): ComponentChildren {
   switch (page.kind) {
     case 'start':
       return null;
@@ -93,13 +101,8 @@ function Content({
       );
     case 'wireshark':
       return <WiresharkView site={site!} />;
-    case 'message':
-      return (
-        <>
-          <h1 tabIndex={-1}>{page.heading}</h1>
-          {page.detail && <p>{page.detail}</p>}
-        </>
-      );
+    case 'failure':
+      return <FailurePanel failure={page.failure} indexHref={indexHref} />;
     case 'loading':
       return <p role="status">{pageMessages.loading(page.label)}</p>;
     case 'document':
@@ -143,6 +146,18 @@ function useSearchKey() {
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, []);
+}
+
+/** What a page's failure says of where it was: the document drawn, or the site's own page, and the build's data. */
+function failureContext(page: Page, site: Site | undefined): FailureContext {
+  const seanchai = site?.index.seanchai_version ?? undefined;
+  if (page.kind === 'document') return { document: docVersioned(page.doc), seanchai };
+  const names: Partial<Record<Page['kind'], string>> = {
+    index: jumpPlaces.index,
+    search: jumpPlaces.search,
+    wireshark: jumpPlaces.wireshark,
+  };
+  return { page: names[page.kind], seanchai };
 }
 
 /** The site: the header, and the page the route shows under it. */
@@ -190,7 +205,14 @@ export function App(props: AppProps) {
         </div>
       </header>
       <main id="content" tabIndex={-1} class={pageClass[page.kind] ?? ''}>
-        <Content {...props} />
+        <FailureBoundary
+          page={page}
+          context={failureContext(page, props.site)}
+          indexHref={indexHref}
+          onError={props.onRenderError}
+        >
+          <Content {...props} />
+        </FailureBoundary>
       </main>
       <HelpDialog help={help} selfHosted={props.site?.mode === 'self-hosted'} />
     </>

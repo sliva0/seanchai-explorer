@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import test from 'node:test';
-import { pinText, releaseArgs } from '../../scripts/seanchai.mjs';
+import { pinText, releaseArgs, seanchaiWays } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const site = path.join(root, 'public/syntax/dad.tmLanguage.json');
@@ -162,6 +162,19 @@ esac
 }
 
 const escaped = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('a plain build runs the pin, even inside a checkout; SEANCHAI_ROOT or SEANCHAI_ON_PATH runs another, and SEANCHAI_PINNED the pin over both', () => {
+  const ways = env => seanchaiWays(['export'], { env }).map(way => [way.command, way.pinned === true, way.args.at(-1)]);
+  const pin = [['uvx', true, 'export']];
+  assert.deepEqual(ways({}), pin, 'neither the checkout this repository is in nor a seanchai on PATH');
+  const checkout = seanchaiWays(['export'], { env: { SEANCHAI_ROOT: '/work/seanchai' } });
+  assert.deepEqual(
+    checkout.map(way => [way.command, way.args.slice(0, 3), way.cwd]),
+    [['uv', ['run', '--project', '/work/seanchai'], '/work/seanchai']],
+  );
+  assert.deepEqual(ways({ SEANCHAI_ON_PATH: '1' }), [['seanchai', false, 'export']]);
+  assert.deepEqual(ways({ SEANCHAI_ROOT: '/work/seanchai', SEANCHAI_ON_PATH: '1', SEANCHAI_PINNED: '1' }), pin);
+});
 
 test('a pin of versions runs them from PyPI, and a pin of a commit runs its two packages from the repository', () => {
   const versions = { seanchai: '0.3.0', 'seanchai-corpus': '2027.01.01' };

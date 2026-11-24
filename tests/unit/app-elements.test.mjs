@@ -31,6 +31,8 @@ test('the element index has a table once for each Message block it describes, in
     either: false,
     printed: null,
     category: 'M',
+    depth: 0,
+    parents: [],
     members: [{ name: 'User-Identity', line: 24 }],
   });
   const result = index.tables.find(table => table.command === 'Data-Update-Answer').rows[0];

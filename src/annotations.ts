@@ -41,10 +41,14 @@ const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkP
   title: [
     ...elements.map(({ table, row }) =>
       [
-        row.category ? markWords.category(row.category, categoryWords[row.category]) : markWords.noCategory,
+        row.category
+          ? markWords.category(row.category, categoryWords[row.category] ?? row.category)
+          : markWords.noCategory,
         row.name,
         table.table ? tableName(table.table) : table.section,
-      ].join(' · '),
+      ]
+        .filter(Boolean)
+        .join(' · '),
     ),
     ...disagreements,
   ],
@@ -52,7 +56,7 @@ const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkP
 
 /**
  * Information Elements: a member a table describes has its category after it where the category says what its
- * brackets do not, a C, or contradicts them. An M on `{ }` or an O on `[ ]` the brackets say already, so it has none;
+ * brackets do not, a C, TS 32.299's OM, OC or dash, or contradicts them. An M on `{ }` or an O on `[ ]` the brackets say already, so it has none;
  * its popup, the inspector and the tables say every category.
  */
 const elements: Annotator = (file, document, site) => {

@@ -1,8 +1,10 @@
 import { App } from './app.tsx';
 import type { AppProps, Page } from './app.tsx';
-import { openSite, paneKind, siteURL } from './data.ts';
+import { docVersioned, openSite, paneKind, siteURL } from './data.ts';
 import type { Site } from './data.ts';
 import type { DocumentView, ViewServices } from './document-view.tsx';
+import { DataError, describeFailure, reportError } from './errors.ts';
+import type { FailureContext } from './errors.ts';
 import { createHighlighter } from './highlight.ts';
 import type { Grammar, HighlightedLine } from './highlight.ts';
 import { jumpTargets } from './jump-controls.tsx';
@@ -13,7 +15,7 @@ import { createChords, keyWalk, takesTyping } from './keys.ts';
 import { indexTabs, selectTab, tabHref, tabTitle } from './index-tabs.ts';
 import { WIRESHARK, isIndex, namesDocument, pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
-import { clearNotices, noticeRegion } from './notice.ts';
+import { clearNotices, noticeRegion, notifyFailure } from './notice.ts';
 import { createPositionStore } from './positions.ts';
 import { createPopups } from './popup/index.tsx';
 import { mount } from './render.ts';
@@ -23,7 +25,7 @@ import { readStored, session, writeStored } from './storage.ts';
 import { initTheme } from './theme.ts';
 import type { Theme } from './theme.ts';
 import type { Line } from './types.ts';
-import { header, jumpPlaces, pageMessages, site as siteText } from './text/site.ts';
+import { failure as failureWords, header, jumpPlaces, pageMessages, site as siteText } from './text/site.ts';
 
 // The router: it works out from the route what the page shows and where, draws it with <App>, and keeps the jump list,
 // the browser's history and each document's position. Drawing is synchronous (see render.ts), so what it reads of the
@@ -39,10 +41,53 @@ let state: AppProps = {
   walk: () => {},
   indexHref: '#',
 };
-/** Draws the site again with `next` changed. */
+/** The first failure a page's boundary caught as it was drawn: a document's page that is not there failed so. */
+let renderFailure: { error: unknown } | undefined;
+/** Set once the site's own frame failed to draw, past what a page's boundary holds: nothing is drawn over it again. */
+let broken = false;
+
+/**
+ * Draws the site again with `next` changed. A failure of the frame itself, the header, where no page's boundary holds
+ * it, leaves the page to a plain message drawn without Preact, which the half-drawn tree cannot be trusted to draw.
+ */
 function draw(next: Partial<AppProps>) {
   state = { ...state, ...next };
-  mount(<App {...state} />, root);
+  if (broken) return;
+  try {
+    mount(<App {...state} onRenderError={error => (renderFailure ??= { error })} />, root);
+  } catch (error) {
+    broken = true;
+    reportError(error);
+    drawBroken(error);
+  }
+}
+
+/** The failure page, in plain DOM: where the site's own frame failed to draw. */
+function drawBroken(error: unknown) {
+  const failure = describeFailure(error);
+  setTitle(failure.heading);
+  const main = document.createElement('main');
+  main.id = 'content';
+  main.className = 'failure-view';
+  const panel = document.createElement('div');
+  panel.className = 'failure';
+  const heading = document.createElement('h1');
+  heading.textContent = failure.heading;
+  const summary = document.createElement('p');
+  summary.textContent = `${failure.summary} ${failureWords.error} ${failure.message}`;
+  const back = document.createElement('a');
+  back.href = '#';
+  back.textContent = failureWords.toIndex;
+  back.addEventListener('click', () => location.reload());
+  const details = document.createElement('details');
+  const fold = document.createElement('summary');
+  fold.textContent = failureWords.details;
+  const stack = document.createElement('pre');
+  stack.textContent = failure.stack;
+  details.append(fold, stack);
+  panel.append(heading, summary, back, details);
+  main.append(panel);
+  root.replaceChildren(main);
 }
 // The page's main element, which every draw keeps: read through the root, as `document` may be another by the time a
 // load finishes in a test.
@@ -63,14 +108,29 @@ function focusHeading() {
   (content().querySelector('h1') ?? content()).focus({ preventScroll: true });
 }
 
-function showMessage(heading: string, detail?: string) {
-  setTitle(heading);
-  draw({ page: { kind: 'message', heading, detail } });
+/**
+ * Shows a failure in the page's place: what failed in plain words, and the way back. It is logged, the error object
+ * itself, for its stack; a failure a page's boundary caught already was logged there.
+ */
+function showError(error: unknown, context: FailureContext = {}) {
+  reportError(error);
+  const failure = describeFailure(error, { seanchai: state.site?.index.seanchai_version ?? undefined, ...context });
+  setTitle(failure.heading);
+  draw({ page: { kind: 'failure', failure } });
 }
 
-function showError(error: unknown) {
-  showMessage(pageMessages.failed, String(error));
-}
+// An error nothing caught, in a handler or a promise no one waits for, is said at the foot of the page, over it, which
+// stays as it is: logged with its stack, and not again by the browser.
+window.addEventListener('error', event => {
+  // A resource that failed to load, as an image, is no error of the site's.
+  if (!(event instanceof ErrorEvent)) return;
+  event.preventDefault();
+  notifyFailure(failureWords.unexpected, event.error ?? event.message);
+});
+window.addEventListener('unhandledrejection', event => {
+  event.preventDefault();
+  notifyFailure(failureWords.unexpected, event.reason);
+});
 
 try {
   const site = await openSite();
@@ -346,7 +406,9 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
     const meta = site.summary(parsed.document);
     if (!meta) {
       leaveDocument();
-      showMessage(pageMessages.notFound);
+      showError(
+        new DataError({ kind: 'no-document', id: parsed.document }, pageMessages.noSuchDocument(parsed.document)),
+      );
       if (arrived) focusHeading();
       return;
     }
@@ -372,6 +434,7 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
         ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         sourcePane.mount(doc);
+        renderFailure = undefined;
         draw({
           page: {
             kind: 'document',
@@ -385,7 +448,9 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
           },
         });
       }
-      const current = view!;
+      // A page that failed as it was drawn made no view: its boundary holds the failure, which the page then says.
+      if (!view) throw renderFailure ? renderFailure.error : new Error(failureWords.render(site.label(meta)));
+      const current = view;
       sourcePane.setVisible(!parsed.paneHidden);
       const value = parsed.name === undefined ? undefined : current.valueRow(parsed.section, parsed.name);
       // Before anything is waited for, so that a page is never painted at the wrong place first.
@@ -413,7 +478,9 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
     } catch (error) {
       if (generation !== request) return;
       leaveDocument();
-      showError(error);
+      // A failure drawing the page is the document's; one loading it, its data's.
+      const drawing = renderFailure !== undefined && renderFailure.error === error;
+      showError(error, drawing ? { document: docVersioned(meta) } : {});
       if (arrived) focusHeading();
     }
   }

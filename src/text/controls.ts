@@ -35,7 +35,7 @@ export const controlGroups: ControlGroup[] = [
       { keys: ['Alt-click'], does: 'Jump both the document view and the source pane to that location.' },
       {
         keys: ['Right-click'],
-        does: 'Open the name\'s popup: uses, flags, Definition, and Details (with "Jump to" for both panes and "Show in source" for the source pane only); for commands, identity, other definitions, and Information Elements tables. Command members linked to an Information Elements table also show their element and category (M, C, or O), and constrained AVPs list the interpreted constraints that apply where they are used.',
+        does: 'Open the name\'s popup: uses, flags, Definition, and Details (with "Jump to" for both panes and "Show in source" for the source pane only); for commands, identity, other definitions, and Information Elements tables. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used.',
       },
       {
         keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],
@@ -44,6 +44,10 @@ export const controlGroups: ControlGroup[] = [
       {
         keys: ['; Section:', '; Page:', '; Table:'],
         does: "In a block header: jump to that place in the source document; a ;\u00a0Table: link goes to the table's caption.",
+      },
+      {
+        keys: ['; Command-Section:'],
+        does: 'In an Information Elements header: go to the section printing the command the table describes, where a document prints it more than once.',
       },
       {
         keys: ['Table link'],
@@ -57,14 +61,14 @@ export const controlGroups: ControlGroup[] = [
     marks: true,
     controls: [
       {
-        keys: ['C'],
+        keys: ['C', 'OC', 'OM'],
         mark: 'category',
-        does: "A member's category in its command's Information Elements table where ABNF brackets cannot express it: C, conditional.",
+        does: "A member's category in its command's Information Elements table where ABNF brackets cannot express it: C, conditional; TS 32.299's OC and OM, conditional or mandatory where the operator provisions it.",
       },
       {
-        keys: ['M', 'O', 'C'],
+        keys: ['M', 'O', 'C', '-'],
         mark: 'disagrees',
-        does: 'In the warning colour: a category that contradicts the ABNF brackets, such as M on [ ] or O on { }; its tooltip says how.',
+        does: 'In the warning colour: a category that contradicts the ABNF brackets, such as M on [ ] or O on { }, or a member the ABNF holds that the table marks - for not used; its tooltip says how.',
       },
       {
         keys: ['¶'],

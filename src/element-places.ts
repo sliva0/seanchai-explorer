@@ -1,6 +1,6 @@
 import type { Place } from './avp-places.ts';
 import type { DadFile } from './blocks.ts';
-import { elementsBlock, messageBlock } from './elements.ts';
+import { blockRowOf, elementsBlock, messageBlock } from './elements.ts';
 import type { ElementTable, IndexedElementRow } from './elements.ts';
 import type { Document } from './types.ts';
 
@@ -18,7 +18,7 @@ export function elementPlace(
   const target = { document: table.document, section: table.section, name: avp };
   if (table.document !== doc.id) return { document: table.document, target, line: row.line };
   const block = elementsBlock(file, table.section, table.command, table.table);
-  const line = block?.element_rows?.find(other => other.name === row.name && other.avps?.includes(avp))?.line;
+  const line = blockRowOf(block, row)?.line;
   return {
     document: doc.id,
     position: { section: table.section, page: table.page, name: avp, row: true },

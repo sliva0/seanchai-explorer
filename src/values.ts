@@ -116,11 +116,15 @@ export function valueRowAt(file: DadFile, section: string, name: string): ValueR
   return rows.find(row => row.target?.section === section) ?? rows.find(row => row.table.section === section);
 }
 
+/** Every kind of value table, in the order search lists them, each with its words. */
 export const valueKinds: { kind: ValueKind; title: string; row: string }[] = (
-  ['result-codes', 'bits', 'features'] as const
+  Object.keys(valueKindWords) as ValueKind[]
 ).map(kind => ({ kind, ...valueKindWords[kind] }));
-export const valueKindTitle = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.title;
+/** A kind's words; a kind this build does not know, of a newer export, is called by its own name. */
+const kindWords = (kind: ValueKind) =>
+  valueKinds.find(entry => entry.kind === kind) ?? { kind, title: kind, row: kind };
+export const valueKindTitle = (kind: ValueKind) => kindWords(kind).title;
 /** What a table lists, told from the others of its clause: "Bits", "Features list 1 (S6a/S6d)". */
 export const valueTableTitle = (table: ValueTable) =>
   `${valueKindTitle(table.kind)}${table.featureListId === null ? '' : valueTableWords.list(table.featureListId)}${table.application ? valueTableWords.application(table.application) : ''}`;
-export const valueRowLabel = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.row;
+export const valueRowLabel = (kind: ValueKind) => kindWords(kind).row;

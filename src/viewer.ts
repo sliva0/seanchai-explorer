@@ -270,6 +270,7 @@ eventBus.on('pagesinit', () => {
       }
     })
     .catch(error => {
+      console.error(error);
       container.textContent = String(error);
     });
 });
@@ -451,5 +452,6 @@ try {
   linkService.setDocument(pdf);
   findLinkService.setDocument(pdf);
 } catch (error) {
+  console.error(error);
   container.textContent = String(error);
 }

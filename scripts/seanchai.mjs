@@ -6,13 +6,13 @@ import path from 'node:path';
 
 export const project = fileURLToPath(new URL('../', import.meta.url));
 
-const checkout = path.resolve(project, '../..');
-/** A Seanchaí checkout to run: `SEANCHAI_ROOT`, or the one this repository is inside. */
-export const root = process.env.SEANCHAI_ROOT
-  ? path.resolve(process.env.SEANCHAI_ROOT)
-  : existsSync(path.join(checkout, 'editors/vscode/syntaxes/dad.tmLanguage.json'))
-    ? checkout
-    : null;
+const parent = path.resolve(project, '../..');
+/** The Seanchaí checkout this repository is inside at `.local/seanchai-explorer`, if it is: its `specifications/` is the default. */
+export const checkout = existsSync(path.join(parent, 'editors/vscode/syntaxes/dad.tmLanguage.json')) ? parent : null;
+
+/** A Seanchaí checkout to run instead of the pin: `SEANCHAI_ROOT`, only where it is set. */
+export const rootOf = (env = process.env) => (env.SEANCHAI_ROOT ? path.resolve(env.SEANCHAI_ROOT) : null);
+export const root = rootOf();
 
 /**
  * The `seanchai` and `seanchai-corpus` a build runs, exactly, so that one commit always publishes one corpus:
@@ -41,9 +41,10 @@ export const releaseArgs = (extras = 'corpus', pin = release) => [
 ];
 
 /**
- * The ways to run `seanchai` with `args`, in order: the checkout's through `uv`, else the one on `PATH`, else the
- * pinned release through `uvx`, which `SEANCHAI_PINNED=1` makes the only one. `pinned` is the last's: its export
- * is the release's.
+ * The ways to run `seanchai` with `args`, in order. By default only the pinned release, through `uvx`, so that a build
+ * from a plain checkout of this repository is the one `seanchai-release.json` names. `SEANCHAI_ROOT` runs that
+ * checkout's working tree through `uv` instead, and `SEANCHAI_ON_PATH=1` the `seanchai` on `PATH`; `SEANCHAI_PINNED=1`
+ * runs the pin whatever else is set. `pinned` is the pin's way: its export is the release's.
  */
 export function seanchaiWays(args, { extract = false, env = process.env } = {}) {
   const pinned = {
@@ -52,19 +53,25 @@ export function seanchaiWays(args, { extract = false, env = process.env } = {}) 
     pinned: true,
   };
   if (env.SEANCHAI_PINNED === '1') return [pinned];
-  if (root)
+  const checkoutRoot = rootOf(env);
+  if (checkoutRoot)
     return [
       {
         command: 'uv',
-        args: ['run', '--project', root, ...(extract ? ['--extra', 'extract'] : []), 'seanchai', ...args],
+        args: ['run', '--project', checkoutRoot, ...(extract ? ['--extra', 'extract'] : []), 'seanchai', ...args],
+        cwd: checkoutRoot,
       },
     ];
-  return [{ command: 'seanchai', args }, pinned];
+  if (env.SEANCHAI_ON_PATH === '1') return [{ command: 'seanchai', args }];
+  return [pinned];
 }
 
-/** The `seanchai corpus download` directory: `SEANCHAI_SPECIFICATIONS`, the checkout's, or `specifications/` here. */
+/**
+ * The `seanchai corpus download` directory: `SEANCHAI_SPECIFICATIONS`, else the checkout's that `SEANCHAI_ROOT` names
+ * or this repository is inside, or `specifications/` here. Only documents are read from it, never the checkout's code.
+ */
 export const specifications = path.resolve(
-  process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root ?? project, 'specifications'),
+  process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root ?? checkout ?? project, 'specifications'),
 );
 
 /**
@@ -74,7 +81,7 @@ export const specifications = path.resolve(
  */
 export function runSeanchai(args, { extract = false, stdio = 'inherit' } = {}) {
   for (const way of seanchaiWays(args, { extract })) {
-    const cwd = way.pinned ? project : (root ?? project);
+    const cwd = way.cwd ?? project;
     const result = spawnSync(way.command, way.args, { cwd, stdio, encoding: 'utf8' });
     if (result.error?.code === 'ENOENT') continue;
     if (result.error) throw result.error;
@@ -84,7 +91,7 @@ export function runSeanchai(args, { extract = false, stdio = 'inherit' } = {}) {
 }
 
 export const NO_SEANCHAI =
-  'Neither seanchai nor uv was found: install uv (https://docs.astral.sh/uv/), or set SEANCHAI_ROOT or SEANCHAI_EXPORT';
+  'No way to run seanchai was found: install uv (https://docs.astral.sh/uv/) to run the pinned release, or set SEANCHAI_ROOT, SEANCHAI_ON_PATH=1 or SEANCHAI_EXPORT';
 
 /** Runs `seanchai` as `runSeanchai` does, exits with its status if it fails, and says whether it ran the pinned release. */
 export function seanchai(args, options) {
