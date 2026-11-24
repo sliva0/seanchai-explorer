@@ -7,9 +7,11 @@ import type { DadFile } from '../blocks.ts';
 import {
   blockContext,
   constraintsFor,
+  elementEntry,
   elementParts,
   lineText,
   membersParts,
+  referenceText,
   ruleNote,
   ruleWords,
   scopeWords,
@@ -17,13 +19,13 @@ import {
   unscoped,
 } from '../constraints.ts';
 import type { ConstraintBlock, ReadContext } from '../constraints.ts';
-import { newestOf } from '../data.ts';
+import { docName, newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
-import type { ConstraintRule, Document } from '../types.ts';
+import type { ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
 import { Counted, placeRows, TableLink } from './shared.tsx';
-import { constraintsSection } from '../text/rules.ts';
+import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
 
 /** Where a use reads its name: in the command or grouped AVP of its block, or wherever. */
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
@@ -142,15 +144,95 @@ function RuleText({
 
 /**
  * A rule as the text prints it, its kind the keyword, as the block's line has it, less its indent: `requires DSR-Flags
- * bit "Trace Data Withdrawal"`.
+ * bit "Trace Data Withdrawal"`. A name the line links wraps whole, never at its hyphens, as in the document view.
  */
-function Printed({ text }: { text: string }) {
-  const [, kind = '', rest = ''] = text.trim().match(/^(\S+)(.*)$/) ?? [];
+function Printed({ doc, line }: { doc: Document; line: number }) {
+  const parts: ComponentChild[] = [];
+  let started = false;
+  for (const [index, token] of (doc.lines[line]?.tokens ?? []).entries()) {
+    let text = token.text.replace(/\n$/, '');
+    if (!started) {
+      text = text.trimStart();
+      if (!text) continue;
+      started = true;
+      const [, kind = '', rest = ''] = text.match(/^(\S+)([\s\S]*)$/) ?? [];
+      parts.push(
+        <span key="kind" class="constraint-keyword">
+          {kind}
+        </span>,
+      );
+      text = rest;
+      if (!text) continue;
+    }
+    parts.push(
+      token.avp ? (
+        <span key={index} class="constraint-name">
+          {text}
+        </span>
+      ) : (
+        text
+      ),
+    );
+  }
+  return <code class="constraint-printed">{parts}</code>;
+}
+
+/**
+ * A source an element's layout was read from: the document, a link to the edition read where the corpus holds it, or
+ * else to its newest, as an element rule's document links, and text where it holds none; then the edition and clause,
+ * and what in the clause as its title.
+ */
+function SourceText({ site, source }: { site: Site; source: ElementSource }) {
+  const editions = site.index.documents.filter(doc => doc.reference === source.document);
+  const doc =
+    editions.find(edition => edition.version && `V${edition.version}` === source.edition) ??
+    newestOf(site.index.documents, source.document);
+  const tail = elementText.source(source.edition, source.clause);
   return (
-    <code class="constraint-printed">
-      <span class="constraint-keyword">{kind}</span>
-      {rest}
-    </code>
+    <span class="element-source" title={source.where}>
+      {doc ? (
+        <a class="constraint-document" href={routeFor({ document: doc.id })}>
+          {docName(doc)}
+        </a>
+      ) : (
+        referenceText(source.document)
+      )}
+      {tail}
+    </span>
+  );
+}
+
+/**
+ * What an element rule's element is and how far the Wireshark plugin checks it, as the corpus's element registry
+ * says, under the rule: the element, what is checked and how far, what is not and why (or, checked in full, what is
+ * left open), and the editions its layout was read from.
+ */
+function ElementRows({ site, entry }: { site: Site; entry: ElementEntry }) {
+  const row = (label: string, value: ComponentChild, kind: string) => (
+    <span class={`element-row element-${kind}`}>
+      <span class="element-label">{label}: </span>
+      {value}
+    </span>
+  );
+  return (
+    <span class={`constraint-element element-depth-${entry.depth}`}>
+      {row(elementText.is, entry.title, 'title')}
+      {entry.depth !== 'none' &&
+        row(elementText.checked, elementText.checks(elementDepth(entry.depth), entry.check), 'check')}
+      {entry.unchecked &&
+        row(entry.depth === 'full' ? elementText.open : elementText.unchecked, entry.unchecked, 'unchecked')}
+      {entry.sources.length > 0 &&
+        row(
+          elementText.sources,
+          entry.sources.map((source, index) => (
+            <Fragment key={index}>
+              {index > 0 && elementText.between}
+              <SourceText site={site} source={source} />
+            </Fragment>
+          )),
+          'sources',
+        )}
+    </span>
   );
 }
 
@@ -216,12 +298,14 @@ export function ConstraintFacts({
               <li key={index} class="constraint-reading">
                 {rules.map(rule => {
                   const printed = lineText(doc, rule.line);
+                  const entry = elementEntry(rule);
                   return (
                     <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
                       <span class="constraint-words">
                         <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
                       </span>
-                      <Printed text={printed} />
+                      <Printed doc={doc} line={rule.line} />
+                      {entry && <ElementRows site={site} entry={entry} />}
                     </span>
                   );
                 })}

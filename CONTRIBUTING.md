@@ -135,7 +135,10 @@ said of its block's `Within`, and a `members` rule's `members` link in a popup t
 AVPs by the tokens naming them on its line. An `encoding
 element` rule's `document` is a reference, as `TS24.008`, which a popup links to the
 corpus's newest edition of (`newestOf` in `src/data.ts`) and leaves as text where it holds
-none. A raw view reads them from the corrected document by its blocks' names, as it reads
+none. Its `element_entry`, where the export gives one, is the element registry's: what the
+element is, its check and `depth`, what is left `unchecked`, and its `sources`, which a
+popup draws under the rule, a source's document linking to the edition read where the
+corpus holds it, else to its newest. A raw view reads them from the corrected document by its blocks' names, as it reads
 the element index, and goes to the corrected text for a block. `search.json` has no
 entries for them.
 

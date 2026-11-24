@@ -1117,13 +1117,15 @@ mark {
 .plugin-about p {
   margin: var(--space-2) 0 0;
 }
+/* A finding's line wraps in its box, its continuation under the place, rather than scrolling sideways. */
 .wireshark-view pre.plugin-finding {
   margin-block: var(--space-2) 0;
-  overflow-x: auto;
-  white-space: pre;
+  padding-left: calc(var(--space-3) + 4ch);
+  text-indent: -4ch;
+  white-space: pre-wrap;
 }
 .plugin-finding code {
-  overflow-wrap: normal;
+  overflow-wrap: break-word;
 }
 /* Narrower than its codes, a phone's screen scrolls the table sideways rather than the page. */
 .plugin-findings {
@@ -1438,8 +1440,29 @@ mark {
   display: block;
   color: var(--ui-fg);
 }
-/* A members rule's names, each a link to its AVP, wrap between names, not inside one. */
-.constraint-avp {
+/* A members rule's names, each a link to its AVP, wrap between names, not inside one; so do the names a printed rule's
+   line links. */
+.constraint-avp,
+.constraint-name {
+  white-space: nowrap;
+}
+/* What an element rule's element is and how far it is checked, under the rule: a row each, wrapping under its label. */
+.constraint-element {
+  display: block;
+  margin-top: 2px;
+  color: var(--ui-fg);
+}
+.element-row {
+  display: block;
+  padding-left: 1em;
+  text-indent: -1em;
+  overflow-wrap: break-word;
+}
+.element-label {
+  color: var(--ui-muted);
+}
+/* A source read wraps between sources, not inside one: "TS 29.274 V19.6.0 (8.21.5)". */
+.element-source {
   white-space: nowrap;
 }
 .constraint-quote {
@@ -1705,6 +1728,10 @@ mark {
 .help-rule-kinds code {
   font: var(--text-xs)/1.5 var(--mono);
   white-space: nowrap;
+}
+/* A rule kind as printed is wider than a key: its column takes the longest, rather than it running into its words. */
+.help-rule-kinds dt {
+  max-width: none;
 }
 .help-list kbd {
   padding: 0 var(--space-1);

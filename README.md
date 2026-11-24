@@ -47,6 +47,8 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 | Alt-click | the same place in the text and the pane |
 | Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
 | Ctrl-, Shift- or Cmd-click | the browser's |
+| `; Section:`, `; Page:` or `; Table:` in a block header | that place in the source document, a `; Table:` its table's caption |
+| a table in a popup or the inspector | the table's block in the text |
 
 | Line marks, after a line's end and left out of a copy | |
 |---|---|
@@ -153,7 +155,11 @@ for `members`, "unique across APN-Configuration instances" for `unique` within o
 "is 1 if Monitoring-Type is 1" for `values`), with its quote, and a text-only one, a rule
 no checker can run on one message, as "Cannot be checked on a single message" and its quote. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
-rule's names link to their AVPs as the text's do. Each block offers `From`, its clause
+rule's names link to their AVPs as the text's do. Under an element rule, what the corpus's
+element registry says of it: what the element is, what the Wireshark plugin checks of it
+and how far ("full layout", "partly", "length only", or not checked), what that leaves
+unchecked and why, and the documents, editions and clauses its layout was read from, each
+a link where the corpus holds it; the ¶'s title says only how far. Each block offers `From`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
 its origin. The help says what each kind of rule says, as the text prints one, what
@@ -280,7 +286,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "c39f25aae344a46b08cfdc431911de0305e7c883"
+  "commit": "ec92b3caab6c511bbd242b49faa5ca29c1a28ab0"
 }
 ```
 

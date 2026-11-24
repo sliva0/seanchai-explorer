@@ -116,6 +116,21 @@ test("it lists every control of controls.ts but the PDF viewer's, the README's k
       'two paragraphs, then the rule kinds and the codecs, each after its line',
     );
     assert.match(constraints.children[2].textContent, /a note under seanchai\.interpreted\.$/);
+    assert.match(constraints.children[2].textContent, /"encoding element" rule only as far as the document defining/);
+    const mouse = help.querySelector('.help-group');
+    assert.equal(mouse.querySelectorAll('.help-note').length, 1);
+    assert.equal(mouse.querySelector('.help-note').textContent.split('. ').length, 1, 'one sentence of note');
+    assert.deepEqual(
+      [...mouse.querySelectorAll('dt')].slice(-2).map(node => node.textContent),
+      ['; Section: or ; Page: or ; Table:', 'Table link'],
+      "a block header's links and a popup's table as rows of their own",
+    );
+    const codec = [...help.querySelectorAll('.help-codecs dt')].findIndex(node => node.textContent === 'element');
+    assert.match(help.querySelectorAll('.help-codecs dd')[codec].textContent, /how far the Wireshark plugin checks it/);
+    assert.ok(
+      said.some(text => text.includes('(;\u00a0Within:)')),
+      '; Within: kept whole',
+    );
   } finally {
     await page.close();
   }

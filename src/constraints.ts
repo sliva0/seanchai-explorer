@@ -1,6 +1,6 @@
 import { allAvpRows, blockAt, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
-import { codecs, markText, ruleKinds, ruleText, scopeText } from './text/rules.ts';
+import { codecs, elementText, markText, ruleKinds, ruleText, scopeText } from './text/rules.ts';
 import type { Block, ConstraintCondition, ConstraintRule } from './types.ts';
 
 /*
@@ -160,15 +160,25 @@ const predicateWords: Record<string, string> = {
 };
 
 /**
+ * A document's reference as a reader writes it, where the corpus holds no edition to name it by: `TS23.003` is
+ * "TS 23.003" and `RFC6733` "RFC 6733"; any other, as `3GPP2-A.S0022`, as the export gives it.
+ */
+export const referenceText = (reference: string) => reference.replace(/^(TS|TR|RFC)(?=\d)/, '$1 ');
+
+/**
  * An element rule's words around its document, which a popup links where the corpus holds it: "encoded as", the
- * document as printed, and "clause 4.4 “Zone Code”".
+ * document as a reader writes it, and "section 4.4 “Zone Code”".
  */
 export function elementParts(rule: Pick<ConstraintRule, 'document' | 'clause' | 'element'>) {
   const after = [rule.clause && ruleText.clause(rule.clause), rule.element && ruleText.element(rule.element)]
     .filter(Boolean)
     .join(' ');
-  return { before: ruleText.encodedAs, document: rule.document ?? null, after };
+  return { before: ruleText.encodedAs, document: rule.document ? referenceText(rule.document) : null, after };
 }
+
+/** An element rule's entry in the corpus's element registry, what the element is and how far it is checked. */
+export const elementEntry = (rule: ConstraintRule) =>
+  rule.kind === 'encoding' && rule.codec === 'element' ? (rule.element_entry ?? undefined) : undefined;
 
 /** The codec an encoding rule names, an element with its document, clause and name. */
 function encodingWords(rule: ConstraintRule): string {
@@ -229,9 +239,12 @@ export function ruleWords(rule: ConstraintRule, printed: string, within?: string
   }
 }
 
-/** A codec's layout, for the title of a rule naming it. */
+/**
+ * A codec's layout, for the title of a rule naming it; none for an element its entry says, as the rows under the rule
+ * do.
+ */
 export const ruleNote = (rule: ConstraintRule): string | undefined =>
-  rule.kind === 'encoding' && rule.codec ? codecs[rule.codec]?.layout : undefined;
+  rule.kind === 'encoding' && rule.codec && !elementEntry(rule) ? codecs[rule.codec]?.layout : undefined;
 
 /** "Within APN-Configuration", "In Delete-Subscriber-Data-Request", "Wherever read": where a block's rules hold. */
 export function scopeWords({ scope }: Pick<ConstraintBlock, 'scope'>, short: (command: string) => string = String) {
@@ -282,10 +295,16 @@ export function markTitle(file: DadFile, source: DadFile, line: number, blocks: 
     for (const reading of item.block.readings ?? []) {
       const words = textOnly(reading.rules)
         ? markText.textOnly(shortQuote(reading.quotes.map(quote => quote.text).join(' ')))
-        : reading.rules
-            .filter(rule => rule.kind !== 'text-only')
-            .map(rule => ruleWords(rule, lineText(source, rule.line), item.scope.within))
-            .join(markText.joined);
+        : [
+            reading.rules
+              .filter(rule => rule.kind !== 'text-only')
+              .map(rule => ruleWords(rule, lineText(source, rule.line), item.scope.within))
+              .join(markText.joined),
+            ...reading.rules.flatMap(rule => {
+              const entry = elementEntry(rule);
+              return entry ? [elementText.mark(entry.depth)] : [];
+            }),
+          ].join('\n');
       if (!said.includes(words)) said.push(words);
     }
     groups.set(heading, said);

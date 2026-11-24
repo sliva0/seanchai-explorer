@@ -32,14 +32,18 @@ const NOR_MEMBERS_RULE = 1487;
 
 /**
  * No element rule of TS 29.272 names a document the corpus holds, so RAND's, which names TS 33.401, stands in for one
- * naming TS 29.329, which the fixture has.
+ * naming TS 29.329, which the fixture has, and its entry's first source, TS 33.401 V19.2.0, for TS 29.329's V19.1.0.
  */
 function heldElement(path, data) {
   if (path !== 'data/documents/29272-j60.json') return data;
   for (const block of data.blocks)
     if (block.name === 'RAND' && block.readings)
       for (const reading of block.readings)
-        for (const rule of reading.rules) if (rule.codec === 'element') rule.document = 'TS29.329';
+        for (const rule of reading.rules)
+          if (rule.codec === 'element') {
+            rule.document = 'TS29.329';
+            Object.assign(rule.element_entry.sources[0], { document: 'TS29.329', edition: 'V19.1.0' });
+          }
   return data;
 }
 
@@ -264,6 +268,7 @@ test('the corrected text of TS 29.272', async t => {
       );
       present(rule);
       assert.equal(rule.querySelector('.constraint-printed').textContent, 'members only IMEI Software-Version');
+      assert.deepEqual(texts(rule, '.constraint-printed .constraint-name'), ['IMEI', 'Software-Version'], 'whole');
       assert.equal(
         rule.querySelector('.constraint-words').textContent,
         'no members present except IMEI, Software-Version',
@@ -301,7 +306,57 @@ test('the corrected text of TS 29.272', async t => {
       absent(unheld.querySelector('.constraint-rule a'));
       assert.equal(
         unheld.querySelector('.constraint-words').textContent,
-        'encoded as TS23.003 section 4.4 “Zone Code”',
+        'encoded as TS 23.003 section 4.4 “Zone Code”',
+      );
+      await closePopup(page);
+    });
+
+    await t.test('an element rule says what the element is, how far it is checked, and where it was read', async () => {
+      const rows = popup => texts(popup, '.constraint-element .element-row');
+      const ecgi = await popupOf(
+        page,
+        document.querySelector('.dad-line.interpreted [data-avp="E-UTRAN-Cell-Global-Identity"]'),
+      );
+      const rule = ecgi.querySelector('.constraint-rule');
+      assert.equal(
+        rule.querySelector('.constraint-words').textContent,
+        'encoded as TS 29.002 section 17.7.8 “E-UTRAN-CGI”',
+      );
+      assert.equal(rule.title, '', 'the rows say it, not a title');
+      const said = rows(ecgi);
+      assert.match(said[0], /^Element: /);
+      assert.equal(said[1], 'Checked: full layout — 7 octets; a PLMN identity in octets 1 to 3');
+      assert.match(
+        said.at(-1),
+        /^Read from: TS 29\.002 V19\.1\.0 \(17\.7\.8\), TS 29\.118 V19\.1\.0 \(9\.4\.3a\), TS 29\.274 /,
+      );
+      absent(ecgi.querySelector('.constraint-element a'), 'the corpus holds none of them');
+      assert.match(ecgi.querySelector('.element-source').title, /E-UTRAN-CGI ::= OCTET STRING/);
+      await closePopup(page);
+      const trace = await popupOf(
+        page,
+        document.querySelector('.dad-line.interpreted [data-avp="Trace-Interface-List"]'),
+      );
+      const traced = rows(trace);
+      assert.equal(traced[1], 'Checked: length only — 23 octets');
+      assert.match(traced[2], /^Not checked: the spare bits/);
+      await closePopup(page);
+      const csg = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="CSG-Id"]'));
+      const none = [...csg.querySelectorAll('.constraint-element')].find(node =>
+        node.classList.contains('element-depth-none'),
+      );
+      present(none);
+      assert.ok(!texts(none, '.element-row').some(row => row.startsWith('Checked:')), 'no Checked row');
+      assert.ok(texts(none, '.element-row').some(row => row.startsWith('Not checked: ')));
+      await closePopup(page);
+      const rand = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="RAND"]'));
+      const source = rand.querySelector('.constraint-element a.constraint-document');
+      present(source);
+      assert.equal(source.textContent, 'TS 29.329');
+      assert.equal(source.getAttribute('href'), '#29329-j10');
+      assert.match(
+        texts(rand, '.element-row').at(-1),
+        /^Read from: TS 29\.329 V19\.1\.0 \(6\.1\.2\), TS 33\.102 V19\.1\.0 \(6\.3\.7\)$/,
       );
       await closePopup(page);
     });

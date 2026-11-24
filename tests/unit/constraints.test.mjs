@@ -6,13 +6,18 @@ import {
   constraintBlocks,
   constraintLines,
   constraintsFor,
+  elementEntry,
   elementParts,
   holdsIn,
   interpretedLines,
+  markTitle,
+  referenceText,
   ruleKinds,
+  ruleNote,
   ruleWords,
   scopeWords,
 } from '../../src/constraints.ts';
+import { elementDepth } from '../../src/text/rules.ts';
 import { readFixture } from './helpers.mjs';
 
 const words = (rule, printed = '', within) => ruleWords({ line: 0, ...rule }, printed, within);
@@ -35,9 +40,13 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
       clause: '10.5.5.32',
       element: 'Extended DRX parameter',
     }),
-    'encoded as TS24.008 section 10.5.5.32 “Extended DRX parameter”',
+    'encoded as TS 24.008 section 10.5.5.32 “Extended DRX parameter”',
   );
-  assert.equal(words({ kind: 'encoding', codec: 'element', document: 'TS29.002' }), 'encoded as TS29.002');
+  assert.equal(words({ kind: 'encoding', codec: 'element', document: 'TS29.002' }), 'encoded as TS 29.002');
+  assert.equal(
+    words({ kind: 'encoding', codec: 'element', document: '3GPP2-A.S0022', clause: 'A' }),
+    'encoded as 3GPP2-A.S0022 section A',
+  );
   assert.equal(
     words({
       kind: 'requires',
@@ -92,15 +101,60 @@ test("an element rule's document is apart from its words, for a popup to link", 
   const rule = { kind: 'encoding', codec: 'element', document: 'TS23.003', clause: '4.4', element: 'Zone Code' };
   assert.deepEqual(elementParts(rule), {
     before: 'encoded as',
-    document: 'TS23.003',
+    document: 'TS 23.003',
     after: 'section 4.4 “Zone Code”',
   });
-  assert.deepEqual(elementParts({ document: 'TS29.002' }), { before: 'encoded as', document: 'TS29.002', after: '' });
+  assert.deepEqual(elementParts({ document: 'TS29.002' }), { before: 'encoded as', document: 'TS 29.002', after: '' });
   assert.equal(
     words({ kind: 'encoding', codec: 'element', element: 'RAND' }),
     'encoded as an element from another specification “RAND”',
   );
   assert.equal(words({ kind: 'encoding', codec: 'element', clause: '4.4' }), 'encoded as section 4.4');
+});
+
+test('a reference the corpus holds no edition of is written as a reader writes it', () => {
+  assert.equal(referenceText('TS23.003'), 'TS 23.003');
+  assert.equal(referenceText('TR23.977'), 'TR 23.977');
+  assert.equal(referenceText('RFC6733'), 'RFC 6733');
+  assert.equal(referenceText('3GPP2-A.S0022'), '3GPP2-A.S0022');
+  assert.equal(referenceText('TS 23.003'), 'TS 23.003');
+});
+
+test('every element rule of TS 29.272 carries its registry entry, said by how far it is checked', async () => {
+  const file = await readFixture('documents/29272-j60.json');
+  const items = constraintBlocks(file).flatMap(item =>
+    (item.block.readings ?? []).flatMap(reading => reading.rules.map(rule => ({ item, rule }))),
+  );
+  const elements = items.filter(({ rule }) => rule.codec === 'element');
+  assert.ok(elements.length > 0);
+  for (const { rule } of elements) {
+    const entry = elementEntry(rule);
+    assert.ok(entry, `line ${rule.line}`);
+    assert.ok(['full', 'partial', 'length', 'none'].includes(entry.depth));
+    assert.equal(ruleNote(rule), undefined, 'the rows under the rule say it, not its title');
+  }
+  assert.equal(elementEntry({ kind: 'encoding', codec: 'plmn-id', line: 0 }), undefined);
+  assert.match(ruleNote({ kind: 'encoding', codec: 'element', line: 0 }), /^An information element of another/);
+  assert.deepEqual(['full', 'partial', 'length', 'none', 'deeper'].map(elementDepth), [
+    'full layout',
+    'partly',
+    'length only',
+    'not checked',
+    'deeper',
+  ]);
+  const ecgi = elements.find(({ rule }) => rule.element === 'E-UTRAN-CGI');
+  assert.equal(ruleWords(ecgi.rule, ''), 'encoded as TS 29.002 section 17.7.8 “E-UTRAN-CGI”');
+  const title = markTitle(file, file, ecgi.rule.line, [ecgi.item]);
+  assert.ok(
+    title.some(line => line.endsWith('“E-UTRAN-CGI”\n  Checked: full layout')),
+    title.join('\n'),
+  );
+  const none = elements.find(({ rule }) => elementEntry(rule).depth === 'none');
+  const unchecked = markTitle(file, file, none.rule.line, [none.item]);
+  assert.ok(
+    unchecked.some(line => line.endsWith('\n  Not checked')),
+    unchecked.join('\n'),
+  );
 });
 
 test('every rule kind the schema has is said in words and in the help', async () => {
@@ -133,7 +187,8 @@ test("TS 29.272's default, bits, members, unique and values rules are read with 
   assert.equal(ruleWords(nor.rule, ''), 'defaults to 0 when absent');
   assert.equal(rules.filter(({ rule }) => rule.kind === 'default').length, 9);
   const count = kind => rules.filter(({ rule }) => rule.kind === kind).length;
-  assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [9, 3, 2, 1]);
+  assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [10, 3, 2, 1]);
+  assert.deepEqual(said('CSG-Id', 'bits'), ['bits 0, 1, 2, 3, 4 clear']);
 });
 
 test('a block holds wherever its AVP is read, within its grouped AVP, or in its command of its application', () => {

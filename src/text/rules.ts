@@ -30,7 +30,7 @@ export const ruleKinds: Record<ConstraintRule['kind'], { printed: string; says: 
   },
   unique: {
     printed: 'unique',
-    says: 'Value must be unique across repeated instances of the enclosing grouped AVP (; Within:).',
+    says: 'Value must be unique across repeated instances of the enclosing grouped AVP (;\u00a0Within:).',
   },
   values: {
     printed: 'values 1 if Other-AVP = 1',
@@ -84,7 +84,7 @@ export const codecs: Record<Exclude<Codec, 'element'>, { words: string; layout: 
   },
   element: {
     layout:
-      'An information element defined in another specification, carried verbatim (with its specification, section, and name when given). Not validated beyond any accompanying length rule.',
+      "An information element of another specification, named by its document, section, and name. The rule's popup and the inspector show what the element is, how far the Wireshark plugin checks it, and the editions its layout was read from.",
   },
 };
 
@@ -150,6 +150,36 @@ export const ruleText = {
   /** A rule no checker can run on one message. */
   textOnly: 'cannot be checked on a single message',
 };
+
+/**
+ * What an `encoding element` rule's element is and how far the Wireshark plugin checks it, as the corpus's element
+ * registry says: rows under the rule in the Interpreted section, each a label and its text, and one line under the
+ * rule in the ¶ mark's title.
+ */
+export const elementText = {
+  /** [limit] Each row's label, before its colon: what the element is, what is checked, what is not, and where read. */
+  is: 'Element',
+  checked: 'Checked',
+  /** What a fully checked element leaves open, as any value of a field. */
+  open: 'Left open',
+  /** Why a partly checked or unchecked element is not checked further. */
+  unchecked: 'Not checked',
+  sources: 'Read from',
+  /** How far it is checked, before what is checked: "full layout — 7 octets; …". A `none` has no Checked row. */
+  depth: { full: 'full layout', partial: 'partly', length: 'length only', none: 'not checked' } as Record<
+    string,
+    string
+  >,
+  checks: (depth: string, check: string) => `${depth} — ${check}`,
+  /** A source read: "TS 29.002 V19.1.0 (17.7.8)", the document a link where the corpus holds it; between two. */
+  source: (edition: string, clause: string) => ` ${edition} (${clause})`,
+  between: ', ',
+  /** The ¶ mark's line under the rule: "Checked: full layout", "Not checked". */
+  mark: (depth: string) => (depth === 'none' ? '  Not checked' : `  Checked: ${elementDepth(depth)}`),
+};
+
+/** How far an element is checked, in plain words; a depth the export adds later is said as it names it. */
+export const elementDepth = (depth: string) => elementText.depth[depth] ?? depth;
 
 /** Where a block's rules hold, in the Interpreted section's scope line: "within APN-Configuration", "in DSR". */
 export const scopeText = {

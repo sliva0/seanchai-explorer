@@ -26,7 +26,7 @@ export interface ControlGroup {
 export const controlGroups: ControlGroup[] = [
   {
     title: 'Mouse (on a name)',
-    note: "When the source pane cannot display a document's PDF, clicking a name opens it in the inspector without moving the document view. When the source pane is unavailable (for example, in a narrow window), clicking behaves like Alt-click. Clicking a ; Section:, ; Page:, or ; Table: reference in a block header jumps to that location in the source document (a ; Table: link targets its caption). Clicking a table link inside a popup jumps to its block in the document view.",
+    note: 'Where the source pane cannot show the source, a click opens the name in the inspector; with no pane, as in a narrow window, it acts like Alt-click.',
     controls: [
       {
         keys: ['Click'],
@@ -40,6 +40,14 @@ export const controlGroups: ControlGroup[] = [
       {
         keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],
         does: 'Default browser behavior (for example, open in a new tab or window).',
+      },
+      {
+        keys: ['; Section:', '; Page:', '; Table:'],
+        does: "In a block header: jump to that place in the source document; a ;\u00a0Table: link goes to the table's caption.",
+      },
+      {
+        keys: ['Table link'],
+        does: "In a popup or the inspector: jump to the table's block in the document view.",
       },
     ],
   },

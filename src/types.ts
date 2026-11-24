@@ -503,7 +503,9 @@ export interface ConstraintQuote {
  * A rule of an Interpreted Constraints block at `line`, by `kind`, as
  * the dictionary's `Rule`: `length` has `unit`, `low` and `high`; `range`
  * `low` and `high`; `exclude` `values`; `encoding` `codec`, and an
- * `element`'s `document`, `clause` and `element`; `present-if`,
+ * `element`'s `document`, `clause` and `element`, with `element_entry`,
+ * the element registry's entry for it, omitted where it has none;
+ * `present-if`,
  * `absent-if`, `requires` and `excludes` their `conditions`, alternatives;
  * `default` its `value`; `bits` its `relation` and `bits`; `members` its
  * `relation` and `members`; `values` its `values` and `conditions`;
@@ -516,6 +518,7 @@ export interface ConstraintRule {
   conditions?: ConstraintCondition[];
   document?: string | null;
   element?: string | null;
+  element_entry?: ElementEntry | null;
   high?: number | null;
   kind:
     | 'length'
@@ -548,6 +551,34 @@ export interface ConstraintCondition {
   avp: string;
   bit?: number | string | null;
   value?: number | string | null;
+}
+/**
+ * The element registry's entry for an `encoding element` rule
+ * (`elements.Element`): the element as the rule names it (`document`,
+ * `clause`, `name`), `title`, what it is, `check`, its checks in words,
+ * `depth` (`full`, `partial`, `length` or `none`), `unchecked`, what the
+ * checks leave out and why, and the `sources` read.
+ */
+export interface ElementEntry {
+  check: string;
+  clause: string | null;
+  depth: 'full' | 'partial' | 'length' | 'none';
+  document: string;
+  name: string | null;
+  sources: ElementSource[];
+  title: string;
+  unchecked: string | null;
+}
+/**
+ * Where an element's layout is written (`elements.Source`): the
+ * `document`, the `edition` read as its cover prints it (`V19.1.0`), the
+ * `clause`, and `where` in it, a table, figure or ASN.1 type.
+ */
+export interface ElementSource {
+  clause: string;
+  document: string;
+  edition: string;
+  where: string;
 }
 /**
  * A registry's `; RESERVED first..last` line at `line`.
