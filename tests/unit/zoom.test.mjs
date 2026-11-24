@@ -17,7 +17,7 @@ const hidden = select => [...select.options].filter(option => option.hidden).map
 
 test('the list is short and every scale in it is a step', async () => {
   const select = await zoomSelect();
-  assert.deepEqual(labels(select), ['Width', 'Page', '50%', '75%', '100%', '150%', '200%', '300%']);
+  assert.deepEqual(labels(select), ['Fit width', 'Fit page', '50%', '75%', '100%', '150%', '200%', '300%']);
   for (const { value } of select.options)
     if (!value.startsWith('page-')) assert.ok(zoomSteps.includes(Number(value)), value);
   assert.deepEqual(

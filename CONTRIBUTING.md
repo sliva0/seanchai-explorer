@@ -186,7 +186,7 @@ Do not edit `src/types.ts` by hand.
 | Files in `src/` | Hold |
 |---|---|
 | `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
-| `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and strip |
+| `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and toolbar |
 | `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
@@ -202,8 +202,10 @@ Do not edit `src/types.ts` by hand.
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |
 
-`text/controls.ts` is the list README.md's Mouse and Keyboard sections follow: change both
-together.
+`text/controls.ts` is the list README.md's Mouse and Keyboard sections follow, its line marks
+README.md's Line marks table: change both together. A group of `marks` is drawn as the marks
+a line shows, not as keys, and a `selfHosted` one, the PDF viewer's keys, only by the help of a
+self-hosted build.
 
 ### The interface's words
 
@@ -239,14 +241,14 @@ generators and the public build's check.
 The site is one [Preact](https://preactjs.com) tree, written in TSX in `.tsx` files for Preact's automatic JSX
 runtime. `main.tsx` is the router: it works out from the route what the page shows, draws `<App>` from `app.tsx` with
 it, and keeps the jump list, the browser's history and where each document was left. Every page and part of one is a
-component with its own state: the index, search, the Wireshark page, the help, the jump buttons, a document's strip and
+component with its own state: the index, search, the Wireshark page, the help, the jump buttons, a document's toolbar and
 the source pane, which `source-pane.tsx` holds as a small store its components draw from and the rest of the code
 moves. The popups are a second root of their own, which `popup/index.tsx` opens and closes for the text.
 
 What stays imperative does so on purpose, each behind one component or module:
 
 - A document's text, tens of thousands of token nodes, is built once by hand in `document-view.tsx`'s `DocumentText`,
-  whose component draws only its empty pane: nothing drawn around it, as the strip's crumb on every scroll, diffs it.
+  whose component draws only its empty pane: nothing drawn around it, as the toolbar's crumb on every scroll, diffs it.
   Its clicks, popups, jumps and positions work on those nodes through the `DocumentView` it gives the router.
 - Positions are put back to the pixel by the router once a document is drawn, before anything is waited for.
 - The PDF and RFC readers, `viewer.ts` and `rfc.ts`, are pages of their own in the pane's frame, driving PDF.js.

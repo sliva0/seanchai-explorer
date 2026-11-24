@@ -192,7 +192,7 @@ export function App(props: AppProps) {
       <main id="content" tabIndex={-1} class={pageClass[page.kind] ?? ''}>
         <Content {...props} />
       </main>
-      <HelpDialog help={help} />
+      <HelpDialog help={help} selfHosted={props.site?.mode === 'self-hosted'} />
     </>
   );
 }

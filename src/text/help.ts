@@ -3,16 +3,20 @@
 
 export const helpText = {
   /** The dialog's heading, the "?" button's name for a screen reader, and its tooltip. [limit] the button shows "?" */
-  title: 'Mouse and keyboard',
-  toggleTitle: 'Mouse and keyboard (?)',
+  title: 'Help',
+  toggleTitle: 'Help (?)',
   /** Between two keys doing the same, for a screen reader only: the keys stand apart on screen. */
   or: ' or ',
-  /** The section on interpreted constraints: its heading, the paragraph before the list of rule kinds, the line before the
-   * list of codecs, and the paragraph after it. */
+  /**
+   * The section on interpreted constraints, after the lists of controls: its heading, two paragraphs, what they are and
+   * how far to trust them, then how the site shows them and what the Wireshark plugin checks of them; then the line
+   * before the list of rule kinds, and the line before the list of codecs.
+   */
   constraints: 'Interpreted constraints',
   constraintsIntro:
-    "What a clause's prose says of an AVP's value or presence, as a reader read it, pinned to the sentences quoted: no document prints it as structure. Its blocks read as the rest of the corrected text, with a thin rule left of their lines and an \";; interpreted\" note opening the declaration's record; \"Interpreted\" in the strip hides and shows them for every document. A line reading an AVP they hold for has a ¶ after it, a paragraph's mark: read from prose. Its title says where from, the description of a table's row or a clause's text, and each rule in words, and a click on it, or Enter on it, opens the name's popup or the inspector at them, as does the name's own: each rule in words, as the text prints it, and its quote, a rule no checker can run on one message said so. Trust a rule as far as its quote. A rule is one of these kinds:",
-  codecs: 'An encoding names one of these layouts:',
-  constraintsChecked:
-    "A rule stands after the sentences it was read from, word for word, and the corpus is built only while the document still prints them. The Wireshark plugin checks the rules on each message, a rule broken a note under seanchai.interpreted, not a warning: lengths, ranges, excluded values, encodings but another document's element, bits, members, unique and values rules and the presence conditions; a text-only rule it cannot check, and a default breaks nothing.",
+    'Interpreted constraints capture AVP value and presence rules stated only in specification prose, not in tables or ABNF. Each rule is extracted manually and paired with the exact sentences quoted from the specification—always verify a rule against its quote. Corpus builds fail if a specification changes and no longer contains the quoted text.',
+  constraintsShown:
+    'In the corrected view, Interpreted Constraints blocks appear with a left border and a ";; interpreted" note; toggle "Interpreted" in the document toolbar to show or hide them across all documents. Lines referencing a constrained AVP show a ¶ mark: hover to preview the rules, or click it (or press Enter) to open the rules and quotes in the popup or inspector. The Wireshark plugin checks every rule kind on each message except "encoding element" (checked only by any accompanying length rule), "text-only" (not machine-checkable) and "default" (informational only), and reports a broken rule as a note under seanchai.interpreted.',
+  ruleKinds: 'Rule kinds:',
+  codecs: 'Encoding rules use one of these codecs:',
 };

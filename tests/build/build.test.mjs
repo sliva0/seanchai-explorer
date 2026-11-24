@@ -95,18 +95,24 @@ async function corpusMentions() {
   return found;
 }
 
-/** What a SEANCHAI_UNLINKED=1 build must hold: nothing of the project in the site's own files, its plugin linking nowhere. */
+/**
+ * What a SEANCHAI_UNLINKED=1 build must hold: nothing of the project in the site's own files, its plugin linking
+ * nowhere, and no word of another build of it, as a self-hosted one, in any text it ships or page it serves.
+ */
 async function checkUnlinked() {
   const check = unlinkedCheck();
   assert.equal(check.status, 0, check.stderr);
   const page = await readFile(path.join(dist, 'index.html'), 'utf8');
   assert.doesNotMatch(page, /GitHub|PyPI/);
-  // What only a build of the project shows is left out of the bundle, not only off the page.
+  for (const html of (await readdir(dist)).filter(file => file.endsWith('.html')))
+    assert.doesNotMatch(await readFile(path.join(dist, html), 'utf8'), /self-hosted/i, html);
+  // What only a build of the project shows is left out of the bundle, not only off the page: its introduction, the
+  // plugin's command, and every text naming a self-hosted build, the pane's pointer to one and the help's.
   for (const file of await readdir(path.join(dist, 'assets')))
     if (file.endsWith('.js'))
       assert.doesNotMatch(
         await readFile(path.join(dist, 'assets', file), 'utf8'),
-        /Unofficial, and not affiliated|a self-hosted build shows it here|Generate it with|seanchai\[corpus\]/,
+        /Unofficial, and not affiliated|self-hosted build|Generate it with|seanchai\[corpus\]/i,
         file,
       );
   if (existsSync(path.join(dist, 'plugin')))

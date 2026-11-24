@@ -126,8 +126,8 @@ test(
       await page.waitForFunction(() => document.querySelector('.pdfViewer .page canvas'));
       assert.equal(await zoom(), 'page-width');
       assert.deepEqual(await page.locator('#zoom option').allTextContents(), [
-        'Width',
-        'Page',
+        'Fit width',
+        'Fit page',
         '50%',
         '75%',
         '100%',

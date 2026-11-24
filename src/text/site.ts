@@ -59,11 +59,11 @@ export const pageMessages = {
   noSuchDocument: (id: string) => `Document not found: ${id}`,
   /** An error's message: the build's export is of another schema than the site reads; `path` the file, the numbers versions. */
   unsupportedSchema: (found: number, path: string, reads: number) =>
-    `Unsupported export schema ${found} in ${path}: the site reads schema ${reads} only`,
+    `Unsupported export schema ${found} in ${path} (expected schema ${reads})`,
   /** An error's message, only where a build's grammar is broken: a key the highlighter cannot run, at a path in it. */
   grammarKey: (key: string, where: string) => `Unsupported grammar key "${key}" at ${where}`,
   /** An error's message, only where a build's grammar is broken. */
-  grammarRegion: (where: string) => `A begin without an end, or an end without one, at ${where}`,
+  grammarRegion: (where: string) => `Grammar rule at ${where} must define both "begin" and "end"`,
 };
 
 /** A notice at the foot of any page, saying what failed, over the page until dismissed. */
@@ -98,7 +98,7 @@ export const indexPage = {
   /** The same line: `mode` is "public" or "self-hosted". */
   build: (mode: string) => `${mode} build`,
   /** The one-line hint under it, on what a click, a right-click and ? do. The source pane's inspector shows it too. */
-  clickHint: 'Click a name for details beside the text, right-click for uses, ? for controls.',
+  clickHint: 'Click a name to view it in the source pane, right-click for uses, or press ? for help.',
   /** The row of publisher tabs' name for a screen reader. */
   publishers: 'Publishers',
   /** The row of release tabs' name for a screen reader: `publisher` is "3GPP". */
@@ -110,7 +110,7 @@ export const indexPage = {
   /** [limit] The tab of the older copies held for later citations, of any release. */
   olderCopies: 'Older copies',
   /** The line above the older copies' table. */
-  olderCopiesNote: 'Copies of older releases, each held for what a newer document cites from it.',
+  olderCopiesNote: 'Older releases kept because a newer specification cites them.',
   /** A tab's heading, unseen but for a screen reader, and the window's title: "3GPP · Release 18". */
   tabHeading: (publisher: string, release: string) => `${publisher} · ${release}`,
   /** [limit] The tables' column headings: a word each, over narrow columns. */

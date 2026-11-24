@@ -107,9 +107,9 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     assert.ok(document.querySelector('.avp-popup') !== null);
     assert.ok(errors.includes('Error: offline'), errors.join());
     const notice = [...document.querySelectorAll('#notices .notice')].find(node =>
-      /for the popup/.test(node.textContent),
+      /referenced document/.test(node.textContent),
     );
-    assert.match(notice.textContent, /^Could not load RFC 7944 for the popup\./);
+    assert.match(notice.textContent, /^Could not load referenced document RFC 7944\./);
     offline.on = false;
     const popup = document.querySelector('.avp-popup');
     assert.deepEqual(identities(popup), [], 'nothing of RFC 7944 yet');
@@ -121,7 +121,8 @@ test('a definition the popup loads on demand says so when it fails, and its Retr
     assert.ok(document.querySelector('.avp-popup') === popup, 'the popup open, drawn again over its own nodes');
     assert.deepEqual(identities(popup), ['Code 301 · Enumerated'], 'drawn again with the document');
     assert.equal(
-      [...document.querySelectorAll('#notices .notice')].filter(node => /for the popup/.test(node.textContent)).length,
+      [...document.querySelectorAll('#notices .notice')].filter(node => /referenced document/.test(node.textContent))
+        .length,
       0,
     );
   } finally {

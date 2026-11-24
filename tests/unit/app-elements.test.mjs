@@ -124,7 +124,7 @@ test('a category is noted where it says what the brackets do not: a C, or one co
   assert.equal(kind('fixed', 'C'), 'disagrees');
   assert.equal(kind('required', 'O', 0), undefined, 'a { } any number of times, none too, does not require it');
   assert.deepEqual(categoryNote(member('required'), [row('C')]).disagreements, [
-    'Its brackets require X, and table 1/1 gives it C, conditional (element-required-in-abnf)',
+    'ABNF brackets mark X as required, but table 1/1 lists it as C, conditional (element-required-in-abnf)',
   ]);
   assert.equal(categoryNote(member('optional', 0), [row('M', true)]), undefined, 'one of several AVPs');
   assert.equal(categoryNote(member('optional', 0), [row('M', true), row('C')])?.kind, 'conditional');
@@ -165,7 +165,7 @@ test('a category its brackets contradict is marked as a disagreement, and a row 
       mark.title,
       [
         'M: mandatory · MC Service ID · table 6.2.1-1',
-        'Its brackets make User-Identifier optional, and table 6.2.1-1 gives it M, mandatory (element-optional-in-abnf)',
+        'ABNF brackets mark User-Identifier as optional, but table 6.2.1-1 lists it as M, mandatory (element-optional-in-abnf)',
       ].join('\n'),
     );
     absent(lineAt(document, '23').querySelector('.line-mark'), 'an O on [ ]');

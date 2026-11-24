@@ -399,7 +399,7 @@ test("what a name's entries agree on is said once, the rest beside each document
   assert.deepEqual(said(named(null, 3), named('Rf', 3)), [['command 271'], [['application 3'], ['Rf']]]);
   assert.deepEqual(said(named('Rf', 3, 3), named('Rf', 3, null)), [
     ['command 271', 'application 3 (Rf)'],
-    [['header 3'], ['header none']],
+    [['header Application-ID 3'], ['header Application-ID none']],
   ]);
   assert.deepEqual(said(named('Rf', 3, null, 283), named('Rf', 3, null, 300)), [
     ['application 3 (Rf)'],
@@ -434,7 +434,7 @@ test('identities read per kind', () => {
   const bare = command('X', 316, 16777251);
   bare.identity.header_application_id = null;
   bare.identity.application = 'S6a';
-  assert.equal(identityLabel(bare), 'Command 316 · application 16777251 (S6a) · header none');
+  assert.equal(identityLabel(bare), 'Command 316 · application 16777251 (S6a) · header Application-ID none');
   assert.equal(identityLabel(command('X', 316, 4)), 'Command 316 · application 4');
   assert.equal(
     identityLabel(element('IMSI', 'Update-Location-Request', 'M', ['User-Name'])),
@@ -463,9 +463,9 @@ test('an information element is found by its name, in a section of its own, and 
   const facts = groupFacts(found.element[0].entries);
   assert.deepEqual(facts.shared, ['AVP User-Name']);
   assert.deepEqual(found.element[0].entries.map(facts.differing), [
-    ['of Update-Location-Request', 'M'],
-    ['of Authentication-Information-Request', 'M'],
-    ['of Cancel-Location-Request', 'C'],
+    ['in Update-Location-Request', 'M'],
+    ['in Authentication-Information-Request', 'M'],
+    ['in Cancel-Location-Request', 'C'],
   ]);
 });
 
@@ -630,7 +630,7 @@ test("the search page lists information elements apart, each row's link its tabl
     assert.match(entry.querySelector('.entry-line').textContent, /^ULR Flags \(See 7\.3\.7\)/);
     assert.match(
       entry.querySelector('.entry-facts').textContent,
-      /of Update-Location-Request · M, mandatory · AVP ULR-Flags/,
+      /in Update-Location-Request · M, mandatory · AVP ULR-Flags/,
     );
     const anchor = entry.querySelector('.entry-document a');
     assert.equal(anchor.textContent, 'TS 29.272 · 5.2.1.1.1');
@@ -1169,7 +1169,7 @@ test("a name is one entry, with no fold, and its documents inline by publisher i
     assert.ok(!section.querySelector('.entry-families').textContent.includes('·'), 'nothing joins them');
     const anchor = section.querySelector('.entry-document a');
     assert.equal(anchor.getAttribute('href'), '#29061-jx/6.2');
-    assert.equal(anchor.title, 'Command 271 · application 1 (NASREQ) · header none · TS 29.061 6.2');
+    assert.equal(anchor.title, 'Command 271 · application 1 (NASREQ) · header Application-ID none · TS 29.061 6.2');
   } finally {
     await page.close();
   }
@@ -1217,7 +1217,7 @@ test('where documents using a name find it is said once, and at a document only 
       entry('Zzthree').querySelector('.entry-facts').textContent,
       '· 0:1 · Unsigned32 · defined in RFC 9002',
     );
-    assert.deepEqual(lines('Zzthree'), [['TS 29.001', 'TS 29.002'], ['RFC 9001 (defines it)']]);
+    assert.deepEqual(lines('Zzthree'), [['TS 29.001', 'TS 29.002'], ['RFC 9001 (defined here)']]);
     assert.deepEqual(lines('Zztwice'), [['RFC 9001 (4)', 'RFC 9001 (7)']]);
     assert.equal(
       entry('Zztwice').querySelector('.entry-facts').textContent,
@@ -1300,8 +1300,8 @@ test("a value another document defines is defined there, at its row of that docu
         'TS29.001 · 7.4.3.2',
         'TS29.001 Rel-11 · 7.4.3.2 → TS29.229 Rel-11',
         'TS29.229 · 6.2.2.1',
-        'TS29.229 Rel-11 · 6.2.2.9 (defines it)',
-        'TS29.272 · 7.4.3.1 (defines it)',
+        'TS29.229 Rel-11 · 6.2.2.9 (defined here)',
+        'TS29.272 · 7.4.3.1 (defined here)',
       ],
       "a re-use says where it differs from the usual origin, as an AVP's does",
     );

@@ -19,17 +19,21 @@ test('public: a PDF gets the pane and its toggle, with an inspector in place of 
     const pageNumber = await sectionPage('29153-j00', '5.1');
     absent(document.querySelector('iframe'));
     assert.equal(document.querySelector('.source-toggle input').checked, true);
+    assert.equal(document.querySelector('.source-toggle').textContent, 'Inspector ', 'the box names the inspector');
     assert.ok(document.querySelector('#workspace').classList.contains('with-source'));
     assert.equal(document.querySelectorAll('#source-pane').length, 1);
     const inspector = document.querySelector('#source-pane .inspector');
-    assert.match(inspector.querySelector('.inspector-empty').textContent, /^Click a name for details beside the text/);
     assert.match(
       inspector.querySelector('.inspector-empty').textContent,
-      /an alt-click moves it to the name\. A right-click shows where it is used, as do Menu and Shift\+F10/,
+      /^Click a name to view it in the source pane/,
+    );
+    assert.match(
+      inspector.querySelector('.inspector-empty').textContent,
+      /Alt-click jumps to the name\. You can also press Menu or Shift\+F10/,
     );
     assert.match(
       inspector.querySelector('.inspector-note').textContent,
-      /This public build cannot show the PDF of TS 29\.153 V19\.0\.0, for licensing reasons; a self-hosted build shows it here\./,
+      /This public build does not embed the PDF for TS 29\.153 V19\.0\.0 due to publisher licensing restrictions\. Use a self-hosted build to view it here\./,
     );
     assert.equal(selfHostLink(document), undefined, 'the note links nowhere');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153 V19.0.0 — '));
@@ -116,7 +120,7 @@ test('public: a click on a name defined in a PDF shows it in the inspector at it
       name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
       return name.title;
     };
-    assert.equal(title(), 'Click: show it in pane · Alt-click: go to definition · Right-click: uses');
+    assert.equal(title(), 'Click: inspect in source pane · Alt-click: go to definition · Right-click: uses');
     const before = window.location.hash;
     click(page, name);
     await settle();
@@ -176,6 +180,7 @@ test('public: a switched-off pane is switched on for a place it can read, and to
     assert.doesNotMatch(window.location.hash, /pane=0/);
     assert.equal(document.querySelector('.source-toggle input').checked, true);
     assert.match(document.querySelector('.source-document').textContent, /^RFC 7944/);
+    assert.equal(document.querySelector('.source-toggle').textContent, 'Source ', 'an RFC beside a PDF is a source');
   } finally {
     await off.close();
   }
@@ -336,6 +341,7 @@ test('self-hosted: PDFs go to the viewer pane at the clause and table row', asyn
     assert.equal(source.pathname, '/viewer.html');
     assert.ok(source.searchParams.get('file').endsWith('/data/sources/29153-j00.pdf'));
     assert.equal(new URLSearchParams(source.hash.slice(1)).get('search'), '5.1');
+    assert.equal(document.querySelector('.source-toggle').textContent, 'Source ', 'the box names the source it shows');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153'));
     assert.equal(document.querySelector('.source-header .publisher-link span').textContent, 'etsi.org');
     assert.equal(document.querySelector('.source-header .local-link span').textContent, 'localhost');

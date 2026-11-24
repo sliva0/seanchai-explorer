@@ -25,7 +25,7 @@ test('the "?" control beside the theme toggle opens a labelled modal dialog with
     const { document } = page;
     const button = toggle(document);
     assert.ok(button.nextElementSibling === document.querySelector('header .theme-toggle'), 'beside the theme toggle');
-    assert.equal(button.getAttribute('aria-label'), 'Mouse and keyboard');
+    assert.equal(button.getAttribute('aria-label'), 'Help');
     assert.equal(button.getAttribute('aria-expanded'), 'false');
     assert.equal(dialog(document).hidden, true);
     button.focus();
@@ -34,7 +34,7 @@ test('the "?" control beside the theme toggle opens a labelled modal dialog with
     assert.equal(help.hidden, false);
     assert.equal(help.getAttribute('role'), 'dialog');
     assert.equal(help.getAttribute('aria-modal'), 'true');
-    assert.equal(document.getElementById(help.getAttribute('aria-labelledby')).textContent, 'Mouse and keyboard');
+    assert.equal(document.getElementById(help.getAttribute('aria-labelledby')).textContent, 'Help');
     assert.equal(button.getAttribute('aria-expanded'), 'true');
     assert.ok(document.activeElement === help, 'the focus moves in');
     button.click();
@@ -45,22 +45,50 @@ test('the "?" control beside the theme toggle opens a labelled modal dialog with
   }
 });
 
-test("it lists every control of controls.ts, the README's keys among them", async () => {
+test("it lists every control of controls.ts but the PDF viewer's, the README's keys among them, and the line marks apart", async () => {
   const page = await boot();
   try {
     const { document } = page;
     toggle(document).click();
     const help = dialog(document);
+    const listed = controlGroups.filter(group => !group.selfHosted);
     assert.deepEqual(
       [...help.querySelectorAll('.help-group h3')].map(node => node.textContent),
-      controlGroups.map(group => group.title),
+      ['Mouse (on a name)', 'Line marks', 'Keyboard', 'Search'],
+      "a public build's help says nothing of the PDF viewer",
     );
-    const terms = [...help.querySelectorAll('.help-group dt')].map(node =>
+    assert.deepEqual(
+      [...help.querySelectorAll('h3')].map(node => node.textContent).at(-1),
+      'Interpreted constraints',
+      'then what interpreted constraints are',
+    );
+    assert.doesNotMatch(help.textContent, /self-hosted|public build/i, 'nor names a build');
+    const terms = [...help.querySelectorAll('.help-group:not(.help-marks) dt')].map(node =>
       [...node.querySelectorAll('kbd')].map(key => key.textContent),
     );
     assert.deepEqual(
       terms,
-      controlGroups.flatMap(group => group.controls.map(control => control.keys)),
+      listed.filter(group => !group.marks).flatMap(group => group.controls.map(control => control.keys)),
+    );
+    const marks = [...help.querySelectorAll('.help-marks dt')].map(node => [
+      [...node.querySelectorAll('.help-mark')].map(mark => [mark.textContent, mark.className]),
+      node.querySelectorAll('kbd').length,
+    ]);
+    assert.deepEqual(
+      marks,
+      [
+        [[['C', 'help-mark help-mark-category']], 0],
+        [
+          [
+            ['M', 'help-mark help-mark-disagrees'],
+            ['O', 'help-mark help-mark-disagrees'],
+            ['C', 'help-mark help-mark-disagrees'],
+          ],
+          0,
+        ],
+        [[['¶', 'help-mark help-mark-constraint']], 0],
+      ],
+      'the line marks drawn as the marks, not as keys',
     );
     for (const key of [
       'Click',
@@ -80,7 +108,31 @@ test("it lists every control of controls.ts, the README's keys among them", asyn
     const kinds = [...help.querySelectorAll('.help-rule-kinds dt')].map(node => node.textContent);
     assert.ok(kinds.includes('default FALSE') && kinds.includes('bits at-most-one 3 6'), kinds.join('\n'));
     const said = [...help.querySelectorAll('.help-rule-kinds dd')].map(node => node.textContent);
-    assert.ok(said.includes('what the AVP is read as when it is absent'));
+    assert.ok(said.includes('Default value assumed when the AVP is absent.'));
+    const constraints = help.querySelector('.help-constraints');
+    assert.deepEqual(
+      [...constraints.children].map(node => node.className || node.tagName),
+      ['H3', 'help-note', 'help-note', 'help-note', 'help-list help-rule-kinds', 'help-note', 'help-list help-codecs'],
+      'two paragraphs, then the rule kinds and the codecs, each after its line',
+    );
+    assert.match(constraints.children[2].textContent, /a note under seanchai\.interpreted\.$/);
+  } finally {
+    await page.close();
+  }
+});
+
+test("a self-hosted build's help lists the PDF viewer's keys too, naming no build", async () => {
+  const page = await boot({ mode: 'self-hosted' });
+  try {
+    const { document } = page;
+    toggle(document).click();
+    const help = dialog(document);
+    assert.deepEqual(
+      [...help.querySelectorAll('.help-group h3')].map(node => node.textContent),
+      controlGroups.map(group => group.title),
+    );
+    assert.equal(help.querySelectorAll('.help-group h3')[4].textContent, 'PDF viewer');
+    assert.doesNotMatch(help.textContent, /self-hosted|public build/i);
   } finally {
     await page.close();
   }

@@ -1,4 +1,4 @@
-# Seanchaí explorer
+# Seanchaí Explorer
 
 A static site over the [Seanchaí](https://github.com/sliva0/seanchai) corpus, live at
 <https://sliva0.github.io/seanchai-explorer/>: every Diameter dictionary read from 3GPP
@@ -29,8 +29,9 @@ opens its document, as a link does: Ctrl or the middle button in a new tab, whil
 over its text selects it. The tab shown is in the address, `#index/ietf`,
 `#index/3gpp/18` or `#index/3gpp/older`, the first publisher's newest release plain `#`,
 so a link or Back and Forward come back to it, and the header's Index goes to the tab last
-shown in the browser. Pressing `?` in the site shows the same list of mouse and keyboard
-controls as below.
+shown in the browser. Pressing `?` in the site shows the help: the same list of mouse and
+keyboard controls and line marks as below, the PDF viewer's keys in a self-hosted build only,
+and what interpreted constraints are.
 
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
 copy of the site it is downloaded from, and says what a finding's line is, `Severity:
@@ -42,14 +43,20 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 
 | On a name | |
 |---|---|
-| Click | its Details or its definition, as "Click goes to" in the document's strip says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
+| Click | its Details or its definition, as "Click goes to" in the document toolbar says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane |
-| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show on the right`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
+| Right-click | where it is used, with Definition and Details each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden; for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
 | Ctrl-, Shift- or Cmd-click | the browser's |
+
+| Line marks, after a line's end and left out of a copy | |
+|---|---|
+| `C` | a member's category C, conditional, in its command's Information Elements table, which its brackets cannot say |
+| `M`, `O`, `C` in a warning's colour | a category its brackets contradict, as an M on `[ ]`; its title says how |
+| `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
 text where it is. "Click goes to" is kept in the browser for every document. In a window
-too narrow for the pane, it and "Click shows uses" fold under the strip's "Click options".
+too narrow for the pane, it and "Click shows uses" fold under the toolbar's "Click options".
 
 A definition is the row of the first AVP table listing the name, or the clause its link
 names where that is another document's or there is no row. Details are the clause that
@@ -59,7 +66,9 @@ prose states, is that clause, which is its name's Details.
 
 Where the pane cannot show a document's source, as for a public build's PDFs, it is an
 inspector instead: a plain click on a name shows there what its popup would say, its
-code, type, flags, members or values, uses, Definition and Details, and opens no popup.
+code, type, flags, members or values, uses, Definition and Details, and opens no popup;
+the toolbar's box switching the pane on and off reads `Inspector` there, where it reads
+`Source` beside a source the pane shows.
 The text stays where it is, and the pane's header links to the publisher's copy at the
 page the click would have gone to. A place in a document the pane does read, as an RFC,
 it goes to as before. Where there is no pane at all (a document in no format it reads, a
@@ -123,31 +132,32 @@ thin rule left of its lines, in the hue of the ¶ below, and its `;; interpreted
 which opens the declaration's record as a correction's `;; corrected`, `;; supplied`,
 `;; inserted` or `;; deleted` does: under the line, which keeps its short note, what the
 note cites on a line of its own, then why. The raw text has none.
-"Interpreted" in a document's strip hides them and shows them again, kept in the browser
+"Interpreted" in a document toolbar hides them and shows them again, kept in the browser
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
 command (`; Command:`). A member, table row or Information Elements row reading an AVP
 that blocks hold for there has a ¶ after its line, a paragraph's mark for a rule read from
-prose, beside any category. Its title says where the rules were read from, "Read from the
-description of this row:", "… of this member's row in table 5.2.2.2.1/1" or "… from clause
-7.3.102's text", then each in words, a text-only one as "not checkable from one message"
-and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
+prose, beside any category. Its title says where the rules were read from, "From this row's
+description:", "From this member's description in table 5.2.2.2.1/1" or "From the prose of
+section 7.3.102", then each in words, a text-only one as "cannot be checked on a single
+message" and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
 pane is one, at them, flashing. The popup and the inspector list them, each rule in words
 and, under it, as the text prints it ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
-"present only if DSR-Flags has bit … set", "read as FALSE when absent" for a `default`,
-"at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bit set but 9"
+"present only if DSR-Flags has bit … set", "defaults to FALSE when absent" for a `default`,
+"at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bits set except 9"
 for `bits`, of an unsigned integer or an OctetString's octets read as one big-endian
-number, "at least one of A, B present" or "no member present but IMEI, Software-Version"
-for `members`, "differs from one APN-Configuration to the next" for `unique` within one,
+number, "at least one of A, B present" or "no members present except IMEI, Software-Version"
+for `members`, "unique across APN-Configuration instances" for `unique` within one,
 "is 1 if Monitoring-Type is 1" for `values`), with its quote, and a text-only one, a rule
-no checker can run on one message, as "Not checkable from one message" and its quote. An `encoding element` rule names another document's
+no checker can run on one message, as "Cannot be checked on a single message" and its quote. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
-rule's names link to their AVPs as the text's do. Each block offers `Read in`, its clause
+rule's names link to their AVPs as the text's do. Each block offers `From`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
 its origin. The help says what each kind of rule says, as the text prints one, what
-each encoding's codec is, and in two sentences how they are read and checked, which the
-section's "what these are" opens it at;
+each encoding's codec is, and above them, in two short paragraphs, what they are and how far
+to trust them, and how the site shows them and the Wireshark plugin checks them, which the
+section's "What is this?" opens it at;
 [docs/constraints.md](https://github.com/sliva0/seanchai/blob/main/docs/constraints.md)
 says more, but the site links to no documentation. Search has no entries of its own for them, as the export
 gives none: their lines are found as any line of text is.
@@ -180,7 +190,7 @@ must come within a second.
 | `↑`, `↓` | from result to result, from the search box too |
 | `←`, `→` | between the links of one result; in the box they move the caret |
 
-| In the PDF pane (self-hosted), with the focus in it | |
+| In the PDF viewer, with the focus in it: listed by the help of a self-hosted build only | |
 |---|---|
 | `Ctrl++`, `Ctrl+-` | zoom in or out, with `=` and `_` too, and Cmd on a Mac |
 | `Ctrl+wheel` | zooms at the pointer, as a pinch does |

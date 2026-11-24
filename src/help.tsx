@@ -7,20 +7,21 @@ import { takesTyping } from './keys.ts';
 import { helpText } from './text/help.ts';
 import { popupShared } from './text/popup.ts';
 
-function Group({ title, note, controls }: ControlGroup) {
+function Group({ title, note, controls, marks }: ControlGroup) {
   return (
-    <section class="help-group">
+    <section class={marks ? 'help-group help-marks' : 'help-group'}>
       <h3>{title}</h3>
       {note && <p class="help-note">{note}</p>}
       <dl class="help-list">
-        {controls.map(({ keys, does }) => (
+        {controls.map(({ keys, does, mark }) => (
           <Fragment key={does}>
             <dt>
               {/* "or" between the ways is for a screen reader; on screen the keys stand apart. */}
               {keys.map((key, index) => (
                 <Fragment key={key}>
                   {index > 0 && <span class="sr-only">{helpText.or}</span>}
-                  <kbd>{key}</kbd>
+                  {/* A mark as a line shows it after its end, not a key to press. */}
+                  {marks ? <span class={`help-mark help-mark-${mark}`}>{key}</span> : <kbd>{key}</kbd>}
                 </Fragment>
               ))}
             </dt>
@@ -33,14 +34,17 @@ function Group({ title, note, controls }: ControlGroup) {
 }
 
 /**
- * What interpreted constraints are, said once for every popup naming one: the text's blocks and marks, the strip's
- * control, each kind of rule as the text prints it and each codec's layout, with the corpus's page on them.
+ * What interpreted constraints are, said once for every popup naming one: what they are and how far to trust them,
+ * how the text and the toolbar show them and what the Wireshark plugin checks, then each kind of rule as the text
+ * prints it and each codec's layout.
  */
 function ConstraintsHelp() {
   return (
     <section class="help-section help-constraints">
       <h3>{helpText.constraints}</h3>
       <p class="help-note">{helpText.constraintsIntro}</p>
+      <p class="help-note">{helpText.constraintsShown}</p>
+      <p class="help-note">{helpText.ruleKinds}</p>
       <dl class="help-list help-rule-kinds">
         {Object.entries(ruleKinds).map(([kind, { printed, says }]) => (
           <Fragment key={kind}>
@@ -62,7 +66,6 @@ function ConstraintsHelp() {
           </Fragment>
         ))}
       </dl>
-      <p class="help-note">{helpText.constraintsChecked}</p>
     </section>
   );
 }
@@ -160,7 +163,11 @@ export function HelpToggle({ help: { open, show, close, button } }: { help: Help
   );
 }
 
-export function HelpDialog({ help: { open, close, dialog: ref } }: { help: Help }) {
+/**
+ * The dialog itself. `selfHosted` lists the PDF viewer's keys, which only a self-hosted build's pane has: a public build
+ * says nothing of them, nor of the build that has them.
+ */
+export function HelpDialog({ help: { open, close, dialog: ref }, selfHosted }: { help: Help; selfHosted: boolean }) {
   /** Tab wraps within the dialog. */
   const keepFocus = (event: KeyboardEvent) => {
     const dialog = ref.current!;
@@ -195,9 +202,11 @@ export function HelpDialog({ help: { open, close, dialog: ref } }: { help: Help 
           ×
         </button>
       </div>
-      {controlGroups.map(group => (
-        <Group key={group.title} {...group} />
-      ))}
+      {controlGroups
+        .filter(group => selfHosted || !group.selfHosted)
+        .map(group => (
+          <Group key={group.title} {...group} />
+        ))}
       <ConstraintsHelp />
     </section>
   );

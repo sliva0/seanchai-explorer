@@ -111,7 +111,7 @@ test('the index has a tab per publisher, and in one with releases a tab per rele
       [...document.querySelectorAll('main tbody .doc-reason')].map(node => node.textContent),
       ['Release 11 · Held for TS 32.299.', 'Release 6 · Held for TS 29.210.'],
     );
-    assert.match(document.querySelector('.tab-note').textContent, /^Copies of older releases, each held for/);
+    assert.match(document.querySelector('.tab-note').textContent, /^Older releases kept because/);
 
     await page.go('#index/ietf');
     assert.equal(document.title, 'IETF — Seanchaí');
@@ -335,7 +335,7 @@ test('the index opens with a search box, what the site is, its corpus and links,
       [...meta.querySelectorAll('a')].map(a => a.href),
       ['https://github.com/sliva0/seanchai', 'https://pypi.org/project/seanchai/'],
     );
-    const hint = 'Click a name for details beside the text, right-click for uses, ? for controls.';
+    const hint = 'Click a name to view it in the source pane, right-click for uses, or press ? for help.';
     assert.equal([...main.querySelectorAll('p')].filter(node => node.textContent === hint).length, 1);
     const headings = main.querySelector('.document-table thead');
     assert.ok(!headings.classList.contains('sr-only'), 'the column headings show');

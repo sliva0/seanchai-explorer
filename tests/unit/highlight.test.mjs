@@ -145,7 +145,7 @@ test('a grammar rule the scanner cannot run is refused rather than ignored', () 
     () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b', applyEndPatternLast: 1 }] }),
     /"applyEndPatternLast" at patterns\[0\]/,
   );
-  assert.throws(() => createHighlighter({ ...empty, patterns: [{ begin: 'a' }] }), /without an end/);
+  assert.throws(() => createHighlighter({ ...empty, patterns: [{ begin: 'a' }] }), /must define both/);
   assert.throws(
     () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b', beginCaptures: { 1: { match: 'x' } } }] }),
     /"match" at patterns\[0\]\.beginCaptures\[1\]/,

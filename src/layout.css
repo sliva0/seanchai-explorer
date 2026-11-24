@@ -1714,6 +1714,22 @@ mark {
   font: var(--text-xs)/1.5 var(--mono);
   white-space: nowrap;
 }
+/* A line's mark, as the text shows it after a line's end (see .line-mark). */
+.help-mark {
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--ui-border);
+  color: var(--ui-muted);
+  font: 600 var(--text-xs)/1.5 var(--sans);
+}
+.help-mark-disagrees {
+  color: var(--warning);
+  box-shadow: inset 0 0 0 1px var(--warning);
+}
+.help-mark-constraint {
+  box-shadow: inset 0 0 0 1px var(--interpreted-edge);
+  color: var(--interpreted);
+}
 /* A phone's width: each key over what it does. */
 @media (max-width: 480px) {
   .help-list {

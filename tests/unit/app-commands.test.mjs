@@ -24,7 +24,7 @@ test("self-hosted: a command's name and abbreviation are names, which go to its 
     abbreviation.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
     assert.equal(
       abbreviation.title,
-      'Click: definition in pane · Alt-click: definition in both · Right-click: its definitions',
+      'Click: definition in source pane · Alt-click: definition in both panes · Right-click: definitions',
       'it has no Details to choose, so Definition it is',
     );
     const route = window.location.hash;
@@ -57,11 +57,11 @@ test("self-hosted: a command's popup says its header, where its application come
     assert.equal(popup.getAttribute('aria-label'), 'AA-Answer (AAA)');
     assert.deepEqual(identities(popup), [
       'Code 265 · Answer · PXY',
-      'Application-ID 16777223 · Gmb · from 17, not the header',
+      'Application-ID 16777223 · Gmb · from section 17 (not in header)',
     ]);
     assert.deepEqual(placeRows(popup, '.popup-place'), [
-      ['Definition:', '17.6.2', 'Jump to', 'Show on the right'],
-      ['Request:', '17.6.1 · AAR', 'Jump to', 'Show on the right'],
+      ['Definition:', '17.6.2', 'Jump to', 'Show in source'],
+      ['Request:', '17.6.1 · AAR', 'Jump to', 'Show in source'],
     ]);
     assert.deepEqual(groupTitles(popup), [], 'no other document prints it, nor a registry');
     assert.match(
@@ -100,7 +100,7 @@ test('a header printing its own id says no more, and one printing none with no s
   const page = await boot({ hash: '#29109-j00', transform: bare });
   try {
     const popup = await popupOf(page, commandNames(page.document, '303 answer')[0]);
-    assert.deepEqual(identities(popup), ['Code 303 · Answer · PXY', 'No Application-ID: the header prints none']);
+    assert.deepEqual(identities(popup), ['Code 303 · Answer · PXY', 'No Application-ID in command header']);
     popup.querySelector('.popup-title button').click();
     assert.deepEqual(identities(await popupOf(page, commandNames(page.document, '303 request')[0])), [
       'Code 303 · Request · REQ, PXY',
@@ -157,14 +157,14 @@ test("self-hosted: a command's popup lists its registry row and every other docu
     const popup = await popupOf(page, commandNames(document, '265 answer')[0]);
     assert.deepEqual(groupTitles(popup), ['Other definitions 2', 'Same name, other command 1']);
     assert.deepEqual(placeRows(popup, '.place-registry'), [
-      ['Registry:', 'TS 29.217 · 5.1 · table 5.1/1', 'Jump to', 'Show on the right'],
+      ['Registry:', 'TS 29.217 · 5.1 · table 5.1/1', 'Jump to', 'Show in source'],
     ]);
     assert.deepEqual(placeRows(popup, '.popup-others .place-other'), [
-      ['TS 29.109:', '4.2', 'Jump to', 'Show on the right'],
-      ['TS 29.153:', '5.6.2 · AA-Answer-Renamed', 'Jump to', 'Show on the right'],
+      ['TS 29.109:', '4.2', 'Jump to', 'Show in source'],
+      ['TS 29.153:', '5.6.2 · AA-Answer-Renamed', 'Jump to', 'Show in source'],
     ]);
     assert.deepEqual(placeRows(popup, '.popup-differing .place-differs'), [
-      ['≠ TS 29.217:', '5.6.1 · Application-ID 1', 'Jump to', 'Show on the right'],
+      ['≠ TS 29.217:', '5.6.1 · Application-ID 1', 'Jump to', 'Show in source'],
     ]);
     assert.equal(popup.querySelector('.command-places').childElementCount > 0, true, 'in the one grid');
     assert.match(

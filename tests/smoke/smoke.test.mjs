@@ -385,8 +385,8 @@ test(
     await inspector.waitFor();
     assert.equal(await page.locator('iframe').count(), 0);
     assert.equal(await page.locator('.source-toggle').isVisible(), true);
-    assert.match(await inspector.textContent(), /^Click a name for details beside the text/);
-    assert.match(await inspector.textContent(), /This public build cannot show the PDF of TS 29\.153 V19\.0\.0/);
+    assert.match(await inspector.textContent(), /^Click a name to view it in the source pane/);
+    assert.match(await inspector.textContent(), /This public build does not embed the PDF for TS 29\.153 V19\.0\.0/);
     const fit = await inspector.evaluate(node => {
       const pane = node.parentElement.getBoundingClientRect();
       const box = node.getBoundingClientRect();
@@ -1447,7 +1447,7 @@ test(
       }
       assert.deepEqual(
         [await row.locator('a').textContent(), await row.locator('button').textContent()],
-        ['Jump to', 'Show on the right'],
+        ['Jump to', 'Show in source'],
       );
       const look = await page.locator('.avp-popup').evaluate(popup => {
         const jump = popup.querySelector('.view-action');
@@ -1545,7 +1545,7 @@ test(
     assert.equal(await popup.locator('.popup-title strong').textContent(), 'AA-Answer (AAA)');
     assert.deepEqual(await popup.locator('.popup-identity p').allTextContents(), [
       'Code 265 · Answer · PXY',
-      'Application-ID 16777223 · Gmb · from 17, not the header',
+      'Application-ID 16777223 · Gmb · from section 17 (not in header)',
     ]);
     const look = await popup.evaluate(node => {
       const box = node.getBoundingClientRect();
@@ -1741,7 +1741,7 @@ test(
   async () => {
     const { page, done } = await open('#wireshark', { permissions: ['clipboard-read', 'clipboard-write'] });
     const bar = page.locator('.plugin-command-bar');
-    await bar.getByRole('button', { name: 'Copy the commands' }).click();
+    await bar.getByRole('button', { name: 'Copy commands' }).click();
     await page.waitForFunction(() => document.querySelector('.copy-status').textContent !== '');
     const said = await bar.evaluate(element => {
       const status = element.querySelector('.copy-status');
@@ -1921,7 +1921,7 @@ test(
     const mark = row.locator('button.constraint-mark');
     assert.match(
       await mark.getAttribute('title'),
-      /^Read from the description of this row:\n• not checkable from one message: /,
+      /^From this row's description:\n• cannot be checked on a single message: /,
     );
     assert.deepEqual(
       await mark.evaluate(node => [getComputedStyle(node).cursor, getComputedStyle(node, '::after').content]),
@@ -1938,7 +1938,10 @@ test(
       return box.top >= 0 && box.top < innerHeight;
     });
     assert.ok(inView, 'in view');
-    assert.match(await section.locator('.constraint-words').first().textContent(), /^Not checkable from one message$/);
+    assert.match(
+      await section.locator('.constraint-words').first().textContent(),
+      /^Cannot be checked on a single message$/,
+    );
 
     // Too narrow for the pane, the name's popup.
     await page.setViewportSize({ width: 700, height: 800 });

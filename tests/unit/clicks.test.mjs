@@ -124,20 +124,20 @@ test("a name's title says what each gesture moves as things stand", () => {
   const titled = (token, place, context) => nameTitle(token, place, context);
   assert.equal(
     titled(name, elsewhere, reads()),
-    'Click: definition in pane · Alt-click: definition in both · Right-click: uses',
+    'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
   );
   assert.equal(
     titled(rowName, row, reads()),
-    'Click: definition in pane · Alt-click: definition in both · Right-click: uses',
+    'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
   );
   assert.equal(titled(name, elsewhere, noPane()), 'Click: go to definition · Right-click: uses');
   assert.equal(
     titled(name, elsewhere, reads({ paneOn: false })),
-    'Click: definition in pane · Alt-click: go to definition · Right-click: uses',
+    'Click: definition in source pane · Alt-click: go to definition · Right-click: uses',
   );
   assert.equal(
     titled(name, elsewhere, reads({ uses: true })),
-    'Click or right-click: uses · Alt-click: definition in both',
+    'Click or right-click: uses · Alt-click: definition in both panes',
   );
   assert.equal(
     titled(name, elsewhere, noPane({ uses: true })),
@@ -145,7 +145,7 @@ test("a name's title says what each gesture moves as things stand", () => {
   );
   const lost = { text: 'Y', avp: 'Y' };
   const found = { document: 'd', position: { section: '6.3', page: null, name: 'Y', exact: true, occurrence: true } };
-  assert.equal(titled(lost, found, reads()), 'Click: find in pane · Right-click: uses');
+  assert.equal(titled(lost, found, reads()), 'Click: find in source pane · Right-click: uses');
   assert.equal(titled(lost, found, noPane()), 'Right-click: uses');
   assert.equal(titled(lost, undefined, noPane({ uses: true })), 'Click or right-click: uses');
   const hole = { text: 'Y', avp: 'Y', source: definition };
@@ -158,12 +158,12 @@ test("a name's title says what each gesture moves as things stand", () => {
   const place = { document: 'd', position, target: value.target };
   assert.equal(
     titled(value, place, reads()),
-    'Click: source row in pane · Alt-click: source row in both · Right-click: its table',
+    'Click: source row in source pane · Alt-click: source row in both panes · Right-click: row details',
   );
-  assert.equal(titled(value, place, noPane()), 'Click: go to its row · Right-click: its table');
+  assert.equal(titled(value, place, noPane()), 'Click: go to row · Right-click: row details');
   assert.equal(
     titled(value, place, reads({ uses: true })),
-    'Click or right-click: its table · Alt-click: source row in both',
+    'Click or right-click: row details · Alt-click: source row in both panes',
   );
 });
 
@@ -177,12 +177,12 @@ test('a name goes where its place says, details or definition, and to its other 
   const definition = { ...row, of: 'definition' };
   assert.equal(
     nameTitle(rowName, details, reads(), definition),
-    'Click: details in pane · Alt-click: details in both · Right-click: uses',
+    'Click: details in source pane · Alt-click: details in both panes · Right-click: uses',
   );
   assert.equal(nameTitle(rowName, details, noPane(), definition), 'Click: go to details · Right-click: uses');
   assert.equal(
     nameTitle(rowName, definition, reads(), details),
-    'Click: definition in pane · Alt-click: definition in both · Right-click: uses',
+    'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
   );
   const unlined = { document: 'd', position: details.position, of: 'details' };
   assert.deepEqual(clickAction(rowName, unlined, plain, reads(), definition), { type: 'pane', place: unlined });
@@ -198,7 +198,7 @@ test('a name goes where its place says, details or definition, and to its other 
   );
   assert.equal(
     nameTitle(rowName, unlined, reads(), definition),
-    'Click: details in pane · Alt-click: definition in both · Right-click: uses',
+    'Click: details in source pane · Alt-click: definition in both panes · Right-click: uses',
   );
   assert.deepEqual(
     clickAction(rowName, unlined, alt, reads()),
@@ -231,11 +231,11 @@ test("a command's name goes to its block by the same rule, lists by the control,
   assert.deepEqual(clickAction(command, block, plain, reads({ uses: true })), { type: 'uses' });
   assert.equal(
     nameTitle(command, block, reads()),
-    'Click: definition in pane · Alt-click: definition in both · Right-click: its definitions',
+    'Click: definition in source pane · Alt-click: definition in both panes · Right-click: definitions',
   );
   assert.equal(
     nameTitle(command, block, reads({ uses: true })),
-    'Click or right-click: its definitions · Alt-click: definition in both',
+    'Click or right-click: definitions · Alt-click: definition in both panes',
   );
   assert.equal(
     clickAction(command, undefined, plain, reads()).type,

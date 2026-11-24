@@ -41,11 +41,11 @@ test('the rewrite sets the address on the one marked line and leaves every other
 
 test('a file without exactly one marked line, or an address a Lua string cannot hold, is left as it is', () => {
   for (const [text, reason] of [
-    [plugin.replace(MARKED, ''), 'it has no explorer line'],
-    [plugin.replace(MARKED, `${MARKED}\n${MARKED}`), 'it has 2 explorer lines'],
-    [plugin.replace(MARKED, `${MARKED} `), 'it has no explorer line'],
-    [plugin.replace(MARKED, `  ${MARKED}`), 'it has no explorer line'],
-    [plugin.replace(MARKED, marked('a"b')), 'it has no explorer line'],
+    [plugin.replace(MARKED, ''), 'no explorer URL marker found in plugin file'],
+    [plugin.replace(MARKED, `${MARKED}\n${MARKED}`), 'found 2 explorer URL markers instead of 1'],
+    [plugin.replace(MARKED, `${MARKED} `), 'no explorer URL marker found in plugin file'],
+    [plugin.replace(MARKED, `  ${MARKED}`), 'no explorer URL marker found in plugin file'],
+    [plugin.replace(MARKED, marked('a"b')), 'no explorer URL marker found in plugin file'],
   ]) {
     assert.deepEqual(withExplorer(text, 'https://host/'), { text, written: false, reason });
   }
@@ -132,7 +132,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
     assert.ok(page.fetched.includes('plugin/seanchai_diameter.lua'));
     assert.deepEqual(
       [...document.querySelectorAll('main h2')].map(node => node.textContent),
-      ['Install from a terminal (Linux and macOS)', 'Install by hand (any system)'],
+      ['Install from a terminal (Linux and macOS)', 'Manual install (any system)'],
     );
     assert.deepEqual(
       [...document.querySelectorAll('main a')].map(a => a.href),
@@ -148,26 +148,26 @@ test('the page shows its versions, the script for the chosen shell and the downl
       [
         'Wireshark plugin',
         'seanchai 0.2.0, corpus 2026.11.12',
-        "Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to the publisher's copy and to this site.",
+        "Validates every Diameter message in a capture against the corpus: AVPs, flags, lengths, values, and command requirements. Each finding cites the relevant section, table, and page, with links to the publisher's copy and to this site.",
         'Each finding is one line under the message, on the octets it is about, in the form Severity: place: problem [source], as:',
         'Note: … > MIP-Home-Agent-Host > Destination-Realm: not epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org [TS 29.272 7.3.43, interpreted]',
         'SeverityExpert infoMessages with oneReports',
-        'Errorseanchai.violationseanchai.errors > 0a rule a document states, broken',
-        'Warningseanchai.warningseanchai.warnings > 0a "should not" broken, or a value no document defines',
-        'Noteseanchai.noteseanchai.notes > 0what the corpus cannot complete, or an AVP or command no document defines, its M bit clear',
-        'Noteseanchai.interpretedseanchai.interpretedan interpreted constraint broken, the source ending in interpreted',
-        'The interpreted notes count among seanchai.notes. It runs in Wireshark 4.2 and later, and in tshark: tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors > 0".',
+        'Errorseanchai.violationseanchai.errors > 0Violated specification rules.',
+        'Warningseanchai.warningseanchai.warnings > 0"Should not" rules broken, or undefined values.',
+        'Noteseanchai.noteseanchai.notes > 0Incomplete corpus data, or an unknown AVP or command without the M bit.',
+        'Noteseanchai.interpretedseanchai.interpretedViolated interpreted constraints; the source ends in "interpreted".',
+        'Interpreted notes are counted in seanchai.notes. Requires Wireshark 4.2 or later, and also works with tshark: tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors > 0".',
         'Install from a terminal (Linux and macOS)',
         'bash / zsh / sh',
         'fish',
         'Copy',
         posixInstall('http://localhost/', from),
-        'Install by hand (any system)',
+        'Manual install (any system)',
         'Download seanchai_diameter.lua',
         'SystemFolder',
         'Linux and macOS~/.local/lib/wireshark/plugins/',
         'Windows%APPDATA%\\Wireshark\\plugins\\',
-        'Then restart Wireshark, or press Ctrl+Shift+L.',
+        'Restart Wireshark, or press Ctrl+Shift+L to reload Lua plugins.',
       ].join(''),
     );
 
@@ -193,7 +193,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
       value: { writeText: async text => void copied.push(text) },
     });
     const copyButton = document.querySelector('.plugin-command-bar button');
-    assert.equal(copyButton.getAttribute('aria-label'), 'Copy the commands');
+    assert.equal(copyButton.getAttribute('aria-label'), 'Copy commands');
     click(page, copyButton);
     await page.settle();
     assert.deepEqual(copied, [fishInstall('http://localhost/', from)]);
@@ -215,7 +215,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
     });
     click(page, copyButton);
     await page.settle();
-    assert.equal(copyStatus.textContent, 'Selected: press Ctrl+C');
+    assert.equal(copyStatus.textContent, 'Selected — press Ctrl+C to copy');
     assert.ok(!copyStatus.classList.contains('sr-only'), 'shown');
     assert.equal(copyButton.textContent, 'Copy', 'said once, in the status line');
     assert.equal(shown(bar).match(/Ctrl\+C/g)?.length, 1);
@@ -289,7 +289,7 @@ test("a plugin without its versions line shows the index's, and one without its 
     const status = document.querySelector('.plugin-status');
     assert.equal(
       status.textContent,
-      'Saved as built, since it has no explorer line: its links keep the address it was generated with.',
+      'Saved with original links (could not update site URL: no explorer URL marker found in plugin file).',
     );
     assert.ok(status.classList.contains('plugin-warning'));
   } finally {
@@ -304,7 +304,10 @@ test('a build without the plugin gives the command making one, with its links se
     absent(downloadButton(document) ?? null);
     const offer = document.querySelector('.plugin-ways');
     absent(document.querySelector('.plugin-download'));
-    assert.equal(offer.querySelector('p').textContent, 'Not in this build. Generate it with:');
+    assert.equal(
+      offer.querySelector('p').textContent,
+      'The Wireshark plugin is not included in this build. Generate it with:',
+    );
     assert.equal(
       offer.querySelector('pre code').textContent,
       "uvx --from 'seanchai[corpus]' seanchai wireshark-plugin -o seanchai_diameter.lua --explorer 'http://localhost/'",
@@ -339,11 +342,11 @@ test('a failed fetch is a notice with Retry, which downloads once it can', async
     click(page, downloadButton(document));
     await page.settle();
     assert.equal(saved.length, 0);
-    assert.equal(document.querySelector('.plugin-status').textContent, 'Failed');
+    assert.equal(document.querySelector('.plugin-status').textContent, 'Download failed');
     const notice = document.querySelector('#notices .notice');
     assert.match(
       notice.textContent,
-      /^Could not fetch the Wireshark plugin\. Error: 503: plugin\/seanchai_diameter\.lua/,
+      /^Could not download the Wireshark plugin\. Error: 503: plugin\/seanchai_diameter\.lua/,
     );
     failing = false;
     click(

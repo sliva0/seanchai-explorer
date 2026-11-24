@@ -35,7 +35,7 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
       clause: '10.5.5.32',
       element: 'Extended DRX parameter',
     }),
-    'encoded as TS24.008 clause 10.5.5.32 “Extended DRX parameter”',
+    'encoded as TS24.008 section 10.5.5.32 “Extended DRX parameter”',
   );
   assert.equal(words({ kind: 'encoding', codec: 'element', document: 'TS29.002' }), 'encoded as TS29.002');
   assert.equal(
@@ -54,16 +54,16 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
   );
   assert.equal(words({ kind: 'absent-if', conditions: [{ avp: 'Other' }] }), 'absent if Other is present');
   assert.equal(words({ kind: 'excludes', conditions: [{ avp: 'Other' }] }), 'never present if Other is present');
-  assert.equal(words({ kind: 'text-only' }), 'not checkable from one message');
-  assert.equal(words({ kind: 'default', value: 0 }), 'read as 0 when absent');
-  assert.equal(words({ kind: 'default', value: 'NOT_RELAY_NODE' }), 'read as NOT_RELAY_NODE when absent');
+  assert.equal(words({ kind: 'text-only' }), 'cannot be checked on a single message');
+  assert.equal(words({ kind: 'default', value: 0 }), 'defaults to 0 when absent');
+  assert.equal(words({ kind: 'default', value: 'NOT_RELAY_NODE' }), 'defaults to NOT_RELAY_NODE when absent');
   assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: [3, 6] }), 'at most one of bits 3, 6 set');
   assert.equal(words({ kind: 'bits', relation: 'at-least-one', bits: [0, 1] }), 'at least one of bits 0, 1 set');
   assert.equal(words({ kind: 'bits', relation: 'at-most-one', bits: ['A', 2] }), 'at most one of bits “A”, 2 set');
   assert.equal(words({ kind: 'bits', relation: 'set', bits: [1] }), 'bit 1 set');
   assert.equal(words({ kind: 'bits', relation: 'clear', bits: [4, 5, 6, 7] }), 'bits 4, 5, 6, 7 clear');
-  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9] }), 'no bit set but 9');
-  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9, 'A'] }), 'no bit set but 9, “A”');
+  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9] }), 'no bits set except 9');
+  assert.equal(words({ kind: 'bits', relation: 'only', bits: [9, 'A'] }), 'no bits set except 9, “A”');
   assert.equal(words({ kind: 'bits', relation: 'every', bits: [1] }, '    bits every 1'), 'bits every 1');
   assert.equal(
     words({ kind: 'members', relation: 'at-least-one', members: ['A', 'B'] }),
@@ -72,11 +72,11 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
   assert.equal(words({ kind: 'members', relation: 'at-least-one', members: ['SCEF-Realm'] }), 'SCEF-Realm present');
   assert.equal(
     words({ kind: 'members', relation: 'only', members: ['IMEI', 'Software-Version'] }),
-    'no member present but IMEI, Software-Version',
+    'no members present except IMEI, Software-Version',
   );
   assert.equal(words({ kind: 'members', relation: 'every', members: ['A'] }, '    members every A'), 'members every A');
-  assert.equal(words({ kind: 'unique' }, '', 'APN-Configuration'), 'differs from one APN-Configuration to the next');
-  assert.equal(words({ kind: 'unique' }), 'differs from one grouped AVP to the next');
+  assert.equal(words({ kind: 'unique' }, '', 'APN-Configuration'), 'unique across APN-Configuration instances');
+  assert.equal(words({ kind: 'unique' }), 'unique across grouped AVP instances');
   assert.equal(
     words({ kind: 'values', values: [1], conditions: [{ avp: 'Monitoring-Type', value: 1 }] }),
     'is 1 if Monitoring-Type is 1',
@@ -90,13 +90,17 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
 
 test("an element rule's document is apart from its words, for a popup to link", () => {
   const rule = { kind: 'encoding', codec: 'element', document: 'TS23.003', clause: '4.4', element: 'Zone Code' };
-  assert.deepEqual(elementParts(rule), { before: 'encoded as', document: 'TS23.003', after: 'clause 4.4 “Zone Code”' });
+  assert.deepEqual(elementParts(rule), {
+    before: 'encoded as',
+    document: 'TS23.003',
+    after: 'section 4.4 “Zone Code”',
+  });
   assert.deepEqual(elementParts({ document: 'TS29.002' }), { before: 'encoded as', document: 'TS29.002', after: '' });
   assert.equal(
     words({ kind: 'encoding', codec: 'element', element: 'RAND' }),
-    "encoded as another document's element “RAND”",
+    'encoded as an element from another specification “RAND”',
   );
-  assert.equal(words({ kind: 'encoding', codec: 'element', clause: '4.4' }), 'encoded as clause 4.4');
+  assert.equal(words({ kind: 'encoding', codec: 'element', clause: '4.4' }), 'encoded as section 4.4');
 });
 
 test('every rule kind the schema has is said in words and in the help', async () => {
@@ -117,16 +121,16 @@ test("TS 29.272's default, bits, members, unique and values rules are read with 
     'at most one of bits 1, 3 set',
     'at most one of bits 5, 6 set',
     'at most one of bits 3, 6 set',
-    'no bit set but 9',
+    'no bits set except 9',
   ]);
   assert.deepEqual(said('Reachability-Type', 'bits'), ['bit 0 clear', 'bit 1 set']);
   assert.deepEqual(said('eDRX-Cycle-Length-Value', 'bits'), ['bits 4, 5, 6, 7 clear']);
-  assert.deepEqual(said('Terminal-Information', 'members'), ['no member present but IMEI, Software-Version']);
+  assert.deepEqual(said('Terminal-Information', 'members'), ['no members present except IMEI, Software-Version']);
   assert.deepEqual(said('Monitoring-Event-Configuration', 'members'), ['SCEF-Realm present']);
   assert.deepEqual(said('Reachability-Information', 'values'), ['is 1 if Monitoring-Type is 1']);
-  assert.deepEqual(said('Service-Selection', 'unique'), ['differs from one grouped AVP to the next']);
+  assert.deepEqual(said('Service-Selection', 'unique'), ['unique across grouped AVP instances']);
   const nor = rules.find(({ avp, rule }) => avp === 'NOR-Flags' && rule.kind === 'default');
-  assert.equal(ruleWords(nor.rule, ''), 'read as 0 when absent');
+  assert.equal(ruleWords(nor.rule, ''), 'defaults to 0 when absent');
   assert.equal(rules.filter(({ rule }) => rule.kind === 'default').length, 9);
   const count = kind => rules.filter(({ rule }) => rule.kind === kind).length;
   assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [9, 3, 2, 1]);
@@ -149,7 +153,7 @@ test('a block holds wherever its AVP is read, within its grouped AVP, or in its 
     'in DSR',
   );
   assert.equal(scopeWords(block({ within: 'APN-Configuration' })), 'within APN-Configuration');
-  assert.equal(scopeWords(block({})), 'wherever read');
+  assert.equal(scopeWords(block({})), 'wherever used');
 });
 
 test("TS 29.272's blocks are read with their scope, and only the corrected file has them", async () => {
@@ -173,7 +177,7 @@ test("TS 29.272's blocks are read with their scope, and only the corrected file 
     [['5.2.2.2.1', { command: 'Delete-Subscriber-Data-Request', application: 16777251 }]],
   );
   const imei = constraintsFor(doc, 'IMEI', { within: 'Terminal-Information' });
-  assert.ok(imei.length > 0 && imei.every(item => !item.scope.within && !item.scope.command), 'wherever read');
+  assert.ok(imei.length > 0 && imei.every(item => !item.scope.within && !item.scope.command), 'wherever used');
 
   const kinds = interpretedLines(doc);
   const block = dsr[0].block;

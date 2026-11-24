@@ -29,7 +29,7 @@ test("self-hosted: a name's popup says its code, vendor and type, and gives its 
     let popup = await popupOf(page, row);
     assert.deepEqual(identities(popup), ['Code 4003 · Vendor-ID 10415 · Unsigned32']);
     assert.equal(popup.firstElementChild.nextElementSibling.className, 'popup-identity', 'under the title');
-    assert.deepEqual(tableRows(popup), [['Bits:', '5.3.5', 'Jump to', 'Show on the right']]);
+    assert.deepEqual(tableRows(popup), [['Bits:', '5.3.5', 'Jump to', 'Show in source']]);
     present(
       popup.querySelector('.popup-tables').closest('.popup-places').querySelector('.place-definition'),
       "in the targets' grid, after them",
@@ -115,7 +115,7 @@ test("a name's popup leaves out what it has nothing for, shows an Enumerated AVP
       assert.deepEqual(identities(popup), expected, "IETF's vendor 0 is none to name");
       assert.deepEqual(
         tableRows(popup),
-        [['Enumerated:', '9.1', 'Jump to', 'Show on the right']],
+        [['Enumerated:', '9.1', 'Jump to', 'Show in source']],
         'the RFC reader reads it',
       );
       assert.match(
@@ -265,16 +265,25 @@ test("a name's title follows the pane and the control, and the control says what
     assert.equal(name.title, 'Click: go to definition · Right-click: uses', 'until the pane is known');
     const hover = () => name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
     hover();
-    assert.equal(name.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(
+      name.title,
+      'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
+    );
     const control = document.querySelector('.uses-toggle');
     assert.equal(control.textContent.trim(), 'Click shows uses');
-    assert.equal(control.title, 'Plain click lists where a name is used instead of going to it');
+    assert.equal(
+      control.title,
+      'When enabled, clicking a name opens its popup (same as right-click) instead of navigating.',
+    );
     control.querySelector('input').click();
     hover();
-    assert.equal(name.title, 'Click or right-click: uses · Alt-click: definition in both');
+    assert.equal(name.title, 'Click or right-click: uses · Alt-click: definition in both panes');
     control.querySelector('input').click();
     hover();
-    assert.equal(name.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(
+      name.title,
+      'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
+    );
   } finally {
     await page.close();
   }
@@ -293,7 +302,7 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     assert.deepEqual(texts(popup, '.popup-context p'), [
       'Here: in command User-Data-Request (UDR) · 6.1.1',
       'Required { } · must be present, in any position · exactly once',
-      'Bold in the source: the document defines or modifies it here',
+      'Bold in source: defined or modified in this document',
       'Element: User Identity (See 7.1) · M, mandatory',
     ]);
     assert.deepEqual(
@@ -320,7 +329,7 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     ]);
     popup.querySelector('.popup-title button').click();
     popup = await popupOf(page, at('User-Identity', '318'));
-    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
     assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule');
     popup.querySelector('.popup-title button').click();
     popup = await popupOf(page, at('External-Identifier', '279'));
@@ -370,7 +379,7 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
     next.click();
     const stepped = document.querySelector('.avp-popup');
     same(stepped, first, 'the popup open, drawn again over its own nodes');
-    assert.match(stepped.querySelector('.popup-actions span').textContent, /^\.dad 2\//, 'for the use stepped to');
+    assert.match(stepped.querySelector('.popup-actions span').textContent, /^Use 2\//, 'for the use stepped to');
     assert.equal(document.activeElement.textContent, 'Next');
     stepped.querySelector('.popup-uses').open = true;
     await settle();
@@ -386,7 +395,7 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
       ],
       "the tables of the command opened in first and marked, then the defining document's",
     );
-    assert.match(popup.querySelector('.popup-actions span').textContent, /^\.dad 2\//);
+    assert.match(popup.querySelector('.popup-actions span').textContent, /^Use 2\//);
     assert.equal(popup.querySelectorAll('.usage-link')[1].getAttribute('aria-current'), 'location');
     assert.equal(popup.querySelector('.popup-uses').open, true);
     assert.equal(document.activeElement.textContent, 'Next');
@@ -502,13 +511,13 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     const first = popup;
     popup = document.querySelector('.avp-popup');
     same(popup, first, 'drawn again over its own nodes');
-    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.deepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
     assert.equal(popup.querySelector('.popup-contents').open, true, 'open on its rule, as if opened there');
     assert.equal(popup.querySelector('.popup-uses').open, true, 'the uses stay open');
     assert.equal(popup.querySelector('.popup-key').hidden, false, 'the key stays open');
     assert.equal(popup.querySelectorAll('.usage-link')[head].getAttribute('aria-current'), 'location');
     same(document.activeElement, popup.querySelectorAll('.usage-link')[head], 'the focus on the entry pressed');
-    assert.match(popup.querySelector('.popup-actions span').textContent, new RegExp(`^\\.dad ${head + 1}/`));
+    assert.match(popup.querySelector('.popup-actions span').textContent, new RegExp(`^\\Use ${head + 1}/`));
     const use = document.querySelector('pre .avp-current');
     assert.equal(use.closest('.dad-line').dataset.line, '318');
     await easing();
@@ -523,7 +532,7 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     popup = document.querySelector('.avp-popup');
     assert.equal(document.activeElement.textContent, 'Next', 'the focus on Next');
     assert.ok(popup.contains(document.activeElement));
-    assert.notDeepEqual(texts(popup, '.popup-context p'), ['Here: the rule of Grouped AVP User-Identity · 6.3.1']);
+    assert.notDeepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
     assert.equal(popup.querySelector('.popup-contents')?.open ?? false, false, 'closed as the reader left it');
     document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape' }));
     absent(document.querySelector('.avp-popup'));

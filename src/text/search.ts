@@ -33,7 +33,7 @@ export const searchPage = {
   /** A document's line in a result where it spells the name otherwise: "as Session-ID". The name follows. */
   as: 'as',
   /** A document's line where it defines what others re-use. */
-  definesIt: 'defines it',
+  definesIt: 'defined here',
   /** A result's line, before the document most of its documents take the name from: "· defined in TS 29.272". */
   definedIn: 'defined in ',
   /** A result's line: what Wireshark's dictionary calls the name, where it differs. The names follow. */
@@ -58,8 +58,8 @@ export const identityWords = {
   commandApplication: (id: number | string) => ` · application ${id}`,
   commandApplicationName: (name: string) => ` (${name})`,
   /** The Application-ID a command's header prints, where documents disagree on it; "none" where it prints none. */
-  header: (id: number | string) => `header ${id}`,
-  headerTitle: (id: number | string) => ` · header ${id}`,
+  header: (id: number | string) => `header Application-ID ${id}`,
+  headerTitle: (id: number | string) => ` · header Application-ID ${id}`,
   none: 'none',
   /** "Result code 5001 of Experimental-Result-Code", the kind's row word first. */
   value: (row: string, value: number | string, avp: string) => `${row} ${value} of ${avp}`,
@@ -67,9 +67,9 @@ export const identityWords = {
   valueList: (id: number) => ` list ${id}`,
   valueListFact: (id: number) => `list ${id}`,
   valueApplication: (application: string) => ` (${application})`,
-  /** An information element's command: "of ULR", or where its table names none. */
-  elementOf: (command: string) => `of ${command}`,
-  elementOfNone: 'of no command',
+  /** An information element's command: "in ULR", or where its table names none. */
+  elementOf: (command: string) => `in ${command}`,
+  elementOfNone: 'no command',
   /** The same, in a tooltip. */
   elementNoCommand: 'no command',
   /** What an information element maps to: "AVP User-Name", "AVPs Result-Code, Experimental-Result". */

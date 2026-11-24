@@ -52,7 +52,10 @@ test("self-hosted: a table row's name goes to its Definition in the pane where c
     assert.equal(paneAt(document).get('titled'), null);
     assert.ok(window.location.hash.startsWith(route), "the view's own place is the route's");
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(name.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(
+      name.title,
+      'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
+    );
     const cell = name.closest('.dad-line').querySelector('a[target="_blank"][data-token]');
     assert.equal(cell.textContent, '17.7.2');
     assert.equal(
@@ -129,15 +132,12 @@ test('self-hosted: the popup gives each target both panels first and the pane al
     const definition = popup.querySelector('.place-definition');
     const details = popup.querySelector('.place-details');
     const words = row => [...row.children].map(node => node.textContent);
-    assert.deepEqual(words(definition), ['Definition:', '17.7', 'Jump to', 'Show on the right']);
-    assert.deepEqual(words(details), ['Details:', '17.7.2', 'Jump to', 'Show on the right']);
+    assert.deepEqual(words(definition), ['Definition:', '17.7', 'Jump to', 'Show in source']);
+    assert.deepEqual(words(details), ['Details:', '17.7.2', 'Jump to', 'Show in source']);
     assert.equal(definition.querySelector('button').className, 'control pane-action');
     assert.equal(definition.querySelector('a').className, 'control view-action');
-    assert.match(definition.querySelector('a').title, /text on the left and the source pane on the right/);
-    assert.match(
-      definition.querySelector('button').title,
-      /only the source pane on the right, and opens it if it is hidden/,
-    );
+    assert.match(definition.querySelector('a').title, /both the document view and the source pane/);
+    assert.match(definition.querySelector('button').title, /in the source pane only \(opens it if hidden\)/);
     definition.querySelector('button').click();
     await settle();
     assert.equal(paneAt(document).get('search'), '17.7');
@@ -164,7 +164,7 @@ test('self-hosted: the popup gives each target both panels first and the pane al
   }
 });
 
-test('self-hosted: Show on the right opens a pane that is switched off, and leaves the text where it is', async () => {
+test('self-hosted: Show in source opens a pane that is switched off, and leaves the text where it is', async () => {
   const page = await boot({ hash: '#29061-6f0/17.7?pane=0', mode: 'self-hosted' });
   try {
     const { document, window } = page;
@@ -345,14 +345,14 @@ test("self-hosted: a click goes to a name's Details by default, and the strip's 
       name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
       return name.title;
     };
-    assert.equal(hover(), 'Click: details in pane · Alt-click: details in both · Right-click: uses');
+    assert.equal(hover(), 'Click: details in source pane · Alt-click: details in both panes · Right-click: uses');
     click(page, name);
     await settle();
     assert.equal(paneAt(document).get('search'), '17.7.2');
     assert.equal(paneAt(document).get('titled'), '1');
     control.querySelector('input[value="definition"]').click();
     assert.equal(window.localStorage.getItem('seanchai-click-target'), 'definition');
-    assert.equal(hover(), 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(hover(), 'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses');
     click(page, name);
     await settle();
     assert.equal(paneAt(document).get('search'), '17.7');
@@ -361,7 +361,10 @@ test("self-hosted: a click goes to a name's Details by default, and the strip's 
     assert.equal(document.querySelector('.click-target input:checked').value, 'definition');
     const drmp = document.querySelector('pre a[data-avp="DRMP"]');
     drmp.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(drmp.title, 'Click: definition in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(
+      drmp.title,
+      'Click: definition in source pane · Alt-click: definition in both panes · Right-click: uses',
+    );
     document.querySelector('.click-target input[value="details"]').click();
     assert.equal(window.localStorage.getItem('seanchai-click-target'), 'details');
   } finally {
@@ -379,7 +382,7 @@ test('self-hosted: where the view has no line for the Details, an alt-click take
     const { document, window } = page;
     const name = tmgi(document);
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(name.title, 'Click: details in pane · Alt-click: definition in both · Right-click: uses');
+    assert.equal(name.title, 'Click: details in source pane · Alt-click: definition in both panes · Right-click: uses');
     click(page, name, { altKey: true });
     await settle();
     assert.ok(document.querySelector('.target-line').querySelector('a[data-avp="TMGI"]'), 'the row listing it');
@@ -399,7 +402,7 @@ test('public: where neither panel can show the Details, an alt-click goes to the
     const { document, window } = page;
     const name = tmgi(document);
     name.dispatchEvent(new window.MouseEvent('mouseover', { bubbles: true }));
-    assert.equal(name.title, 'Click: show it in pane · Alt-click: go to definition · Right-click: uses');
+    assert.equal(name.title, 'Click: inspect in source pane · Alt-click: go to definition · Right-click: uses');
     click(page, name, { altKey: true });
     await settle();
     assert.ok(document.querySelector('.target-line').querySelector('a[data-avp="TMGI"]'));

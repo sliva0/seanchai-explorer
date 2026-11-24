@@ -25,8 +25,8 @@ export const categoryText = (category: string, words: string) => `${category}, $
 /** A table by its number, "table 5.2.2.2.1/1": in popups, the search page, marks' titles and section names. */
 export const tableName = (table: string) => `table ${table}`;
 
-/** A clause's tables where none names its command: "the table in 5.2.2.2.1", "3 tables". */
-export const tableIn = (section: string) => `the table in ${section}`;
+/** A section's tables where none names its command: "the table in section 5.2.2.2.1", "3 tables". */
+export const tableIn = (section: string) => `the table in section ${section}`;
 export const tablesCount = (count: number) => `${count} tables`;
 
 /** An information element offering several AVPs: "one of Result-Code, Experimental-Result". */

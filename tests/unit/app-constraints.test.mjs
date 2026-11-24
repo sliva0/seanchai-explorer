@@ -89,15 +89,15 @@ test('the corrected text of TS 29.272', async t => {
         assert.equal(mark.dataset.reads, 'Context-Identifier');
         assert.deepEqual(mark.title.split('\n'), [
           'C: conditional · Context Identifier (See 7.3.27) · table 5.2.2.2.1/1',
-          "Read from the description of this member's row in table 5.2.2.2.1/1:",
+          "From this member's description in table 5.2.2.2.1/1:",
           '• present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
           mark.title.split('\n')[3],
           '• not 0',
-          'Click for each rule with its quote, and the way to it in the text.',
+          'Click to view each rule, its source quote, and a link to its block.',
         ]);
         assert.match(
           mark.title.split('\n')[3],
-          /^• not checkable from one message: “In the "PDN subscription contexts Withdrawal" case, .{20,100}…”$/,
+          /^• cannot be checked on a single message: “In the "PDN subscription contexts Withdrawal" case, .{20,100}…”$/,
           'a rule no checker can run, as its quote, shortened',
         );
         assert.equal(line.querySelectorAll('.line-mark').length, 1, 'one mark');
@@ -106,11 +106,11 @@ test('the corrected text of TS 29.272', async t => {
         assert.ok(onlyRules.classList.contains('constraint-mark') && !onlyRules.classList.contains('element-mark'));
         assert.match(
           onlyRules.title,
-          /^Read from clause 7\.3\.35's text:\n• not 0\n• differs from one APN-Configuration/,
+          /^From the prose of section 7\.3\.35:\n• not 0\n• unique across APN-Configuration instances/,
         );
         assert.match(
           onlyRules.title,
-          /\n• not checkable from one message: “NOTE: If interworking with MAP is needed[^”]*”\n/,
+          /\n• cannot be checked on a single message: “NOTE: If interworking with MAP is needed[^”]*”\n/,
         );
       },
     );
@@ -124,11 +124,11 @@ test('the corrected text of TS 29.272', async t => {
         assert.equal(
           row.querySelector('.constraint-mark').title,
           [
-            'Read from the description of this row:',
-            '• not checkable from one message: “It shall be present when the message is sent on the S7d interface.”',
-            "Read from clause 7.3.102's text:",
+            "From this row's description:",
+            '• cannot be checked on a single message: “It shall be present when the message is sent on the S7d interface.”',
+            'From the prose of section 7.3.102:',
             '• TBCD-encoded E.164 number',
-            'Click for each rule with its quote, and the way to it in the text.',
+            'Click to view each rule, its source quote, and a link to its block.',
           ].join('\n'),
         );
       },
@@ -168,7 +168,7 @@ test('the corrected text of TS 29.272', async t => {
         assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
         assert.deepEqual(texts(section, '.constraint-reading .constraint-words').slice(0, 2), [
           'not 0',
-          'differs from one APN-Configuration to the next',
+          'unique across APN-Configuration instances',
         ]);
         const first = section.querySelector('.constraint-rule');
         assert.deepEqual(
@@ -178,13 +178,15 @@ test('the corrected text of TS 29.272', async t => {
         );
         assert.equal(
           section.querySelector('.constraints-about').title,
-          'Rules a reader of the specification took from its prose, each beside the sentence it was read from. The specification prints none of them as a table or ABNF rule, so each is as sure as its quote.',
+          'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
         );
         assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
         assert.match(section.querySelector('.constraint-reading q').textContent, /shall not have a value of zero/);
         const textOnly = texts(section, '.constraint-text-only');
         assert.equal(textOnly.length, 1);
-        assert.deepEqual(texts(section, '.constraint-text-only .constraint-words'), ['Not checkable from one message']);
+        assert.deepEqual(texts(section, '.constraint-text-only .constraint-words'), [
+          'Cannot be checked on a single message',
+        ]);
         absent(section.querySelector('.constraint-text-only .constraint-printed'));
         assert.match(
           section.querySelector('.constraint-text-only q').textContent,
@@ -204,7 +206,7 @@ test('the corrected text of TS 29.272', async t => {
         ]);
         assert.deepEqual(texts(dsr, '.constraint-reading .constraint-words'), [
           'present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
-          'Not checkable from one message',
+          'Cannot be checked on a single message',
           'not 0',
         ]);
         assert.ok(!dsr.textContent.includes('APN-Configuration'));
@@ -215,16 +217,16 @@ test('the corrected text of TS 29.272', async t => {
     await t.test("a name in a block says where it stands in it, and an encoding's codec is explained", async () => {
       const subject = document.querySelector('.dad-line.interpreted [data-avp="Visited-PLMN-Id"]');
       const popup = await popupOf(page, subject);
-      assert.equal(texts(popup, '.popup-context p')[0], 'Here: the AVP of interpreted constraints · 7.3.9');
+      assert.equal(texts(popup, '.popup-context p')[0], 'Here: subject of interpreted constraints · 7.3.9');
       const rule = popup.querySelector('.constraint-rule');
       assert.match(rule.querySelector('.constraint-printed').textContent, /^encoding plmn-id\b/);
-      assert.equal(rule.querySelector('.constraint-words').textContent, 'PLMN ID, MCC and MNC in 3 octets');
+      assert.equal(rule.querySelector('.constraint-words').textContent, 'PLMN ID (MCC and MNC in 3 octets)');
       assert.match(rule.title, /^MCC and MNC in 3 octets/);
       await closePopup(page);
       const condition = await popupOf(page, nameOn(document, 'DSR-Flags', DSR_QUOTE + 1));
       assert.equal(
         texts(condition, '.popup-context p')[0],
-        'Here: a condition of an interpreted rule on Context-Identifier · in Delete-Subscriber-Data-Request · 5.2.2.2.1',
+        'Here: condition AVP in an interpreted rule on Context-Identifier · in Delete-Subscriber-Data-Request · 5.2.2.2.1',
       );
       await closePopup(page);
     });
@@ -241,11 +243,11 @@ test('the corrected text of TS 29.272', async t => {
         /at most one of bits 3, 6 set/,
       );
       const nor = await popupOf(page, nameOn(document, 'NOR-Flags', NOR_FLAGS_MEMBER));
-      assert.ok(texts(nor, '.constraint-reading .constraint-words').includes('read as 0 when absent'));
+      assert.ok(texts(nor, '.constraint-reading .constraint-words').includes('defaults to 0 when absent'));
       await closePopup(page);
       assert.match(
         lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
-        /^Read from the description of this member's row in table 5\.2\.5\.1\.1\/1:\n• read as 0 when absent$/m,
+        /^From this member's description in table 5\.2\.5\.1\.1\/1:\n• defaults to 0 when absent$/m,
       );
     });
 
@@ -256,7 +258,10 @@ test('the corrected text of TS 29.272', async t => {
       );
       present(rule);
       assert.equal(rule.querySelector('.constraint-printed').textContent, 'members only IMEI Software-Version');
-      assert.equal(rule.querySelector('.constraint-words').textContent, 'no member present but IMEI, Software-Version');
+      assert.equal(
+        rule.querySelector('.constraint-words').textContent,
+        'no members present except IMEI, Software-Version',
+      );
       assert.deepEqual(
         [...rule.querySelectorAll('a.constraint-avp')].map(link => [link.textContent, link.getAttribute('href')]),
         [
@@ -267,12 +272,12 @@ test('the corrected text of TS 29.272', async t => {
       await closePopup(page);
       assert.match(
         lineAt(document, NOR_TERMINAL_MEMBER).querySelector('.line-mark').title,
-        /^• no member present but IMEI, Software-Version$/m,
+        /^• no members present except IMEI, Software-Version$/m,
       );
       const member = await popupOf(page, nameOn(document, 'IMEI', NOR_MEMBERS_RULE));
       assert.equal(
         texts(member, '.popup-context p')[0],
-        'Here: a member an interpreted rule on Terminal-Information names · in Notify-Request · 5.2.5.1.1',
+        'Here: member referenced in an interpreted rule on Terminal-Information · in Notify-Request · 5.2.5.1.1',
       );
       await closePopup(page);
     });
@@ -288,7 +293,10 @@ test('the corrected text of TS 29.272', async t => {
       const zone = '.dad-line.interpreted [data-avp="Regional-Subscription-Zone-Code"]';
       const unheld = await popupOf(page, document.querySelector(zone));
       absent(unheld.querySelector('.constraint-rule a'));
-      assert.equal(unheld.querySelector('.constraint-words').textContent, 'encoded as TS23.003 clause 4.4 “Zone Code”');
+      assert.equal(
+        unheld.querySelector('.constraint-words').textContent,
+        'encoded as TS23.003 section 4.4 “Zone Code”',
+      );
       await closePopup(page);
     });
 

@@ -30,13 +30,13 @@ const FOLDERS = [
 const EXAMPLE_FINDING =
   'Note: … > MIP-Home-Agent-Host > Destination-Realm: not epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org [TS 29.272 7.3.43, interpreted]';
 
-/** Each severity's expert info field and the filter for the messages with one, in the order of `words.rows`. */
-const FINDING_FIELDS = [
-  ['seanchai.violation', 'seanchai.errors > 0'],
-  ['seanchai.warning', 'seanchai.warnings > 0'],
-  ['seanchai.note', 'seanchai.notes > 0'],
-  ['seanchai.interpreted', 'seanchai.interpreted'],
-] as const;
+/** Each severity's filter for the messages with one, by its expert info field, `seanchai.` and the key. */
+const FINDING_FILTERS: Record<keyof typeof words.rows, string> = {
+  violation: 'seanchai.errors > 0',
+  warning: 'seanchai.warnings > 0',
+  note: 'seanchai.notes > 0',
+  interpreted: 'seanchai.interpreted',
+};
 
 /** The head of the file, which holds its versions line: the page is shown without fetching all 1.5 MB. */
 const HEAD_BYTES = 16384;
@@ -288,16 +288,16 @@ export function WiresharkView({ site }: { site: Site }) {
             </tr>
           </thead>
           <tbody>
-            {words.rows.map((row, index) => (
-              <tr key={FINDING_FIELDS[index][0]}>
-                <th>{row.severity}</th>
+            {(Object.keys(FINDING_FILTERS) as (keyof typeof FINDING_FILTERS)[]).map(field => (
+              <tr key={field}>
+                <th>{words.rows[field].severity}</th>
                 <td>
-                  <code>{FINDING_FIELDS[index][0]}</code>
+                  <code>seanchai.{field}</code>
                 </td>
                 <td>
-                  <code>{FINDING_FIELDS[index][1]}</code>
+                  <code>{FINDING_FILTERS[field]}</code>
                 </td>
-                <td>{row.reports}</td>
+                <td>{words.rows[field].reports}</td>
               </tr>
             ))}
           </tbody>

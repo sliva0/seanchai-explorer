@@ -1,4 +1,4 @@
-// The popups a name opens over the text, and the inspector, which draws them in the source pane: an AVP's, a
+// The popups a name opens over the document view, and the inspector, which draws them in the source pane: an AVP's, a
 // command's and a value's, and what they share. Each entry's comment says where it shows; see site.ts for the marks.
 // The interpreted constraints' section is in rules.ts.
 
@@ -6,12 +6,12 @@
 export const popupShared = {
   /** The × button's name for a screen reader, on a popup and on the help. */
   close: 'Close',
-  /** [limit] A place's two buttons, and their tooltips: the first as it moves the text alone or the pane too. */
+  /** [limit] A place's two buttons, and their tooltips: the first as it moves the document view alone or the pane too. */
   jumpTo: 'Jump to',
-  jumpToBoth: 'Moves the text on the left and the source pane on the right',
-  jumpToText: 'Moves the text to this place',
-  showOnTheRight: 'Show on the right',
-  showOnTheRightTitle: 'Moves only the source pane on the right, and opens it if it is hidden',
+  jumpToBoth: 'Jump here in both the document view and the source pane',
+  jumpToText: 'Jump here in the document view',
+  showOnTheRight: 'Show in source',
+  showOnTheRightTitle: 'Show in the source pane only (opens it if hidden)',
   /** A place's label, before its colon: "Definition: 7.3.2". */
   placeLabel: (label: string) => `${label}:`,
   /** [limit] The buttons stepping through a name's uses: a word each. */
@@ -22,17 +22,17 @@ export const popupShared = {
   bold: 'bold',
   struckThrough: 'struck through',
   category: (categories: string) => `category ${categories}`,
-  /** A notice where a document a popup needs fails to load: `label` is its name. */
-  loadFailed: (label: string) => `Could not load ${label} for the popup`,
+  /** A notice where a document a popup or the inspector needs fails to load: `label` is its name. */
+  loadFailed: (label: string) => `Could not load referenced document ${label}`,
 };
 
 /** A member's presence and count, as its brackets and qualifier say: "Optional [ ] · may be present, in any position · any number of times". */
 export const presenceWords = {
-  fixed: { label: 'Fixed', meaning: 'must be present, at this position in the order' },
+  fixed: { label: 'Fixed', meaning: 'must be present at this position' },
   required: { label: 'Required', meaning: 'must be present, in any position' },
   optional: { label: 'Optional', meaning: 'may be present, in any position' },
   /** A fixed member a qualifier lets be absent. */
-  fixedOptional: 'may be present, at this position in the order',
+  fixedOptional: 'may be present at this position',
 };
 
 /** How often a member may occur. */
@@ -56,13 +56,12 @@ export const flagText = {
   cell: (bit: string, words: string, meaning: string) => `${bit} ${words}. ${meaning}`,
   /** What each bit means, in a cell's tooltip and the "?"'s list. */
   meaning: {
-    M: 'Mandatory: set, a receiver that does not support the AVP must reject the message; clear, it may skip the AVP.',
-    V: "Vendor-Specific: set, the header carries a Vendor-ID and the code is that vendor's; clear, the code is IETF's.",
+    M: 'Mandatory: if set, a receiver that does not support the AVP must reject the message; if clear, it may ignore the AVP.',
+    V: 'Vendor-Specific: if set, the AVP header includes a Vendor-ID and the code is vendor-defined; if clear, the code is IETF-defined.',
   },
   /** The "?"'s list, of what the popup leaves out. */
-  protectedBit:
-    'Protected, not shown: it was for end-to-end security, which RFC 6733 dropped; it says to leave the bit clear.',
-  encrypt: 'Not shown: whether the AVP may be encrypted with RFC 3588 end-to-end security, which RFC 6733 dropped.',
+  protectedBit: 'Protected (not shown): reserved for end-to-end security, which RFC 6733 deprecated; leave clear.',
+  encrypt: 'Not shown: whether the AVP may be encrypted for RFC 3588 end-to-end security (deprecated in RFC 6733).',
   /** The "?" button's tooltip and name. [limit] the button shows "?" */
   key: 'What these mean',
   /** A value the rows give differently, with the table each is from: "must be set (AVP Table 7.3.1/1)". */
@@ -71,11 +70,11 @@ export const flagText = {
 
 /** What a table's other columns mean, in their tooltips and the "?"'s list, by the column's name. */
 export const columnNotes: Record<string, string> = {
-  From: 'The specification that defines the AVP, which this one re-uses.',
-  'Defined-In': 'The specification that defines the AVP.',
-  'Acc-Type': "The access types the AVP applies to, as the table's notes say.",
-  Applicability: "The features or cases the AVP applies to, as the table's notes say.",
-  'Reference-Points': 'The reference points the AVP is used on.',
+  From: 'Specification that defines this reused AVP.',
+  'Defined-In': 'Specification that defines this AVP.',
+  'Acc-Type': 'Access types this AVP applies to (see table notes).',
+  Applicability: 'Features or cases this AVP applies to (see table notes).',
+  'Reference-Points': 'Reference points where this AVP is used.',
 };
 
 /** A cell the table leaves blank. */
@@ -88,20 +87,20 @@ export const avpPopup = {
   vendor: (vendor: number) => `Vendor-ID ${vendor}`,
   /** What the line opened on is, after "Here: ": a member, "in command ULR · 5.2.1.1", or the rule it heads. */
   inRule: (rule: string, section: string) => `Here: in ${rule}${section ? ` · ${section}` : ''}`,
-  ruleOf: (rule: string, section: string) => `Here: the rule of ${rule}${section ? ` · ${section}` : ''}`,
+  ruleOf: (rule: string, section: string) => `Here: rule for ${rule}${section ? ` · ${section}` : ''}`,
   /** A rule's kind and name: "command ULR", "Grouped AVP Subscription-Data". */
   command: 'command',
   ruleName: (kind: string, label: string) => `${kind} ${label}`,
   /** Under a member's line. */
-  bold: 'Bold in the source: the document defines or modifies it here',
-  struckLeftOut: 'Struck through in the source, and left out of the rule',
-  struck: 'Struck through in the source',
+  bold: 'Bold in source: defined or modified in this document',
+  struckLeftOut: 'Struck through in source (omitted from rule)',
+  struck: 'Struck through in source',
   /** A line of an Interpreted Constraints block, after "Here: ": `on` the AVP the block is on, `scope` its scope. */
   here: (what: string, section: string) => `Here: ${what} · ${section}`,
-  constraintSubject: (scope: string) => `the AVP of interpreted constraints${scope}`,
-  constraintScope: (on: string) => `the grouped AVP interpreted constraints on ${on} hold within`,
-  constraintMember: (on: string, scope: string) => `a member an interpreted rule on ${on} names${scope}`,
-  constraintCondition: (on: string, scope: string) => `a condition of an interpreted rule on ${on}${scope}`,
+  constraintSubject: (scope: string) => `subject of interpreted constraints${scope}`,
+  constraintScope: (on: string) => `scope of interpreted constraints on ${on}`,
+  constraintMember: (on: string, scope: string) => `member referenced in an interpreted rule on ${on}${scope}`,
+  constraintCondition: (on: string, scope: string) => `condition AVP in an interpreted rule on ${on}${scope}`,
   /** The scope after it: " · within APN-Configuration", " · in ULR". */
   within: (name: string) => ` · within ${name}`,
   in: (name: string) => ` · in ${name}`,
@@ -120,9 +119,9 @@ export const avpPopup = {
   /** What an Information Elements row says of a member: "Element: SGSN number (See 7.3.102) · C, conditional". */
   elementLine: (text: string) => `Element: ${text}`,
   /** Where a row's member is not found. */
-  noCommand: 'The table names no command',
-  noRule: (command: string) => `No one rule of ${command} found for the table`,
-  notMember: (command: string) => `Not a member of ${command}'s rule`,
+  noCommand: 'This table does not specify a command',
+  noRule: (command: string) => `No unique rule for ${command} matches this table`,
+  notMember: (command: string) => `Not a member of the ${command} rule`,
   /** [limit] Labels of a place, before its colon. A word or two. */
   definition: 'Definition',
   details: 'Details',
@@ -135,8 +134,8 @@ export const avpPopup = {
   uses: 'Uses',
   /** The value tables' group, for a screen reader. */
   valueTables: 'Value tables',
-  /** [limit] Between Previous and Next: which of the document's uses the popup is at, "file 3/14". */
-  useCount: (at: number, of: number) => `.dad ${at}/${of}`,
+  /** [limit] Between Previous and Next: which of the document's uses the popup is at, "Use 3/14". */
+  useCount: (at: number, of: number) => `Use ${at}/${of}`,
 };
 
 /** A command's popup. */
@@ -147,8 +146,8 @@ export const commandPopup = {
   answer: 'Answer',
   /** Its second line: "Application-ID 16777251 · S6a/S6d", and where the header prints none, where the id is from. */
   applicationId: (id: number | string) => `Application-ID ${id}`,
-  noApplicationId: 'No Application-ID: the header prints none',
-  idFrom: (section: string) => `from ${section}, not the header`,
+  noApplicationId: 'No Application-ID in command header',
+  idFrom: (section: string) => `from section ${section} (not in header)`,
   /** What tells another definition from this one: its code, its application, or none. */
   otherCode: (code: number) => `code ${code}`,
   otherApplication: (id: number, name: string) => `Application-ID ${id}${name ? ` ${name}` : ''}`,
@@ -177,6 +176,6 @@ export const valuePopup = {
   definedInReference: (reference: string) => `Defined in ${reference}`,
   /** After the AVP: its table's Feature-List-ID, " · list 1". */
   list: (id: number) => ` · list ${id}`,
-  /** Before the row's clause and page, a link to the source. */
+  /** Before the row's section and page, a link to the source document. */
   source: 'Source: ',
 };

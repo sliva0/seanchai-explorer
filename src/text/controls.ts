@@ -5,9 +5,11 @@
  * search-view.tsx, source-pane.tsx and viewer.ts.
  */
 export interface Control {
-  /** Each a way to do it, any one of them. */
+  /** Each a way to do it, any one of them; in a group of `marks`, each a mark as a line shows it. */
   keys: string[];
   does: string;
+  /** In a group of `marks`, how its marks look: a category, one its brackets contradict, or the ¶. */
+  mark?: 'category' | 'disagrees' | 'constraint';
 }
 
 export interface ControlGroup {
@@ -15,54 +17,85 @@ export interface ControlGroup {
   /** Said under the title, of every control in the group. */
   note?: string;
   controls: Control[];
+  /** What a line shows after its end rather than what a key or the mouse does: its keys are drawn as the marks. */
+  marks?: boolean;
+  /** Listed only in a self-hosted build, as the PDF viewer's keys are. [self-hosted] */
+  selfHosted?: boolean;
 }
 
 export const controlGroups: ControlGroup[] = [
   {
-    title: 'Mouse, on a name',
-    note: "Where the source pane cannot show a document's source, as a public build's PDFs, a click shows in it what the name is, as its popup says, and the text stays. With no pane at all, a click does what an alt-click does. A ; Section:, ; Page: or ; Table: number in a block's header goes to that place in the source the same way, a table to its caption, a clause holding several; a table a popup names goes to its block in the text.",
+    title: 'Mouse (on a name)',
+    note: "When the source pane cannot display a document's PDF, clicking a name opens it in the inspector without moving the document view. When the source pane is unavailable (for example, in a narrow window), clicking behaves like Alt-click. Clicking a ; Section:, ; Page:, or ; Table: reference in a block header jumps to that location in the source document (a ; Table: link targets its caption). Clicking a table link inside a popup jumps to its block in the document view.",
     controls: [
       {
         keys: ['Click'],
-        does: 'Its Details or its definition, as "Click goes to" in the document\'s strip says (under "Click options" in a narrow window), in the source pane alone, which opens if it was switched off. With "Click shows uses" on, where it is used',
+        does: 'Open the name\'s Details or Definition (per "Click goes to" in the document toolbar, or under "Click options" in narrow windows) in the source pane only, opening the pane if hidden. When "Click shows uses" is enabled, opens the popup instead.',
       },
-      { keys: ['Alt-click'], does: 'The same place in the text and the pane' },
+      { keys: ['Alt-click'], does: 'Jump both the document view and the source pane to that location.' },
       {
         keys: ['Right-click'],
-        does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is, where else it is printed and its Information Elements tables. A member a table describes has its element and category (M, C or O) and that row, and the row its member; beside its line is a C, which its brackets cannot say, or a category they contradict, as an M on [ ]. An AVP has the interpreted constraints that hold where it is read, a ¶ beside its line, which a click opens at them, each rule in words and as the text prints it, with its quote and the way to its block',
+        does: 'Open the name\'s popup: uses, flags, Definition, and Details (with "Jump to" for both panes and "Show in source" for the source pane only); for commands, identity, other definitions, and Information Elements tables. Command members linked to an Information Elements table also show their element and category (M, C, or O), and constrained AVPs list the interpreted constraints that apply where they are used.',
       },
-      { keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'], does: "The browser's" },
+      {
+        keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],
+        does: 'Default browser behavior (for example, open in a new tab or window).',
+      },
+    ],
+  },
+  {
+    title: 'Line marks',
+    note: "Shown after a line's end; copying from the document view leaves them out.",
+    marks: true,
+    controls: [
+      {
+        keys: ['C'],
+        mark: 'category',
+        does: "A member's category in its command's Information Elements table where ABNF brackets cannot express it: C, conditional.",
+      },
+      {
+        keys: ['M', 'O', 'C'],
+        mark: 'disagrees',
+        does: 'In the warning colour: a category that contradicts the ABNF brackets, such as M on [ ] or O on { }; its tooltip says how.',
+      },
+      {
+        keys: ['¶'],
+        mark: 'constraint',
+        does: 'Interpreted constraints apply to the AVP here: hover to preview the rules, or click it (or press Enter) to open them in the popup or inspector.',
+      },
     ],
   },
   {
     title: 'Keyboard',
-    note: "The keys wait while the focus is in a text box or a list, and a bracket's second key must come within a second.",
+    note: 'Shortcuts are inactive while focus is in a text input or dropdown. Two-key sequences starting with [ or ] must be completed within 1 second.',
     controls: [
-      { keys: ['Ctrl+O', 'Alt+O', '[j'], does: 'The place before on the jump list' },
-      { keys: ['Ctrl+I', 'Alt+I', ']j'], does: 'The place after on the jump list' },
-      { keys: ['[d'], does: 'The place before on the list in another document' },
-      { keys: [']d'], does: 'The place after on the list in another document' },
-      { keys: ['Menu', 'Shift+F10'], does: 'On a name with the focus, what a right-click does' },
-      { keys: ['←', '→'], does: 'On the divider between the panes, widens or narrows the source pane' },
-      { keys: ['/'], does: 'Goes to search: its box, from any page' },
-      { keys: ['Escape'], does: 'Closes a popup, or this help' },
-      { keys: ['?'], does: 'Opens this help' },
+      { keys: ['Ctrl+O', 'Alt+O', '[j'], does: 'Previous position in jump history.' },
+      { keys: ['Ctrl+I', 'Alt+I', ']j'], does: 'Next position in jump history.' },
+      { keys: ['[d'], does: 'Previous document in jump history.' },
+      { keys: [']d'], does: 'Next document in jump history.' },
+      { keys: ['Menu', 'Shift+F10'], does: 'Open the popup for the focused name (same as right-click).' },
+      { keys: ['←', '→'], does: 'When the pane divider is focused, resize the document view and source pane.' },
+      { keys: ['/'], does: 'Focus the search box (from any page).' },
+      { keys: ['Escape'], does: 'Close the open popup or this help dialog.' },
+      { keys: ['?'], does: 'Open or close this help dialog.' },
     ],
   },
   {
     title: 'Search',
     controls: [
-      { keys: ['↑', '↓'], does: 'From result to result, from the box too' },
-      { keys: ['←', '→'], does: 'Between the links of one result; in the box they move the caret' },
+      { keys: ['↑', '↓'], does: 'Move between search results (works from the search box too).' },
+      { keys: ['←', '→'], does: 'Move between links within a result (moves the cursor when in the search box).' },
     ],
   },
+  /** [self-hosted] The PDF viewer's keys, listed only in a self-hosted build. */
   {
-    title: 'PDF pane',
-    note: "A self-hosted build's, with the focus in it. A self-hosted build ships the specifications' PDFs and shows them beside the text; a public build cannot, as ETSI's terms allow no one to redistribute them, and links to the publisher's copy at the page instead.",
+    title: 'PDF viewer',
+    note: 'With the focus in the PDF viewer.',
+    selfHosted: true,
     controls: [
-      { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zooms in or out, with = and _ too, as Cmd does on a Mac' },
-      { keys: ['Ctrl+wheel'], does: 'Zooms at the pointer, as a pinch does' },
-      { keys: ['Enter'], does: 'In the page box goes to the page, in the find box to the next match' },
+      { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zoom in or out (also works with = and _; use Cmd on macOS).' },
+      { keys: ['Ctrl+wheel'], does: 'Zoom centered on the pointer (same as pinch-to-zoom).' },
+      { keys: ['Enter'], does: 'In the page field, jump to that page; in the find field, jump to the next match.' },
     ],
   },
 ];

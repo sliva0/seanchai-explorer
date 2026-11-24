@@ -231,8 +231,11 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   const wide = matchMedia('(min-width: 761px)');
   let switchedOn = true;
   let selected: { doc: Document; position: SourcePosition } | undefined;
-  /** The document whose text the pane is beside, where it was put last, and whether it has a pane at all. */
-  let mounted: { doc: Document; position: SourcePosition; reads: boolean } | undefined;
+  /**
+   * The document whose text the pane is beside, where it was put last, whether it has a pane at all, and whether that
+   * pane is the inspector of it, where it cannot show its source.
+   */
+  let mounted: { doc: Document; position: SourcePosition; reads: boolean; inspects: boolean } | undefined;
   let request = 0;
   /** What the pane shows while it is open, and keeps while it is hidden: a page loads only where it can be seen. */
   let shown: { url?: string; title?: string; placeholder?: { doc: Document; position: SourcePosition } } = {};
@@ -306,6 +309,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
         doc,
         position: doc.sections[0] ?? { section: '', page: null },
         reads: Boolean(paneKind(doc, site.mode)),
+        inspects: paneKind(doc, site.mode) === 'placeholder',
       };
       selected = undefined;
       shown = {};
@@ -435,13 +439,18 @@ function usePane(pane: SourcePane) {
   return pane.view;
 }
 
-/** The control switching the pane on and off, for the document's strip; hidden where the window is too narrow for it. */
+/**
+ * The control switching the pane on and off, for the document toolbar, named for what the pane shows: a source
+ * document, or the inspector where it cannot show one, as it last showed or, before it has, as it would beside this
+ * document. Hidden where the window is too narrow for it.
+ */
 export function SourceToggle({ pane }: { pane: SourcePane }) {
-  const { wide, mounted } = usePane(pane);
+  const { wide, mounted, shown } = usePane(pane);
   if (!mounted?.reads) return null;
+  const inspects = shown.url === undefined ? Boolean(shown.placeholder) || mounted.inspects : false;
   return (
     <label class="visibility-toggle source-toggle" hidden={!wide}>
-      {strip.source}
+      {inspects ? strip.inspector : strip.source}
       <input
         type="checkbox"
         checked={pane.switchedOn}

@@ -17,7 +17,7 @@ test('the index has no introduction and no link to the project, and keeps its li
       [...intro.querySelectorAll('p')].map(p => p.textContent.replace(/\d+(\.\d+)+/g, 'N')),
       [
         'Corpus N · seanchai N · public build',
-        'Click a name for details beside the text, right-click for uses, ? for controls.',
+        'Click a name to view it in the source pane, right-click for uses, or press ? for help.',
       ],
     );
     absent(intro.querySelector('a'));
@@ -31,7 +31,10 @@ test("the Wireshark page says a build without the plugin has none, and names no 
   const page = await boot({ hash: '#wireshark', plugin: false });
   try {
     const { document } = page;
-    assert.match(document.querySelector('.plugin-ways').textContent, /^Not in this build\./);
+    assert.match(
+      document.querySelector('.plugin-ways').textContent,
+      /^The Wireshark plugin is not included in this build\./,
+    );
     absent(document.querySelector('.plugin-ways pre'));
     assert.doesNotMatch(document.body.innerHTML, /uvx|seanchai\[corpus\]/);
     assert.doesNotMatch(document.body.innerHTML, named);
@@ -46,7 +49,7 @@ test('the pane says this build cannot show a PDF, and points at no other build',
     const { document } = page;
     assert.equal(
       document.querySelector('.inspector-note').textContent,
-      'This build cannot show the PDF of TS 29.153 V19.0.0, for licensing reasons.',
+      'The PDF for TS 29.153 V19.0.0 is not embedded in this build due to publisher licensing restrictions.',
     );
     assert.doesNotMatch(document.body.innerHTML, named);
   } finally {

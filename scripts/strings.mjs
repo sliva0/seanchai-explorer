@@ -13,7 +13,7 @@ const text = path.join(root, 'src/text');
 const modules = [
   ['site.ts', 'Every page, the header, the index, errors'],
   ['search.ts', 'The search page'],
-  ['document.ts', "A document's page: the strip, the jump buttons, a name's tooltip, line marks"],
+  ['document.ts', "A document's page: the document toolbar, the jump buttons, a name's tooltip, line marks"],
   ['popup.ts', 'The popups a name opens, and the inspector, which shows them in the source pane'],
   ['rules.ts', 'Interpreted constraints: rule words, the ¶ mark, the Interpreted section'],
   ['pane.ts', 'The source pane, its inspector, the PDF viewer and the RFC reader'],
@@ -147,12 +147,12 @@ const { controlGroups } = await import(path.join(text, 'controls.ts'));
 out.push(
   '## The help dialog: the list of controls',
   '',
-  "`src/text/controls.ts`, an array the help lists in order; README.md's Mouse and Keyboard tables say the same and change with it. A group's title and note, then each control: what it does, its keys in the context column (key names are not words to rewrite).",
+  "`src/text/controls.ts`, an array the help lists in order; README.md's Mouse, Line marks and Keyboard tables say the same and change with it. A group's title and note, then each control: what it does, its keys, or a line's marks, in the context column (key names and marks are not words to rewrite).",
   '',
 );
 const controls = [];
 controlGroups.forEach((group, index) => {
-  const self = /PDF pane/.test(group.title) ? ['[self-hosted]'] : [];
+  const self = group.selfHosted ? ['[self-hosted]'] : [];
   controls.push({
     name: `controlGroups[${index}].title`,
     text: group.title,
@@ -170,7 +170,7 @@ controlGroups.forEach((group, index) => {
     controls.push({
       name: `controlGroups[${index}].controls[${at}].does`,
       text: control.does,
-      context: `Keys: ${control.keys.join(', ')}`,
+      context: `${group.marks ? 'Marks' : 'Keys'}: ${control.keys.join(', ')}`,
       marks: self,
     }),
   );

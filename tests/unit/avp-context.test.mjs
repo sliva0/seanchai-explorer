@@ -34,7 +34,7 @@ test('a member says its rule, its brackets and how many of it there may be', asy
   assert.equal(use.member.bold, true);
   assert.equal(
     presenceText(useAt(udr, 15, 'Session-Id').member),
-    'Fixed < > · must be present, at this position in the order · exactly once',
+    'Fixed < > · must be present at this position · exactly once',
   );
   assert.equal(
     presenceText(useAt(udr, 16, 'DRMP').member),
@@ -66,7 +66,7 @@ test("a member's bounds read as RFC 6733 counts them", () => {
   for (const [min, max, expected] of cases) assert.equal(countText({ min, max }), expected, `${min}*${max}`);
   assert.equal(
     presenceText(member(0, 'ICV', 'fixed', 0, 1, { qualifier: '0*1' })),
-    'Fixed < > · may be present, at this position in the order · at most once',
+    'Fixed < > · may be present at this position · at most once',
     'a fixed member a qualifier lets be absent keeps only its position',
   );
 });
@@ -177,7 +177,7 @@ test("an Answer Message block's rule is a rule its members are in", async () => 
     [use.kind, use.rule.kind, use.rule.label, use.rule.short, use.rule.section],
     ['member', 'Answer Message', 'answer-message', 'answer-message', '7.2'],
   );
-  assert.equal(presenceText(use.member), 'Fixed < > · may be present, at this position in the order · at most once');
+  assert.equal(presenceText(use.member), 'Fixed < > · may be present at this position · at most once');
   assert.deepEqual(groupedRules(file, 'answer-message'), [], 'no Grouped AVP');
 });
 
