@@ -23,7 +23,7 @@ import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
-import { Counted, ExternalLink, placeRows } from './shared.tsx';
+import { Counted, ExternalLink, placeRows, TableLink } from './shared.tsx';
 
 /** Where a use reads its name: in the command or grouped AVP of its block, or wherever. */
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
@@ -51,14 +51,25 @@ export function constraintsHere(
   return [...found, ...origin.map(item => ({ doc: away, item }))];
 }
 
-/** "within APN-Configuration · 7.3.35", "in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1". */
-function scopeLine(site: Site, { block, scope }: ConstraintBlock): string {
+/**
+ * "within APN-Configuration · 7.3.35", "in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1", the table a link to its block in the
+ * text, which the block's rules were read from.
+ */
+function ScopeLine({ site, doc, item: { block, scope } }: { site: Site; doc: Document; item: ConstraintBlock }) {
   const short = (name: string) =>
     site.commands()?.commands.find(command => command.name.toLowerCase() === name.toLowerCase() && command.abbreviation)
       ?.abbreviation ?? name;
-  return [scopeWords({ scope }, short), block.section, block.fields.Table && `table ${block.fields.Table}`]
-    .filter(Boolean)
-    .join(' · ');
+  return (
+    <div class="constraint-scope">
+      {[scopeWords({ scope }, short), block.section].filter(Boolean).join(' · ')}
+      {block.fields.Table && (
+        <>
+          {' · '}
+          <TableLink site={site} document={doc.id} table={block.fields.Table} />
+        </>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -177,7 +188,7 @@ export function ConstraintFacts({
     };
     return (
       <div key={`${doc.id}:${block.line}`} class="constraint-group">
-        <div class="constraint-scope">{scopeLine(site, item)}</div>
+        <ScopeLine site={site} doc={doc} item={item} />
         <ul class="constraint-readings">
           {(block.readings ?? []).map((reading, index) => {
             const quotes = reading.quotes.map(quote => (

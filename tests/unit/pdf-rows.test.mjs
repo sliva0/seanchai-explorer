@@ -9,6 +9,7 @@ import {
   matchOnRow,
   mentionOnPage,
   rowOnPage,
+  tableOnPage,
   valueRowOnPage,
 } from '../../src/pdf-navigation.ts';
 
@@ -216,4 +217,17 @@ test('result codes: an unnumbered line with the code, and a clause heading with 
   assert.equal(rowOnPage(headings, 'DIAMETER_ERROR_USER_UNKNOWN'), null);
   assert.equal(clauseOnPage(headings, 'DIAMETER_ERROR_USER_UNKNOWN', 595), top(362.1, 12));
   assert.equal(headingOnPage(headings, '7.4.3.1', 595), top(362.1, 12));
+});
+
+test("a table's caption is the line its number and a colon start, not a sentence starting with it, nor /10", () => {
+  const first = items('29272-j60', 61);
+  const second = items('29272-j60', 62);
+  const width = 595;
+  assert.equal(tableOnPage(first, '5A.2.1.1.1/1', width), top(486.4, 10), 'below the sentence naming both tables');
+  assert.equal(tableOnPage(first, '5A.2.1.1.1/2', width), null, 'the sentence naming it is no caption');
+  assert.equal(tableOnPage(second, '5A.2.1.1.1/2', width), top(761.9, 10));
+  assert.equal(tableOnPage(first, '5A.2.1.1', width), null, 'nor its clause');
+  const centred = [{ str: 'Table 11 Reused AVPs', transform: [1, 0, 0, 1, 200, 500], width: 100, height: 9 }];
+  assert.equal(tableOnPage(centred, '11', width), top(500), 'a caption with no colon, centred');
+  assert.equal(tableOnPage(centred, '1', width), null);
 });

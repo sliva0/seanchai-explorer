@@ -367,6 +367,7 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
           parsed.raw && meta.raw ? site.loadRaw(meta.id) : undefined,
           site.loadCommands(),
           site.loadElements(),
+          site.loadTables(),
         ]).finally(() => clearTimeout(loading));
         if (generation !== request) return;
         sourcePane.mount(doc);

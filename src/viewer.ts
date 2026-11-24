@@ -206,12 +206,19 @@ async function navigate() {
   const section = params.get('search') ?? '';
   const name = params.get('name') ?? undefined;
   const row = params.get('row') === '1';
+  const table = params.get('table') ?? undefined;
+  const exact = params.get('exact') === '1';
   find.value = name ?? section;
   rowTarget = undefined;
   printedAs = undefined;
   wholeWord = Boolean(name);
-  const destination =
-    section && params.get('exact') !== '1'
+  const active = () => generation === navigation;
+  // A table's caption, which a clause of several tables tells them apart by; its clause where no page prints it.
+  const caption = table && !exact ? await navigator.locateTable(table, hint, active) : null;
+  if (generation !== navigation) return;
+  const destination = caption
+    ? caption
+    : section && !exact
       ? await navigator.locate(
           section,
           hint,
@@ -226,7 +233,12 @@ async function navigate() {
         )
       : null;
   if (generation !== navigation) return;
-  if (destination?.query && destination.query !== name) {
+  if (table && (caption || exact)) {
+    // The pane knows the place by its clause: the caption's find is not one the reader typed. Where no page prints
+    // the caption, the clause is found as a section link's is.
+    find.value = `Table ${table}`;
+    printedAs = { name: name ?? section, query: find.value };
+  } else if (destination?.query && destination.query !== name) {
     printedAs = { name: name!, query: destination.query };
     find.value = destination.query;
   }
@@ -234,7 +246,7 @@ async function navigate() {
   else viewer.scrollPageIntoView({ pageNumber: hint });
   automaticFind = params.get('match') !== '1';
   findStart = destination?.pageNumber ?? hint;
-  if (row && destination?.destArray[0] === null)
+  if ((row || caption) && destination?.destArray[0] === null)
     rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
   search(find.value, params.get('match') === '1');
   selectOutline(

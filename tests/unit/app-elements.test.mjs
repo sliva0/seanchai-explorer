@@ -185,7 +185,12 @@ test("a member's popup names its element and category, and goes to the row of an
     assert.ok(texts(popup, '.popup-context p').includes('Element: User Identity (See 7.1) · M, mandatory'));
     const row = popup.querySelector('.place-element');
     present(row);
-    assert.equal(row.querySelector('.place-where').textContent, 'TS 29.328 · 6.1.1 · table 6.1.1.1');
+    assert.equal(row.querySelector('.place-cell').textContent, 'TS 29.328 · 6.1.1 · table 6.1.1.1');
+    assert.equal(
+      row.querySelector('.place-table a').getAttribute('href'),
+      '#29328-j20/6.1.1?line=10',
+      "the table a link to its block in another document's text, not loaded, through tables.json",
+    );
     assert.match(jump(row), /^#29328-j20\/6\.1\.1\?/);
     const route = new URLSearchParams(jump(row).split('?')[1]);
     assert.equal(route.get('line'), '17');
@@ -251,7 +256,7 @@ test("a command's popup lists the tables describing it and each AVP's category",
     const popup = await popupOf(page, commandNames(page.document, '306 request')[0]);
     const rows = [...popup.querySelectorAll('.place-elements')];
     assert.deepEqual(
-      rows.map(row => row.querySelector('.place-where').textContent),
+      rows.map(row => row.querySelector('.place-cell').textContent),
       ['TS 29.328 · 6.1.1 · table 6.1.1.1'],
     );
     const notes = texts(popup, '.popup-contents .fact-note');

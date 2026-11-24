@@ -198,6 +198,24 @@ export function looseRowOnPage(items: TextContent['items'], name: string) {
   return findRow(items, looseName(name));
 }
 
+/**
+ * The top of the caption of table `table` on a page, "Table 5A.2.1.1.1/1: Update VCSG Location Request": a line its
+ * number and a colon start, or else one centred that it starts, its number whole. A sentence can start with it too,
+ * "Table 5A.2.1.1.1/1 specifies the involved information elements", at the margin and with no colon; /1 is not /10.
+ */
+export function tableOnPage(items: TextContent['items'], table: string, width = Infinity): number | null {
+  const caption = `Table${table}`.replace(/\s+/g, '');
+  const starts = new RegExp(`^Table\\s*${table.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}(?![\\w/-]|\\.\\w)`);
+  let centred: number | null = null;
+  for (const line of textLines(items)) {
+    if (/\.{3}|…/.test(line.text)) continue;
+    const text = line.text.replace(/\s+/g, '');
+    if (text.startsWith(`${caption}:`)) return line.top;
+    if (centred === null && starts.test(line.text) && line.items[0].x > width / 5) centred = line.top;
+  }
+  return centred;
+}
+
 /** The top of the clause heading named after `name`, wherever its number is. */
 export function clauseOnPage(items: TextContent['items'], name: string, width: number): number | null {
   for (const line of textLines(items)) {
@@ -452,5 +470,29 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     destinations.set(key, fallback);
     return fallback;
   }
-  return { outline, destination, locate };
+  /**
+   * Where a table link goes: its caption, on the page its block names or the nearest one printing it, the caption's
+   * words as the find's; null where no page prints it.
+   */
+  async function locateTable(table: string, hint: number, active = () => true): Promise<Destination | null> {
+    const key = JSON.stringify(['table', table, hint]);
+    if (destinations.has(key)) return destinations.get(key)!;
+    const order = Array.from({ length: pdf.numPages }, (_, i) => i + 1).toSorted(
+      (a, b) => Math.abs(a - hint) - Math.abs(b - hint) || a - b,
+    );
+    for (const pageNumber of order) {
+      if (!active()) return null;
+      const { items, width } = await textOf(pageNumber);
+      if (!active()) return null;
+      const top = tableOnPage(items, table, width);
+      if (top !== null) {
+        const result = { pageNumber, destArray: [null, { name: 'XYZ' }, null, top, null], query: `Table ${table}` };
+        destinations.set(key, result);
+        return result;
+      }
+    }
+    destinations.set(key, null);
+    return null;
+  }
+  return { outline, destination, locate, locateTable };
 }

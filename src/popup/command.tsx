@@ -118,12 +118,10 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
         'Tables',
         'popup-tables',
         tablesOf(command, file, doc).map(table =>
-          placeRow(
-            'AVP table',
-            'place-table',
-            tablePlace(table, doc),
-            [table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · '),
-          ),
+          placeRow('AVP table', 'place-table', tablePlace(table, doc), table.section, {
+            document: doc.id,
+            table: table.table,
+          }),
         ),
         false,
       ),
@@ -135,13 +133,10 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
             'Elements',
             'place-elements',
             elementsPlace(table, file, doc),
-            [
-              table.document === doc.id ? '' : label({ document: table.document }),
-              table.section,
-              table.table && `table ${table.table}`,
-            ]
+            [table.document === doc.id ? '' : label({ document: table.document }), table.section]
               .filter(Boolean)
               .join(' · '),
+            table,
           ),
         ),
         false,
@@ -155,9 +150,8 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
         'Registry',
         'place-registry',
         place,
-        [row.document === doc.id ? '' : label(place), row.section, row.table && `table ${row.table}`]
-          .filter(Boolean)
-          .join(' · '),
+        [row.document === doc.id ? '' : label(place), row.section].filter(Boolean).join(' · '),
+        { document: row.document, table: row.table },
       );
     }),
   );

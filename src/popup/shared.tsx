@@ -7,7 +7,9 @@ import { placeRoute } from '../avp-places.ts';
 import type { Place } from '../avp-places.ts';
 import { sourceHref } from '../data.ts';
 import type { Site } from '../data.ts';
+import { routeFor } from '../navigation.ts';
 import type { SourcePane } from '../source-pane.tsx';
+import { tablePlace } from '../tables.ts';
 import { useAnchoring } from './place.ts';
 import type { PopupProps, PopupRequest } from './root.tsx';
 
@@ -20,6 +22,30 @@ export const Counted = ({ title, count }: { title: string; count: number }) => (
 );
 
 /** A link to another site, opened in a new tab. */
+/**
+ * "table 5.2.2.2.1/1": a link to the block printing that `; Table:` in its document's corrected text, as a clause's
+ * link goes to its clause, or text where no block does.
+ */
+export function TableLink({
+  site,
+  document,
+  table,
+  text = `table ${table}`,
+}: {
+  site: Site;
+  document: string;
+  table: string;
+  text?: string;
+}) {
+  const place = tablePlace(site.held(document), site.tables(), document, table);
+  if (!place) return <>{text}</>;
+  return (
+    <a class="table-link" href={routeFor({ document, section: place.section }, { line: place.line })}>
+      {text}
+    </a>
+  );
+}
+
 export const ExternalLink = ({
   href,
   class: className,
@@ -103,10 +129,16 @@ function InlinePanel({ heading, data, alignLabels, children }: PanelProps) {
 /**
  * The rows of places a popup offers, each a target of a name and the two ways to it: both panels, then the pane alone.
  * Each is there only if the place is in that medium. With no way to it in the pane, its label is the publisher's copy
- * at that place, if there is one. A row is left out, as undefined, for a document the corpus does not list.
+ * at that place, if there is one. A place in a table says the table after it, a link to the table's block in the text. A row is left out, as undefined, for a document the corpus does not list.
  */
 export function placeRows(site: Site, pane: SourcePane, { doc, raw }: PopupRequest) {
-  return (label: string, className: string, place: Place, said?: string): ComponentChild | undefined => {
+  return (
+    label: string,
+    className: string,
+    place: Place,
+    said?: string,
+    table?: { document: string; table: string | null },
+  ): ComponentChild | undefined => {
     const summary = site.summary(place.document);
     if (!summary) return undefined;
     const section = place.position?.section ?? place.target?.section ?? '';
@@ -117,13 +149,21 @@ export function placeRows(site: Site, pane: SourcePane, { doc, raw }: PopupReque
     return (
       <div class={`popup-place ${className}`}>
         <span>{`${label}:`}</span>
-        {href ? (
-          <ExternalLink class="place-where" href={href.href}>
-            {where}
-          </ExternalLink>
-        ) : (
-          <span class="place-where">{where}</span>
-        )}
+        <span class="place-cell">
+          {href ? (
+            <ExternalLink class="place-where" href={href.href}>
+              {where}
+            </ExternalLink>
+          ) : (
+            <span class="place-where">{where}</span>
+          )}
+          {table?.table && (
+            <span class="place-table">
+              {' · '}
+              <TableLink site={site} document={table.document} table={table.table} />
+            </span>
+          )}
+        </span>
         {place.target && (
           <a
             class="control view-action"

@@ -141,3 +141,20 @@ export function locateRow(
   );
   return format && { lines: format, found: 'format' };
 }
+
+/**
+ * The lines of table `table` in an RFC, as first and last index: an RFC prints its caption, "Table 1: Reused AVPs …",
+ * its number and a colon, which a sentence naming it, "Table 1 lists …", has not, under the table, so the table is the run of lines above it back to the text before it, a paragraph ending in a
+ * blank line and an unindented heading. Null where no caption names it, as for a `; Table:` that is no RFC table's.
+ */
+export function tableLines(lines: Pick<RfcLine, 'text' | 'section'>[], table: string): [number, number] | null {
+  const escaped = table.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+  const caption = new RegExp(`^\\s*Table\\s+${escaped}\\s*:`);
+  const at = lines.findIndex(line => caption.test(line.text) && !/\.{3}|…/.test(line.text));
+  if (at < 0) return null;
+  let start = at;
+  // Over the blank lines between the table and its caption, then up the table's lines to the blank line above it.
+  while (start > 0 && !lines[start - 1].text.trim()) start--;
+  while (start > 0 && lines[start - 1].text.trim() && !lines[start - 1].section) start--;
+  return [start, at];
+}

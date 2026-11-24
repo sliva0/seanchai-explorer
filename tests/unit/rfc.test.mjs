@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
-import { locateRow, rfcPages, rowLines } from '../../src/rfc-text.ts';
+import { locateRow, rfcPages, rowLines, tableLines as tableOf } from '../../src/rfc-text.ts';
 import { boot, fixture, readFixture } from './helpers.mjs';
 
 const text = await readFile(new URL('sources/rfc7944.txt', fixture), 'utf8');
@@ -368,4 +368,37 @@ test("RFC 7075: a result code's own clause goes before a table elsewhere, if the
   assert.equal(found, 'clause');
   assert.match(lines[first].text, /^3\.4\./);
   assert.equal(locateRow(lines, 'DIAMETER_REALM_REDIRECT_INDICATION', '3.4', 1).found, 'other-table');
+});
+
+// RFC 6736's table 1, as it prints its caption under the table, and a mention of it in the text before.
+const captioned = [
+  '4.  Diameter AVPs',
+  '',
+  '   Table 1 lists the AVPs of the base protocol this application uses.',
+  '',
+  '   +-----------------------------------------------+-----+---+---------+',
+  '   |Origin-Host                264      DiamIdent  | M   | P |    N    |',
+  '   |User-Name                  1        UTF8String | M   | P |    Y    |',
+  '   +-----------------------------------------------+-----+---+---------+',
+  '   Table 1: DIAMETER AVPs from the Diameter Base Protocol',
+  '',
+  '   Table 10: Another table',
+  '',
+].join('\n');
+
+test("an RFC's table is the run of lines above its caption, and only its own caption names it", async () => {
+  const lines = rfcPages(captioned).flatMap(page => page.lines.map(line => ({ ...line, page: page.page })));
+  assert.deepEqual(tableOf(lines, '1'), [4, 8], 'from its top rule to its caption, not the mention above it');
+  assert.equal(tableOf(lines, '10')[1], 10, "its own caption, not table 1's");
+  assert.equal(tableOf(lines, '8.1'), null, 'a ; Table: that is no table of the RFC');
+  const page = await start('http://localhost/data/sources/rfc7944.txt', 'section=4&page=1&table=1', {
+    text: captioned,
+  });
+  try {
+    const doc = page.document;
+    const marked = [...doc.querySelectorAll('.rfc-match-line')].map(line => line.textContent.trim());
+    assert.deepEqual(marked, ['Table 1: DIAMETER AVPs from the Diameter Base Protocol'], 'its caption marked');
+  } finally {
+    await page.close();
+  }
 });

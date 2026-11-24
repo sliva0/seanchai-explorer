@@ -3,6 +3,7 @@ import { existsSync } from 'node:fs';
 import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { elementIndex } from '../src/elements.ts';
+import { tableIndex } from '../src/tables.ts';
 import { PLUGIN_PATH } from '../src/plugin-file.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
 import {
@@ -81,6 +82,8 @@ if (problem) {
 const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
 const documents = await Promise.all(index.documents.map(async doc => ({ ...(await read(doc.path)), id: doc.id })));
 await writeFile(path.join(temporary, 'elements.json'), JSON.stringify(elementIndex(documents, index.schema_version)));
+// Where each document's tables are, for a table a popup names to link to its block in a document not loaded.
+await writeFile(path.join(temporary, 'tables.json'), JSON.stringify(tableIndex(documents, index.schema_version)));
 
 await mkdir(path.join(project, 'public'), { recursive: true });
 await rm(data, { recursive: true, force: true });

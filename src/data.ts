@@ -6,6 +6,8 @@ import type { ElementIndex } from './elements.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
+import { emptyTables, markTables } from './tables.ts';
+import type { TableIndex } from './tables.ts';
 import { valueTables } from './values.ts';
 
 export type Mode = Index['mode'];
@@ -166,6 +168,7 @@ export function paneURL(doc: Pick<DocumentSummary, 'source'>, position: SourcePo
   if (position.value !== undefined) hash.set('value', String(position.value));
   if (position.printed) hash.set('printed', position.printed);
   if (position.exact) hash.set('exact', '1');
+  if (position.table) hash.set('table', position.table);
   url.hash = hash.toString();
   return url;
 }
@@ -213,13 +216,17 @@ export interface Site {
   loadElements(): Promise<ElementIndex>;
   /** That index once loaded, which a document's view waits for too. */
   elements(): ElementIndex | undefined;
+  /** Every document's tables by number, for a table named in a popup to link to its block; empty where the build derived none. */
+  loadTables(): Promise<TableIndex>;
+  /** That index once loaded. */
+  tables(): TableIndex | undefined;
 }
 
 /**
  * The readers of the block types that mark tokens as names on their first reading of a file: a value table's rows, a
  * command's names, an element's AVPs. A new block type whose lines name something adds its reader here.
  */
-const readers: ((file: DadFile) => unknown)[] = [valueTables, commandFacts, markElements];
+const readers: ((file: DadFile) => unknown)[] = [markTables, valueTables, commandFacts, markElements];
 
 /** A file whose names link as other names do from the moment it is read. */
 function marked<T extends DadFile>(file: T): T {
@@ -236,6 +243,8 @@ export function createSite(index: Index): Site {
   let commandsLoading: Promise<CommandIndex> | undefined;
   let elements: ElementIndex | undefined;
   let elementsLoading: Promise<ElementIndex> | undefined;
+  let tables: TableIndex | undefined;
+  let tablesLoading: Promise<TableIndex> | undefined;
   function cached<T>(path: string): Promise<T> {
     let result = cache.get(path) as Promise<T> | undefined;
     if (!result) {
@@ -276,6 +285,11 @@ export function createSite(index: Index): Site {
         .catch(() => emptyElements(SCHEMA_VERSION))
         .then(index => (elements = index))),
     elements: () => elements,
+    loadTables: () =>
+      (tablesLoading ??= loadJSON<TableIndex>('tables.json')
+        .catch(() => emptyTables(SCHEMA_VERSION))
+        .then(index => (tables = index))),
+    tables: () => tables,
   };
 }
 

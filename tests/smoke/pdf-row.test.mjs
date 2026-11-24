@@ -504,6 +504,42 @@ test(
   },
 );
 
+test(
+  "a table link: TS 29.272 5A.2.1.1.1's two tables, each at its own caption, past the sentence naming both",
+  { skip: noValues },
+  async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    try {
+      const tops = [];
+      for (const [table, expected] of [
+        ['5A.2.1.1.1/1', 61],
+        ['5A.2.1.1.1/2', 62],
+      ]) {
+        const hash = `page=61&search=5A.2.1.1.1&table=${encodeURIComponent(table)}`;
+        await page.goto(`${base}viewer.html?file=${encodeURIComponent(`${base}29272-j60.pdf`)}#${hash}`);
+        await settled(page, `Table ${table}`);
+        await page.waitForFunction(
+          text => document.querySelector('.highlight.selected')?.textContent === text,
+          `Table ${table}`,
+          { timeout: 15000 },
+        );
+        const state = await viewerState(page);
+        assert.equal(state.selectedPage, expected, table);
+        assert.equal(state.page, expected, table);
+        assert.ok(state.selectedTop >= 0 && state.selectedTop < 70, `${table}: ${JSON.stringify(state)}`);
+        tops.push([state.selectedPage, state.selectedTop]);
+      }
+      assert.notDeepEqual(tops[0], tops[1], 'two places');
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  },
+);
+
 test('the RFC reader shows a result code on its line, as a bullet, and at its own clause', { skip }, async () => {
   const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
   const page = await context.newPage();

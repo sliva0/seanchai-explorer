@@ -108,6 +108,15 @@ described by its own table, which matching by name alone gave both. The correcte
 `commands.json` find a block's tables by its line, a raw view, whose blocks list no
 `described_by` and whose lines differ, by its clause, name and ordinal.
 
+Prepare writes `public/data/tables.json` too, which `src/tables.ts` derives from the
+export's documents: each document's tables by their `; Table:` number, at the first block
+printing it, its line and clause, an `Interpreted Constraints` block's left out, as it
+names the table it was read from. A table a popup names links to its block through it
+where that document is not loaded; one loaded is read itself. It comes with the first
+document, and without it such a table is text. The export gives a `; Table:` line no
+link: `src/tables.ts`'s reader splits its number into a token of its own whose `source`
+carries `table`, which the pane's readers find the caption by.
+
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
 `Command` with `Application-ID`) and `Versions`, and `readings`, each `quotes` and `rules`
@@ -175,6 +184,7 @@ Do not edit `src/types.ts` by hand.
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
+| `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
 | `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts`, `site-text.ts` | the help dialog and the list of controls it shows, notices, the theme, and the site's few sentences of its own |

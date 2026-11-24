@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { Window } from 'happy-dom';
 import { elementIndex } from '../../src/elements.ts';
+import { tableIndex } from '../../src/tables.ts';
 import { nodeName as named } from '../setup.mjs';
 
 export const fixture = new URL('../fixtures/export/', import.meta.url);
@@ -113,6 +114,13 @@ export async function boot({
     }
     const file = new URL(path.replace(/^data\//, ''), fixture);
     if (path === 'data/commands.json' && !commands) return { ok: false, status: 404 };
+    if (path === 'data/tables.json') {
+      const index = await readFixture('index.json');
+      const documents = await Promise.all(
+        index.documents.map(async doc => ({ ...(await readFixture(doc.path)), id: doc.id })),
+      );
+      return { ok: true, json: async () => transform(path, tableIndex(documents, index.schema_version)) };
+    }
     if (path === 'data/elements.json')
       return elements
         ? { ok: true, json: async () => transform(path, await elementsOfFixture()) }

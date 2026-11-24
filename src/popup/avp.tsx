@@ -30,7 +30,7 @@ import type { ElementTable } from '../elements.ts';
 import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
-import { Counted, Entries, Panel, placeRows, RuleContents, Steps } from './shared.tsx';
+import { Counted, Entries, Panel, placeRows, RuleContents, Steps, TableLink } from './shared.tsx';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
@@ -60,14 +60,14 @@ const flagHeading: Record<FlagRule, string> = {
   'should not': 'Should not',
   'must not': 'Must not',
 };
-const ruleName = (rule: Rule) => `${rule.kind === 'Message' ? 'command' : rule.kind} ${rule.label}`;
 const tableOf = (row: AvpRow) => [row.type, row.table ?? row.section].filter(Boolean).join(' ');
+const ruleName = (rule: Rule) => `${rule.kind === 'Message' ? 'command' : rule.kind} ${rule.label}`;
 
 /**
  * What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is, and
  * what the Information Elements tables say of it, `elements`.
  */
-function UseContext({ use, elements }: { use: Use; elements: string[] }) {
+function UseContext({ site, document, use, elements }: { site: Site; document: string; use: Use; elements: string[] }) {
   const lines: ComponentChild[] = [];
   if (use.kind === 'member') {
     const { rule, member } = use;
@@ -97,10 +97,29 @@ function UseContext({ use, elements }: { use: Use; elements: string[] }) {
     lines.push(<p>{`Here: ${what} · ${block.section}`}</p>);
   } else if (use.kind === 'element') {
     const { block } = use;
-    const table = block.fields.Table ? `table ${block.fields.Table}` : 'Information Elements';
     const of = block.name ? `element of ${block.name}` : 'element';
-    lines.push(<p>{`Here: an ${of} · ${table}${block.section ? ` · ${block.section}` : ''}`}</p>);
-  } else lines.push(<p>{`Here: a row of ${tableOf(use.row)}`}</p>);
+    lines.push(
+      <p>
+        {`Here: an ${of} · `}
+        {block.fields.Table ? (
+          <TableLink site={site} document={document} table={block.fields.Table} />
+        ) : (
+          'Information Elements'
+        )}
+        {block.section ? ` · ${block.section}` : ''}
+      </p>,
+    );
+  } else
+    lines.push(
+      <p>
+        {`Here: a row of ${use.row.type} `}
+        {use.row.table ? (
+          <TableLink site={site} document={document} table={use.row.table} text={use.row.table} />
+        ) : (
+          use.row.section
+        )}
+      </p>,
+    );
   for (const text of elements) lines.push(<p class="popup-element">{text}</p>);
   return <div class="popup-context">{lines}</div>;
 }
@@ -283,8 +302,7 @@ function elementFacts(
   const index = site.elements();
   const label = (document: string) =>
     document === doc.id ? '' : site.summary(document) ? site.label(site.summary(document)!) : document;
-  const tableWhere = (table: ElementTable) =>
-    [label(table.document), table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · ');
+  const tableWhere = (table: ElementTable) => [label(table.document), table.section].filter(Boolean).join(' · ');
   if (use?.kind === 'member') {
     const block = blockAt(file, use.rule.line);
     const found = block ? memberElements(tablesFor(index, doc.id, block, file), use.member.name) : [];
@@ -292,7 +310,7 @@ function elementFacts(
       notes: found.map(({ row }) => `Element: ${elementText(row)}`),
       places: found
         .map(({ table, row }) =>
-          placeRow('Element', 'place-element', elementPlace(table, row, name, file, doc), tableWhere(table)),
+          placeRow('Element', 'place-element', elementPlace(table, row, name, file, doc), tableWhere(table), table),
         )
         .filter(row => row !== undefined),
     };
@@ -464,7 +482,7 @@ export function AvpPopup(props: PopupProps) {
           ))}
         </div>
       )}
-      {use && <UseContext use={use} elements={elements.notes} />}
+      {use && <UseContext site={site} document={doc.id} use={use} elements={elements.notes} />}
       <ConstraintFacts site={site} pane={pane} request={request} use={use} />
       {definitionRows.map((item, index) => (
         <RowFacts

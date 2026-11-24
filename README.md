@@ -62,7 +62,16 @@ narrow window) a click does what an alt-click does. A popup offers only `Jump to
 place the pane cannot show.
 
 A value's name goes to its row the same way, and a `; Section:` or `; Page:` link to its
-clause, or with no pane to the publisher's copy in a new tab. The document a `; Bases:`,
+clause, or with no pane to the publisher's copy in a new tab. A `; Table:` number goes to
+its table: a clause can hold several, as TS 29.272's 5A.2.1.1.1 does UVR's and UVA's, so
+the PDF pane goes from the block's page to the nearest one printing the table's caption,
+`Table 5A.2.1.1.1/2:`, and marks it there, past a sentence naming the table, and the RFC
+reader to the table above its `Table 1:` caption; where no caption names it, as a `; Table:`
+no RFC table has, to its clause. With no pane it opens the publisher's copy at the block's
+page, as a page link does, no better anchor there being. A table a popup or the inspector
+names, "Here: an element of ULR · table 5.2.1.1.1/1", the table an interpreted rule was read
+from, or a place's "· table 6.1.1.1", links to the block printing that `; Table:` in its
+document's text, wherever that is. The document a `; Bases:`,
 `; Obsoletes:`, `; Reprints:` or `; From:` line names goes to that document. A result code's `from`
 document goes to the code's row there, and its popup says the code is defined there.
 

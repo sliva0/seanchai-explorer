@@ -1,4 +1,4 @@
-import { locateRow, rfcPages } from './rfc-text.ts';
+import { locateRow, rfcPages, tableLines } from './rfc-text.ts';
 import { namePattern } from './table-row.ts';
 import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
@@ -59,7 +59,12 @@ function navigate() {
           params.get('titled') === '1',
         )?.lines
       : null;
-  goTo(params.get('exact') === '1' ? page : ((row && spans[row[0]]) ?? section ?? page ?? pages[0]));
+  const table = params.get('table') ? tableLines(lines, params.get('table')!) : null;
+  goTo(
+    params.get('exact') === '1'
+      ? page
+      : ((table && spans[table[0]]) ?? (row && spans[row[0]]) ?? section ?? page ?? pages[0]),
+  );
   // A name as a whole word: "Load" marks neither "Load-Type" nor "loaded".
   const query = name ? namePattern(name, 'giu', '\\p{L}\\p{N}_-') : null;
   for (const index of marked) {
@@ -68,6 +73,11 @@ function navigate() {
   }
   marked = [];
   if (query) for (const index of spans.keys()) markName(index, query);
+  // A table's caption, which says which of a clause's tables it is.
+  if (table) {
+    spans[table[1]].classList.add('rfc-match-line');
+    marked.push(table[1]);
+  }
   // The row prints the name wrapped or misspelt: show the line landed on instead.
   if (row && !marked.some(index => index >= row[0] && index <= row[1])) {
     spans[row[0]].classList.add('rfc-match-line');

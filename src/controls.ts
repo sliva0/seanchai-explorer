@@ -20,7 +20,7 @@ export interface ControlGroup {
 export const controlGroups: ControlGroup[] = [
   {
     title: 'Mouse, on a name',
-    note: "Where the source pane cannot show a document's source, as a public build's PDFs, a click shows in it what the name is, as its popup says, and the text stays. With no pane at all, a click does what an alt-click does.",
+    note: "Where the source pane cannot show a document's source, as a public build's PDFs, a click shows in it what the name is, as its popup says, and the text stays. With no pane at all, a click does what an alt-click does. A ; Section:, ; Page: or ; Table: number in a block's header goes to that place in the source the same way, a table to its caption, a clause holding several; a table a popup names goes to its block in the text.",
     controls: [
       {
         keys: ['Click'],

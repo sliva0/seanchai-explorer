@@ -1,7 +1,8 @@
 import type { Citation, Target } from './types.ts';
 
 /**
- * A place the source pane shows. `exact` is a page to go to as it is, not a clause to look for;
+ * A place the source pane shows. `table` is a table's number, whose caption, "Table 5A.2.1.1.1/1: …", the pane finds
+ * on or near the page, a clause holding several; `exact` is a page to go to as it is, not a clause to look for;
  * `printed` the source's spelling of a row the corpus renamed, which the raw mirror holds and so the route does not;
  * `titled` a row whose section is its own clause, as a result code's is, so the clause is where to go when no row reads as it;
  * `value` the number a value table's row can print beside its name, which tells apart a page's tables repeating names.
@@ -12,6 +13,7 @@ export interface SourcePosition extends Citation {
   printed?: string;
   titled?: boolean;
   value?: number;
+  table?: string;
 }
 export interface PaneState {
   document: string;
@@ -69,6 +71,7 @@ export function routeFor(target: Target, options: RouteOptions = {}): string {
     if (position.row) params.set('row', '1');
     if (position.titled) params.set('titled', '1');
     if (position.value !== undefined) params.set('value', String(position.value));
+    if (position.table) params.set('sourceTable', position.table);
   }
   if (options.paneHidden) params.set('pane', '0');
   if (options.line !== undefined) params.set('line', String(options.line));
@@ -90,6 +93,7 @@ function parseSource(params: URLSearchParams): PaneState | undefined {
       ...(params.get('occurrence') === '1' ? { occurrence: true } : {}),
       ...(params.get('row') === '1' ? { row: true } : {}),
       ...(params.get('titled') === '1' ? { titled: true } : {}),
+      ...(params.get('sourceTable') ? { table: params.get('sourceTable')! } : {}),
       ...(params.has('value') && Number.isInteger(Number(params.get('value')))
         ? { value: Number(params.get('value')) }
         : {}),
