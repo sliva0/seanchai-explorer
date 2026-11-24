@@ -243,6 +243,12 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
   let request = 0;
   /** What the pane shows while it is open, and keeps while it is hidden: a page loads only where it can be seen. */
   let shown: { url?: string; title?: string; placeholder?: { doc: Document; position: SourcePosition } } = {};
+  /**
+   * A position the reader in the frame reported itself at, as the reader scrolled it there: kept in the route and the
+   * headers, never sent back to the frame. Sent back, it would move the reader again, to the top of the page it was
+   * on, which reports the page above it, and so on to the first.
+   */
+  let reported: SourcePosition | undefined;
   let frame: HTMLIFrameElement | null = null;
   let inspected: Inspected | undefined;
   let inspections = 0;
@@ -254,7 +260,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
 
   /** Works out what an open pane shows, and draws the pane again. */
   function changed() {
-    if (isOpen() && selected) {
+    if (isOpen() && selected && selected.position !== reported) {
       const url = paneURL(selected.doc, selected.position, site.mode);
       shown = url
         ? { url: url.href, title: docVersioned(selected.doc) }
@@ -280,7 +286,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       event.data.page > 0 &&
       event.data.page !== selected.position.page
     ) {
-      selected.position = { ...selected.position, page: event.data.page, exact: true };
+      selected.position = reported = { ...selected.position, page: event.data.page, exact: true };
       changed();
       onChange();
     }
@@ -290,7 +296,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
       typeof event.data.query === 'string' &&
       event.data.query !== (selected.position.name ?? selected.position.section)
     ) {
-      selected.position = { ...selected.position, name: event.data.query, exact: true };
+      selected.position = reported = { ...selected.position, name: event.data.query, exact: true };
       onChange();
     }
   });

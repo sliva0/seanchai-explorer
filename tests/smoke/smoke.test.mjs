@@ -984,6 +984,99 @@ const scrollPane = async (page, to) => {
 const near = (actual, expected, label) =>
   assert.ok(Math.abs(actual - expected) <= 1, `${label}: ${actual} is not ${expected}`);
 
+/** Every scroll the RFC pane comes to for `ms`, sampled in the page, as `act` runs. */
+async function rfcScrolls(page, ms, act) {
+  const watching = page.evaluate(async ms => {
+    const began = performance.now();
+    const tops = [];
+    while (performance.now() - began < ms) {
+      const rfc = document.querySelector('#source-pane iframe')?.contentDocument?.querySelector('#rfc');
+      const top = rfc?.querySelector('section') ? Math.round(rfc.scrollTop) : null;
+      if (top !== null && top !== tops.at(-1)) tops.push(top);
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    return tops;
+  }, ms);
+  await act();
+  return watching;
+}
+
+/**
+ * Where the text and the RFC pane are: whether RFC 7944's DRMP block is in view, and the page the pane's reader is on,
+ * as it reports it, and the one the route keeps.
+ */
+const panesAt = page =>
+  page.evaluate(() => {
+    const text = document.querySelector('#document');
+    const view = text.getBoundingClientRect();
+    const definition = text.querySelector('.dad-line[data-section="9.1"]').getBoundingClientRect();
+    const rfc = document.querySelector('#source-pane iframe').contentDocument.querySelector('#rfc');
+    const edge = rfc.getBoundingClientRect().top;
+    const heading = rfc.querySelector('[id="section-9.1"]');
+    return {
+      text: text.scrollTop,
+      definition: definition.top >= view.top && definition.bottom <= view.bottom,
+      pane: rfc.scrollTop,
+      page: [...rfc.querySelectorAll('section')].find(node => node.getBoundingClientRect().bottom > edge + 13)?.dataset
+        .page,
+      heading: heading.getBoundingClientRect().top - edge,
+      headingPage: heading.closest('section').dataset.page,
+      route: new URLSearchParams(location.hash.split('?')[1]).get('page'),
+    };
+  });
+
+test(
+  'public, desktop: a name followed to an RFC puts the text and the pane there once, and a scroll of the pane stays',
+  { skip },
+  async () => {
+    // As RFC 6733's export does for Origin-Host's 6.3, the clause's page is not the one the text prints it on: the pane
+    // went there, reported its page, was sent to the top of it, reported the page above, and so on to the first.
+    const { page, done } = await open('#29272-j60/7.2.3', {}, page =>
+      page.route('**/data/documents/rfc7944.json', async route => {
+        const doc = await (await route.fetch()).json();
+        const sections = doc.sections.map(section => (section.section === '9.1' ? { ...section, page: 5 } : section));
+        await route.fulfill({ json: { ...doc, sections } });
+      }),
+    );
+    const name = page.locator('#document a[data-avp="DRMP"][href^="#rfc7944/"]').first();
+    const moves = await rfcScrolls(page, 2500, () => name.click({ modifiers: ['Alt'] }));
+    await page.waitForFunction(() => location.hash.startsWith('#rfc7944/9.1?'));
+    const landed = await panesAt(page);
+    assert.equal(moves.length, 1, `the pane moves once: ${moves}`);
+    assert.ok(landed.definition, 'the text is at the definition');
+    near(landed.heading, 12, 'the pane at its clause');
+    assert.equal(landed.headingPage, '12');
+    assert.equal(landed.page, '12', 'on its page');
+    assert.equal(landed.route, '12', 'which the route keeps');
+    await page.waitForTimeout(2000);
+    assert.deepEqual(await panesAt(page), landed, 'and both stay there');
+
+    // A scroll of the pane by hand into the next page is where the reader is, not a place to send it to.
+    const box = await page.locator('#source-pane iframe').boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    const scrolled = await rfcScrolls(page, 2500, () => page.mouse.wheel(0, 1000));
+    const after = await panesAt(page);
+    assert.ok(after.pane > landed.pane && after.page === '13', JSON.stringify({ landed, after }));
+    assert.ok(
+      scrolled.every((top, index) => !index || top >= scrolled[index - 1]),
+      `the pane only goes down: ${scrolled}`,
+    );
+    assert.equal(after.route, '13');
+    assert.equal(after.text, landed.text, 'the text stays');
+
+    // And the route left there comes back to that page, not the one above it.
+    await page.reload();
+    await page.frameLocator('#source-pane iframe').locator('#rfc section').first().waitFor({ state: 'attached' });
+    const reloaded = await rfcScrolls(page, 2000, async () => {});
+    const back = await panesAt(page);
+    assert.equal(reloaded.length, 1, `it stays: ${reloaded}`);
+    assert.equal(back.page, '13');
+    assert.equal(back.route, '13');
+    assert.ok(back.definition);
+    await done();
+  },
+);
+
 test(
   'a jump in a document eases there, keeps the URL still until it ends, and flashes where it lands',
   { skip },

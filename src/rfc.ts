@@ -17,10 +17,13 @@ const rfcNumber = rawFile?.match(/rfc(\d+)\.txt$/i)?.[1];
 if (rfcNumber) document.title = `RFC ${rfcNumber} — Seanchaí`;
 let lastPage = 0;
 let pending = 0;
+/** How far below the pane's top edge a place is put, with the lines above it in view. */
+const MARGIN = 12;
+/** The page at the line a place is put on, so that a page gone to is the page reported, and not the one above it. */
 function reportPage() {
   pending = 0;
   if (!container.clientHeight) return;
-  const top = container.getBoundingClientRect().top + 1;
+  const top = container.getBoundingClientRect().top + MARGIN + 1;
   const first = pages.find(page => page.getBoundingClientRect().bottom > top);
   const number = Number(first?.dataset.page ?? 1);
   if (number !== lastPage) {
@@ -37,7 +40,7 @@ container.addEventListener(
   { passive: true },
 );
 function goTo(node: HTMLElement | undefined) {
-  if (node) container.scrollTop += node.getBoundingClientRect().top - container.getBoundingClientRect().top - 12;
+  if (node) container.scrollTop += node.getBoundingClientRect().top - container.getBoundingClientRect().top - MARGIN;
   requestAnimationFrame(reportPage);
 }
 function navigate() {

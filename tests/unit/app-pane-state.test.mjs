@@ -110,6 +110,50 @@ test('the page indicator follows the reader, with shipped text and without', asy
   }
 });
 
+test('a place the reader reports is kept, and not sent back to the frame, which a move of the pane still is', async () => {
+  for (const [hash, mode, type] of [
+    ['#rfc7944', 'public', 'seanchai-source-page'],
+    ['#29153-j00/5.1', 'self-hosted', 'seanchai-pdf-page'],
+  ]) {
+    const page = await boot({ hash, mode });
+    try {
+      const { document, window } = page;
+      const frame = document.querySelector('iframe');
+      Object.defineProperty(frame, 'contentWindow', { configurable: true, value: { postMessage() {} } });
+      const sent = frameSrc(document);
+      const file = new URL(sent).searchParams.get('file');
+      const send = data =>
+        window.dispatchEvent(
+          new window.MessageEvent('message', { origin: window.location.origin, source: frame.contentWindow, data }),
+        );
+      // Sent back, the RFC reader went to the top of the page, reported the one above it and so on to the first.
+      send({ type, file, page: 3 });
+      send({ type, file, page: 2 });
+      assert.equal(frameSrc(document), sent, `${mode}: the frame is where it says`);
+      assert.match(window.location.hash, /page=2&.*exact=1/);
+      if (type === 'seanchai-pdf-page') {
+        send({ type: 'seanchai-pdf-matches', file, query: 'Rx-Request-Type', current: 1, total: 2 });
+        assert.equal(frameSrc(document), sent, 'nor is a find typed in the viewer');
+        assert.match(window.location.hash, /sourceName=Rx-Request-Type/);
+      } else assert.equal(document.querySelector('.source-header .source-page').textContent, 'p. 2');
+      const toggle = document.querySelector('.source-toggle input');
+      for (const checked of [false, true]) {
+        toggle.checked = checked;
+        toggle.dispatchEvent(new window.Event('change'));
+      }
+      assert.equal(frameSrc(document), sent, 'nor when the pane is switched off and on');
+      const name = [...document.querySelectorAll('pre a[data-avp]')].find(a =>
+        a.getAttribute('href').startsWith(`${hash.split('/')[0]}/`),
+      );
+      click(page, name);
+      await settle();
+      assert.notEqual(frameSrc(document), sent, 'a name clicked moves it');
+    } finally {
+      await page.close();
+    }
+  }
+});
+
 test('the pane is kept in the URL without new history entries, and restored from it', async () => {
   const page = await boot({ hash: '#rfc7944' });
   let shared;
