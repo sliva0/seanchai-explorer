@@ -6,7 +6,6 @@ import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import {
   blockContext,
-  CONSTRAINTS_DOC,
   constraintsFor,
   elementParts,
   lineText,
@@ -23,7 +22,7 @@ import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
-import { Counted, ExternalLink, placeRows, TableLink } from './shared.tsx';
+import { Counted, placeRows, TableLink } from './shared.tsx';
 
 /** Where a use reads its name: in the command or grouped AVP of its block, or wherever. */
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
@@ -154,7 +153,14 @@ function Printed({ text }: { text: string }) {
   );
 }
 
-/** What the section is, in two sentences: the title of its link to the corpus's account of them. */
+/** The help, open at its section on interpreted constraints, which says what they are and how they are read. */
+function showConstraintsHelp() {
+  const help = document.getElementById('help');
+  if (help?.hidden) document.querySelector<HTMLButtonElement>('.help-toggle')?.click();
+  document.querySelector('#help .help-constraints')?.scrollIntoView({ block: 'start' });
+}
+
+/** What the section is, in two sentences: the title of its button opening the help there. */
 export const INTERPRETED_NOTE =
   'Rules a reader of the specification took from its prose, each beside the sentence it was read from. The specification prints none of them as a table or ABNF rule, so each is as sure as its quote.';
 
@@ -237,9 +243,9 @@ export function ConstraintFacts({
     <section class="popup-constraints" aria-label="Interpreted constraints">
       <div class="constraints-title">
         <Counted title="Interpreted" count={found.length} />
-        <ExternalLink class="constraints-about" href={CONSTRAINTS_DOC} title={INTERPRETED_NOTE}>
+        <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
           what these are
-        </ExternalLink>
+        </button>
       </div>
       {groups}
     </section>

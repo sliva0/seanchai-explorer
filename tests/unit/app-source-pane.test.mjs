@@ -31,7 +31,7 @@ test('public: a PDF gets the pane and its toggle, with an inspector in place of 
       inspector.querySelector('.inspector-note').textContent,
       /This public build cannot show the PDF of TS 29\.153 V19\.0\.0, for licensing reasons; a self-hosted build shows it here\./,
     );
-    assert.equal(selfHostLink(document), 'https://github.com/sliva0/seanchai-explorer#two-build-modes');
+    assert.equal(selfHostLink(document), undefined, 'the note links nowhere');
     assert.ok(document.querySelector('.source-document').textContent.startsWith('TS 29.153 V19.0.0 — '));
     assert.ok(document.querySelector('.document-header h1').textContent.startsWith('3GPP TS 29.153 V19.0.0 — '));
     assert.equal(document.querySelector('.source-header .source-page').textContent, `p. ${pageNumber}`);

@@ -2,12 +2,11 @@ import { allAvpRows, blockAt, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import type { Block, Codec, ConstraintCondition, ConstraintRule } from './types.ts';
 
-/**
+/*
  * Interpreted Constraints: what a clause's prose says of an AVP's value or presence, as a reader declared it, pinned to
  * the sentences read. Only a corrected file holds them; the raw file is what the extractor read. Nothing here is what
  * a document prints as structure, and the site says so wherever it shows one.
  */
-export const CONSTRAINTS_DOC = 'https://github.com/sliva0/seanchai/blob/main/docs/constraints.md';
 
 export const isInterpreted = (block: Pick<Block, 'type' | 'interpreted'>) =>
   block.interpreted === true || block.type === 'Interpreted Constraints';

@@ -21,7 +21,6 @@ import { correctedRow, printedRow } from './printed-row.ts';
 import { CLICK_HINT } from './site-text.ts';
 import type { Document, DocumentSummary } from './types.ts';
 
-const selfHostingGuide = 'https://github.com/sliva0/seanchai-explorer#two-build-modes';
 const hostName = (url: URL) => url.hostname.replace(/^www\./, '');
 
 function Icon({ class: className, path, label }: { class: string; path: string; label?: string }) {
@@ -109,20 +108,11 @@ function PaneHeader({
 
 /** What the pane says of a PDF this build does not hold, beside what it shows instead. */
 function SelfHostNote({ doc, brief }: { doc: DocumentSummary; brief: boolean }) {
-  const link = (
-    <a href={selfHostingGuide} target="_blank" rel="noopener">
-      {brief ? 'Self-hosting' : 'Self-host Seanchaí Explorer'}
-    </a>
-  );
   return brief ? (
-    <p class="inspector-note">
-      {`The PDF of ${docVersioned(doc)} is shown here in a self-hosted build. `}
-      {link}
-    </p>
+    <p class="inspector-note">{`The PDF of ${docVersioned(doc)} is shown here in a self-hosted build.`}</p>
   ) : (
     <p class="inspector-note">
-      {`This public build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons; a self-hosted build shows it here. `}
-      {link}
+      {`This public build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons; a self-hosted build shows it here.`}
     </p>
   );
 }

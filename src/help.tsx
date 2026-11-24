@@ -1,6 +1,6 @@
 import { Fragment } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
-import { codecs, CONSTRAINTS_DOC, ruleKinds } from './constraints.ts';
+import { codecs, ruleKinds } from './constraints.ts';
 import { controlGroups } from './controls.ts';
 import type { ControlGroup } from './controls.ts';
 import { takesTyping } from './keys.ts';
@@ -70,10 +70,10 @@ function ConstraintsHelp() {
         ))}
       </dl>
       <p class="help-note">
-        <a href={CONSTRAINTS_DOC} target="_blank" rel="noopener">
-          docs/constraints.md
-        </a>{' '}
-        says how they are read and checked.
+        A rule stands after the sentences it was read from, word for word, and the corpus is built only while the
+        document still prints them. The Wireshark plugin checks the rules on each message as notes: lengths, ranges,
+        excluded values, encodings but another document's element, bits, members, unique and values rules and the
+        presence conditions; a text-only rule it cannot check, and a default breaks nothing.
       </p>
     </section>
   );

@@ -136,7 +136,8 @@ test('the page shows its versions, the script for the chosen shell and the downl
     );
     assert.deepEqual(
       [...document.querySelectorAll('main a')].map(a => a.href),
-      ['https://github.com/sliva0/seanchai/blob/main/docs/wireshark-plugin.md'],
+      [],
+      'no link to documentation elsewhere: the page says what it needs',
     );
     const from = 'http://localhost/plugin/seanchai_diameter.lua';
     const command = document.querySelector('.plugin-command code');
@@ -148,7 +149,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
         'Wireshark plugin',
         'seanchai 0.2.0, corpus 2026.11.12',
         "Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to the publisher's copy and to this site.",
-        'Filter for messages breaking a rule with seanchai.errors > 0. More on the plugin',
+        'Filter for messages breaking a rule with seanchai.errors > 0. An error breaks a rule a document states, a warning a "should not" or a value no document defines, and a note is what the corpus cannot complete or an interpreted constraint broken. It runs in Wireshark 4.2 and later, and in tshark: tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors > 0".',
         'Install from a terminal (Linux and macOS)',
         'bash / zsh / sh',
         'fish',

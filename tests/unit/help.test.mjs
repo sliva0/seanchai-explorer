@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { controlGroups } from '../../src/controls.ts';
-import { boot, click, settle } from './helpers.mjs';
+import { absent, boot, click, settle } from './helpers.mjs';
 
 const press = (page, init, target = page.document.body) => {
   const event = new page.window.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init });
@@ -126,16 +126,16 @@ test('the focus stays in the dialog while it is open', async () => {
     const help = dialog(document);
     const close = help.querySelector('.popup-title button');
     assert.equal(close.getAttribute('aria-label'), 'Close');
-    // Its last stop is the link to the page on interpreted constraints.
-    const last = [...help.querySelectorAll('a[href]')].at(-1);
-    last.focus();
-    assert.equal(press(page, { key: 'Tab' }, last).defaultPrevented, true);
+    // Its one stop is Close: it links nowhere else.
+    absent(help.querySelector('a[href]'));
+    close.focus();
+    assert.equal(press(page, { key: 'Tab' }, close).defaultPrevented, true);
     assert.ok(document.activeElement === close, 'Tab wraps');
     assert.equal(press(page, { key: 'Tab', shiftKey: true }, close).defaultPrevented, true);
-    assert.ok(document.activeElement === last, 'and Shift+Tab');
+    assert.ok(document.activeElement === close, 'and Shift+Tab');
     help.focus();
     assert.equal(press(page, { key: 'Tab', shiftKey: true }, help).defaultPrevented, true);
-    assert.ok(document.activeElement === last);
+    assert.ok(document.activeElement === close);
     document.querySelector('.index-view a').focus();
     assert.ok(help.contains(document.activeElement), 'the focus sent outside comes back');
     close.click();

@@ -140,10 +140,11 @@ element; where the corpus holds that document, its name links to it, and a `memb
 rule's names link to their AVPs as the text's do. Each block offers `Read in`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
-its origin. The help says what each kind of rule says, as the text prints one, and what
-each encoding's codec is, and
+its origin. The help says what each kind of rule says, as the text prints one, what
+each encoding's codec is, and in two sentences how they are read and checked, which the
+section's "what these are" opens it at;
 [docs/constraints.md](https://github.com/sliva0/seanchai/blob/main/docs/constraints.md)
-how they are read and checked. Search has no entries of its own for them, as the export
+says more, but the site links to no documentation. Search has no entries of its own for them, as the export
 gives none: their lines are found as any line of text is.
 
 ## Keyboard

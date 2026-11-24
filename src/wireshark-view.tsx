@@ -17,8 +17,6 @@ import {
 import type { InstallShell } from './plugin-file.ts';
 import { readStored, writeStored } from './storage.ts';
 
-const PLUGIN_DOCS = 'https://github.com/sliva0/seanchai/blob/main/docs/wireshark-plugin.md';
-
 const FOLDERS = [
   ['Linux and macOS', '~/.local/lib/wireshark/plugins/'],
   ['Windows', '%APPDATA%\\Wireshark\\plugins\\'],
@@ -263,8 +261,11 @@ export function WiresharkView({ site }: { site: Site }) {
         <p>
           {'Filter for messages breaking a rule with '}
           <code>seanchai.errors {'>'} 0</code>
-          {'. '}
-          <a href={PLUGIN_DOCS}>More on the plugin</a>
+          {
+            '. An error breaks a rule a document states, a warning a "should not" or a value no document defines, and a note is what the corpus cannot complete or an interpreted constraint broken. It runs in Wireshark 4.2 and later, and in tshark: '
+          }
+          <code>tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors {'>'} 0"</code>
+          {'.'}
         </p>
       </div>
       <section class="plugin-ways" aria-label="Install">

@@ -1344,6 +1344,16 @@ mark {
 }
 .constraints-about {
   margin-left: auto;
+  padding: 0;
+  border: 0;
+  color: var(--ui-link);
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+.constraints-about:hover {
+  color: var(--ui-link-hover);
+  text-decoration: underline;
 }
 .constraint-scope {
   color: var(--ui-muted);

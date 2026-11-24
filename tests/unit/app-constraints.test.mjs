@@ -158,10 +158,12 @@ test('the corrected text of TS 29.272', async t => {
         present(section);
         assert.equal(section.getAttribute('aria-label'), 'Interpreted constraints');
         assert.match(section.querySelector('.constraints-title').textContent, /^Interpreted 1/);
-        assert.equal(
-          section.querySelector('.constraints-about').getAttribute('href'),
-          'https://github.com/sliva0/seanchai/blob/main/docs/constraints.md',
-        );
+        const about = section.querySelector('.constraints-about');
+        assert.equal(about.tagName, 'BUTTON', 'no link out: the help says what they are');
+        about.click();
+        assert.equal(document.getElementById('help').hidden, false, 'it opens the help');
+        assert.ok(document.getElementById('help').querySelector('.help-constraints'));
+        document.querySelector('.help-toggle').click();
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
         assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
         assert.deepEqual(texts(section, '.constraint-reading .constraint-words').slice(0, 2), [

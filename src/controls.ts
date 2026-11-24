@@ -58,7 +58,7 @@ export const controlGroups: ControlGroup[] = [
   },
   {
     title: 'PDF pane',
-    note: "A self-hosted build's, with the focus in it.",
+    note: "A self-hosted build's, with the focus in it. A self-hosted build ships the specifications' PDFs and shows them beside the text; a public build cannot, as ETSI's terms allow no one to redistribute them, and links to the publisher's copy at the page instead.",
     controls: [
       { keys: ['Ctrl++', 'Ctrl+-'], does: 'Zooms in or out, with = and _ too, as Cmd does on a Mac' },
       { keys: ['Ctrl+wheel'], does: 'Zooms at the pointer, as a pinch does' },
