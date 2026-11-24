@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      # With no ref, the build runs the PyPI release seanchai-release.json pins, through uvx.
+      # With no ref, the build runs what seanchai-release.json pins, through uvx: a PyPI release, or a commit of seanchai.
       - uses: astral-sh/setup-uv@v7
       - uses: actions/setup-node@v7
         with:
@@ -60,16 +60,22 @@ jobs:
       # One commit publishes one corpus: the pinned release's, unless a ref was asked for.
       - name: Check the export is the pinned release, and say what is published
         run: |
-          node -e '
-            const fs = require("node:fs");
-            const pin = JSON.parse(fs.readFileSync("seanchai-release.json", "utf8"));
+          node --input-type=module -e '
+            import fs from "node:fs";
+            import { SCHEMA_VERSION } from "./src/types.ts";
+            import { pinText, release as pin } from "./scripts/seanchai.mjs";
             const index = JSON.parse(fs.readFileSync("dist/data/index.json", "utf8"));
             const published = `seanchai ${index.seanchai_version}, corpus ${index.corpus_version}`;
             const pinned = `seanchai ${pin.seanchai}, corpus ${pin["seanchai-corpus"]}`;
             const ref = process.env.SEANCHAI_GIT_REF;
-            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Publishing ${published}${ref ? ` from ${ref}` : ""}\n`);
+            const from = ref ? `${process.env.SEANCHAI_REPOSITORY}@${ref}` : pinText();
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Publishing ${published}, export schema ${index.schema_version}, from ${from}\n`);
+            if (index.schema_version !== SCHEMA_VERSION) {
+              console.error(`The export is schema ${index.schema_version}, and the site reads schema ${SCHEMA_VERSION} only`);
+              process.exit(1);
+            }
             if (!ref && published !== pinned) {
-              console.error(`The export is ${published}, and seanchai-release.json pins ${pinned}`);
+              console.error(`The export is ${published}, and seanchai-release.json pins ${pinText()}`);
               process.exit(1);
             }
           '

@@ -9,7 +9,7 @@ export { avpRows } from './blocks.ts';
 export type { AvpRow } from './blocks.ts';
 export type { Member, Presence } from './types.ts';
 
-/** A `Message`, `Answer Message` or `Grouped AVP` block's rule, or a schema-2 export's `Reprinted AVP`'s. `label` is a command's name and abbreviation. */
+/** A `Message`, `Answer Message` or `Grouped AVP` block's rule. `label` is a command's name and abbreviation. */
 export interface Rule {
   kind: string;
   name: string;
@@ -98,9 +98,9 @@ export function commandsBeside(file: DadFile, section: string): Block[] {
   return [];
 }
 
-/** The Grouped AVP rules a file gives a name, reprinted ones too, which a schema-2 export calls `Reprinted AVP`. */
+/** The Grouped AVP rules a file gives a name, reprinted ones too (`; Reprints:`). */
 export const groupedRules = (file: DadFile, name: string): Rule[] =>
-  (rulesByName(file).get(name) ?? []).filter(rule => rule.kind === 'Grouped AVP' || rule.kind === 'Reprinted AVP');
+  (rulesByName(file).get(name) ?? []).filter(rule => rule.kind === 'Grouped AVP');
 
 const presenceWords: Record<Presence, { label: string; brackets: string; meaning: string }> = {
   fixed: { label: 'Fixed', brackets: '< >', meaning: 'must be present, at this position in the order' },

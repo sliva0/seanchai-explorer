@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      # The build runs the released seanchai through uvx.
+      # The build runs the seanchai seanchai-release.json pins through uvx: a PyPI release, or a commit of its repository.
       - uses: astral-sh/setup-uv@v7
       - run: npm ci
       - run: npm run lint

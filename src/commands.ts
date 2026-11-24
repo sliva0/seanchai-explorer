@@ -1,5 +1,4 @@
 import { perFile } from './blocks.ts';
-import type { DadFile } from './blocks.ts';
 import type { Block, Commands, IndexedCodeRow, IndexedCommand, Line } from './types.ts';
 import type { ValueToken } from './values.ts';
 
@@ -148,27 +147,7 @@ export const commandFacts = perFile(({ lines, blocks }): CommandFacts => {
   return facts;
 });
 
-/**
- * What a set of documents says of their commands, as `commands.json` says it: what prepare writes for an export of
- * schema 2, which has none. Goes once the pinned release writes schema 3 (CONTRIBUTING.md, "Generated files").
- */
-export function commandIndex(documents: (DadFile & { id: string })[], schemaVersion: number): CommandIndex {
-  const index: CommandIndex = { schema_version: schemaVersion, commands: [], registry: [], applications: {} };
-  for (const file of documents) {
-    const { id } = file;
-    for (const block of file.blocks) {
-      if (block.type !== 'Registry' || block.fields.Registry !== 'Application IDs') continue;
-      for (const row of block.allocations ?? [])
-        if (row.code !== null && row.name) index.applications[row.code] ??= row.name;
-    }
-    const { blocks, rows } = commandFacts(file);
-    index.commands.push(...blocks.map(block => ({ document: id, ...block })));
-    index.registry.push(...rows.map(row => ({ document: id, ...row })));
-  }
-  return index;
-}
-
-/** An index with nothing in it, for an export no index was derived from. */
+/** An index with nothing in it, for a site whose `commands.json` could not be fetched. */
 export const emptyIndex = (schemaVersion: number): CommandIndex => ({
   schema_version: schemaVersion,
   commands: [],

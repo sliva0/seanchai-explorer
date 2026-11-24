@@ -15,23 +15,34 @@ export const root = process.env.SEANCHAI_ROOT
     : null;
 
 /**
- * The release of `seanchai` and `seanchai-corpus` a build runs from PyPI, exactly, so that one commit always publishes
- * one corpus: `seanchai-release.json`, which the deploy workflow reads too. See README.md, "Building".
+ * The `seanchai` and `seanchai-corpus` a build runs, exactly, so that one commit always publishes one corpus:
+ * `seanchai-release.json`, which the deploy workflow reads too. See README.md, "Building". Its versions are what the
+ * export must name; with a `commit`, both packages come from that commit of `repository` rather than from PyPI.
  */
 export const release = JSON.parse(readFileSync(path.join(project, 'seanchai-release.json'), 'utf8'));
 
-/** `uvx`'s arguments running the pinned release's `seanchai`, with `extras` such as `corpus,extract`. */
-export const releaseArgs = (extras = 'corpus') => [
+/** The pin as a build's error or summary says it: its versions, and its commit where it names one. */
+export const pinText = (pin = release) =>
+  `seanchai ${pin.seanchai}, corpus ${pin['seanchai-corpus']}${pin.commit ? ` at ${pin.repository}@${pin.commit}` : ''}`;
+
+/** The requirement `uvx` installs `name` by: the pinned version from PyPI, or the pinned commit's package. */
+function requirement(pin, name, extras, subdirectory) {
+  if (!pin.commit) return `${name}${extras}==${pin[name]}`;
+  return `${name}${extras} @ git+${pin.repository}@${pin.commit}${subdirectory ? `#subdirectory=${subdirectory}` : ''}`;
+}
+
+/** `uvx`'s arguments running the pinned `seanchai`, with `extras` such as `corpus,extract`. */
+export const releaseArgs = (extras = 'corpus', pin = release) => [
   '--from',
-  `seanchai[${extras}]==${release.seanchai}`,
+  requirement(pin, 'seanchai', `[${extras}]`),
   '--with',
-  `seanchai-corpus==${release['seanchai-corpus']}`,
+  requirement(pin, 'seanchai-corpus', '', 'packages/seanchai-corpus'),
   'seanchai',
 ];
 
 /**
  * The ways to run `seanchai` with `args`, in order: the checkout's through `uv`, else the one on `PATH`, else the
- * pinned PyPI release through `uvx`, which `SEANCHAI_PINNED=1` makes the only one. `pinned` is the last's: its export
+ * pinned release through `uvx`, which `SEANCHAI_PINNED=1` makes the only one. `pinned` is the last's: its export
  * is the release's.
  */
 export function seanchaiWays(args, { extract = false, env = process.env } = {}) {

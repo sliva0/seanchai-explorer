@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { memberPlaces } from '../../src/element-places.ts';
 import { elementIndex, elementsTitle, memberMarks, tablesFor } from '../../src/elements.ts';
-import { absent, boot, commandNames, elementsOfFixture, popupOf, present, readFixture, settle } from './helpers.mjs';
+import { absent, boot, commandNames, elementsOfFixture, popupOf, present, readFixture } from './helpers.mjs';
 
 const nameOn = (document, name, line) =>
   [...document.querySelectorAll('pre [data-avp]')].find(
@@ -223,19 +223,6 @@ test('without an element index the text has no marks and popups no elements', as
     absent(document.querySelector('.element-mark'));
     const popup = await popupOf(page, nameOn(document, 'User-Identity', '24'));
     absent(popup.querySelector('.place-element'));
-  } finally {
-    await page.close();
-  }
-});
-
-test('a schema-2 export, which the pinned release writes, is read', async () => {
-  const page = await boot({
-    hash: '#29329-j10',
-    transform: (_path, data) => (typeof data === 'object' ? { ...data, schema_version: 2 } : data),
-  });
-  try {
-    await settle();
-    present(page.document.querySelector('.dad-line'));
   } finally {
     await page.close();
   }

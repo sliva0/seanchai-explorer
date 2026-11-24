@@ -161,8 +161,11 @@ Self-hosted output is for an organisation's own use behind its own access contro
 ## Building
 
 Node 24 or newer with npm, and [uv](https://docs.astral.sh/uv/). Nothing else: the
-build runs the release of `seanchai` and `seanchai-corpus` that `seanchai-release.json`
-pins, from PyPI through `uvx`, so one commit always builds one corpus.
+build runs the `seanchai` and `seanchai-corpus` that `seanchai-release.json` pins, through
+`uvx`, so one commit always builds one corpus. The pin is a release on PyPI, or a commit
+of [Seanchaí's repository](https://github.com/sliva0/seanchai) while no release writes
+the export schema the site reads; the site reads that one schema only, and a build from
+an export of any other fails.
 
 ```sh
 npm ci
@@ -187,28 +190,36 @@ Which `seanchai` runs is the first of:
 1. a Seanchaí checkout, through `uv run`: the one named by `SEANCHAI_ROOT`, or the one
    this repository is inside at `.local/seanchai-explorer`;
 2. a `seanchai` command on `PATH`, which needs the `extract` extra for `npm run sources`;
-3. the PyPI release `seanchai-release.json` pins, through `uvx`. With `SEANCHAI_PINNED=1`
-   it is the only one, even inside a checkout. A build that ran it fails if its export
-   names other versions than the pin.
+3. what `seanchai-release.json` pins, through `uvx`. With `SEANCHAI_PINNED=1` it is the
+   only one, even inside a checkout. A build that ran it fails if its export names other
+   versions than the pin.
 
 A plugin passed in `SEANCHAI_PLUGIN` must name the export's `seanchai` and corpus
 versions on its `-- seanchai:versions` line, or the build fails.
 
 ### Bumping the pinned release
 
-Once both packages are on PyPI, set their versions in `seanchai-release.json`:
+`seanchai-release.json` names the versions the export must name. With `commit` it also
+names a commit of `repository`, whose two packages `uvx` installs from there instead of
+PyPI: the released 0.2.0 writes export schema 2, and the site reads schema 3, so until a
+release writes it the pin is a commit of the repository, whose packages still call
+themselves 0.2.0 and 2026.11.12:
 
 ```json
 {
   "seanchai": "0.2.0",
-  "seanchai-corpus": "2026.11.12"
+  "seanchai-corpus": "2026.11.12",
+  "repository": "https://github.com/sliva0/seanchai",
+  "commit": "90a6f0bec2033ea4be8b7db965067bc3330edc57"
 }
 ```
 
+The export does not say which commit wrote it, so a build checks its versions and its
+schema, not its commit. At the next release of both packages, the pin returns to their
+PyPI versions alone: drop `repository` and `commit` and set the two versions.
+
 Then build with the new pin and run the checks. Where the export's schema changed,
-regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says. The
-first release writing schema 3 ends the site's support of schema 2, which
-CONTRIBUTING.md's "Schema 2" lists to delete.
+regenerate the fixture and types first, as CONTRIBUTING.md's "Generated files" says.
 
 ```sh
 SEANCHAI_PINNED=1 npm run build
@@ -216,7 +227,8 @@ npm test
 ```
 
 Commit the file on its own, and run the deploy workflow: it fails if the site it built
-is not the pinned release's, and its summary says what it published.
+is not the pinned release's or not of the schema the site reads, and its summary says
+what it published and from where.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) has the other commands, the tests and the export
 contract.
@@ -225,8 +237,8 @@ contract.
 
 | Variable | Meaning |
 |---|---|
-| `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the release. |
-| `SEANCHAI_PINNED` | `1` runs the release `seanchai-release.json` pins, even inside a checkout or with a `seanchai` on `PATH`. |
+| `SEANCHAI_ROOT` | A Seanchaí checkout to run instead of the pinned one. |
+| `SEANCHAI_PINNED` | `1` runs what `seanchai-release.json` pins, even inside a checkout or with a `seanchai` on `PATH`. |
 | `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |

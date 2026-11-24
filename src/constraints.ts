@@ -91,8 +91,7 @@ export function blockContext(file: DadFile, block: Block | undefined): ReadConte
     return { command: { name: block.name, application: block.command?.application_id } };
   if (block.type === 'Information Elements' && block.name)
     return { command: { name: block.name, application: applicationOf(file, block.name) } };
-  if ((block.type === 'Grouped AVP' || block.type === 'Reprinted AVP') && block.rule)
-    return { within: block.rule.name };
+  if (block.type === 'Grouped AVP' && block.rule) return { within: block.rule.name };
   if (isInterpreted(block)) {
     const { within, command, application } = scopeOf(block);
     if (within) return { within };

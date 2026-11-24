@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import test from 'node:test';
+import { pinText, releaseArgs } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const site = path.join(root, 'public/syntax/dad.tmLanguage.json');
@@ -57,39 +58,20 @@ test("prepare keeps the export's command index, and derives the element index fr
   );
 });
 
-test('prepare derives the command index of a schema-2 export, which has none, as schema 3 exports it', async () => {
-  const fixture = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
+test('prepare refuses an export of another schema than the one the site reads, or one without commands.json', async () => {
   const exported = await mkdtemp(path.join(tmpdir(), 'seanchai-export-'));
   try {
     await cp(fixture, exported, { recursive: true });
-    await rm(path.join(exported, 'commands.json'));
     const index = JSON.parse(await readFile(path.join(exported, 'index.json'), 'utf8'));
     await writeFile(path.join(exported, 'index.json'), JSON.stringify({ ...index, schema_version: 2 }));
-    prepare(exported);
-    const derived = JSON.parse(await readFile(path.join(root, 'public/data/commands.json'), 'utf8'));
-    const commands = JSON.parse(await readFile(path.join(fixture, 'commands.json'), 'utf8'));
-    assert.equal(derived.schema_version, 2);
-    assert.deepEqual(derived.commands, commands.commands);
-    assert.deepEqual(
-      derived.commands.find(command => command.document === '29061-6f0' && command.name === 'AA-Answer'),
-      {
-        document: '29061-6f0',
-        name: 'AA-Answer',
-        abbreviation: 'AAA',
-        section: '17.6.2',
-        page: 83,
-        line: 43,
-        code: 265,
-        flags: ['PXY'],
-        header: null,
-        application: 16777223,
-        scope: { name: 'Gmb', section: '17' },
-      },
-    );
-    await writeFile(path.join(exported, 'index.json'), JSON.stringify({ ...index, schema_version: 1 }));
     const old = run({ SEANCHAI_EXPORT: exported, SEANCHAI_PLUGIN: standIn });
     assert.notEqual(old.status, 0);
-    assert.match(old.stderr, /Export schema 1, expected 2 or 3/);
+    assert.match(old.stderr, /Export schema 2, and the site reads schema 3 only/);
+    await writeFile(path.join(exported, 'index.json'), JSON.stringify(index));
+    await rm(path.join(exported, 'commands.json'));
+    const none = run({ SEANCHAI_EXPORT: exported, SEANCHAI_PLUGIN: standIn });
+    assert.notEqual(none.status, 0);
+    assert.match(none.stderr, /The export has no commands\.json/);
   } finally {
     await rm(exported, { recursive: true, force: true });
   }
@@ -149,17 +131,20 @@ test('a seanchai too old for the plugin fails a build it exported for, and not o
   }
 });
 
-/** A `uvx` standing in for the pinned release: it says what it was asked on stderr, and exports the fixture. */
-async function pinnedStandIn(directory) {
+/**
+ * A `uvx` standing in for the pinned release: it says what it was asked on stderr, and exports `exported`, the fixture
+ * unless given another.
+ */
+async function pinnedStandIn(directory, exported = fixture) {
   const bin = path.join(directory, 'bin');
-  await mkdir(bin);
+  await mkdir(bin, { recursive: true });
   const uvx = path.join(bin, 'uvx');
   await writeFile(
     uvx,
     `#!/bin/sh
 echo "uvx $*" >&2
 case "$6" in
-  export) cp -r '${fixture}.' "$8" ;;
+  export) cp -r '${path.join(exported, '.')}' "$8" ;;
   wireshark-plugin) cp '${standIn}' "$8" ;;
 esac
 `,
@@ -173,29 +158,58 @@ esac
   };
 }
 
+const escaped = text => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+test('a pin of versions runs them from PyPI, and a pin of a commit runs its two packages from the repository', () => {
+  const versions = { seanchai: '0.3.0', 'seanchai-corpus': '2027.01.01' };
+  assert.deepEqual(releaseArgs('corpus,extract', versions), [
+    '--from',
+    'seanchai[corpus,extract]==0.3.0',
+    '--with',
+    'seanchai-corpus==2027.01.01',
+    'seanchai',
+  ]);
+  const commit = { ...versions, repository: 'https://example.org/seanchai', commit: 'abc123' };
+  assert.deepEqual(releaseArgs('corpus', commit), [
+    '--from',
+    'seanchai[corpus] @ git+https://example.org/seanchai@abc123',
+    '--with',
+    'seanchai-corpus @ git+https://example.org/seanchai@abc123#subdirectory=packages/seanchai-corpus',
+    'seanchai',
+  ]);
+});
+
 test('SEANCHAI_PINNED runs the release seanchai-release.json pins, and a build fails where it exports other versions', async () => {
   const pin = JSON.parse(await readFile(path.join(root, 'seanchai-release.json'), 'utf8'));
-  const exported = JSON.parse(await readFile(path.join(fixture, 'index.json'), 'utf8'));
+  const index = JSON.parse(await readFile(path.join(fixture, 'index.json'), 'utf8'));
   const directory = await mkdtemp(path.join(tmpdir(), 'seanchai-pinned-'));
   try {
-    const result = run(await pinnedStandIn(directory));
+    /** The fixture as an export naming `versions`. */
+    const exporting = async (name, versions) => {
+      const copy = path.join(directory, name);
+      await cp(fixture, copy, { recursive: true });
+      await writeFile(path.join(copy, 'index.json'), JSON.stringify({ ...index, ...versions }));
+      return copy;
+    };
+    const pinned = await exporting('pinned', {
+      seanchai_version: pin.seanchai,
+      corpus_version: pin['seanchai-corpus'],
+    });
+    const result = run(await pinnedStandIn(path.join(directory, 'one'), pinned));
+    assert.match(result.stderr, new RegExp(escaped(`uvx ${releaseArgs('corpus', pin).join(' ')} export`)));
+    assert.equal(result.status, 0, result.stderr);
+
+    const other = await exporting('other', { seanchai_version: pin.seanchai, corpus_version: '1999.01.01' });
+    const failed = run(await pinnedStandIn(path.join(directory, 'two'), other));
+    assert.notEqual(failed.status, 0);
     assert.match(
-      result.stderr,
+      failed.stderr,
       new RegExp(
-        `uvx --from seanchai\\[corpus\\]==${pin.seanchai} --with seanchai-corpus==${pin['seanchai-corpus']} seanchai export`,
+        escaped(
+          `The release pinned in seanchai-release.json, ${pinText(pin)}, exported seanchai ${pin.seanchai}, corpus 1999.01.01`,
+        ),
       ),
     );
-    if (exported.seanchai_version === pin.seanchai && exported.corpus_version === pin['seanchai-corpus'])
-      assert.equal(result.status, 0, result.stderr);
-    else {
-      assert.notEqual(result.status, 0);
-      assert.match(
-        result.stderr,
-        new RegExp(
-          `The release pinned in seanchai-release.json, seanchai ${pin.seanchai}, corpus ${pin['seanchai-corpus']}, exported seanchai ${exported.seanchai_version}, corpus ${exported.corpus_version}`,
-        ),
-      );
-    }
   } finally {
     await rm(directory, { recursive: true, force: true });
   }

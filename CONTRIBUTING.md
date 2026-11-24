@@ -71,9 +71,11 @@ file in its own process; the other unit tests cover one module each.
 ## The export contract
 
 `src/types.ts`, including `SCHEMA_VERSION`, is generated from the export's
-`schema.json`. The site reads the versions `src/schema.ts` lists, its own and, while the
-pinned release writes it, schema 2 (see "Schema 2" below), and refuses any other before
-fetching anything else. `tests/fixtures/export` is nine real documents cut from a real
+`schema.json`. The site reads that schema only: `src/data.ts` refuses an `index.json` of
+any other before fetching anything else, and prepare refuses the export, saying the
+schema it found and the one it reads, as it does one without `commands.json`. There is no
+compatibility with an older `seanchai`: the pin moves with the site (README.md, "Bumping
+the pinned release"). `tests/fixtures/export` is nine real documents cut from a real
 public export, TS 29.328 among them for its Information Elements tables of TS 29.329's
 commands, and TS 29.272 for its Interpreted Constraints blocks. TS 29.272 is the longest,
 seconds to draw in the unit tests, so a test file booting it shares one page among its checks.
@@ -91,7 +93,7 @@ search show beside its title, a blank where it has none or the corpus does not s
 The export's `commands.json` holds every command block and Command Codes registry row,
 about 130 kB, which a command's popup needs from documents not loaded and which
 `search.json` holds only inside 8 MB the document pages never fetch. It comes with the
-first document, and a build without it leaves a popup with what the open document says.
+first document, and where its fetch fails a popup says what the open document says.
 
 Prepare writes `public/data/elements.json`, which `src/elements.ts` derives from the
 export's documents: for each Message block, every `Information Elements` table its
@@ -104,9 +106,7 @@ document, clause, name, line and `ordinal`, which of the clause's blocks of that
 is: TS 29.272's 7.2.9 prints IDR twice, for S6a's and S6d's application ids, each
 described by its own table, which matching by name alone gave both. The corrected text and
 `commands.json` find a block's tables by its line, a raw view, whose blocks list no
-`described_by` and whose lines differ, by its clause, name and ordinal. None of this is
-schema 2's: the pinned release's export has no Information Elements blocks, so its
-`elements.json` is empty, and nothing of it goes when the pin is bumped.
+`described_by` and whose lines differ, by its clause, name and ordinal.
 
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
@@ -122,30 +122,6 @@ corpus's newest edition of (`newestOf` in `src/data.ts`) and leaves as text wher
 none. A raw view reads them from the corrected document by its blocks' names, as it reads
 the element index, and goes to the corrected text for a block. `search.json` has no
 entries for them.
-
-### Schema 2
-
-The PyPI release `seanchai-release.json` pins, seanchai 0.2.0, writes schema 2: no
-`commands.json`, and a reprinted rule as a `Reprinted AVP` block with `; From:` where
-schema 3 has a `Grouped AVP` with `; Reprints:`. Until the pin writes schema 3, prepare
-derives `commands.json` itself where the export has none, with `commandIndex` in
-`src/commands.ts`, which `tests/unit/commands.test.mjs` holds to what schema 3 exports.
-Neither writes Interpreted Constraints blocks, which the site reads only where they are,
-so a schema-2 export shows none and no "Interpreted" control, nor Information Elements
-blocks, so its `elements.json` is empty and its search has no information elements. The
-element index, read from `described_by`, and the raw view's matching by ordinal stay after
-the bump. Once the pin is bumped to a release writing schema 3, delete:
-
-- the `2` in `READ_SCHEMAS` in `src/schema.ts`, and the module itself if only
-  `SCHEMA_VERSION` is left, as `src/data.ts` and `scripts/prepare.mjs` then compare
-  with that again;
-- `commandIndex` in `src/commands.ts`, the `commands.json` branch of
-  `scripts/prepare.mjs`, and the tests calling it in `tests/unit/commands.test.mjs`;
-- `'Reprinted AVP'` in `groupedRules` in `src/avp-context.ts`;
-- the schema-2 test at the end of `tests/unit/app-elements.test.mjs`, and the one of
-  `tests/build/prepare.test.mjs` deriving a schema-2 export's command index;
-- the condition on the schema version around the grammar's check in
-  `tests/build/build.test.mjs`, which a schema-2 export's older grammar fails.
 
 Prepare also writes `public/plugin/seanchai_diameter.lua`, the Wireshark plugin, with
 `seanchai wireshark-plugin` from the same `seanchai` as the export, or copies `SEANCHAI_PLUGIN`. It ships in both
@@ -180,7 +156,8 @@ npm test
 `npm run fixture` rewrites `tests/fixtures/export`, the export's `commands.json` cut to
 its documents, and `syntax/dad.tmLanguage.json`, and the tests hold the copy to the
 exported grammar. `--any-schema` lets through an export of
-another schema version, which `npm run build` refuses until the types are regenerated.
+another schema version, which `npm run build` refuses until the types are regenerated:
+a new schema means the site reads that one, and the pin moves to a `seanchai` writing it.
 Do not edit `src/types.ts` by hand.
 
 ## Source map
@@ -192,7 +169,6 @@ Do not edit `src/types.ts` by hand.
 | `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
-| `schema.ts` | the export schemas the site reads |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
@@ -259,8 +235,11 @@ the Actions tab: it runs every check CI runs on the tree being published, builds
 mode, checks no PDF is in `dist/`, and publishes with the Pages actions. Pages must be set to deploy from
 GitHub Actions.
 
-The build runs the PyPI release `seanchai-release.json` pins (see README.md, "Bumping the
-pinned release"), and fails if the site it built names other versions, unless the
-repository variable `SEANCHAI_GIT_REF`, or the run's `seanchai_git_ref` input, names a ref
-of <https://github.com/sliva0/seanchai>, whose two packages it then installs from that ref.
-The run's summary says which versions it published.
+The build runs what `seanchai-release.json` pins (see README.md, "Bumping the pinned
+release"): for now a commit of <https://github.com/sliva0/seanchai>, as no release writes
+schema 3 yet, and at the next release its PyPI versions again. It fails if the site it
+built names other versions or another schema than the site reads, unless the repository
+variable `SEANCHAI_GIT_REF`, or the run's `seanchai_git_ref` input, names a ref of that
+repository, whose two packages it then installs from that ref, and whose export must still
+be of the site's schema. The run's summary says which versions it published, the schema
+and where they came from.

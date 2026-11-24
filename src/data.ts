@@ -3,7 +3,6 @@ import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
 import { emptyElements, markElements } from './elements.ts';
 import type { ElementIndex } from './elements.ts';
-import { READ_SCHEMAS, readsSchema } from './schema.ts';
 import { SCHEMA_VERSION } from './types.ts';
 import type { Document, DocumentSummary, Index, RawDocument, Search } from './types.ts';
 import type { SourcePosition } from './navigation.ts';
@@ -19,9 +18,9 @@ async function loadJSON<T>(path: string): Promise<T> {
   const response = await fetch(dataURL(path));
   if (!response.ok) throw new Error(`${response.status}: ${path}`);
   const data = (await response.json()) as T & { schema_version: number };
-  if (!readsSchema(data.schema_version))
+  if (data.schema_version !== SCHEMA_VERSION)
     throw new Error(
-      `Unsupported export schema ${data.schema_version} in ${path}, expected ${READ_SCHEMAS.join(' or ')}`,
+      `Unsupported export schema ${data.schema_version} in ${path}: the site reads schema ${SCHEMA_VERSION} only`,
     );
   return data;
 }

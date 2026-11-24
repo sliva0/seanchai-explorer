@@ -11,7 +11,7 @@ import {
   rowPlace,
   tablesOf,
 } from '../../src/command-places.ts';
-import { commandFacts, commandIndex, commandKey } from '../../src/commands.ts';
+import { commandFacts, commandKey } from '../../src/commands.ts';
 import { readFixture } from './helpers.mjs';
 
 /** A file's lines from its text, one plain token each but a `;;` comment, as the export has it, and a span `links` gives its own. */
@@ -499,7 +499,7 @@ test('a block is its Definition, here in the pane at its name and in the view at
 
 test('a registry half is the block of its code and half in the document its row cites, and nothing where none prints one', () => {
   const index = {
-    schema_version: 2,
+    schema_version: 3,
     registry: [],
     commands: [
       other('29229-j10', { name: 'User-Authorization-Answer', code: 300 }),
@@ -561,7 +561,7 @@ test("other definitions share code, application and half under any name; the nam
 test("this file's commands and rows come from its blocks, the others' from the index", () => {
   const file = accountingFile();
   const index = {
-    schema_version: 2,
+    schema_version: 3,
     commands: [other('rfc6733', { line: 999 }), other('32299-j00')],
     registry: [
       {
@@ -602,11 +602,9 @@ test("this file's commands and rows come from its blocks, the others' from the i
   assert.deepEqual(tablesOf(all[3], file, doc), [], "another document's tables are not this file's");
 });
 
-test('the index of the fixture holds every command search does, with the application the model gives it', async () => {
-  const index = await readFixture('index.json');
+test("the fixture's commands.json holds every command search does, with the application the model gives it", async () => {
   const search = await readFixture('search.json');
-  const documents = await Promise.all(index.documents.map(summary => readFixture(summary.path)));
-  const built = commandIndex(documents, index.schema_version);
+  const exported = await readFixture('commands.json');
   const key = (document, section, name, code, application, header, scope) =>
     JSON.stringify([document, section, name, code, application, header, scope]);
   const expected = search.entries
@@ -622,7 +620,7 @@ test('the index of the fixture holds every command search does, with the applica
         identity.application,
       ),
     );
-  const got = built.commands.map(command =>
+  const got = exported.commands.map(command =>
     key(
       command.document,
       command.section,
@@ -634,25 +632,4 @@ test('the index of the fixture holds every command search does, with the applica
     ),
   );
   assert.deepEqual(got.toSorted(), expected.toSorted());
-  assert.equal(built.schema_version, index.schema_version);
-  const exported = await readFixture('commands.json');
-  assert.deepEqual(built.commands, exported.commands, 'what a schema-2 build derives is what the export writes');
-  assert.deepEqual(built.registry, exported.registry);
-});
-
-test('the index names an application by its id as an Application IDs registry prints it, the first to say', () => {
-  const registry = (Registry, allocations) => ({ type: 'Registry', fields: { Registry }, allocations });
-  const row = (code, name) => ({ line: 0, cells: [], code, name });
-  const documents = [
-    {
-      id: 'a',
-      lines: [],
-      blocks: [
-        registry('Application IDs', [row(16777265, '3GPP SWx'), row(null, 'Unallocated'), row(7, null)]),
-        registry('Command Codes', [row(300, 'User-Authorization')]),
-      ],
-    },
-    { id: 'b', lines: [], blocks: [registry('Application IDs', [row(16777265, 'Another'), row(4, 'Credit Control')])] },
-  ];
-  assert.deepEqual(commandIndex(documents, 2).applications, { 4: 'Credit Control', 16777265: '3GPP SWx' });
 });
