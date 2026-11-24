@@ -219,7 +219,7 @@ Do not edit `src/types.ts` by hand.
 | `main.tsx`, `app.tsx`, `render.ts`, `navigation.ts`, `data.ts`, `storage.ts` | the router, the site's component and how it is drawn, its routes, the export it fetches, the keys it stores |
 | `errors.ts`, `failure-view.tsx` | what a failure is and says, and the page shown in its place and the boundary holding it |
 | `document-view.tsx`, `highlight.ts`, `comments.ts`, `dom.ts` | a document's page: its highlighted text, header and toolbar |
-| `blocks.ts`, `values.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
+| `blocks.ts`, `values.ts`, `result-codes.ts`, `commands.ts`, `elements.ts`, `constraints.ts`, `avp-facts.ts`, `avp-context.ts`, `table-row.ts`, `printed-row.ts` | what the export's blocks say of a name, a value, a command, a command's information elements or an AVP's interpreted constraints |
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |

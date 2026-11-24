@@ -180,6 +180,8 @@ export const commandPopup = {
   elements: 'Elements',
   registry: 'Registry',
   otherDefinitions: 'Other definitions',
+  /** [limit] A place: a table of the result codes the procedure's answer may carry, a Command Result Codes block. */
+  resultCodes: 'Result codes',
   sameName: 'Same name, other command',
   definitions: 'Definitions',
   /** The toggle over its members. */
@@ -198,4 +200,11 @@ export const valuePopup = {
   list: (id: number) => ` · list ${id}`,
   /** Before the row's section and page, a link to the source document. */
   source: 'Source: ',
+  /**
+   * A code a Command Result Codes block lists for an answer, after the AVP: " · listed for PPA"; a code the export
+   * found no number for; and while the documents that may define it load.
+   */
+  listedFor: (command: string) => ` · listed for ${command}`,
+  noNumber: 'Result code, its number not found in the corpus',
+  finding: 'Looking for the document defining it…',
 };

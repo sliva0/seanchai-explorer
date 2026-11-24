@@ -18,6 +18,7 @@ import { commandKey, isRequest } from '../commands.ts';
 import type { CommandRef } from '../commands.ts';
 import { tablePlace as elementsPlace } from '../element-places.ts';
 import { categoriesOf, memberElements, tablesFor } from '../elements.ts';
+import { listingsFor } from '../result-codes.ts';
 import type { PopupProps } from './root.tsx';
 import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
 import { commandPopup as words } from '../text/popup.ts';
@@ -133,6 +134,29 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
             table: table.table,
           }),
         ),
+        false,
+      ),
+      // The tables of the result codes its answer may carry: this file's and those of the documents loaded.
+      ...group(
+        words.resultCodes,
+        'popup-result-codes',
+        [...new Set([doc.id, ...(site.held(command.document) ? [command.document] : [])])].flatMap(id => {
+          const listed = id === doc.id ? file : site.held(id)!;
+          return listingsFor(listed, command, command.name).map(block =>
+            placeRow(
+              words.resultCodes,
+              'place-result-codes',
+              {
+                document: id,
+                ...(id === doc.id ? { position: { section: block.section, page: block.page } } : {}),
+                target: { document: id, section: block.section },
+                line: block.line,
+              },
+              [id === doc.id ? '' : label({ document: id }), block.section].filter(Boolean).join(' · '),
+              block.fields.Table ? { document: id, table: block.fields.Table } : undefined,
+            ),
+          );
+        }),
         false,
       ),
       ...group(

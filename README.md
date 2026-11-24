@@ -150,6 +150,17 @@ of tables by the commands they describe, as `Information Elements ULR, ULA`. Sea
 the elements in a section of their own, by their names in the tables, each with its
 command, category and AVPs, and its link going to its table's clause.
 
+A `Command Result Codes` block is a procedure's table of the result codes its answer may
+carry, "Result-Code AVP value | Condition", each code a name the table prints with no
+number, which the export finds in the corpus's result-code tables (TS 29.228 table
+6.2.2.1.1, Push-Profile-Answer's). Its `; Command:` and `; Command-Section:` find the
+answer as an Information Elements block's do. Each code is a name as a value row's is: a
+click finds its row in the source, and its popup says its number and AVP, `Result code 5009
+of Experimental-Result-Code · listed for PPA`, and goes to its row in the document defining
+it, `Defined in`, which it loads, the one printing the answer, this one or for a Result-Code
+value RFC 6733. The answer's popup lists the blocks naming it, `Result codes`, of this
+document and of the one printing the answer where it is loaded.
+
 An `Interpreted Constraints` block is what a clause's prose says of an AVP's value or
 presence, "encoded as a TBCD-string", "values 0 to 255", "shall be present only if bit X
 is set", as a reader read it: each rule follows the sentences it was read from, verbatim.
@@ -324,7 +335,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "067fae85d65f7344ea9f1edcd38b3f7d95fe763a"
+  "commit": "3029b54d64f493900babe40910776121df663360"
 }
 ```
 

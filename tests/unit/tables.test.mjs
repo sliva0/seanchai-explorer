@@ -31,5 +31,5 @@ test("the index has each document's tables by number, at the block printing them
   assert.deepEqual(tablePlace(held, undefined, '29328-j20', '6.1.1.1'), { line: 10, section: '6.1.1' });
   assert.deepEqual(tablePlace(undefined, index, '29328-j20', '6.1.1.1'), { line: 10, section: '6.1.1' });
   assert.equal(tablePlace(undefined, index, '29328-j20', '9.9'), undefined);
-  assert.equal(Object.keys(fileTables(held)).length, 9);
+  assert.equal(Object.keys(fileTables(held)).length, 10, 'its Command Result Codes block a table too');
 });

@@ -11,6 +11,7 @@ import type { Document, DocumentSummary, Index, RawDocument, Search } from './ty
 import type { SourcePosition } from './navigation.ts';
 import { emptyTables, markTables } from './tables.ts';
 import type { TableIndex } from './tables.ts';
+import { resultCodeTables } from './result-codes.ts';
 import { valueTables } from './values.ts';
 import { failure, indexPage, pageMessages } from './text/site.ts';
 
@@ -296,7 +297,7 @@ export interface Site {
  * The readers of the block types that mark tokens as names on their first reading of a file: a value table's rows, a
  * command's names, an element's AVPs. A new block type whose lines name something adds its reader here.
  */
-const readers: ((file: DadFile) => unknown)[] = [markTables, valueTables, commandFacts, markElements];
+const readers: ((file: DadFile) => unknown)[] = [markTables, valueTables, resultCodeTables, commandFacts, markElements];
 
 /** A file whose names link as other names do from the moment it is read. */
 function marked<T extends DadFile>(file: T): T {

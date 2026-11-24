@@ -363,6 +363,10 @@ export interface Document {
  *   block, `name` being the command it describes and `described` where the
  *   model finds that command, none where the block names none or several
  *   applications print it;
+ * - `result_codes` and `described` for a Command Result Codes block,
+ *   `name` being the command whose answer it lists codes of and
+ *   `described` where the model finds that command, as an Information
+ *   Elements block's;
  * - `interpreted`, `avp_target` and `readings` for an Interpreted
  *   Constraints block, `name` being the AVP it constrains, `avp_target`
  *   where its `; AVP:` line links, and `fields` its scope (`Command`,
@@ -395,6 +399,7 @@ export interface Block {
   page: number | null;
   readings?: ConstraintReading[];
   reservations?: Reservation[];
+  result_codes?: ResultCodeLine[];
   rows?: TableRow[];
   rule?: Rule | null;
   section: string;
@@ -598,6 +603,17 @@ export interface Reservation {
   last: number;
   line: number;
   purpose?: string | null;
+}
+/**
+ * A row of a Command Result Codes block at `line`: the code's `name`
+ * unquoted, and the `value` and `vendor_id` (0 for a Result-Code value) the
+ * result-code tables give it, null where none does.
+ */
+export interface ResultCodeLine {
+  line: number;
+  name: string;
+  value?: number | null;
+  vendor_id?: number | null;
 }
 /**
  * A row of an AVP Table or Reused AVPs block at `line`. `cells` are as
