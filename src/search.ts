@@ -295,7 +295,7 @@ export function searchEntries(
   query: string,
   summary: (id: string) => Releases = () => undefined,
 ): EntryResults {
-  const results: EntryResults = { avp: [], command: [], application: [], registry: [], value: [] };
+  const results: EntryResults = { avp: [], command: [], application: [], registry: [], value: [], element: [] };
   const needle = query.trim().toLowerCase();
   if (!needle) return results;
   const pair = needle.match(/^(\d+)\s*[:/]\s*(\d+)$/);

@@ -48,13 +48,13 @@ export type RegistryKind = 'Application IDs' | 'Command Codes' | 'AVP Codes' | '
  * What the numbers of a `ValueTable` are, as `; Kind:` writes it.
  */
 export type ValueKind = 'result-codes' | 'bits' | 'features';
-export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
 /**
  * An information element's category, the "Cat." column of a stage-3
  * document's per-command tables (TS 29.272 clause 5.2: "M" mandatory, "C"
  * conditional, "O" optional).
  */
 export type Category = 'M' | 'C' | 'O';
+export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
 /**
  * The layouts a clause names for an AVP's payload, each defined in the
  * clause cited. A closed set, read from TS 29.272 Release 19's clauses: a
@@ -100,6 +100,11 @@ export type Codec =
   | 'ip-address'
   | 'time-zone'
   | 'element';
+/**
+ * What a `bits` rule says of the bits it names: at most one of them set
+ * ("excluding alternatives", "shall not both be set"), or at least one.
+ */
+export type BitsRelation = 'at-most-one' | 'at-least-one';
 /**
  * What a `length` rule counts: the payload's octets, the decimal digits
  * an encoding carries (a TBCD-string's, or a digit string's), or the
@@ -189,8 +194,9 @@ export interface SearchEntry {
   data_type: DataType | null;
   defined_in: string[];
   document: string;
-  identity: AvpIdentity | CommandIdentity | ApplicationIdentity | RegistryIdentity | ValueIdentity | null;
-  kind: 'avp' | 'command' | 'application' | 'registry' | 'value';
+  identity:
+    AvpIdentity | CommandIdentity | ApplicationIdentity | RegistryIdentity | ValueIdentity | ElementIdentity | null;
+  kind: 'avp' | 'command' | 'application' | 'registry' | 'value' | 'element';
   name: string;
   target: Target | null;
   wireshark_name: string | null;
@@ -258,6 +264,17 @@ export interface ValueIdentity {
   value_kind: ValueKind;
 }
 /**
+ * An information element of a command's table: its category and the
+ * AVPs it maps to. `command` is the command the table describes, null
+ * where it names none.
+ */
+export interface ElementIdentity {
+  avps: string[];
+  category: Category | null;
+  command: string | null;
+  kind: 'element';
+}
+/**
  * Where a link goes: a document's page, at a clause when `section` is set.
  * `name` is the AVP a re-used row's origin cell links to there, or the value
  * a result code's origin links to.
@@ -313,7 +330,9 @@ export interface Document {
  *
  * - `rule` for a Message, Answer Message or Grouped AVP, with `command` for
  *   a Message and `avp` for a Grouped AVP, whose `fields` hold `Reprints`
- *   where it reprints another document's rule;
+ *   where it reprints another document's rule; a Message's `described_by`
+ *   lists the Information Elements blocks that describe it, in any
+ *   document (TS 29.228's describe TS 29.229's commands);
  * - `avp` and `values` for an Enumerated AVP;
  * - `columns` and `rows` for an AVP Table or Reused AVPs block;
  * - `columns`, `allocations` and `reservations` for a Registry;
@@ -343,6 +362,7 @@ export interface Block {
   command?: Command | null;
   commands?: CommandSpan[];
   described?: Target[];
+  described_by?: ElementTableRef[];
   element_rows?: ElementRow[];
   feature_list_id?: number | null;
   fields: {
@@ -425,6 +445,16 @@ export interface CommandSpan {
   start: number;
 }
 /**
+ * An Information Elements block: its document, clause and table label,
+ * which tell two tables of one clause apart (a command's request and its
+ * answer).
+ */
+export interface ElementTableRef {
+  document: string;
+  section: string;
+  table?: string | null;
+}
+/**
  * A row of an Information Elements block at `line`, `cells` as a
  * `TableRow`'s: the element's `name` unquoted, the `avps` its mapping cell
  * names (`either`: one of them) or the cell as `printed`, and its
@@ -460,9 +490,11 @@ export interface ConstraintQuote {
  * `low` and `high`; `exclude` `values`; `encoding` `codec`, and an
  * `element`'s `document`, `clause` and `element`; `present-if`,
  * `absent-if`, `requires` and `excludes` their `conditions`, alternatives;
- * `text-only` nothing.
+ * `default` its `value`; `bits` its `relation` and `bits`; `text-only`
+ * nothing.
  */
 export interface ConstraintRule {
+  bits?: number[];
   clause?: string | null;
   codec?: Codec | null;
   conditions?: ConstraintCondition[];
@@ -470,10 +502,22 @@ export interface ConstraintRule {
   element?: string | null;
   high?: number | null;
   kind:
-    'length' | 'range' | 'exclude' | 'encoding' | 'present-if' | 'absent-if' | 'requires' | 'excludes' | 'text-only';
+    | 'length'
+    | 'range'
+    | 'exclude'
+    | 'encoding'
+    | 'present-if'
+    | 'absent-if'
+    | 'requires'
+    | 'excludes'
+    | 'default'
+    | 'bits'
+    | 'text-only';
   line: number;
   low?: number | null;
+  relation?: BitsRelation | null;
   unit?: LengthUnit | null;
+  value?: number | string | null;
   values?: number[];
 }
 /**

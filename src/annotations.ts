@@ -2,7 +2,7 @@ import type { DadFile } from './blocks.ts';
 import { blocksSummary, constraintLines, interpretedLines } from './constraints.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
-import { categoriesOf, categoryWords, elementRowLines, memberMarks } from './elements.ts';
+import { categoriesOf, categoryWords, memberMarks } from './elements.ts';
 import type { MemberElement } from './elements.ts';
 
 /**
@@ -40,12 +40,11 @@ const categoryPart = (elements: MemberElement[]): MarkPart => ({
   ),
 });
 
-/** Information Elements: a row's line is an `element-row`, and a member a table describes has its category after it. */
+/** Information Elements: a member a table describes has its category after it. */
 const elements: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
-  for (const line of elementRowLines(file)) lines.set(line, { class: 'element-row' });
   for (const [line, found] of memberMarks(file, document, site.elements()))
-    if (categoriesOf(found)) lines.set(line, { ...lines.get(line), mark: categoryPart(found) });
+    if (categoriesOf(found)) lines.set(line, { mark: categoryPart(found) });
   return lines;
 };
 

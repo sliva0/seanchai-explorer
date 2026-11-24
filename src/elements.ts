@@ -217,12 +217,6 @@ export const markElements = perFile(({ lines, blocks }) => {
   return true;
 });
 
-/** The lines of a file's Information Elements rows. */
-export const elementRowLines = perFile(
-  ({ blocks }) =>
-    new Set(blocks.flatMap(block => (isElements(block) ? (block.element_rows ?? []).map(row => row.line) : []))),
-);
-
 /**
  * "Information Elements ULR, ULA": a clause's title where the export's names only the type, with what its tables
  * describe, each command by `short`, and the tables naming none by their number, "table 4.1.2.1/1", or count.

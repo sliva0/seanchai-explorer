@@ -139,7 +139,10 @@ test("a row's either AVP and one the rule lacks say so, and in a document's own 
     assert.match(publisher.getAttribute('href'), /#page=\d+$/);
     const misspelled = await popupOf(page, nameOn(document, 'Result-Code', '208'));
     assert.equal(misspelled.querySelectorAll('.place-member').length, 1, 'Experimental_Result is no member');
-    assert.ok(lineAt(document, '231').classList.contains('element-row'), "its category takes no flag's colour");
+    const category = lineAt(document, '231').querySelector('[class*="constant.language.category"]');
+    present(category, "the grammar's scope for a row's category, which is no flag");
+    assert.equal(category.textContent, 'M');
+    absent(lineAt(document, '231').querySelector('[class*="avp-flag"]'));
   } finally {
     await page.close();
   }

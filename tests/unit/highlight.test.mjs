@@ -62,9 +62,15 @@ test('a grammar rule the scanner cannot run is refused rather than ignored', () 
       patterns: [{ comment: 'note', match: 'x', name: 'y', captures: { 1: { name: 'z' } } }],
     }),
   );
+  assert.doesNotThrow(() => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b', contentName: 'c' }] }));
   assert.throws(
-    () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b' }] }),
-    /"begin" at patterns\[0\]/,
+    () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b', applyEndPatternLast: 1 }] }),
+    /"applyEndPatternLast" at patterns\[0\]/,
+  );
+  assert.throws(() => createHighlighter({ ...empty, patterns: [{ begin: 'a' }] }), /without an end/);
+  assert.throws(
+    () => createHighlighter({ ...empty, patterns: [{ begin: 'a', end: 'b', beginCaptures: { 1: { match: 'x' } } }] }),
+    /"match" at patterns\[0\]\.beginCaptures\[1\]/,
   );
   assert.throws(
     () => createHighlighter({ ...empty, repository: { block: { patterns: [{ match: 'x', while: 'y' }] } } }),
@@ -73,6 +79,78 @@ test('a grammar rule the scanner cannot run is refused rather than ignored', () 
   assert.throws(
     () => createHighlighter({ ...empty, patterns: [{ match: 'x', captures: { 1: { contentName: 'y' } } }] }),
     /"contentName" at patterns\[0\]\.captures\[1\]/,
+  );
+});
+
+test("an Information Elements block's rows end in a category, which is no flag, until the next block", () => {
+  const lines = highlight([
+    line('; Type: Information Elements'),
+    line('; Command: Update-Location-Request'),
+    line('; Columns: Name   AVP   Cat'),
+    line('IMSI   User-Name   M'),
+    line('"Visited PLMN Id"   Visited-PLMN-Id   C'),
+    line(''),
+    line('; Type: Information Elements'),
+    line('; Columns: Name   AVP   Cat'),
+    line('Result   Result-Code   O'),
+    line(''),
+    line('; Type: AVP Table'),
+    line('; Columns: Name   Code   Type   Must   From'),
+    line('Mode   10   Enumerated   M   RFC6733'),
+  ]);
+  assert.equal(scopeFor(lines[0], 'Information Elements'), 'storage.type.section.dad');
+  assert.equal(scopeFor(lines[3], 'M'), 'constant.language.category.dad');
+  assert.equal(scopeFor(lines[4], '"Visited PLMN Id"'), 'string.quoted.double.mark.dad');
+  assert.equal(scopeFor(lines[4], 'C'), 'constant.language.category.dad');
+  assert.equal(scopeFor(lines[8], 'O'), 'constant.language.category.dad', 'a second block stays in the region');
+  assert.equal(scopeFor(lines[10], 'AVP Table'), 'storage.type.section.dad');
+  assert.equal(scopeFor(lines[12], 'M'), 'constant.language.avp-flag.dad', 'the next block ends it');
+});
+
+test('a region opens and closes over lines, with its scopes, and one empty at a place is not begun again there', () => {
+  const regions = createHighlighter({
+    patterns: [{ begin: '^<', end: '>', name: 'edge', contentName: 'inside', patterns: [{ match: 'x', name: 'x' }] }],
+    repository: {},
+  });
+  const [open, middle, close] = regions([line('a <b x'), line('c x'), line('d> x')]);
+  assert.deepEqual(
+    open.tokens.map(token => [token.text, token.scope]),
+    [['a <b x\n', '']],
+    'a begin anchored at the start of a line opens nothing past it',
+  );
+  const anchored = regions([line('<b x'), line('c x'), line('d> x')]);
+  assert.deepEqual(
+    anchored[0].tokens.map(token => [token.text, token.scope]),
+    [
+      ['<', 'edge'],
+      ['b ', 'inside'],
+      ['x', 'x'],
+      ['\n', 'inside'],
+    ],
+  );
+  assert.equal(scopeFor(anchored[1], 'c '), 'inside');
+  assert.deepEqual(
+    anchored[2].tokens.map(token => [token.text, token.scope]),
+    [
+      ['d', 'inside'],
+      ['>', 'edge'],
+      [' x\n', ''],
+    ],
+    'past its end the text is outside it, where its patterns are not tried',
+  );
+  assert.equal(middle.tokens.length, 1);
+  assert.equal(close.tokens.length, 1);
+  const empty = createHighlighter({
+    patterns: [{ begin: '(?=a)', end: '(?=a)', patterns: [{ match: 'a', name: 'a' }] }],
+    repository: {},
+  });
+  assert.deepEqual(
+    empty([line('aa')])[0].tokens.map(token => [token.text, token.scope]),
+    [
+      ['a', 'a'],
+      ['a\n', ''],
+    ],
+    'it ends at the next place, and is not begun again where it ended',
   );
 });
 

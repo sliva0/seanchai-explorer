@@ -558,12 +558,6 @@ pre {
   padding-left: 0.45em;
   border-left: 1px dashed var(--ui-border-strong);
 }
-/* An Information Elements row's category is no flag, which the grammar takes an M for: one colour for M, C and O. */
-.dad-line.element-row [class*="avp-flag"] {
-  color: inherit;
-  background: none;
-  font-weight: inherit;
-}
 .dad-line {
   display: block;
 }
@@ -614,6 +608,13 @@ pre [class*="constant.numeric"],
 pre [class*="constant.language"] {
   color: var(--syntax-number);
   background: var(--syntax-number-bg);
+}
+/* An Information Elements row's category, M, C or O: no constant, but what the row says of its element, as the mark
+ * beside a member says it. */
+pre [class*="constant.language.category"] {
+  color: var(--syntax-keyword);
+  background: var(--syntax-keyword-bg);
+  font-weight: bold;
 }
 pre [class*="spec-ref"],
 pre [class*="constant.other.section"] {
