@@ -2,6 +2,8 @@ import { perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import type { Block, Category, ElementRow, Line, Member } from './types.ts';
 import type { ValueToken } from './values.ts';
+import { markWords } from './text/document.ts';
+import { categoryText, categoryWords as words, oneOf, tableIn, tableName, tablesCount } from './text/terms.ts';
 
 /** A row of an Information Elements table as `elements.json` carries it. `members` are the members it maps to, by their lines in the described document's corrected text. */
 export interface IndexedElementRow {
@@ -39,7 +41,7 @@ export interface ElementIndex {
   tables: ElementTable[];
 }
 
-export const categoryWords: Record<Category, string> = { M: 'mandatory', C: 'conditional', O: 'optional' };
+export const categoryWords: Record<Category, string> = words;
 
 /** The table describes a command its block names; one TS 29.338 table spells it in another case. */
 const sameName = (a: string | null | undefined, b: string | null | undefined) =>
@@ -191,10 +193,10 @@ export function categoryNote(
   const required = bracketsRequire(member);
   const disagreements = elements.flatMap(({ table, row }) => {
     if (row.either || !row.category || (row.category === 'M') === required) return [];
-    const where = table.table ? `table ${table.table}` : `the table in ${table.section}`;
+    const where = table.table ? tableName(table.table) : tableIn(table.section);
     return required
-      ? `Its brackets require ${member.name}, and ${where} gives it ${row.category}, ${categoryWords[row.category]} (element-required-in-abnf)`
-      : `Its brackets make ${member.name} optional, and ${where} gives it M, mandatory (element-optional-in-abnf)`;
+      ? markWords.bracketsRequire(member.name, where, categoryText(row.category, categoryWords[row.category]))
+      : markWords.bracketsOptional(member.name, where);
   });
   if (disagreements.length) return { kind: 'disagrees', disagreements };
   return elements.some(({ row }) => row.category === 'C') ? { kind: 'conditional', disagreements } : undefined;
@@ -204,8 +206,8 @@ export function categoryNote(
 export const elementText = (row: Pick<ElementRow, 'name' | 'category' | 'either' | 'avps'>) =>
   [
     row.name,
-    row.category && `${row.category}, ${categoryWords[row.category]}`,
-    row.either && row.avps?.length && `one of ${row.avps.join(', ')}`,
+    row.category && categoryText(row.category, categoryWords[row.category]),
+    row.either && row.avps?.length && oneOf(row.avps),
   ]
     .filter(Boolean)
     .join(' · ');
@@ -301,9 +303,9 @@ export function elementsTitle(file: DadFile, section: string, title: string, sho
   const unnamed = tables.filter(block => !block.name);
   const rest =
     unnamed.length > 1
-      ? [`${unnamed.length} tables`]
+      ? [tablesCount(unnamed.length)]
       : unnamed.length && unnamed[0].fields.Table
-        ? [`table ${unnamed[0].fields.Table}`]
+        ? [tableName(unnamed[0].fields.Table)]
         : [];
   const said = [...named, ...rest];
   return said.length ? `${title} ${said.join(', ')}` : title;

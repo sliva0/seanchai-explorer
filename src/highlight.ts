@@ -1,5 +1,6 @@
 import type { Line } from './types.ts';
 import type { ValueToken } from './values.ts';
+import { pageMessages } from './text/site.ts';
 
 interface Pattern {
   include?: string;
@@ -44,10 +45,9 @@ const captureKeys = new Set(['name', 'patterns', 'comment']);
 /** A key the scanner cannot run, as `while`, or a region's `applyEndPatternLast`, would silently match nothing: refused. */
 function checkPattern(pattern: Pattern, where: string, keys = 'begin' in pattern ? regionKeys : supportedKeys) {
   for (const key of Object.keys(pattern)) {
-    if (!keys.has(key)) throw new Error(`Unsupported grammar key "${key}" at ${where}`);
+    if (!keys.has(key)) throw new Error(pageMessages.grammarKey(key, where));
   }
-  if ('begin' in pattern !== 'end' in pattern)
-    throw new Error(`A begin without an end, or an end without one, at ${where}`);
+  if ('begin' in pattern !== 'end' in pattern) throw new Error(pageMessages.grammarRegion(where));
   pattern.patterns?.forEach((child, index) => checkPattern(child, `${where}.patterns[${index}]`));
   for (const field of ['captures', 'beginCaptures', 'endCaptures'] as const)
     for (const [group, capture] of Object.entries(pattern[field] ?? {}))

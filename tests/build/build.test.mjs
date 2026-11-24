@@ -101,6 +101,14 @@ async function checkUnlinked() {
   assert.equal(check.status, 0, check.stderr);
   const page = await readFile(path.join(dist, 'index.html'), 'utf8');
   assert.doesNotMatch(page, /GitHub|PyPI/);
+  // What only a build of the project shows is left out of the bundle, not only off the page.
+  for (const file of await readdir(path.join(dist, 'assets')))
+    if (file.endsWith('.js'))
+      assert.doesNotMatch(
+        await readFile(path.join(dist, 'assets', file), 'utf8'),
+        /Unofficial, and not affiliated|a self-hosted build shows it here|Generate it with|seanchai\[corpus\]/,
+        file,
+      );
   if (existsSync(path.join(dist, 'plugin')))
     assert.match(
       await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8'),

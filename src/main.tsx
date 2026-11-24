@@ -23,6 +23,7 @@ import { readStored, session, writeStored } from './storage.ts';
 import { initTheme } from './theme.ts';
 import type { Theme } from './theme.ts';
 import type { Line } from './types.ts';
+import { header, jumpPlaces, pageMessages, site as siteText } from './text/site.ts';
 
 // The router: it works out from the route what the page shows and where, draws it with <App>, and keeps the jump list,
 // the browser's history and each document's position. Drawing is synchronous (see render.ts), so what it reads of the
@@ -55,7 +56,7 @@ const theme = initTheme((value: Theme) => {
 noticeRegion();
 
 function setTitle(page?: string) {
-  document.title = page ? `${page} — Seanchaí` : 'Seanchaí';
+  document.title = page ? siteText.pageTitle(page) : siteText.name;
 }
 
 function focusHeading() {
@@ -68,7 +69,7 @@ function showMessage(heading: string, detail?: string) {
 }
 
 function showError(error: unknown) {
-  showMessage('Something went wrong', String(error));
+  showMessage(pageMessages.failed, String(error));
 }
 
 try {
@@ -139,11 +140,11 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
   }
 
   function jumpLabel({ document, line, top }: JumpEntry): string {
-    if (isIndex(document)) return 'Index';
-    if (document === 'search') return 'Search';
-    if (document === WIRESHARK) return 'Wireshark plugin';
+    if (isIndex(document)) return jumpPlaces.index;
+    if (document === 'search') return jumpPlaces.search;
+    if (document === WIRESHARK) return jumpPlaces.wireshark;
     const summary = site.summary(document);
-    return `${summary ? site.label(summary) : document} line ${(line ?? top) + 1}`;
+    return jumpPlaces.line(summary ? site.label(summary) : document, (line ?? top) + 1);
   }
 
   function showJumps() {
@@ -323,7 +324,7 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
     }
     if (parsed.document === 'search') {
       leaveDocument();
-      setTitle('Search');
+      setTitle(header.search);
       draw({
         page: {
           kind: 'search',
@@ -339,13 +340,13 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
       return;
     }
     if (parsed.document === WIRESHARK) {
-      showPage({ kind: 'wireshark' }, 'Wireshark plugin', place);
+      showPage({ kind: 'wireshark' }, header.wiresharkTitle, place);
       return;
     }
     const meta = site.summary(parsed.document);
     if (!meta) {
       leaveDocument();
-      showMessage('Document not found');
+      showMessage(pageMessages.notFound);
       if (arrived) focusHeading();
       return;
     }

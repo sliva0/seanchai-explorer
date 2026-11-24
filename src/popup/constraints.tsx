@@ -23,6 +23,7 @@ import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
 import { Counted, placeRows, TableLink } from './shared.tsx';
+import { constraintsSection } from '../text/rules.ts';
 
 /** Where a use reads its name: in the command or grouped AVP of its block, or wherever. */
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
@@ -161,8 +162,7 @@ function showConstraintsHelp() {
 }
 
 /** What the section is, in two sentences: the title of its button opening the help there. */
-export const INTERPRETED_NOTE =
-  'Rules a reader of the specification took from its prose, each beside the sentence it was read from. The specification prints none of them as a table or ABNF rule, so each is as sure as its quote.';
+export const INTERPRETED_NOTE = constraintsSection.aboutTitle;
 
 /**
  * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words and under them
@@ -205,11 +205,8 @@ export function ConstraintFacts({
             if (textOnly(reading.rules))
               return (
                 <li key={index} class="constraint-reading constraint-text-only">
-                  <span
-                    class="constraint-rule"
-                    title="No checker can run it on one message: the quote is the whole of it, as the text prints text-only"
-                  >
-                    <span class="constraint-words">Not checkable from one message</span>
+                  <span class="constraint-rule" title={constraintsSection.textOnlyTitle}>
+                    <span class="constraint-words">{constraintsSection.textOnly}</span>
                   </span>
                   {quotes}
                 </li>
@@ -234,17 +231,22 @@ export function ConstraintFacts({
           })}
         </ul>
         <div class="popup-places constraint-places">
-          {placeRow('Read in', 'place-constraint', place, [label, block.section].filter(Boolean).join(' · '))}
+          {placeRow(
+            constraintsSection.readIn,
+            'place-constraint',
+            place,
+            [label, block.section].filter(Boolean).join(' · '),
+          )}
         </div>
       </div>
     );
   });
   return (
-    <section class="popup-constraints" aria-label="Interpreted constraints">
+    <section class="popup-constraints" aria-label={constraintsSection.label}>
       <div class="constraints-title">
-        <Counted title="Interpreted" count={found.length} />
+        <Counted title={constraintsSection.heading} count={found.length} />
         <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
-          what these are
+          {constraintsSection.about}
         </button>
       </div>
       {groups}

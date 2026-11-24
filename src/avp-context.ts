@@ -4,6 +4,7 @@ import { isInterpreted, lineText } from './constraints.ts';
 import { elementRowAt } from './elements.ts';
 import type { Block, ElementRow } from './types.ts';
 import type { Member, Presence } from './types.ts';
+import { blankCell, columnNotes as notes, countWords, flagText, presenceWords as presence } from './text/popup.ts';
 
 export { avpRows } from './blocks.ts';
 export type { AvpRow } from './blocks.ts';
@@ -109,16 +110,17 @@ export const groupedRules = (file: DadFile, name: string): Rule[] =>
   (rulesByName(file).get(name) ?? []).filter(rule => rule.kind === 'Grouped AVP');
 
 const presenceWords: Record<Presence, { label: string; brackets: string; meaning: string }> = {
-  fixed: { label: 'Fixed', brackets: '< >', meaning: 'must be present, at this position in the order' },
-  required: { label: 'Required', brackets: '{ }', meaning: 'must be present, in any position' },
-  optional: { label: 'Optional', brackets: '[ ]', meaning: 'may be present, in any position' },
+  fixed: { ...presence.fixed, brackets: '< >' },
+  required: { ...presence.required, brackets: '{ }' },
+  optional: { ...presence.optional, brackets: '[ ]' },
 };
 
 export function countText({ min, max }: Pick<Member, 'min' | 'max'>): string {
-  if (max === null) return min === 0 ? 'any number of times' : min === 1 ? 'once or more' : `${min} or more times`;
-  if (min === max) return min === 1 ? 'exactly once' : `exactly ${min} times`;
-  if (min === 0) return max === 1 ? 'at most once' : `at most ${max} times`;
-  return `${min} to ${max} times`;
+  if (max === null)
+    return min === 0 ? countWords.anyNumber : min === 1 ? countWords.onceOrMore : countWords.orMore(min);
+  if (min === max) return min === 1 ? countWords.exactlyOnce : countWords.exactly(min);
+  if (min === 0) return max === 1 ? countWords.atMostOnce : countWords.atMost(max);
+  return countWords.between(min, max);
 }
 
 /** A member as the rule prints it, `* [ Subscription-Id ]`. */
@@ -132,7 +134,7 @@ export function presenceText(item: Member): string {
   const { label, brackets, meaning } = presenceWords[item.presence];
   // `0*1 < ICV >`: a fixed member a qualifier lets be absent keeps only its position.
   if (item.presence === 'fixed' && item.min === 0)
-    return [`${label} ${brackets}`, 'may be present, at this position in the order', countText(item)].join(' · ');
+    return [`${label} ${brackets}`, presence.fixedOptional, countText(item)].join(' · ');
   return [`${label} ${brackets}`, meaning, countText(item)].join(' · ');
 }
 
@@ -148,10 +150,7 @@ const flagColumns: [string, FlagRule][] = [
   ['M.not', 'must not'],
 ];
 /** What each bit means, said once for every AVP; P is left out, RFC 6733 deprecates it. */
-export const bitMeaning: Record<string, string> = {
-  M: 'Mandatory: set, a receiver that does not support the AVP must reject the message; clear, it may skip the AVP.',
-  V: "Vendor-Specific: set, the header carries a Vendor-ID and the code is that vendor's; clear, the code is IETF's.",
-};
+export const bitMeaning: Record<string, string> = flagText.meaning;
 /** Columns the popup does not show: the identity line says them, the flags table says them, or nothing uses them. */
 const hiddenColumns = new Set([
   'Name',
@@ -206,18 +205,12 @@ export function flagRules(row: AvpRow): { bit: string; rule: FlagRule; meaning: 
 }
 
 /** What a row's other columns mean. Encrypt is not shown: RFC 6733 dropped the end-to-end security it is for. */
-export const columnNotes: Record<string, string> = {
-  From: 'The specification that defines the AVP, which this one re-uses.',
-  'Defined-In': 'The specification that defines the AVP.',
-  'Acc-Type': "The access types the AVP applies to, as the table's notes say.",
-  Applicability: "The features or cases the AVP applies to, as the table's notes say.",
-  'Reference-Points': 'The reference points the AVP is used on.',
-};
+export const columnNotes: Record<string, string> = notes;
 
 /** A cell as words: its quotes gone, a dash kept, a blank said. */
 const cellText = (value: string) =>
   value === '""'
-    ? '(blank)'
+    ? blankCell
     : value
         .split(/,(?=(?:[^"]*"[^"]*")*[^"]*$)/)
         .map(part => part.replace(/^"(.*)"$/, '$1').replace(/\\(.)/g, '$1'))

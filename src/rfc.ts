@@ -2,6 +2,7 @@ import { locateRow, rfcPages, tableLines } from './rfc-text.ts';
 import { namePattern } from './table-row.ts';
 import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
+import { rfcReader as words } from './text/pane.ts';
 
 initTheme();
 
@@ -14,7 +15,7 @@ let marked: number[] = [];
 const rawFile = new URLSearchParams(location.search).get('file');
 // Opened in a tab of its own, as the pane's link to the text does, the page is named for its RFC.
 const rfcNumber = rawFile?.match(/rfc(\d+)\.txt$/i)?.[1];
-if (rfcNumber) document.title = `RFC ${rfcNumber} — Seanchaí`;
+if (rfcNumber) document.title = words.title(rfcNumber);
 let lastPage = 0;
 let pending = 0;
 /** How far below the pane's top edge a place is put, with the lines above it in view. */
@@ -103,13 +104,13 @@ function markName(index: number, query: RegExp) {
 window.addEventListener('hashchange', navigate);
 
 try {
-  if (!rawFile) throw new Error('RFC not found');
+  if (!rawFile) throw new Error(words.noFile);
   const url = new URL(rawFile, location.href);
   if (
     url.origin !== location.origin &&
     !(url.protocol === 'https:' && url.hostname === 'www.rfc-editor.org' && /^\/rfc\/rfc\d+\.txt$/.test(url.pathname))
   )
-    throw new Error('Invalid RFC source');
+    throw new Error(words.invalid);
   const response = await fetch(url);
   if (!response.ok) throw new Error(String(response.status));
   for (const page of rfcPages(await response.text())) {

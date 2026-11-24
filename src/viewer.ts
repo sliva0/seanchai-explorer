@@ -10,6 +10,7 @@ import type { Outline } from './pdf-navigation.ts';
 import 'pdfjs-dist/web/pdf_viewer.css';
 import './theme.css';
 import './viewer.css';
+import { viewer as words } from './text/pane.ts';
 
 initTheme();
 noticeRegion();
@@ -65,7 +66,7 @@ function setChapters(visible: boolean) {
   showChapters = visible;
   outlinePane.hidden = !visible;
   chapters.checked = visible;
-  chapters.title = visible ? 'Hide chapters' : 'Show chapters';
+  chapters.title = visible ? words.hideChapters : words.showChapters;
 }
 chapters.onchange = () => {
   setChapters(chapters.checked);
@@ -275,7 +276,7 @@ eventBus.on('pagesinit', () => {
 const documentFile = new URLSearchParams(location.search).get('file');
 // The frame is named by the page holding it; the document is named for its file, for a tab of its own.
 const fileName = documentFile?.split(/[?#]/)[0].split('/').findLast(Boolean);
-if (fileName) document.title = `${fileName} — Seanchaí`;
+if (fileName) document.title = words.title(fileName);
 function report(type: string, data: object) {
   if (window.parent !== window) window.parent.postMessage({ type, file: documentFile, ...data }, location.origin);
 }
@@ -317,7 +318,7 @@ eventBus.on('updatefindmatchescount', updateMatches);
 eventBus.on('updatefindcontrolstate', (event: Parameters<typeof updateMatches>[0] & { state: number }) => {
   updateMatches(event);
   if (event.state !== FindState.PENDING)
-    settleOnRow(navigation).catch(error => notifyFailure('Could not find the row on its page', error, renavigate));
+    settleOnRow(navigation).catch(error => notifyFailure(words.rowFailed, error, renavigate));
 });
 function manual() {
   navigation++;
@@ -402,7 +403,7 @@ find.oninput = () => {
 };
 /** Goes to the place the hash names again, which also settles on its row again. */
 function renavigate() {
-  attempt('Could not go to the place in the PDF', navigate);
+  attempt(words.placeFailed, navigate);
 }
 window.addEventListener('hashchange', renavigate);
 
@@ -423,9 +424,9 @@ Object.assign(window, {
 
 try {
   const file = new URLSearchParams(location.search).get('file');
-  if (!file) throw new Error('PDF not found');
+  if (!file) throw new Error(words.noFile);
   const url = new URL(file, location.href);
-  if (url.origin !== location.origin) throw new Error('PDF must be local');
+  if (url.origin !== location.origin) throw new Error(words.notLocal);
   const base = new URL(import.meta.env.BASE_URL, location.href);
   const asset = (directory: string) => new URL(`pdfjs/${directory}/`, base).href;
   const pdf = await pdfjs.getDocument({

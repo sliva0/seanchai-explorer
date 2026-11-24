@@ -1,4 +1,3 @@
-import { UNLINKED } from './build-options.ts';
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { Place } from './avp-places.ts';
@@ -19,8 +18,10 @@ import { attempt } from './notice.ts';
 import { Popup } from './popup/root.tsx';
 import type { PopupRequest } from './popup/root.tsx';
 import { correctedRow, printedRow } from './printed-row.ts';
-import { CLICK_HINT } from './site-text.ts';
+import { indexPage } from './text/site.ts';
 import type { Document, DocumentSummary } from './types.ts';
+import { strip } from './text/document.ts';
+import { pane as paneText, publicBuildBrief, publicBuildNote } from './text/pane.ts';
 
 const hostName = (url: URL) => url.hostname.replace(/^www\./, '');
 
@@ -48,9 +49,9 @@ function FileLink({ class: className, url, pdf }: { class: string; url: URL | nu
       rel="noopener"
       href={url.href}
       title={url.href}
-      aria-label={`${label}, new tab`}
+      aria-label={paneText.newTab(label)}
     >
-      <Icon class="file-icon" path="M3 1.5h6l4 4v9H3z M9 1.5v4h4" label={pdf ? 'PDF' : undefined} />
+      <Icon class="file-icon" path="M3 1.5h6l4 4v9H3z M9 1.5v4h4" label={pdf ? paneText.pdf : undefined} />
       <span>{label}</span>
       <Icon class="external-icon" path="M9 2h5v5 M14 2L7 9 M6 3H2v11h11v-4" />
     </a>
@@ -94,7 +95,7 @@ function PaneHeader({
         {source ? [docVersioned(doc), docSubject(doc)].filter(Boolean).join(' — ') : docTitle(doc)}
       </Title>
       {/* The PDF viewer shows its own page; the indicator is for panes without one. */}
-      {source && <span class="source-page">{position.page && kind !== 'pdf' ? `p. ${position.page}` : ''}</span>}
+      {source && <span class="source-page">{position.page && kind !== 'pdf' ? strip.page(position.page) : ''}</span>}
       <div class="pane-actions">
         <FileLink
           class="publisher-link"
@@ -110,16 +111,15 @@ function PaneHeader({
 /** What the pane says of a PDF this build does not hold, beside what it shows instead. */
 function SelfHostNote({ doc, brief }: { doc: DocumentSummary; brief: boolean }) {
   // A build that names nothing of the project points at no other build of it either.
-  if (UNLINKED)
-    return brief ? null : (
-      <p class="inspector-note">{`This build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons.`}</p>
-    );
-  return brief ? (
-    <p class="inspector-note">{`The PDF of ${docVersioned(doc)} is shown here in a self-hosted build.`}</p>
+  // A condition the build knows, written as one expression for what it does not take to be left out.
+  return SEANCHAI_UNLINKED ? (
+    brief ? null : (
+      <p class="inspector-note">{paneText.unlinkedNote(docVersioned(doc))}</p>
+    )
+  ) : brief ? (
+    <p class="inspector-note">{publicBuildBrief(docVersioned(doc))}</p>
   ) : (
-    <p class="inspector-note">
-      {`This public build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons; a self-hosted build shows it here.`}
-    </p>
+    <p class="inspector-note">{publicBuildNote(docVersioned(doc))}</p>
   );
 }
 
@@ -140,7 +140,7 @@ function Inspector({
 }) {
   const [keyOpen, setKeyOpen] = useState(false);
   return (
-    <div class="inspector" aria-label="Inspector" role="region">
+    <div class="inspector" aria-label={paneText.inspector} role="region">
       {inspected ? (
         <Popup
           key={inspected.count}
@@ -154,11 +154,8 @@ function Inspector({
         />
       ) : (
         <div class="inspector-empty">
-          <p>{CLICK_HINT}</p>
-          <p>
-            A click leaves the text where it is, and an alt-click moves it to the name. A right-click shows where it is
-            used, as do Menu and Shift+F10 on a name with the focus.
-          </p>
+          <p>{indexPage.clickHint}</p>
+          <p>{paneText.inspectorEmpty}</p>
         </div>
       )}
       <SelfHostNote doc={doc} brief={Boolean(inspected)} />
@@ -184,7 +181,7 @@ function Divider({
       id="divider"
       tabIndex={0}
       role="separator"
-      aria-label="Text pane width"
+      aria-label={paneText.divider}
       aria-orientation="vertical"
       aria-valuemin={20}
       aria-valuemax={80}
@@ -402,9 +399,7 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
     /** `showPlace` for the reader's click: a document that fails to load is said, with a Retry. */
     openPlace(place: Place, doc: Document) {
       const summary = site.summary(place.document);
-      attempt(`Could not load ${summary ? site.label(summary) : place.document} for the source pane`, () =>
-        pane.showPlace(place, doc),
-      );
+      attempt(paneText.loadFailed(summary ? site.label(summary) : place.document), () => pane.showPlace(place, doc));
     },
     get state(): PaneState | undefined {
       return selected && { document: selected.doc.id, position: selected.position };
@@ -446,7 +441,7 @@ export function SourceToggle({ pane }: { pane: SourcePane }) {
   if (!mounted?.reads) return null;
   return (
     <label class="visibility-toggle source-toggle" hidden={!wide}>
-      {'Source '}
+      {strip.source}
       <input
         type="checkbox"
         checked={pane.switchedOn}

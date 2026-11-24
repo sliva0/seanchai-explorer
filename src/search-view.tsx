@@ -24,14 +24,15 @@ import type { EntryIndex, FoldedMention, NameGroup } from './search.ts';
 import type { Span } from './fuzzy.ts';
 import type { DocumentSummary, SearchEntry, Target } from './types.ts';
 import { valueKinds } from './values.ts';
+import { searchPage as words } from './text/search.ts';
 
 const pageSize = 20;
 const sections: { kind: SearchEntry['kind']; title: string }[] = [
-  { kind: 'avp', title: 'AVPs' },
-  { kind: 'command', title: 'Commands' },
-  { kind: 'application', title: 'Applications' },
-  { kind: 'registry', title: 'Registry rows' },
-  { kind: 'element', title: 'Information elements' },
+  { kind: 'avp', title: words.avps },
+  { kind: 'command', title: words.commands },
+  { kind: 'application', title: words.applications },
+  { kind: 'registry', title: words.registryRows },
+  { kind: 'element', title: words.elements },
 ];
 
 /** Text with its spans in `mark`s. */
@@ -94,10 +95,10 @@ function Families({ documents }: { documents: ListedDocument[] }) {
   const [all, setAll] = useState(false);
   const families = new Map<string, Map<string, ComponentChild[]>>();
   for (const { doc, node } of documents) {
-    const family = families.get(doc?.publisher ?? 'Other') ?? new Map<string, ComponentChild[]>();
+    const family = families.get(doc?.publisher ?? words.otherPublisher) ?? new Map<string, ComponentChild[]>();
     const specification = doc?.specification ?? '';
     family.set(specification, [...(family.get(specification) ?? []), node]);
-    families.set(doc?.publisher ?? 'Other', family);
+    families.set(doc?.publisher ?? words.otherPublisher, family);
   }
   const rows = [...families]
     .toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))
@@ -123,7 +124,7 @@ function Families({ documents }: { documents: ListedDocument[] }) {
       {more && (
         <li class="entry-more">
           <button type="button" class="control" aria-expanded={all} onClick={() => setAll(open => !open)}>
-            {all ? 'Show fewer' : `+${documents.length - SHOWN_DOCUMENTS} more`}
+            {all ? words.fewer : words.moreDocuments(documents.length - SHOWN_DOCUMENTS)}
           </button>
         </li>
       )}
@@ -170,15 +171,20 @@ function Group({ group, site, query }: { group: NameGroup; site: Site; query: st
     const definition = defined.get(entry);
     const own = definition?.document === entry.document;
     const detail: ComponentChildren[] = facts.differing(entry).map(fact => fact);
-    if (entry.name !== group.name) detail.unshift(<>as {mark(entry.name)}</>);
+    if (entry.name !== group.name)
+      detail.unshift(
+        <>
+          {words.as} {mark(entry.name)}
+        </>,
+      );
     // Twice in one document, only its clause tells which.
     if (target?.section && !rowOf(entry) && perDocument.get(entry.document)! > 1) detail.push(target.section);
-    if (usual && own && definition.document !== usual.document) detail.push('defines it');
+    if (usual && own && definition.document !== usual.document) detail.push(words.definesIt);
     if (entry.across_releases) {
       // Which edition stands in for a citation is the point here, so its version stays.
       const crossing = entry.across_releases;
       const cited = site.index.documents.find(doc => doc.reference === crossing.cited);
-      detail.push(`${cited ? docName(cited) : crossing.cited} V${crossing.version}, ${crossing.rule}`);
+      detail.push(words.acrossReleases(cited ? docName(cited) : crossing.cited, crossing.version, crossing.rule));
     }
     const title = [
       identityLabel(entry),
@@ -220,15 +226,19 @@ function Group({ group, site, query }: { group: NameGroup; site: Site; query: st
             {shared}
             {usual && (
               <>
-                {`${shared ? ' ' : ''}· defined in `}
+                {`${shared ? ' ' : ''}· ${words.definedIn}`}
                 <a href={href(usual)}>{labelOf(usual.document)}</a>
               </>
             )}
           </span>
         )}
-        {isApproximate(group) && <em>approximate</em>}
+        {isApproximate(group) && <em>{words.approximate}</em>}
       </div>
-      {wireshark.length > 0 && <p class="entry-wireshark">Wireshark: {listed(wireshark.map(mark))}</p>}
+      {wireshark.length > 0 && (
+        <p class="entry-wireshark">
+          {words.wireshark} {listed(wireshark.map(mark))}
+        </p>
+      )}
       <Families documents={documents} />
     </article>
   );
@@ -309,7 +319,7 @@ function Mentions({
                     class="mention-link"
                     href={routeFor({ document, section: mention.section }, { line: mention.line })}
                   >
-                    {`· ${mention.section ?? `line ${mention.line + 1}`}`}
+                    {`· ${mention.section ?? words.line(mention.line + 1)}`}
                   </a>
                   <code>{marked(mention.text, mentionSpans(mention, query, names))}</code>
                 </li>
@@ -347,12 +357,14 @@ function Section<T>({
       <h2>
         {`${title} `}
         <span class="count">{String(precise || items.length)}</span>
-        {approximate > 0 && <span class="count">{precise ? `+${approximate} approximate` : 'approximate'}</span>}
+        {approximate > 0 && (
+          <span class="count">{precise ? words.approximateMore(approximate) : words.approximate}</span>
+        )}
       </h2>
       {render(items.slice(0, shown))}
       {items.length > shown && (
         <button class="control" onClick={expand}>
-          More
+          {words.more}
         </button>
       )}
     </section>
@@ -399,7 +411,7 @@ function Results({
     <Section
       key="specifications"
       {...sectionProps('specifications')}
-      title="Specifications"
+      title={words.specifications}
       items={[...specifications.values()]}
       render={shown =>
         shown.map(docs => <Specification key={docs[0].specification} docs={docs} site={site} query={query} />)
@@ -417,7 +429,7 @@ function Results({
     return (
       <>
         {specificationSection}
-        <p role="status">Loading search data…</p>
+        <p role="status">{words.loading}</p>
       </>
     );
   const found = searchEntries(data.index, query, site.summary);
@@ -440,13 +452,13 @@ function Results({
       <Section
         key="mentions"
         {...sectionProps('mentions')}
-        title="Mentions"
+        title={words.mentions}
         items={mentions}
         render={shown => <Mentions mentions={shown} site={site} query={query} names={names} />}
       />
     ),
   ].filter(Boolean);
-  return parts.length ? <>{parts}</> : <p>No matches.</p>;
+  return parts.length ? <>{parts}</> : <p>{words.none}</p>;
 }
 
 /**
@@ -536,7 +548,7 @@ export function SearchView({
   return (
     <>
       <h1 class="sr-only" tabIndex={-1}>
-        Search
+        {words.heading}
       </h1>
       <form
         class="search-form"
@@ -548,10 +560,10 @@ export function SearchView({
         <input
           ref={input}
           class="control"
-          aria-label="Search"
+          aria-label={words.label}
           type="search"
           value={text}
-          placeholder="29.214, Callee-Information, CCR, vsai, DIAMETER_SUCCESS, or 505"
+          placeholder={words.placeholder}
           onKeyDown={onKeyDown}
           onInput={event => {
             const value = event.currentTarget.value;
@@ -562,7 +574,7 @@ export function SearchView({
             timer.current = setTimeout(() => setQuery(value), 120);
           }}
         />
-        <button class="control">Search</button>
+        <button class="control">{words.button}</button>
       </form>
       <section id="search-results" ref={results} aria-live="polite" onKeyDown={onKeyDown}>
         <Results

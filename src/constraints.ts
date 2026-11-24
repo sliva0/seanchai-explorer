@@ -1,6 +1,7 @@
 import { allAvpRows, blockAt, perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
-import type { Block, Codec, ConstraintCondition, ConstraintRule } from './types.ts';
+import { codecs, markText, ruleKinds, ruleText, scopeText } from './text/rules.ts';
+import type { Block, ConstraintCondition, ConstraintRule } from './types.ts';
 
 /*
  * Interpreted Constraints: what a clause's prose says of an AVP's value or presence, as a reader declared it, pinned to
@@ -99,41 +100,7 @@ export function blockContext(file: DadFile, block: Block | undefined): ReadConte
   return {};
 }
 
-/**
- * Each rule kind as the text prints one and what it says, for the help: the kinds the site says in words. A kind the
- * export adds later is said as the file prints it.
- */
-export const ruleKinds: Record<ConstraintRule['kind'], { printed: string; says: string }> = {
-  length: { printed: 'length 3', says: "the payload's octets, or the digits or characters it carries" },
-  range: { printed: 'range 0 255', says: 'the values an integer may take' },
-  exclude: { printed: 'exclude 0', says: 'values it may not take' },
-  encoding: {
-    printed: 'encoding e164-tbcd',
-    says: "how the payload is laid out: a codec below, or another document's element",
-  },
-  'present-if': { printed: 'present-if Other-AVP', says: 'present when a condition on a sibling AVP holds' },
-  'absent-if': { printed: 'absent-if Other-AVP', says: 'absent when a condition holds' },
-  requires: { printed: 'requires Flags bit 3', says: 'present only if a condition holds' },
-  excludes: { printed: 'excludes Other-AVP', says: 'never present if a condition holds' },
-  default: { printed: 'default FALSE', says: 'what the AVP is read as when it is absent' },
-  bits: {
-    printed: 'bits at-most-one 3 6',
-    says: "of these bits of the AVP's own value, at most one is set (at-most-one), at least one (at-least-one), each is set (set), each is clear (clear), or none but these is set (only); an OctetString's octets are read as one big-endian number, bit 0 the lowest of its last octet",
-  },
-  members: {
-    printed: 'members at-least-one A B',
-    says: "of the grouped AVP's members, at least one of these is present (at-least-one; with one name, it is), or none but these (only)",
-  },
-  unique: {
-    printed: 'unique',
-    says: 'no two of the grouped AVPs it is read within (; Within:) beside each other hold it with the same value',
-  },
-  values: {
-    printed: 'values 1 if Other-AVP = 1',
-    says: 'the values an integer may take when a condition on a sibling AVP holds',
-  },
-  'text-only': { printed: 'text-only', says: 'a rule no checker can run: the quote says it' },
-};
+export { codecs, ruleKinds };
 
 const KNOWN_KINDS = new Set<string>(Object.keys(ruleKinds));
 
@@ -141,75 +108,28 @@ const KNOWN_KINDS = new Set<string>(Object.keys(ruleKinds));
 export const textOnly = (rules: Pick<ConstraintRule, 'kind'>[]) =>
   rules.length > 0 && rules.every(rule => rule.kind === 'text-only');
 
-/**
- * Each codec's name in a few words, and its layout as constraints.md says it, for a title and the help. A codec the
- * export adds later is said by its own name.
- */
-export const codecs: Record<Codec, { words: string; layout: string }> = {
-  'e164-tbcd': {
-    words: 'TBCD-encoded E.164 number',
-    layout:
-      'An international number, ITU-T E.164 (1 to 15 decimal digits), as a TBCD-string: two digits an octet, the first in bits 1-4, "1111" filling bits 5-8 of the last octet after an odd count; no octet for the nature of address and numbering plan (TS 29.002 clause 17.7.8).',
-  },
-  'plmn-id': {
-    words: 'PLMN ID, MCC and MNC in 3 octets',
-    layout:
-      'MCC and MNC in 3 octets: MCC digits 2 and 1, then MNC digit 3 (or "1111" for a 2-digit MNC) and MCC digit 3, then MNC digits 2 and 1 (TS 29.272 table 7.3.9/1, after TS 24.008 clause 10.5.1.13).',
-  },
-  'plmn-id-prefix': {
-    words: 'PLMN ID in the first 3 octets, more after it',
-    layout: 'A PLMN ID in the first 3 octets, more octets after it (TS 29.272 table 7.3.64/1, Trace-Reference).',
-  },
-  digits: { words: 'decimal digits as text', layout: 'Decimal digits as text, a character each.' },
-  labels: { words: 'labels separated by dots', layout: 'One or more non-empty labels separated by dots, as text.' },
-  apn: { words: 'APN: labels separated by dots, or *', layout: 'Labels separated by dots, or the wild card "*".' },
-  'plmn-domain': {
-    words: 'mnc<MNC>.mcc<MCC>.3gppnetwork.org',
-    layout: '"mnc<MNC>.mcc<MCC>.3gppnetwork.org", MNC 2 or 3 digits, MCC 3, in any case.',
-  },
-  'epc-plmn-domain': {
-    words: 'epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org',
-    layout: '"epc.mnc<MNC>.mcc<MCC>.3gppnetwork.org", MNC 2 or 3 digits, MCC 3, in any case.',
-  },
-  'ip-address': {
-    words: 'IPv4 or IPv6 address',
-    layout: 'An Address of family 1 (IPv4, 4 octets) or 2 (IPv6, 16 octets), RFC 6733 clause 4.3.1.',
-  },
-  'time-zone': {
-    words: 'time zone, in 15 minutes from UTC',
-    layout: 'A sign and decimal digits, the offset from UTC in units of 15 minutes: "+8".',
-  },
-  element: {
-    words: "another document's information element",
-    layout:
-      'An information element another document defines, carried whole: its document, and the clause and name where the clause gives them. Checked no further than a length rule beside it says.',
-  },
-};
-
-const plural = (count: number, unit: string) => (count === 1 ? unit.replace(/s$/, '') : unit);
-
 /** "3 octets", "14 to 15 digits", "at least 1 character": a length's or a range's bounds, with a unit if it has one. */
 function boundsWords(low: number | null | undefined, high: number | null | undefined, unit = ''): string {
-  const counted = (count: number) => (unit ? `${count} ${plural(count, unit)}` : String(count));
-  if (low != null && high != null) return low === high ? counted(low) : `${low} to ${counted(high)}`;
-  if (low != null) return `at least ${counted(low)}`;
-  if (high != null) return `at most ${counted(high)}`;
-  return unit ? `any number of ${unit}` : 'any value';
+  const counted = (count: number) => (unit ? ruleText.counted(count, ruleText.unit(count, unit)) : String(count));
+  if (low != null && high != null) return low === high ? counted(low) : ruleText.between(low, counted(high));
+  if (low != null) return ruleText.atLeast(counted(low));
+  if (high != null) return ruleText.atMost(counted(high));
+  return unit ? ruleText.anyNumberOf(unit) : ruleText.anyValue;
 }
 
 /** A bit as a rule names it: its number, or its bit table's name. */
-const bitWords = (bit: number | string) => (typeof bit === 'number' ? String(bit) : `“${bit}”`);
+const bitWords = (bit: number | string) => (typeof bit === 'number' ? String(bit) : ruleText.namedBit(bit));
 
 /**
  * A `bits` rule in words by its relation, `said` its bits as "bit 1" or "bits 4, 5, 6, 7" and `list` them alone; none
  * for a relation the site does not know.
  */
 const bitsRelations: Record<string, (said: string, list: string) => string> = {
-  'at-most-one': said => `at most one of ${said} set`,
-  'at-least-one': said => `at least one of ${said} set`,
-  set: said => `${said} set`,
-  clear: said => `${said} clear`,
-  only: (_, list) => `no bit set but ${list}`,
+  'at-most-one': said => ruleText.bitsAtMostOne(said),
+  'at-least-one': said => ruleText.bitsAtLeastOne(said),
+  set: said => ruleText.bitsSet(said),
+  clear: said => ruleText.bitsClear(said),
+  only: (_, list) => ruleText.bitsOnly(list),
 };
 
 /**
@@ -220,23 +140,23 @@ const bitsRelations: Record<string, (said: string, list: string) => string> = {
 export function membersParts(rule: Pick<ConstraintRule, 'relation' | 'members'>) {
   const names = rule.members ?? [];
   if (rule.relation === 'at-least-one')
-    return { before: names.length > 1 ? 'at least one of' : '', names, after: 'present' };
-  if (rule.relation === 'only') return { before: 'no member present but', names, after: '' };
+    return { before: names.length > 1 ? ruleText.membersAtLeastOneOf : '', names, after: ruleText.membersPresent };
+  if (rule.relation === 'only') return { before: ruleText.membersOnly, names, after: '' };
   return undefined;
 }
 
 /** A condition on a sibling AVP: "DSR-Flags has bit “Trace Data Withdrawal” set", "Result-Code is DIAMETER_SUCCESS". */
 export function conditionWords({ avp, value, bit }: ConstraintCondition): string {
-  if (bit != null) return `${avp} has bit ${bitWords(bit)} set`;
-  if (value != null) return `${avp} is ${value}`;
-  return `${avp} is present`;
+  if (bit != null) return ruleText.hasBit(avp, bitWords(bit));
+  if (value != null) return ruleText.is(avp, String(value));
+  return ruleText.isPresent(avp);
 }
 
 const predicateWords: Record<string, string> = {
-  'present-if': 'present if',
-  'absent-if': 'absent if',
-  requires: 'present only if',
-  excludes: 'never present if',
+  'present-if': ruleText.presentIf,
+  'absent-if': ruleText.absentIf,
+  requires: ruleText.requires,
+  excludes: ruleText.excludes,
 };
 
 /**
@@ -244,19 +164,21 @@ const predicateWords: Record<string, string> = {
  * document as printed, and "clause 4.4 “Zone Code”".
  */
 export function elementParts(rule: Pick<ConstraintRule, 'document' | 'clause' | 'element'>) {
-  const after = [rule.clause && `clause ${rule.clause}`, rule.element && `“${rule.element}”`].filter(Boolean).join(' ');
-  return { before: 'encoded as', document: rule.document ?? null, after };
+  const after = [rule.clause && ruleText.clause(rule.clause), rule.element && ruleText.element(rule.element)]
+    .filter(Boolean)
+    .join(' ');
+  return { before: ruleText.encodedAs, document: rule.document ?? null, after };
 }
 
 /** The codec an encoding rule names, an element with its document, clause and name. */
 function encodingWords(rule: ConstraintRule): string {
   if (rule.codec === 'element') {
     const { before, document, after } = elementParts(rule);
-    const placeholder = rule.clause ? '' : "another document's element";
+    const placeholder = rule.clause ? '' : ruleText.anotherElement;
     return [before, document ?? placeholder, after].filter(Boolean).join(' ');
   }
   const codec = rule.codec ? codecs[rule.codec] : undefined;
-  return codec ? codec.words : `encoded as ${rule.codec ?? 'a codec'}`;
+  return codec ? codec.words : ruleText.encodedAsCodec(rule.codec ?? ruleText.aCodec);
 }
 
 /**
@@ -270,37 +192,39 @@ export function ruleWords(rule: ConstraintRule, printed: string, within?: string
   if (!KNOWN_KINDS.has(kind)) return printed.trim();
   switch (rule.kind) {
     case 'length':
-      return boundsWords(rule.low, rule.high, rule.unit ?? 'octets');
+      return boundsWords(rule.low, rule.high, rule.unit ?? ruleText.octets);
     case 'range':
       return boundsWords(rule.low, rule.high);
     case 'exclude':
-      return (rule.values ?? []).length > 1 ? `none of ${rule.values!.join(', ')}` : `not ${rule.values?.[0] ?? ''}`;
+      return (rule.values ?? []).length > 1
+        ? ruleText.noneOf(rule.values!.join(', '))
+        : ruleText.not(String(rule.values?.[0] ?? ''));
     case 'encoding':
       return encodingWords(rule);
     case 'default':
-      return `read as ${rule.value ?? 'a default'} when absent`;
+      return ruleText.readAs(String(rule.value ?? ruleText.aDefault));
     case 'bits': {
       const bits = (rule.bits ?? []) as (number | string)[];
       const list = bits.map(bitWords).join(', ');
       const say = bitsRelations[rule.relation ?? ''];
-      return say ? say(`${bits.length > 1 ? 'bits' : 'bit'} ${list}`, list) : printed.trim();
+      return say ? say(ruleText.bits(bits.length, list), list) : printed.trim();
     }
     case 'members': {
       const parts = membersParts(rule);
       return parts ? [parts.before, parts.names.join(', '), parts.after].filter(Boolean).join(' ') : printed.trim();
     }
     case 'unique':
-      return `differs from one ${within ?? 'grouped AVP'} to the next`;
+      return ruleText.differs(within ?? ruleText.groupedAvp);
     case 'values': {
       const values = rule.values ?? [];
-      const said = values.length > 1 ? `one of ${values.join(', ')}` : String(values[0] ?? '');
-      return `is ${said} if ${(rule.conditions ?? []).map(conditionWords).join(' or ')}`;
+      const said = values.length > 1 ? ruleText.oneOf(values.join(', ')) : String(values[0] ?? '');
+      return ruleText.values(said, (rule.conditions ?? []).map(conditionWords).join(ruleText.or));
     }
     case 'text-only':
-      return 'not checkable from one message';
+      return ruleText.textOnly;
     default: {
       const conditions = (rule.conditions ?? []).map(conditionWords);
-      return `${predicateWords[kind]} ${conditions.join(' or ')}`;
+      return `${predicateWords[kind]} ${conditions.join(ruleText.or)}`;
     }
   }
 }
@@ -311,9 +235,9 @@ export const ruleNote = (rule: ConstraintRule): string | undefined =>
 
 /** "Within APN-Configuration", "In Delete-Subscriber-Data-Request", "Wherever read": where a block's rules hold. */
 export function scopeWords({ scope }: Pick<ConstraintBlock, 'scope'>, short: (command: string) => string = String) {
-  if (scope.within) return `within ${scope.within}`;
-  if (scope.command) return `in ${short(scope.command)}`;
-  return 'wherever read';
+  if (scope.within) return scopeText.within(scope.within);
+  if (scope.command) return scopeText.in(short(scope.command));
+  return scopeText.wherever;
 }
 
 /** A line's text as the file prints it, its newline left out. */
@@ -327,7 +251,7 @@ export const lineText = (file: DadFile, line: number) =>
 function shortQuote(text: string, length = 100): string {
   if (text.length <= length) return text;
   const cut = text.slice(0, length);
-  return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), length / 2)).replace(/[\s,;:]+$/, '')}…`;
+  return markText.cut(cut.slice(0, Math.max(cut.lastIndexOf(' '), length / 2)).replace(/[\s,;:]+$/, ''));
 }
 
 /**
@@ -336,14 +260,14 @@ function shortQuote(text: string, length = 100): string {
  */
 export function readFrom(file: DadFile, line: number, { block }: Pick<ConstraintBlock, 'block'>): string {
   const table = block.fields.Table;
-  if (!table) return `Read from clause ${block.section}'s text`;
+  if (!table) return markText.fromClause(block.section);
   const here = blockAt(file, line);
-  if (here?.fields.Table === table) return 'Read from the description of this row';
-  if (here?.rule) return `Read from the description of this member's row in table ${table}`;
-  return `Read from the description of its row in table ${table}`;
+  if (here?.fields.Table === table) return markText.fromThisRow;
+  if (here?.rule) return markText.fromMemberRow(table);
+  return markText.fromRow(table);
 }
 
-export const MARK_CLICK = 'Click for each rule with its quote, and the way to it in the text.';
+export const MARK_CLICK = markText.click;
 
 /**
  * A mark's title, in plain words: where its rules were read from, then each in words, a rule no checker can run as
@@ -357,16 +281,19 @@ export function markTitle(file: DadFile, source: DadFile, line: number, blocks: 
     const said = groups.get(heading) ?? [];
     for (const reading of item.block.readings ?? []) {
       const words = textOnly(reading.rules)
-        ? `not checkable from one message: “${shortQuote(reading.quotes.map(quote => quote.text).join(' '))}”`
+        ? markText.textOnly(shortQuote(reading.quotes.map(quote => quote.text).join(' ')))
         : reading.rules
             .filter(rule => rule.kind !== 'text-only')
             .map(rule => ruleWords(rule, lineText(source, rule.line), item.scope.within))
-            .join('; ');
+            .join(markText.joined);
       if (!said.includes(words)) said.push(words);
     }
     groups.set(heading, said);
   }
-  return [...[...groups].flatMap(([heading, said]) => [`${heading}:`, ...said.map(words => `• ${words}`)]), MARK_CLICK];
+  return [
+    ...[...groups].flatMap(([heading, said]) => [markText.heading(heading), ...said.map(markText.item)]),
+    MARK_CLICK,
+  ];
 }
 
 /**

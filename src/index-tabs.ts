@@ -1,6 +1,7 @@
 import { publisherRank } from './data.ts';
 import { INDEX } from './navigation.ts';
 import type { DocumentSummary, Index } from './types.ts';
+import { indexPage } from './text/site.ts';
 
 // The index's tabs: a publisher's documents a tab each, and within one whose documents have releases, a tab per release
 // and one of the older copies held for citations. The tab shown is in the route, `#index/<publisher>[/<release>|/older]`,
@@ -48,8 +49,8 @@ const byNameAndRelease = (a: DocumentSummary, b: DocumentSummary) =>
 export const slugOf = (publisher: string) => publisher.toLowerCase();
 
 export function releaseLabel(key: ReleaseKey): string {
-  if (key === OLDER) return 'Older copies';
-  return key === null ? 'No release' : `Release ${key}`;
+  if (key === OLDER) return indexPage.olderCopies;
+  return key === null ? indexPage.noRelease : indexPage.release(key);
 }
 
 /** The route of a tab: `#` for the first. */
@@ -93,5 +94,5 @@ export function selectTab(publishers: PublisherTab[], path: string): IndexTab | 
 /** A tab's name for the window's title and the jump list: none for the first, which is the index itself. */
 export function tabTitle({ publisher, release }: IndexTab): string | undefined {
   if (!release.path) return undefined;
-  return publisher.releases.length > 1 ? `${publisher.publisher} · ${release.label}` : publisher.publisher;
+  return publisher.releases.length > 1 ? indexPage.tabHeading(publisher.publisher, release.label) : publisher.publisher;
 }

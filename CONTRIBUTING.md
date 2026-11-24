@@ -23,6 +23,7 @@ npm run format:check        # oxfmt: fail on a file not formatted
 
 npm test                    # unit tests over tests/fixtures/export; no build, no export
 npm run test:build          # one real build per mode, overwrites public/data and dist/
+npm run strings             # list the interface's words as Markdown: node scripts/strings.mjs [out.md]
 npm run test:smoke          # headless Chromium over a fixture build, and row links over a held PDF and RFC; CHROMIUM=path to choose the browser
 ```
 
@@ -187,13 +188,24 @@ Do not edit `src/types.ts` by hand.
 | `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
-| `build-options.ts` | what a build is asked for beyond its mode, as constants `vite.config.ts` defines: `SEANCHAI_UNLINKED` |
-| `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts`, `site-text.ts` | the help dialog and the list of controls it shows, notices, the theme, and the site's few sentences of its own |
+| `build-options.d.ts` | what a build is asked for beyond its mode, as globals `vite.config.ts` defines: `SEANCHAI_UNLINKED` |
+| `help.tsx`, `notice.ts`, `theme.ts` | the help dialog, notices, the theme |
+| `text/` | every word of the interface that is not the corpus's, by where it shows: `site.ts` the header, the index and errors, `search.ts`, `document.ts`, `popup.ts`, `rules.ts` the interpreted constraints', `pane.ts`, `wireshark.ts`, `help.ts`, `terms.ts` what several share, and `controls.ts` the list of controls the help shows |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |
 
-`controls.ts` is the list README.md's Mouse and Keyboard sections follow: change both
+`text/controls.ts` is the list README.md's Mouse and Keyboard sections follow: change both
 together.
+
+### The interface's words
+
+Every word the site says of its own, as against what the corpus says, is in `src/text/`: a label, a tooltip, a
+placeholder, a message, a rule's words, each an entry of an object there, a function where something is filled in.
+Code never spells one: a new text goes there, under a comment saying where it shows, which holds for the entries
+after it until the next, and marks `[self-hosted]`, `[public]`, `[linked]`, `[unlinked]` where it shows in some
+builds only and `[limit]` where the layout holds its length. `npm run strings` lists them all as Markdown, with their
+contexts, for whoever rewrites them; `index.html`, `rfc.html` and `viewer.html` keep their few words, there before any
+script runs, and the list takes those from them.
 
 ### A new block type
 

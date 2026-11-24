@@ -31,10 +31,11 @@ import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
 import { Counted, Entries, Panel, placeRows, RuleContents, Steps, TableLink } from './shared.tsx';
+import { avpPopup as words, flagText } from '../text/popup.ts';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
-  [code === undefined ? '' : `Code ${code}`, vendor ? `Vendor-ID ${vendor}` : '', type ?? '']
+  [code === undefined ? '' : words.code(code), vendor ? words.vendor(vendor) : '', type ?? '']
     .filter(Boolean)
     .join(' · ');
 
@@ -48,20 +49,10 @@ function filesOf(site: Site, { token, doc, file }: PopupRequest): { file: DadFil
   ];
 }
 
-const flagWords: Record<FlagRule, string> = {
-  must: 'must be set',
-  may: 'may be set',
-  'should not': 'should not be set',
-  'must not': 'must not be set',
-};
-const flagHeading: Record<FlagRule, string> = {
-  must: 'Must',
-  may: 'May',
-  'should not': 'Should not',
-  'must not': 'Must not',
-};
+const flagWords: Record<FlagRule, string> = flagText.words;
+const flagHeading: Record<FlagRule, string> = flagText.headings;
 const tableOf = (row: AvpRow) => [row.type, row.table ?? row.section].filter(Boolean).join(' ');
-const ruleName = (rule: Rule) => `${rule.kind === 'Message' ? 'command' : rule.kind} ${rule.label}`;
+const ruleName = (rule: Rule) => words.ruleName(rule.kind === 'Message' ? words.command : rule.kind, rule.label);
 
 /**
  * What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is, and
@@ -71,40 +62,40 @@ function UseContext({ site, document, use, elements }: { site: Site; document: s
   const lines: ComponentChild[] = [];
   if (use.kind === 'member') {
     const { rule, member } = use;
-    lines.push(<p>{`Here: in ${ruleName(rule)}${rule.section ? ` · ${rule.section}` : ''}`}</p>);
+    lines.push(<p>{words.inRule(ruleName(rule), rule.section)}</p>);
     lines.push(<p class="presence">{presenceText(member)}</p>);
-    if (member.bold) lines.push(<p class="fact-note">Bold in the source: the document defines or modifies it here</p>);
-    if (member.struck) lines.push(<p class="fact-note">Struck through in the source, and left out of the rule</p>);
-    else if (member.strikethrough) lines.push(<p class="fact-note">Struck through in the source</p>);
+    if (member.bold) lines.push(<p class="fact-note">{words.bold}</p>);
+    if (member.struck) lines.push(<p class="fact-note">{words.struckLeftOut}</p>);
+    else if (member.strikethrough) lines.push(<p class="fact-note">{words.struck}</p>);
   } else if (use.kind === 'head') {
-    lines.push(<p>{`Here: the rule of ${ruleName(use.rule)}${use.rule.section ? ` · ${use.rule.section}` : ''}`}</p>);
+    lines.push(<p>{words.ruleOf(ruleName(use.rule), use.rule.section)}</p>);
   } else if (use.kind === 'constraint') {
     const { block, role } = use;
     const on = block.name ?? block.fields.AVP;
     const scope = block.fields.Within
-      ? ` · within ${block.fields.Within}`
+      ? words.within(block.fields.Within)
       : block.fields.Command
-        ? ` · in ${block.fields.Command}`
+        ? words.in(block.fields.Command)
         : '';
     const what =
       role === 'subject'
-        ? `the AVP of interpreted constraints${scope}`
+        ? words.constraintSubject(scope)
         : role === 'scope'
-          ? `the grouped AVP interpreted constraints on ${on} hold within`
+          ? words.constraintScope(on!)
           : role === 'member'
-            ? `a member an interpreted rule on ${on} names${scope}`
-            : `a condition of an interpreted rule on ${on}${scope}`;
-    lines.push(<p>{`Here: ${what} · ${block.section}`}</p>);
+            ? words.constraintMember(on!, scope)
+            : words.constraintCondition(on!, scope);
+    lines.push(<p>{words.here(what, block.section)}</p>);
   } else if (use.kind === 'element') {
     const { block } = use;
-    const of = block.name ? `element of ${block.name}` : 'element';
+    const of = block.name ? words.elementOf(block.name) : words.element;
     lines.push(
       <p>
-        {`Here: an ${of} · `}
+        {words.hereElement(of)}
         {block.fields.Table ? (
           <TableLink site={site} document={document} table={block.fields.Table} />
         ) : (
-          'Information Elements'
+          words.informationElements
         )}
         {block.section ? ` · ${block.section}` : ''}
       </p>,
@@ -112,7 +103,7 @@ function UseContext({ site, document, use, elements }: { site: Site; document: s
   } else
     lines.push(
       <p>
-        {`Here: a row of ${use.row.type} `}
+        {words.hereRow(use.row.type)}
         {use.row.table ? (
           <TableLink site={site} document={document} table={use.row.table} text={use.row.table} />
         ) : (
@@ -143,7 +134,7 @@ function FlagsTable({ columns }: { columns: ReturnType<typeof flagTable> }) {
             <td
               key={rule}
               class={`flag-${rule.replace(' ', '-')}`}
-              title={bits.map(bit => `${bit} ${flagWords[rule]}. ${bitMeaning[bit]}`).join('\n')}
+              title={bits.map(bit => flagText.cell(bit, flagWords[rule], bitMeaning[bit])).join('\n')}
             >
               {bits.join(', ')}
             </td>
@@ -176,7 +167,7 @@ function RowFacts({
       {title !== undefined && (
         <div class="popup-row-title">
           {title}
-          {applies && <span class="popup-row-applies"> · applies here</span>}
+          {applies && <span class="popup-row-applies">{words.appliesHere}</span>}
         </div>
       )}
       {columns.length > 0 && (
@@ -214,26 +205,16 @@ function keyEntries(rows: AvpRow[]): [string, string, string?][] {
     if (!found.length) return undefined;
     return new Set(found.map(([text]) => text)).size === 1
       ? found[0][0]
-      : found.map(([text, where]) => `${text} (${where})`).join(', ');
+      : found.map(([said, where]) => flagText.each(said, where)).join(', ');
   };
   if (rows.some(row => flagTable(row).length))
     for (const [bit, meaning] of Object.entries(bitMeaning)) entries.push([bit, meaning]);
   const columns = [...new Set(rows.flatMap(row => otherCells(row).map(([column]) => column)))];
   for (const column of columns) if (columnNotes[column]) entries.push([column, columnNotes[column]]);
   const p = said(row => bitRule(row, 'P') && flagWords[bitRule(row, 'P')!]);
-  if (p)
-    entries.push([
-      'P',
-      'Protected, not shown: it was for end-to-end security, which RFC 6733 dropped; it says to leave the bit clear.',
-      p,
-    ]);
+  if (p) entries.push(['P', flagText.protectedBit, p]);
   const encrypt = said(encryptOf);
-  if (encrypt)
-    entries.push([
-      'Encrypt',
-      'Not shown: whether the AVP may be encrypted with RFC 3588 end-to-end security, which RFC 6733 dropped.',
-      encrypt,
-    ]);
+  if (encrypt) entries.push(['Encrypt', flagText.encrypt, encrypt]);
   return entries;
 }
 
@@ -261,7 +242,7 @@ function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined
                 commands.find(block => block.command!.application_id === id && block.command!.application)?.command!
                   .application ??
                 site.commands()?.applications[id] ??
-                `Application-ID ${id}`,
+                words.applicationId(id),
             );
       const applies =
         !!here?.command &&
@@ -307,10 +288,16 @@ function elementFacts(
     const block = blockAt(file, use.rule.line);
     const found = block ? memberElements(tablesFor(index, doc.id, block, file), use.member.name) : [];
     return {
-      notes: found.map(({ row }) => `Element: ${elementText(row)}`),
+      notes: found.map(({ row }) => words.elementLine(elementText(row))),
       places: found
         .map(({ table, row }) =>
-          placeRow('Element', 'place-element', elementPlace(table, row, name, file, doc), tableWhere(table), table),
+          placeRow(
+            words.elementPlace,
+            'place-element',
+            elementPlace(table, row, name, file, doc),
+            tableWhere(table),
+            table,
+          ),
         )
         .filter(row => row !== undefined),
     };
@@ -326,7 +313,7 @@ function elementFacts(
           .filter(({ member }) => member === name)
           .map(({ place }) =>
             placeRow(
-              'Member',
+              words.member,
               'place-member',
               place,
               [label(message.document), message.section, message.name].filter(Boolean).join(' · '),
@@ -337,13 +324,13 @@ function elementFacts(
   });
   // A table naming no command, or one the corpus prints for several applications, describes no one rule.
   const unplaced = !block.name
-    ? 'The table names no command'
+    ? words.noCommand
     : !tables.length
-      ? `No one rule of ${block.name} found for the table`
+      ? words.noRule(block.name)
       : !places.length
-        ? `Not a member of ${block.name}'s rule`
+        ? words.notMember(block.name)
         : '';
-  return { notes: [`Element: ${elementText(row)}`, unplaced].filter(Boolean), places };
+  return { notes: [words.elementLine(elementText(row)), unplaced].filter(Boolean), places };
 }
 
 let keys = 0;
@@ -427,7 +414,7 @@ export function AvpPopup(props: PopupProps) {
           target: { document, section },
           line,
         };
-        return placeRow('rows' in table ? valueTableTitle(table) : 'Enumerated', 'place-table', place);
+        return placeRow('rows' in table ? valueTableTitle(table) : words.enumerated, 'place-table', place);
       }),
     )
     .filter(row => row !== undefined);
@@ -440,8 +427,8 @@ export function AvpPopup(props: PopupProps) {
       <button
         class="control popup-key-button"
         type="button"
-        title="What these mean"
-        aria-label="What these mean"
+        title={flagText.key}
+        aria-label={flagText.key}
         aria-controls={keyId}
         aria-expanded={keyOpen}
         onClick={toggleKey}
@@ -452,8 +439,8 @@ export function AvpPopup(props: PopupProps) {
   const { definition, details } = namePlaces(token, lines, doc);
   const elements = elementFacts(site, request, use, placeRow);
   const placed = [
-    definition && placeRow('Definition', 'place-definition', definition),
-    details && placeRow('Details', 'place-details', details),
+    definition && placeRow(words.definition, 'place-definition', definition),
+    details && placeRow(words.details, 'place-details', details),
     ...elements.places,
   ];
   const hasPlaces = placed.some(Boolean) || tables.length > 0;
@@ -523,21 +510,21 @@ export function AvpPopup(props: PopupProps) {
           ))}
         </dl>
       )}
-      {rule?.members.length ? <RuleContents rule={rule} open={use?.kind === 'head'} title="Contents" /> : null}
+      {rule?.members.length ? <RuleContents rule={rule} open={use?.kind === 'head'} title={words.contents} /> : null}
       {hasPlaces && (
         <div class="popup-places">
           {placed}
           {/* In the targets' grid, for their columns to line up. */}
           {tables.length > 0 && (
-            <div class="popup-tables" role="group" aria-label="Value tables">
+            <div class="popup-tables" role="group" aria-label={words.valueTables}>
               {tables}
             </div>
           )}
         </div>
       )}
       <Steps
-        count={`.dad ${active + 1}/${uses.length}`}
-        widest={`.dad ${uses.length}/${uses.length}`}
+        count={words.useCount(active + 1, uses.length)}
+        widest={words.useCount(uses.length, uses.length)}
         select={by => select(active + by)}
       />
       {/* Closed, as a Grouped AVP's contents are: Previous and Next above step through the uses without it. */}
@@ -549,7 +536,7 @@ export function AvpPopup(props: PopupProps) {
         }}
       >
         <summary>
-          <Counted title="Uses" count={uses.length} />
+          <Counted title={words.uses} count={uses.length} />
         </summary>
         <Entries entries={entries} active={active} select={select} />
       </details>

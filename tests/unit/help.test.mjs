@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { controlGroups } from '../../src/controls.ts';
+import { controlGroups } from '../../src/text/controls.ts';
 import { absent, boot, click, settle } from './helpers.mjs';
 
 const press = (page, init, target = page.document.body) => {

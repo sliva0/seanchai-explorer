@@ -8,6 +8,7 @@ import type { Document } from '../types.ts';
 import { AvpPopup } from './avp.tsx';
 import { CommandPopup } from './command.tsx';
 import { ValuePopup } from './value.tsx';
+import { popupShared } from '../text/popup.ts';
 
 export interface PopupRequest {
   token: HighlightedToken;
@@ -89,7 +90,7 @@ export function Popup(props: RootProps) {
   const demand = (id: string | undefined) => {
     const summary = id && id !== request.doc.id && !site.held(id) ? site.summary(id) : undefined;
     if (!summary) return;
-    attempt(`Could not load ${site.label(summary)} for the popup`, () =>
+    attempt(popupShared.loadFailed(site.label(summary)), () =>
       site.loadDocument(summary.id).then(() => {
         if (live.current && request.opener.isConnected) setLoads(loads => loads + 1);
       }),

@@ -1,9 +1,11 @@
 import { Fragment } from 'preact';
 import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import { codecs, ruleKinds } from './constraints.ts';
-import { controlGroups } from './controls.ts';
-import type { ControlGroup } from './controls.ts';
+import { controlGroups } from './text/controls.ts';
+import type { ControlGroup } from './text/controls.ts';
 import { takesTyping } from './keys.ts';
+import { helpText } from './text/help.ts';
+import { popupShared } from './text/popup.ts';
 
 function Group({ title, note, controls }: ControlGroup) {
   return (
@@ -17,7 +19,7 @@ function Group({ title, note, controls }: ControlGroup) {
               {/* "or" between the ways is for a screen reader; on screen the keys stand apart. */}
               {keys.map((key, index) => (
                 <Fragment key={key}>
-                  {index > 0 && <span class="sr-only"> or </span>}
+                  {index > 0 && <span class="sr-only">{helpText.or}</span>}
                   <kbd>{key}</kbd>
                 </Fragment>
               ))}
@@ -37,17 +39,8 @@ function Group({ title, note, controls }: ControlGroup) {
 function ConstraintsHelp() {
   return (
     <section class="help-section help-constraints">
-      <h3>Interpreted constraints</h3>
-      <p class="help-note">
-        What a clause's prose says of an AVP's value or presence, as a reader read it, pinned to the sentences quoted:
-        no document prints it as structure. Its blocks read as the rest of the corrected text, with a thin rule left of
-        their lines and an ";; interpreted" note opening the declaration's record; "Interpreted" in the strip hides and
-        shows them for every document. A line reading an AVP they hold for has a ¶ after it, a paragraph's mark: read
-        from prose. Its title says where from, the description of a table's row or a clause's text, and each rule in
-        words, and a click on it, or Enter on it, opens the name's popup or the inspector at them, as does the name's
-        own: each rule in words, as the text prints it, and its quote, a rule no checker can run on one message said so.
-        Trust a rule as far as its quote. A rule is one of these kinds:
-      </p>
+      <h3>{helpText.constraints}</h3>
+      <p class="help-note">{helpText.constraintsIntro}</p>
       <dl class="help-list help-rule-kinds">
         {Object.entries(ruleKinds).map(([kind, { printed, says }]) => (
           <Fragment key={kind}>
@@ -58,7 +51,7 @@ function ConstraintsHelp() {
           </Fragment>
         ))}
       </dl>
-      <p class="help-note">An encoding names one of these layouts:</p>
+      <p class="help-note">{helpText.codecs}</p>
       <dl class="help-list help-codecs">
         {Object.entries(codecs).map(([codec, { layout }]) => (
           <Fragment key={codec}>
@@ -69,12 +62,7 @@ function ConstraintsHelp() {
           </Fragment>
         ))}
       </dl>
-      <p class="help-note">
-        A rule stands after the sentences it was read from, word for word, and the corpus is built only while the
-        document still prints them. The Wireshark plugin checks the rules on each message as notes: lengths, ranges,
-        excluded values, encodings but another document's element, bits, members, unique and values rules and the
-        presence conditions; a text-only rule it cannot check, and a default breaks nothing.
-      </p>
+      <p class="help-note">{helpText.constraintsChecked}</p>
     </section>
   );
 }
@@ -160,8 +148,8 @@ export function HelpToggle({ help: { open, show, close, button } }: { help: Help
       ref={button}
       type="button"
       class="control help-toggle"
-      title="Mouse and keyboard (?)"
-      aria-label="Mouse and keyboard"
+      title={helpText.toggleTitle}
+      aria-label={helpText.title}
       aria-haspopup="dialog"
       aria-expanded={open}
       aria-controls="help"
@@ -202,8 +190,8 @@ export function HelpDialog({ help: { open, close, dialog: ref } }: { help: Help 
       }}
     >
       <div class="popup-title">
-        <h2 id="help-title">Mouse and keyboard</h2>
-        <button type="button" aria-label="Close" onClick={() => close()}>
+        <h2 id="help-title">{helpText.title}</h2>
+        <button type="button" aria-label={popupShared.close} onClick={() => close()}>
           ×
         </button>
       </div>

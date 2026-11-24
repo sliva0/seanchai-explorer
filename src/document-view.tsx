@@ -25,6 +25,7 @@ import type { SourcePane } from './source-pane.tsx';
 import type { Document, Line, RawDocument } from './types.ts';
 import { valueRowAt, valueTables, valueTableTitle } from './values.ts';
 import type { ValueRow } from './values.ts';
+import { strip } from './text/document.ts';
 
 export interface ViewServices {
   site: Site;
@@ -135,7 +136,7 @@ function renderLines(
     if (line.section) row.dataset.section = line.section;
     if (line.warning) {
       row.classList.add('raw-warning');
-      row.title = 'Modified in corrected view';
+      row.title = strip.modified;
     }
     if (line.anchor) row.id = `section-${line.anchor}`;
     if (line.tokens.some(token => token.correction)) row.classList.add('corrected-line');
@@ -495,7 +496,7 @@ function DocumentText({
 }) {
   const pane = useRef<HTMLElement>(null);
   useLayoutEffect(() => onView(createText(pane.current!, services, doc, raw, settings, onScroll)), []);
-  return <section id="document" ref={pane} tabIndex={0} aria-label="Document text" />;
+  return <section id="document" ref={pane} tabIndex={0} aria-label={strip.documentText} />;
 }
 
 /** What a clause's value tables list: "Bits (12)", "Features list 1 (S6a/S6d) (29)". */
@@ -542,7 +543,7 @@ function SectionList({
             {page ? (
               <>
                 {' '}
-                <span class="section-page">{`p. ${page}`}</span>
+                <span class="section-page">{strip.page(page)}</span>
               </>
             ) : null}
           </li>
@@ -579,6 +580,7 @@ function HoleList({ doc, sectionLink }: { doc: Document; sectionLink(section: st
 }
 
 type Panel = 'Findings' | 'Holes' | 'Sections';
+const panelLabels: Record<Panel, string> = { Findings: strip.findings, Holes: strip.holes, Sections: strip.sections };
 
 /** A toggle opening one of the panels under the strip; one with nothing to show stays off. */
 function Disclosure({ title, count, open, toggle }: { title: Panel; count: number; open: boolean; toggle(): void }) {
@@ -591,7 +593,7 @@ function Disclosure({ title, count, open, toggle }: { title: Panel; count: numbe
       aria-controls={`diagnostic-${title.toLowerCase()}`}
       onClick={toggle}
     >
-      {`${title} `}
+      {`${panelLabels[title]} `}
       <span class="count">{String(count)}</span>
     </button>
   );
@@ -603,14 +605,14 @@ function ClickTargetChoice({ current, onChange }: { current: ClickTarget; onChan
     <div
       class="click-target click-option"
       role="radiogroup"
-      aria-label="Click goes to"
-      title="What a click or alt-click on a name goes to where it has both; right-click offers both"
+      aria-label={strip.clickGoesTo}
+      title={strip.clickGoesToTitle}
     >
-      Click goes to
+      {strip.clickGoesTo}
       {(
         [
-          ['definition', 'Definition'],
-          ['details', 'Details'],
+          ['definition', strip.definition],
+          ['details', strip.details],
         ] as const
       ).map(([target, label]) => (
         // A radio before its word, where a box follows a toggle's: each is told from the other.
@@ -652,7 +654,7 @@ function RawLink({ doc, raw, section }: { doc: Document; raw: boolean; section()
   // Drawn with the route's own section: the text is not yet where the route puts it.
   return (
     <a href={hrefAt(undefined)} onClick={refresh} onAuxClick={refresh} onContextMenu={refresh}>
-      {raw ? 'Corrected' : 'Raw'}
+      {raw ? strip.corrected : strip.raw}
     </a>
   );
 }
@@ -752,7 +754,7 @@ export function DocumentPage({
           {disclosure('Findings', doc.findings.length)}
           {disclosure('Holes', doc.holes.length)}
           {/* One control over one panel: its toggle opens and closes it, its crumb opens it at the current entry. */}
-          <div class="section-control" role="group" aria-label="Sections">
+          <div class="section-control" role="group" aria-label={strip.sections}>
             {disclosure('Sections', doc.sections.length)}
             <div class="crumb-slot">
               <button
@@ -760,7 +762,7 @@ export function DocumentPage({
                 class="section-crumb"
                 disabled={!crumb}
                 data-section={crumb ?? ''}
-                title={crumb ? `${crumbTitle}: show in Sections` : ''}
+                title={crumb ? strip.showInSections(crumbTitle!) : ''}
                 onClick={() => {
                   setOpen('Sections');
                   setShown(crumb ? { section: crumb } : undefined);
@@ -774,11 +776,8 @@ export function DocumentPage({
         <section id="controls" class={options ? 'options-open' : undefined}>
           {doc.raw && <RawLink doc={doc} raw={Boolean(raw)} section={() => view.current?.currentSection()} />}
           {interpreted.size > 0 && (
-            <label
-              class="visibility-toggle interpreted-toggle"
-              title="Shows the Interpreted Constraints blocks: what a reader read in a clause's prose of an AVP's value or presence, which the document prints as no structure. Kept for every document"
-            >
-              {'Interpreted '}
+            <label class="visibility-toggle interpreted-toggle" title={strip.interpretedTitle}>
+              {strip.interpreted}
               <input
                 type="checkbox"
                 // What the browser would restore on a reload is the stored choice's to say.
@@ -798,13 +797,10 @@ export function DocumentPage({
             aria-expanded={options}
             onClick={() => setOptions(open => !open)}
           >
-            Click options
+            {strip.clickOptions}
           </button>
-          <label
-            class="visibility-toggle uses-toggle click-option"
-            title="Plain click lists where a name is used instead of going to it"
-          >
-            {'Click shows uses '}
+          <label class="visibility-toggle uses-toggle click-option" title={strip.clickShowsUsesTitle}>
+            {strip.clickShowsUses}
             {/* Each document starts with it off, whatever the browser would restore on a reload. */}
             <input ref={usesBox} type="checkbox" autocomplete="off" />
           </label>

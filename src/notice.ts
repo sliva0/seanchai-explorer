@@ -1,4 +1,5 @@
 import { element } from './dom.ts';
+import { notices } from './text/site.ts';
 
 const REGION = 'notices';
 
@@ -38,7 +39,7 @@ export function notifyFailure(what: string, error: unknown, retry?: () => void) 
     if (focused && before?.isConnected) before.focus({ preventScroll: true });
   };
   if (retry) {
-    const again = element('button', 'Retry', 'control');
+    const again = element('button', notices.retry, 'control');
     again.type = 'button';
     again.onclick = () => {
       remove();
@@ -48,8 +49,8 @@ export function notifyFailure(what: string, error: unknown, retry?: () => void) 
   }
   const dismiss = element('button', '×', 'control notice-dismiss');
   dismiss.type = 'button';
-  dismiss.setAttribute('aria-label', 'Dismiss');
-  dismiss.title = 'Dismiss';
+  dismiss.setAttribute('aria-label', notices.dismiss);
+  dismiss.title = notices.dismiss;
   dismiss.onclick = remove;
   notice.append(dismiss);
   region.append(notice);

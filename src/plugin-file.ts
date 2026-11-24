@@ -1,4 +1,5 @@
 // The Wireshark plugin `seanchai wireshark-plugin` writes, as the page offering it reads and rewrites it.
+import { wiresharkPage } from './text/wireshark.ts';
 
 /** Where a build puts the plugin, beside the page, and the name it is saved as. */
 export const PLUGIN_PATH = 'plugin/seanchai_diameter.lua';
@@ -117,14 +118,13 @@ export type Rewrite = { text: string; written: true } | { text: string; written:
  * line, or an address a Lua string could not hold as it is, comes back unchanged with the reason.
  */
 export function withExplorer(text: string, address: string): Rewrite {
-  if (/["\\\p{Cc}]/u.test(address))
-    return { text, written: false, reason: 'the address holds a quote, a backslash or a control character' };
+  if (/["\\\p{Cc}]/u.test(address)) return { text, written: false, reason: wiresharkPage.badAddress };
   const lines = [...text.matchAll(EXPLORER_LINE)];
   if (lines.length !== 1)
     return {
       text,
       written: false,
-      reason: lines.length ? `it has ${lines.length} explorer lines` : 'it has no explorer line',
+      reason: lines.length ? wiresharkPage.explorerLines(lines.length) : wiresharkPage.noExplorerLine,
     };
   const [line] = lines;
   const replaced = `local EXPLORER = "${address}" -- seanchai:explorer`;

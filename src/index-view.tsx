@@ -1,12 +1,11 @@
 import type { ComponentChildren } from 'preact';
-import { UNLINKED } from './build-options.ts';
 import { useState } from 'preact/hooks';
 import { docNumber, docSubject, interfacesOf } from './data.ts';
 import type { Site } from './data.ts';
 import { OLDER, releaseLabel, tabHref } from './index-tabs.ts';
 import type { IndexTab } from './index-tabs.ts';
 import { routeFor } from './navigation.ts';
-import { CLICK_HINT, INTRO, OLDER_COPIES, PYPI, REPOSITORY, SEARCH_PLACEHOLDER } from './site-text.ts';
+import { githubName, indexIntro, indexPage as text, PYPI, pypiName, REPOSITORY } from './text/site.ts';
 import type { DocumentSummary } from './types.ts';
 
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
@@ -101,10 +100,10 @@ function DocumentTable({ docs, site, versioned }: { docs: DocumentSummary[]; sit
       </colgroup>
       <thead>
         <tr>
-          <th>Number</th>
-          {versioned && <th>Version</th>}
-          <th>Interfaces</th>
-          <th>Title</th>
+          <th>{text.number}</th>
+          {versioned && <th>{text.version}</th>}
+          <th>{text.interfaces}</th>
+          <th>{text.title}</th>
         </tr>
       </thead>
       <tbody onMouseDown={press} onClick={followRow} onAuxClick={followRow}>
@@ -151,13 +150,14 @@ function TabPanel({ tab, site }: { tab: IndexTab; site: Site }) {
     '--version-width': `${widest(versionOf)}ch`,
     '--interfaces-width': `${Math.min(MAX_INTERFACES_WIDTH, widest(interfacesOf))}ch`,
   };
-  const heading = publisher.releases.length > 1 ? `${publisher.publisher} · ${release.label}` : publisher.publisher;
+  const heading =
+    publisher.releases.length > 1 ? text.tabHeading(publisher.publisher, release.label) : publisher.publisher;
   return (
     <section class="publisher-group" style={style} aria-labelledby="index-tab-heading">
       <h2 id="index-tab-heading" class="sr-only">
         {heading}
       </h2>
-      {release.key === OLDER && <p class="tab-note">{OLDER_COPIES}</p>}
+      {release.key === OLDER && <p class="tab-note">{text.olderCopiesNote}</p>}
       <DocumentTable docs={release.docs} site={site} versioned={versioned} />
     </section>
   );
@@ -165,25 +165,25 @@ function TabPanel({ tab, site }: { tab: IndexTab; site: Site }) {
 
 /** The box at the top of the index, which goes to the search page with what is typed in it. */
 function IndexSearch() {
-  const [text, setText] = useState('');
+  const [query, setQuery] = useState('');
   return (
     <form
       class="search-form"
       role="search"
       onSubmit={event => {
         event.preventDefault();
-        location.hash = `#search?q=${encodeURIComponent(text.trim())}`;
+        location.hash = `#search?q=${encodeURIComponent(query.trim())}`;
       }}
     >
       <input
         class="control"
-        aria-label="Search"
+        aria-label={text.searchLabel}
         type="search"
-        value={text}
-        placeholder={SEARCH_PLACEHOLDER}
-        onInput={event => setText(event.currentTarget.value)}
+        value={query}
+        placeholder={text.searchPlaceholder}
+        onInput={event => setQuery(event.currentTarget.value)}
       />
-      <button class="control">Search</button>
+      <button class="control">{text.searchButton}</button>
     </form>
   );
 }
@@ -196,27 +196,27 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
     <>
       <IndexSearch />
       <div class="index-intro">
-        {!UNLINKED && <p>{INTRO}</p>}
+        {!SEANCHAI_UNLINKED && <p>{indexIntro}</p>}
         {/* What this site was built from, and the project's two pages, on one line. */}
         <p class="versions">
-          {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
+          {[corpus && text.corpus(corpus), seanchai && text.seanchai(seanchai), text.build(site.mode)]
             .filter(Boolean)
             .join(' · ')}
-          {!UNLINKED && (
+          {!SEANCHAI_UNLINKED && (
             <>
               {' · '}
-              <a href={REPOSITORY}>GitHub</a>
+              <a href={REPOSITORY}>{githubName}</a>
               {' · '}
-              <a href={PYPI}>PyPI</a>
+              <a href={PYPI}>{pypiName}</a>
             </>
           )}
         </p>
-        <p class="versions">{CLICK_HINT}</p>
+        <p class="versions">{text.clickHint}</p>
       </div>
       {tab && (
         <>
           <Tabs
-            label="Publishers"
+            label={text.publishers}
             tabs={tab.publishers.map(publisher => ({
               key: publisher.slug,
               href: tabHref(publisher.releases[0].path),
@@ -227,7 +227,7 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
           />
           {releases.length > 1 && (
             <Tabs
-              label={`${tab.publisher.publisher} releases`}
+              label={text.releases(tab.publisher.publisher)}
               release
               tabs={releases.map(release => ({
                 key: String(release.key),

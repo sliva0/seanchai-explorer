@@ -15,6 +15,7 @@ import { SearchView } from './search-view.tsx';
 import type { Theme } from './theme.ts';
 import type { Document, RawDocument } from './types.ts';
 import { WiresharkView } from './wireshark-view.tsx';
+import { header, pageMessages } from './text/site.ts';
 
 /** What the content shows, as the router has worked it out. */
 export type Page =
@@ -100,7 +101,7 @@ function Content({
         </>
       );
     case 'loading':
-      return <p role="status">{`Loading ${page.label}…`}</p>;
+      return <p role="status">{pageMessages.loading(page.label)}</p>;
     case 'document':
       return (
         <DocumentPage
@@ -149,7 +150,7 @@ export function App(props: AppProps) {
   const { page, theme, toggleTheme, indexHref } = props;
   const help = useHelp();
   useSearchKey();
-  const other = theme === 'light' ? 'Dark' : 'Light';
+  const other = theme === 'light' ? header.dark : header.light;
   return (
     <>
       {/* A link's own fragment would be taken for a route. */}
@@ -162,23 +163,28 @@ export function App(props: AppProps) {
           (content.querySelector<HTMLElement>('#document') ?? content).focus();
         }}
       >
-        Skip to content
+        {header.skip}
       </a>
       <header>
         <nav>
           <NavLink href={indexHref} current={page.kind === 'index'}>
-            Index
+            {header.index}
           </NavLink>
           <NavLink href="#search" current={page.kind === 'search'}>
-            Search
+            {header.search}
           </NavLink>
-          <NavLink href={`#${WIRESHARK}`} current={page.kind === 'wireshark'} title="Wireshark plugin">
-            Wireshark
+          <NavLink href={`#${WIRESHARK}`} current={page.kind === 'wireshark'} title={header.wiresharkTitle}>
+            {header.wireshark}
           </NavLink>
         </nav>
         <div class="header-actions">
           <HelpToggle help={help} />
-          <button type="button" class="control theme-toggle" aria-label={`${other} theme`} onClick={toggleTheme}>
+          <button
+            type="button"
+            class="control theme-toggle"
+            aria-label={header.themeLabel(other)}
+            onClick={toggleTheme}
+          >
             {other}
           </button>
         </div>

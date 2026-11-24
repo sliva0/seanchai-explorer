@@ -4,6 +4,8 @@ import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import { categoriesOf, categoryNote, categoryWords, memberMarks } from './elements.ts';
 import type { MemberElement } from './elements.ts';
+import { markWords } from './text/document.ts';
+import { tableName } from './text/terms.ts';
 
 /**
  * What a block type adds to a line of the text beside the grammar's highlighting: classes on the line, and a mark laid
@@ -39,9 +41,9 @@ const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkP
   title: [
     ...elements.map(({ table, row }) =>
       [
-        row.category ? `${row.category}: ${categoryWords[row.category]}` : 'No category',
+        row.category ? markWords.category(row.category, categoryWords[row.category]) : markWords.noCategory,
         row.name,
-        table.table ? `table ${table.table}` : table.section,
+        table.table ? tableName(table.table) : table.section,
       ].join(' · '),
     ),
     ...disagreements,

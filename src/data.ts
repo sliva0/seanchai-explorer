@@ -9,6 +9,7 @@ import type { SourcePosition } from './navigation.ts';
 import { emptyTables, markTables } from './tables.ts';
 import type { TableIndex } from './tables.ts';
 import { valueTables } from './values.ts';
+import { indexPage, pageMessages } from './text/site.ts';
 
 export type Mode = Index['mode'];
 export type PaneKind = 'pdf' | 'rfc' | 'placeholder';
@@ -21,9 +22,7 @@ async function loadJSON<T>(path: string): Promise<T> {
   if (!response.ok) throw new Error(`${response.status}: ${path}`);
   const data = (await response.json()) as T & { schema_version: number };
   if (data.schema_version !== SCHEMA_VERSION)
-    throw new Error(
-      `Unsupported export schema ${data.schema_version} in ${path}: the site reads schema ${SCHEMA_VERSION} only`,
-    );
+    throw new Error(pageMessages.unsupportedSchema(data.schema_version, path, SCHEMA_VERSION));
   return data;
 }
 
@@ -120,7 +119,9 @@ function olderEditions(documents: Edition[]): Map<string, string> {
     if (!held || compareEditions(doc, held) > 0) newest.set(doc.specification, doc);
   }
   const older = documents.filter(doc => newest.get(doc.specification) !== doc);
-  return new Map(older.map(doc => [doc.id, doc.release ? `Rel-${doc.release}` : doc.version ? `V${doc.version}` : '']));
+  return new Map(
+    older.map(doc => [doc.id, doc.release ? indexPage.edition(doc.release) : doc.version ? `V${doc.version}` : '']),
+  );
 }
 
 /** Whether a URL is a publisher's PDF, which a source kind may not say. */
@@ -256,7 +257,7 @@ export function createSite(index: Index): Site {
   }
   const known = (id: string) => {
     const summary = summaries.get(id);
-    if (!summary) throw new Error(`Document not found: ${id}`);
+    if (!summary) throw new Error(pageMessages.noSuchDocument(id));
     return summary;
   };
   return {

@@ -12,6 +12,8 @@ import type { FoldedName, FoldedQuery, Span } from './fuzzy.ts';
 import { categoryWords } from './elements.ts';
 import type { Category, DocumentSummary, Mention, SearchEntry } from './types.ts';
 import { valueRowLabel } from './values.ts';
+import { identityWords } from './text/search.ts';
+import { categoryText } from './text/terms.ts';
 
 type Kind = SearchEntry['kind'];
 export const EXACT = 0;
@@ -366,27 +368,31 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
     case 'avp':
       return `${identity.vendor_id}:${identity.code}`;
     case 'application':
-      return `Application ${identity.application_id}`;
+      return identityWords.application(identity.application_id);
     case 'registry':
       return `${identity.registry} ${identity.code}`;
     case 'value': {
-      const list = identity.feature_list_id === null ? '' : ` list ${identity.feature_list_id}`;
-      const application = identity.application ? ` (${identity.application})` : '';
-      return `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}${list}${application}`;
+      const list = identity.feature_list_id === null ? '' : identityWords.valueList(identity.feature_list_id);
+      const application = identity.application ? identityWords.valueApplication(identity.application) : '';
+      return `${identityWords.value(valueRowLabel(identity.value_kind), identity.value, identity.avp)}${list}${application}`;
     }
     case 'command': {
       const application =
         identity.application_id === null
           ? ''
-          : ` · application ${identity.application_id}${identity.application ? ` (${identity.application})` : ''}`;
+          : `${identityWords.commandApplication(identity.application_id)}${identity.application ? identityWords.commandApplicationName(identity.application) : ''}`;
       const header =
         identity.header_application_id !== identity.application_id
-          ? ` · header ${identity.header_application_id ?? 'none'}`
+          ? identityWords.headerTitle(identity.header_application_id ?? identityWords.none)
           : '';
-      return `Command ${identity.command_code}${application}${header}`;
+      return `${identityWords.command(identity.command_code)}${application}${header}`;
     }
     case 'element':
-      return [elementCategory(identity.category), elementAvps(identity.avps), identity.command ?? 'no command']
+      return [
+        elementCategory(identity.category),
+        elementAvps(identity.avps),
+        identity.command ?? identityWords.elementNoCommand,
+      ]
         .filter(Boolean)
         .join(' · ');
     default:
@@ -395,9 +401,10 @@ export function identityLabel(entry: Pick<SearchEntry, 'identity'>): string {
 }
 
 /** "M, mandatory": an information element's category, or nothing where its row prints none. */
-const elementCategory = (category: Category | null) => (category ? `${category}, ${categoryWords[category]}` : '');
+const elementCategory = (category: Category | null) =>
+  category ? categoryText(category, categoryWords[category]) : '';
 /** "AVP User-Name", "AVPs Result-Code, Experimental-Result": what an information element maps to. */
-const elementAvps = (avps: string[]) => (avps.length ? `${avps.length > 1 ? 'AVPs' : 'AVP'} ${avps.join(', ')}` : '');
+const elementAvps = (avps: string[]) => (avps.length ? identityWords.elementAvps(avps.length, avps.join(', ')) : '');
 
 /** What is said of an entry, in order; `brief` beside a document's label, where the entry's name is already said. */
 interface Fact {
@@ -412,27 +419,30 @@ function entryFacts(entry: SearchEntry): Fact[] {
     case 'avp':
       return [{ text: `${identity.vendor_id}:${identity.code}` }, type];
     case 'application':
-      return [{ text: `application ${identity.application_id}` }, type];
+      return [{ text: identityWords.applicationFact(identity.application_id) }, type];
     case 'registry':
       return [{ text: `${identity.registry} ${identity.code}` }, type];
     case 'value':
       return [
-        { text: `${valueRowLabel(identity.value_kind)} ${identity.value} of ${identity.avp}` },
-        { text: identity.feature_list_id === null ? '' : `list ${identity.feature_list_id}` },
+        { text: identityWords.value(valueRowLabel(identity.value_kind), identity.value, identity.avp) },
+        { text: identity.feature_list_id === null ? '' : identityWords.valueListFact(identity.feature_list_id) },
         { text: identity.application ?? '' },
       ];
     case 'command': {
-      const id = identity.application_id === null ? '' : `application ${identity.application_id}`;
+      const id = identity.application_id === null ? '' : identityWords.applicationFact(identity.application_id);
       const name = identity.application ?? '';
       return [
-        { text: `command ${identity.command_code}` },
-        { text: name && id ? `${id} (${name})` : id || name, brief: name.replace(/^Diameter /, '') || id },
+        { text: identityWords.commandFact(identity.command_code) },
+        {
+          text: name && id ? identityWords.applicationNamed(id, name) : id || name,
+          brief: name.replace(/^Diameter /, '') || id,
+        },
       ];
     }
     // The command first: an element's name is the same in every table of a specification, its command what differs.
     case 'element':
       return [
-        { text: identity.command ? `of ${identity.command}` : 'of no command' },
+        { text: identity.command ? identityWords.elementOf(identity.command) : identityWords.elementOfNone },
         { text: elementCategory(identity.category), brief: identity.category ?? '' },
         { text: elementAvps(identity.avps) },
       ];
@@ -444,7 +454,7 @@ function entryFacts(entry: SearchEntry): Fact[] {
 /** What a command's header prints, worth saying only where documents disagree on it. */
 function headerFact(entry: SearchEntry): string {
   const identity = entry.identity;
-  return identity?.kind === 'command' ? `header ${identity.header_application_id ?? 'none'}` : '';
+  return identity?.kind === 'command' ? identityWords.header(identity.header_application_id ?? identityWords.none) : '';
 }
 
 export interface GroupFacts {

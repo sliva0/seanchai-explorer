@@ -3,6 +3,7 @@ import type { DadFile } from './blocks.ts';
 import type { CommandRef } from './commands.ts';
 import type { SourcePosition } from './navigation.ts';
 import type { Target, Token, ValueKind } from './types.ts';
+import { valueKindWords, valueTableWords } from './text/terms.ts';
 
 export interface ValueRow {
   name: string;
@@ -115,13 +116,11 @@ export function valueRowAt(file: DadFile, section: string, name: string): ValueR
   return rows.find(row => row.target?.section === section) ?? rows.find(row => row.table.section === section);
 }
 
-export const valueKinds: { kind: ValueKind; title: string; row: string }[] = [
-  { kind: 'result-codes', title: 'Result codes', row: 'Result code' },
-  { kind: 'bits', title: 'Bits', row: 'Bit' },
-  { kind: 'features', title: 'Features', row: 'Feature bit' },
-];
+export const valueKinds: { kind: ValueKind; title: string; row: string }[] = (
+  ['result-codes', 'bits', 'features'] as const
+).map(kind => ({ kind, ...valueKindWords[kind] }));
 export const valueKindTitle = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.title;
 /** What a table lists, told from the others of its clause: "Bits", "Features list 1 (S6a/S6d)". */
 export const valueTableTitle = (table: ValueTable) =>
-  `${valueKindTitle(table.kind)}${table.featureListId === null ? '' : ` list ${table.featureListId}`}${table.application ? ` (${table.application})` : ''}`;
+  `${valueKindTitle(table.kind)}${table.featureListId === null ? '' : valueTableWords.list(table.featureListId)}${table.application ? valueTableWords.application(table.application) : ''}`;
 export const valueRowLabel = (kind: ValueKind) => valueKinds.find(entry => entry.kind === kind)!.row;

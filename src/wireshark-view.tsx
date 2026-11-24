@@ -1,6 +1,5 @@
 import { Fragment } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import { UNLINKED } from './build-options.ts';
 import { siteURL } from './data.ts';
 import type { Site } from './data.ts';
 import { attempt } from './notice.ts';
@@ -17,10 +16,11 @@ import {
 } from './plugin-file.ts';
 import type { InstallShell } from './plugin-file.ts';
 import { readStored, writeStored } from './storage.ts';
+import { missingGenerate, wiresharkPage as words } from './text/wireshark.ts';
 
 const FOLDERS = [
-  ['Linux and macOS', '~/.local/lib/wireshark/plugins/'],
-  ['Windows', '%APPDATA%\\Wireshark\\plugins\\'],
+  [words.linuxMac, '~/.local/lib/wireshark/plugins/'],
+  [words.windows, '%APPDATA%\\Wireshark\\plugins\\'],
 ];
 
 /** The head of the file, which holds its versions line: the page is shown without fetching all 1.5 MB. */
@@ -96,8 +96,8 @@ async function copy(text: string, node: HTMLElement): Promise<boolean> {
 }
 
 const SHELLS = [
-  ['posix', 'bash / zsh / sh', posixInstall],
-  ['fish', 'fish', fishInstall],
+  ['posix', words.posixShells, posixInstall],
+  ['fish', words.fishShell, fishInstall],
 ] as const;
 
 /**
@@ -120,9 +120,9 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
   };
   return (
     <>
-      <h2>Install from a terminal (Linux and macOS)</h2>
+      <h2>{words.terminal}</h2>
       <div class="plugin-command-bar">
-        <div class="shell-choice" role="radiogroup" aria-label="Shell">
+        <div class="shell-choice" role="radiogroup" aria-label={words.shell}>
           {SHELLS.map(([shell, label]) => (
             <label key={shell} class="visibility-toggle">
               <input
@@ -145,10 +145,10 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
         </div>
         {/* A live region is announced only if it was there before its text. */}
         <span class={copied ? 'copy-status sr-only' : 'copy-status'} role="status">
-          {copied === undefined ? '' : copied ? 'Copied' : 'Selected: press Ctrl+C'}
+          {copied === undefined ? '' : copied ? words.copied : words.selected}
         </span>
-        <button type="button" class="control" aria-label="Copy the commands" onClick={() => void onCopy()}>
-          {copied ? 'Copied' : 'Copy'}
+        <button type="button" class="control" aria-label={words.copyLabel} onClick={() => void onCopy()}>
+          {copied ? words.copied : words.copy}
         </button>
       </div>
       <pre class="plugin-command">
@@ -163,8 +163,8 @@ function FolderTable() {
     <table class="plugin-folders">
       <thead>
         <tr>
-          <th>System</th>
-          <th>Folder</th>
+          <th>{words.system}</th>
+          <th>{words.folder}</th>
         </tr>
       </thead>
       <tbody>
@@ -219,7 +219,7 @@ export function WiresharkView({ site }: { site: Site }) {
 
   async function download() {
     setBusy(true);
-    setStatus({ text: 'Fetching…' });
+    setStatus({ text: words.fetching });
     try {
       held.current ??= (await fetchPlugin())?.text;
       if (!live.current) return;
@@ -231,14 +231,14 @@ export function WiresharkView({ site }: { site: Site }) {
       save(rewrite.text);
       setStatus(
         rewrite.written
-          ? { text: 'Saved' }
+          ? { text: words.saved }
           : {
-              text: `Saved as built, since ${rewrite.reason}: its links keep the address it was generated with.`,
+              text: words.savedAsBuilt(rewrite.reason),
               warning: true,
             },
       );
     } catch (error) {
-      if (live.current) setStatus({ text: 'Failed' });
+      if (live.current) setStatus({ text: words.failed });
       throw error;
     } finally {
       if (live.current) setBusy(false);
@@ -248,35 +248,29 @@ export function WiresharkView({ site }: { site: Site }) {
   return (
     <>
       <div class="plugin-title">
-        <h1 tabIndex={-1}>Wireshark plugin</h1>
+        <h1 tabIndex={-1}>{words.heading}</h1>
         <span class="versions">
           {said ?? [seanchai && `seanchai ${seanchai}`, corpus && `corpus ${corpus}`].filter(Boolean).join(', ')}
         </span>
       </div>
       <div class="plugin-about">
+        <p>{words.about}</p>
         <p>
-          Checks every Diameter message in a capture against the corpus: its AVPs, their flags, lengths and values, and
-          what its command requires and allows. Each finding cites the clause, table and page of its rule, with links to
-          the publisher's copy and to this site.
-        </p>
-        <p>
-          {'Filter for messages breaking a rule with '}
+          {words.filter}
           <code>seanchai.errors {'>'} 0</code>
-          {
-            '. An error breaks a rule a document states, a warning a "should not" or a value no document defines, and a note is what the corpus cannot complete or an interpreted constraint broken. It runs in Wireshark 4.2 and later, and in tshark: '
-          }
+          {words.severities}
           <code>tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors {'>'} 0"</code>
           {'.'}
         </p>
       </div>
-      <section class="plugin-ways" aria-label="Install">
+      <section class="plugin-ways" aria-label={words.install}>
         {missing ? (
           <>
-            {UNLINKED ? (
-              <p>Not in this build.</p>
+            {SEANCHAI_UNLINKED ? (
+              <p>{words.missing}</p>
             ) : (
               <>
-                <p>Not in this build. Generate it with:</p>
+                <p>{missingGenerate}</p>
                 <pre>
                   <code>{generateCommand(address)}</code>
                 </pre>
@@ -287,17 +281,17 @@ export function WiresharkView({ site }: { site: Site }) {
         ) : (
           <>
             {scripts && <TerminalInstall scripts={scripts} />}
-            <h2>{scripts ? 'Install by hand (any system)' : 'Install by hand'}</h2>
+            <h2>{scripts ? words.byHandAnySystem : words.byHand}</h2>
             <div class="plugin-download">
               <button
                 type="button"
                 class="control"
                 aria-disabled={busy ? 'true' : undefined}
                 onClick={() => {
-                  if (!busy) attempt('Could not fetch the Wireshark plugin', download);
+                  if (!busy) attempt(words.fetchFailed, download);
                 }}
               >
-                {`Download ${PLUGIN_NAME}`}
+                {words.download(PLUGIN_NAME)}
               </button>
               <span class={status.warning ? 'plugin-status plugin-warning' : 'plugin-status'} role="status">
                 {status.text}
@@ -307,7 +301,7 @@ export function WiresharkView({ site }: { site: Site }) {
           </>
         )}
       </section>
-      <p class="plugin-then">Then restart Wireshark, or press Ctrl+Shift+L.</p>
+      <p class="plugin-then">{words.restart}</p>
     </>
   );
 }

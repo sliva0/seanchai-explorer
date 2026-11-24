@@ -20,27 +20,31 @@ import { tablePlace as elementsPlace } from '../element-places.ts';
 import { categoriesOf, memberElements, tablesFor } from '../elements.ts';
 import type { PopupProps } from './root.tsx';
 import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
+import { commandPopup as words } from '../text/popup.ts';
 
 /** "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none. */
 function commandIdentity(command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope'>): string[] {
-  const head = [`Code ${command.code}`, isRequest(command) ? 'Request' : 'Answer', command.flags.join(', ')]
+  const head = [words.code(command.code), isRequest(command) ? words.request : words.answer, command.flags.join(', ')]
     .filter(Boolean)
     .join(' · ');
-  if (command.application === null) return [head, 'No Application-ID: the header prints none'];
-  const from = command.header === null && command.scope ? `from ${command.scope.section}, not the header` : '';
-  return [head, [`Application-ID ${command.application}`, command.scope?.name ?? '', from].filter(Boolean).join(' · ')];
+  if (command.application === null) return [head, words.noApplicationId];
+  const from = command.header === null && command.scope ? words.idFrom(command.scope.section) : '';
+  return [
+    head,
+    [words.applicationId(command.application), command.scope?.name ?? '', from].filter(Boolean).join(' · '),
+  ];
 }
 
 /** What tells a definition from the one the popup is of: its name where that is another, its code and application where they are. */
 function difference(other: Command, command: Command | undefined): string {
   const application =
     other.application === null
-      ? 'no Application-ID'
-      : `Application-ID ${other.application}${other.scope?.name ? ` ${other.scope.name}` : ''}`;
+      ? words.noOtherApplication
+      : words.otherApplication(other.application, other.scope?.name ?? '');
   return [
     other.section,
     !command || other.name !== command.name ? other.name : '',
-    command && other.code !== command.code ? `code ${other.code}` : '',
+    command && other.code !== command.code ? words.otherCode(other.code) : '',
     command && other.application !== command.application ? application : '',
   ]
     .filter(Boolean)
@@ -100,7 +104,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     site.summary(place.document) ? site.label(site.summary(place.document)!) : place.document;
   const rows: (ComponentChild | undefined)[] = [];
   if (command) {
-    rows.push(placeRow('Definition', 'place-definition', blockPlace(command, doc)));
+    rows.push(placeRow(words.definition, 'place-definition', blockPlace(command, doc)));
     const partner = partnerOf(command, all);
     if (partner) {
       const place = blockPlace(partner, doc);
@@ -111,14 +115,14 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
       ]
         .filter(Boolean)
         .join(' · ');
-      rows.push(placeRow(isRequest(partner) ? 'Request' : 'Answer', 'place-partner', place, where));
+      rows.push(placeRow(isRequest(partner) ? words.request : words.answer, 'place-partner', place, where));
     }
     rows.push(
       ...group(
-        'Tables',
+        words.tables,
         'popup-tables',
         tablesOf(command, file, doc).map(table =>
-          placeRow('AVP table', 'place-table', tablePlace(table, doc), table.section, {
+          placeRow(words.avpTable, 'place-table', tablePlace(table, doc), table.section, {
             document: doc.id,
             table: table.table,
           }),
@@ -126,11 +130,11 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
         false,
       ),
       ...group(
-        'Information elements',
+        words.informationElements,
         'popup-elements',
         elementTables.map(table =>
           placeRow(
-            'Elements',
+            words.elements,
             'place-elements',
             elementsPlace(table, file, doc),
             [table.document === doc.id ? '' : label({ document: table.document }), table.section]
@@ -147,7 +151,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     ...registryRows(ref, file, doc, index).map(row => {
       const place = rowPlace(row, doc);
       return placeRow(
-        'Registry',
+        words.registry,
         'place-registry',
         place,
         [row.document === doc.id ? '' : label(place), row.section].filter(Boolean).join(' · '),
@@ -163,12 +167,12 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     const { same, differing } = definitionsOf(command, all);
     rows.push(
       ...group(
-        'Other definitions',
+        words.otherDefinitions,
         'popup-others',
         same.map(other => otherRow(other, 'place-other')),
       ),
       ...group(
-        'Same name, other command',
+        words.sameName,
         'popup-differing',
         differing.map(other => otherRow(other, 'place-other place-differs', '≠ ')),
       ),
@@ -177,7 +181,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     const printed = all.filter(other => other.code === ref.code && isRequest(other) === ref.request);
     rows.push(
       ...group(
-        'Definitions',
+        words.definitions,
         'popup-others',
         printed.map(other => otherRow(other, 'place-other')),
       ),
@@ -187,13 +191,16 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
   return (
     <Panel {...props} heading={heading} data={{ 'data-command': commandKey(ref) }}>
       <div class="popup-identity">
-        {(command ? commandIdentity(command) : [`Code ${ref.code} · ${ref.request ? 'Request' : 'Answer'}`]).map(
-          (text, index) => (
-            <p key={index}>{text}</p>
-          ),
-        )}
+        {(command
+          ? commandIdentity(command)
+          : [`${words.code(ref.code)} · ${ref.request ? words.request : words.answer}`]
+        ).map((text, index) => (
+          <p key={index}>{text}</p>
+        ))}
       </div>
-      {rule?.members.length ? <RuleContents rule={rule} open={false} title="AVPs" categories={categories} /> : null}
+      {rule?.members.length ? (
+        <RuleContents rule={rule} open={false} title={words.avps} categories={categories} />
+      ) : null}
       {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}
     </Panel>
   );

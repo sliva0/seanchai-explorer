@@ -1,10 +1,11 @@
 import type { JumpEntry, JumpWalk } from './jump-list.ts';
+import { jumps } from './text/document.ts';
 
 const buttons: { walk: JumpWalk; glyph: string; way: string; key: string; end: string }[] = [
-  { walk: 'back', glyph: '‹', way: 'Back', key: 'Ctrl+O', end: 'No earlier position' },
-  { walk: 'forward', glyph: '›', way: 'Forward', key: 'Ctrl+I', end: 'No later position' },
-  { walk: 'backDocument', glyph: '«', way: 'Back', key: '[d', end: 'No earlier document' },
-  { walk: 'forwardDocument', glyph: '»', way: 'Forward', key: ']d', end: 'No later document' },
+  { walk: 'back', glyph: '‹', way: jumps.back, key: 'Ctrl+O', end: jumps.noEarlierPosition },
+  { walk: 'forward', glyph: '›', way: jumps.forward, key: 'Ctrl+I', end: jumps.noLaterPosition },
+  { walk: 'backDocument', glyph: '«', way: jumps.back, key: '[d', end: jumps.noEarlierDocument },
+  { walk: 'forwardDocument', glyph: '»', way: jumps.forward, key: ']d', end: jumps.noLaterDocument },
 ];
 
 /** Where each walk would land, named as its button says it: a walk with nowhere to go is left out. */
@@ -30,7 +31,7 @@ export function jumpTargets(
 export function JumpControls({ targets, onWalk }: { targets: JumpTargets; onWalk(walk: JumpWalk): void }) {
   const button = ({ walk, glyph, way, key, end }: (typeof buttons)[number]) => {
     const to = targets[walk];
-    const title = to ? `${way} to ${to} (${key})` : `${end} (${key})`;
+    const title = to ? jumps.to(way, to, key) : jumps.end(end, key);
     return (
       <button
         key={walk}
@@ -49,7 +50,7 @@ export function JumpControls({ targets, onWalk }: { targets: JumpTargets; onWalk
     );
   };
   return (
-    <div class="jump-controls" role="group" aria-label="Jumps">
+    <div class="jump-controls" role="group" aria-label={jumps.group}>
       <div class="jump-pair">{buttons.slice(0, 2).map(button)}</div>
       <div class="jump-pair">{buttons.slice(2).map(button)}</div>
     </div>

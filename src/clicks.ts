@@ -1,5 +1,6 @@
 import type { Place } from './avp-places.ts';
 import type { ValueToken } from './values.ts';
+import { clickWords } from './text/document.ts';
 
 export interface ClickModifiers {
   altKey: boolean;
@@ -80,19 +81,19 @@ const PLAIN_CLICK: ClickModifiers = { altKey: false, ctrlKey: false, metaKey: fa
 
 /** What an action does for a name, in a tooltip's words. */
 function saying(token: ValueToken, action: ClickAction, context: ClickContext): string {
-  if (action.type === 'inspect') return 'show it in pane';
+  if (action.type === 'inspect') return clickWords.showInPane;
   if (action.type === 'pane')
     return token.valueRow
-      ? 'source row in pane'
+      ? clickWords.sourceRowInPane
       : action.place.position?.occurrence
-        ? 'find in pane'
-        : `${action.place.of ?? 'definition'} in pane`;
+        ? clickWords.findInPane
+        : clickWords.inPane(action.place.of ?? clickWords.definition);
   if (action.type === 'both') {
     if (context.paneOn && context.paneShows(action.place.document))
-      return `${token.valueRow ? 'source row' : (action.place.of ?? 'definition')} in both`;
-    return token.valueRow ? 'go to its row' : `go to ${action.place.of ?? 'definition'}`;
+      return clickWords.inBoth(token.valueRow ? clickWords.sourceRow : (action.place.of ?? clickWords.definition));
+    return token.valueRow ? clickWords.goToRow : clickWords.goTo(action.place.of ?? clickWords.definition);
   }
-  return token.source ? 'source in new tab' : '';
+  return token.source ? clickWords.sourceInNewTab : '';
 }
 
 /**
@@ -105,15 +106,15 @@ export function nameTitle(
   context: ClickContext,
   fallback?: Place,
 ): string {
-  const popup = token.valueRow ? 'its table' : token.command ? 'its definitions' : 'uses';
+  const popup = token.valueRow ? clickWords.valuePopup : token.command ? clickWords.commandPopup : clickWords.avpPopup;
   const plain = clickAction(token, place, PLAIN_CLICK, context, fallback);
   const alt = saying(token, clickAction(token, place, { ...PLAIN_CLICK, altKey: true }, context, fallback), context);
   const listing = plain.type === 'uses';
   const click = listing ? '' : saying(token, plain, context);
   return [
-    listing ? `Click or right-click: ${popup}` : click && `Click: ${click}`,
-    alt && alt !== click && `Alt-click: ${alt}`,
-    !listing && `Right-click: ${popup}`,
+    listing ? clickWords.clickOrRightClick(popup) : click && clickWords.click(click),
+    alt && alt !== click && clickWords.altClick(alt),
+    !listing && clickWords.rightClick(popup),
   ]
     .filter(Boolean)
     .join(' · ');

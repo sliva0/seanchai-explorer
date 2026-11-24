@@ -7,6 +7,8 @@ import { valueRowLabel } from '../values.ts';
 import type { ValueRow } from '../values.ts';
 import type { PopupProps } from './root.tsx';
 import { ExternalLink, Panel, placeRows } from './shared.tsx';
+import { strip } from '../text/document.ts';
+import { valuePopup as words } from '../text/popup.ts';
 
 /** The document a result code's row says defines it, as its link names it, else as the row prints it. */
 function originLabel(site: Site, { origin }: ValueRow): string {
@@ -29,28 +31,28 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
     documentPane.querySelector(`[data-line="${row.line}"] .value-name`)?.classList.add('avp-current');
   }, []);
   const placeRow = placeRows(site, pane, request);
-  const where = `${row.position.section}${row.position.page ? ` · p. ${row.position.page}` : ''}`;
+  const where = `${row.position.section}${row.position.page ? ` · ${strip.page(row.position.page)}` : ''}`;
   const href = pane.shows(doc) ? undefined : sourceHref(doc, row.position, site.mode);
   const origin = row.origin ? originPlace(row) : undefined;
   const originRow =
     origin &&
-    placeRow('Defined in', 'place-origin', origin, [originLabel(site, row), origin.target!.section].join(' · '));
+    placeRow(words.definedIn, 'place-origin', origin, [originLabel(site, row), origin.target!.section].join(' · '));
   return (
     <Panel {...props} heading={row.name} data={{ 'data-value': row.name }}>
       <p>
-        {`${valueRowLabel(table.kind)} ${row.value} of `}
+        {words.of(valueRowLabel(table.kind), row.value)}
         {table.avp &&
           (table.avp.target ? (
             <a href={routeFor({ ...table.avp.target, name: table.avp.name })}>{table.avp.name}</a>
           ) : (
             table.avp.name
           ))}
-        {table.featureListId !== null && ` · list ${table.featureListId}`}
+        {table.featureListId !== null && words.list(table.featureListId)}
         {table.application && ` · ${table.application}`}
         {row.mark && ` · ${row.mark}`}
       </p>
       <p>
-        {'Source: '}
+        {words.source}
         {pane.shows(doc) ? (
           <button
             class="usage-link source-link"
@@ -71,7 +73,7 @@ export function ValuePopup(props: PopupProps & { row: ValueRow }) {
         (originRow ? (
           <div class="popup-places">{originRow}</div>
         ) : (
-          <p class="value-origin">{`Defined in ${row.origin.reference}`}</p>
+          <p class="value-origin">{words.definedInReference(row.origin.reference)}</p>
         ))}
     </Panel>
   );

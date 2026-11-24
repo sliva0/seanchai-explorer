@@ -12,6 +12,8 @@ import type { SourcePane } from '../source-pane.tsx';
 import { tablePlace } from '../tables.ts';
 import { useAnchoring } from './place.ts';
 import type { PopupProps, PopupRequest } from './root.tsx';
+import { popupShared as words } from '../text/popup.ts';
+import { tableName } from '../text/terms.ts';
 
 /** A title and its count as a muted badge, for a heading or toggle. */
 export const Counted = ({ title, count }: { title: string; count: number }) => (
@@ -30,7 +32,7 @@ export function TableLink({
   site,
   document,
   table,
-  text = `table ${table}`,
+  text = tableName(table),
 }: {
   site: Site;
   document: string;
@@ -104,7 +106,7 @@ function FloatingPanel({ request, anchor, close, heading, data, alignLabels, chi
     <section ref={panel} class="avp-popup" role="dialog" aria-label={heading} {...data}>
       <div class="popup-title">
         <strong>{heading}</strong>
-        <button ref={closer} aria-label="Close" onClick={() => close(true)}>
+        <button ref={closer} aria-label={words.close} onClick={() => close(true)}>
           ×
         </button>
       </div>
@@ -148,7 +150,7 @@ export function placeRows(site: Site, pane: SourcePane, { doc, raw }: PopupReque
     const href = !inPane && place.position ? sourceHref(summary, place.position, site.mode) : null;
     return (
       <div class={`popup-place ${className}`}>
-        <span>{`${label}:`}</span>
+        <span>{words.placeLabel(label)}</span>
         <span class="place-cell">
           {href ? (
             <ExternalLink class="place-where" href={href.href}>
@@ -168,21 +170,19 @@ export function placeRows(site: Site, pane: SourcePane, { doc, raw }: PopupReque
           <a
             class="control view-action"
             href={placeRoute(place, doc, raw)}
-            title={
-              inPane ? 'Moves the text on the left and the source pane on the right' : 'Moves the text to this place'
-            }
+            title={inPane ? words.jumpToBoth : words.jumpToText}
           >
-            Jump to
+            {words.jumpTo}
           </a>
         )}
         {inPane && (
           <button
             class="control pane-action"
             type="button"
-            title="Moves only the source pane on the right, and opens it if it is hidden"
+            title={words.showOnTheRightTitle}
             onClick={() => pane.openPlace(place, doc)}
           >
-            Show on the right
+            {words.showOnTheRight}
           </button>
         )}
       </div>
@@ -215,10 +215,10 @@ export function RuleContents({
           const struck = item.struck || item.strikethrough;
           const note = [
             presenceShort(item),
-            item.name === 'AVP' && 'any other AVP',
-            item.bold && 'bold',
-            struck && 'struck through',
-            categories?.get(item.name) && `category ${categories.get(item.name)}`,
+            item.name === 'AVP' && words.anyOtherAvp,
+            item.bold && words.bold,
+            struck && words.struckThrough,
+            categories?.get(item.name) && words.category(categories.get(item.name)!),
           ]
             .filter(Boolean)
             .join(' · ');
@@ -240,10 +240,10 @@ export function Steps({ count, widest, select }: { count: string; widest: string
     <div class="popup-actions">
       <span style={{ minWidth: `${widest.length}ch` }}>{count}</span>
       <button class="control" onClick={() => select(-1)}>
-        Previous
+        {words.previous}
       </button>
       <button class="control" onClick={() => select(1)}>
-        Next
+        {words.next}
       </button>
     </div>
   );
