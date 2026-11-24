@@ -44,7 +44,7 @@ test("prepare uses the export's grammar, the fallback when it has none, and leav
   }
 });
 
-test("prepare keeps the export's command index, and derives the element index from its documents", async () => {
+test("prepare keeps the export's command index, and derives the element index from its blocks' described_by", async () => {
   const exported = fileURLToPath(new URL('../fixtures/export/', import.meta.url));
   prepare(exported);
   const read = async (directory, file) => JSON.parse(await readFile(path.join(directory, file), 'utf8'));
@@ -53,7 +53,7 @@ test("prepare keeps the export's command index, and derives the element index fr
   assert.equal(elements.schema_version, 3);
   assert.deepEqual(
     elements.tables.find(table => table.document === '29328-j20' && table.command === 'User-Data-Request').message,
-    { document: '29329-j10', section: '6.1.1', name: 'User-Data-Request', line: 10 },
+    { document: '29329-j10', section: '6.1.1', name: 'User-Data-Request', line: 10, ordinal: 0 },
   );
 });
 

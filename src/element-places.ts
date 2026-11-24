@@ -17,7 +17,7 @@ export function elementPlace(
 ): Place {
   const target = { document: table.document, section: table.section, name: avp };
   if (table.document !== doc.id) return { document: table.document, target, line: row.line };
-  const block = elementsBlock(file, table.section, table.command);
+  const block = elementsBlock(file, table.section, table.command, table.table);
   const line = block?.element_rows?.find(other => other.name === row.name && other.avps?.includes(avp))?.line;
   return {
     document: doc.id,
@@ -35,7 +35,7 @@ export function tablePlace(table: ElementTable, file: DadFile, doc: Pick<Documen
     document: doc.id,
     position: { section: table.section, page: table.page },
     target,
-    line: elementsBlock(file, table.section, table.command)?.line ?? table.line,
+    line: elementsBlock(file, table.section, table.command, table.table)?.line ?? table.line,
   };
 }
 
@@ -57,7 +57,7 @@ export function memberPlaces(
       },
     }));
   }
-  const block = messageBlock(file, message.section, message.name);
+  const block = messageBlock(file, message.section, message.name, message.ordinal);
   return (block?.rule?.members ?? [])
     .filter(member => row.avps.includes(member.name))
     .map(member => ({

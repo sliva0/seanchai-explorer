@@ -285,7 +285,7 @@ function elementFacts(
     [label(table.document), table.section, table.table && `table ${table.table}`].filter(Boolean).join(' · ');
   if (use?.kind === 'member') {
     const block = blockAt(file, use.rule.line);
-    const found = block ? memberElements(tablesFor(index, doc.id, block), use.member.name) : [];
+    const found = block ? memberElements(tablesFor(index, doc.id, block, file), use.member.name) : [];
     return {
       notes: found.map(({ row }) => `Element: ${elementText(row)}`),
       places: found

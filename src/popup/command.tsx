@@ -90,8 +90,9 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
   const blockFile = command && (command.document === doc.id ? file : site.held(command.document));
   const rule = blockFile && ruleAt(blockFile, command.line);
   const all = allCommands(file, doc, index);
-  // The Information Elements tables describing the block, which may be another document's.
-  const elementTables = command ? tablesFor(site.elements(), command.document, command) : [];
+  // The Information Elements tables describing the block, which may be another document's: a block of the file at hand
+  // by its place among its clause's, one from the index by its line in the corrected text.
+  const elementTables = command ? tablesFor(site.elements(), command.document, command, ref.block && file) : [];
   const categories = new Map(
     (rule?.members ?? []).map(member => [member.name, categoriesOf(memberElements(elementTables, member.name))]),
   );

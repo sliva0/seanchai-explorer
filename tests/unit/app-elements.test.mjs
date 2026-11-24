@@ -1,7 +1,8 @@
 // Information Elements tables: what they say of a command's members, and the ways between a member and its row.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { elementIndex, elementsTitle } from '../../src/elements.ts';
+import { memberPlaces } from '../../src/element-places.ts';
+import { elementIndex, elementsTitle, memberMarks, tablesFor } from '../../src/elements.ts';
 import { absent, boot, commandNames, elementsOfFixture, popupOf, present, readFixture, settle } from './helpers.mjs';
 
 const nameOn = (document, name, line) =>
@@ -15,7 +16,13 @@ const jump = row => row.querySelector('.view-action').getAttribute('href');
 test('the element index has a table once for each Message block it describes, in its document or another', async () => {
   const index = await elementsOfFixture();
   const udr = index.tables.find(table => table.document === '29328-j20' && table.command === 'User-Data-Request');
-  assert.deepEqual(udr.message, { document: '29329-j10', section: '6.1.1', name: 'User-Data-Request', line: 10 });
+  assert.deepEqual(udr.message, {
+    document: '29329-j10',
+    section: '6.1.1',
+    name: 'User-Data-Request',
+    line: 10,
+    ordinal: 0,
+  });
   assert.equal(udr.table, '6.1.1.1');
   assert.deepEqual(udr.rows[0], {
     line: 17,
@@ -32,9 +39,51 @@ test('the element index has a table once for each Message block it describes, in
     result.members.map(member => member.name),
     ['Result-Code', 'Experimental-Result'],
   );
-  const doc = await readFixture('documents/29328-j20.json');
-  const named = { ...doc, blocks: doc.blocks.map(block => ({ ...block, described: [] })) };
-  assert.deepEqual(elementIndex([named], 3).tables, [], 'a table the export finds no command for describes none');
+  const tables = { ...(await readFixture('documents/29328-j20.json')), id: '29328-j20' };
+  const commands = { ...(await readFixture('documents/29329-j10.json')), id: '29329-j10' };
+  assert.ok(elementIndex([tables, commands], 3).tables.length > 0);
+  const unlisted = { ...commands, blocks: commands.blocks.map(block => ({ ...block, described_by: undefined })) };
+  assert.deepEqual(elementIndex([tables, unlisted], 3).tables, [], 'a block listing no table is described by none');
+});
+
+// TS 29.272's clause 7.2.9 prints IDR twice, for S6a's application id and S6d's, each described by its own table.
+const IDR = { corrected: [174, 197], raw: [166, 189], member: 13 };
+
+test('of two blocks of one command in a clause, each has the tables its described_by lists, in the raw view too', async () => {
+  const index = await elementsOfFixture();
+  const file = await readFixture('documents/29272-j60.json');
+  const raw = await readFixture('documents/29272-j60.raw.json');
+  const idr = index.tables.filter(table => table.command === 'Insert-Subscriber-Data-Request');
+  assert.deepEqual(
+    idr.map(({ table, message }) => [table, message.line, message.ordinal]),
+    [
+      ['5.2.2.1.1/1', 174, 0],
+      ['5A.2.2.1.1/1', 197, 1],
+    ],
+  );
+  const block = (from, line) => from.blocks.find(other => other.line === line);
+  const said = (from, line) => tablesFor(index, '29272-j60', block(from, line), from).map(table => table.table);
+  assert.deepEqual(said(file, IDR.corrected[0]), ['5.2.2.1.1/1']);
+  assert.deepEqual(said(file, IDR.corrected[1]), ['5A.2.2.1.1/1']);
+  assert.deepEqual(said(raw, IDR.raw[0]), ['5.2.2.1.1/1'], "a raw block by its place among its clause's");
+  assert.deepEqual(said(raw, IDR.raw[1]), ['5A.2.2.1.1/1']);
+  const byLine = tablesFor(index, '29272-j60', block(file, IDR.corrected[1]));
+  assert.deepEqual(
+    byLine.map(table => table.table),
+    ['5A.2.2.1.1/1'],
+    "without a file, a block of the corrected text by its line, as commands.json gives another document's",
+  );
+  const marked = (from, line) =>
+    memberMarks(from, '29272-j60', index)
+      .get(line)
+      ?.map(({ table }) => table.table);
+  assert.deepEqual(marked(file, IDR.corrected[0] + IDR.member), ['5.2.2.1.1/1']);
+  assert.deepEqual(marked(file, IDR.corrected[1] + IDR.member), ['5A.2.2.1.1/1']);
+  assert.deepEqual(marked(raw, IDR.raw[1] + IDR.member), ['5A.2.2.1.1/1']);
+  const s6d = idr.find(table => table.table === '5A.2.2.1.1/1');
+  const members = memberPlaces(s6d, s6d.rows[0], file, { id: '29272-j60' });
+  assert.ok(members.length > 0);
+  for (const { place } of members) assert.ok(place.line > IDR.corrected[1], "the S6d block's member, not S6a's");
 });
 
 test('a clause of tables is titled by the commands they describe, and by the number or count of those naming none', () => {

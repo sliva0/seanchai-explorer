@@ -66,8 +66,9 @@ if (problem) {
   throw new Error(problem);
 }
 
-// What a member's information elements are, which a document's tables may say of another's commands, and for an
-// export of schema 2, which has no commands.json, what a command's popup says of the corpus.
+// What a member's information elements are, which a document's tables may say of another's commands, from each
+// Message block's described_by, and for an export of schema 2, which has no commands.json, what a command's popup says
+// of the corpus.
 const read = async file => JSON.parse(await readFile(path.join(temporary, file), 'utf8'));
 const documents = await Promise.all(index.documents.map(async doc => ({ ...(await read(doc.path)), id: doc.id })));
 await writeFile(path.join(temporary, 'elements.json'), JSON.stringify(elementIndex(documents, index.schema_version)));

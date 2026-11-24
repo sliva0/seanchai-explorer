@@ -16,7 +16,8 @@ export interface IndexedElementRow {
 
 /**
  * An Information Elements table describing one Message block: where the table is, its `; Type:` line and `; Table:`,
- * the command its `; Command:` names, and the block, by its document, clause and name, and its `; Type:` line there.
+ * the command its `; Command:` names, and the block, by its document, clause and name, its `; Type:` line there, and
+ * `ordinal`, which of the clause's blocks of that name it is: TS 29.272's 7.2.9 has two, for S6a's and S6d's ids.
  */
 export interface ElementTable {
   document: string;
@@ -25,13 +26,13 @@ export interface ElementTable {
   line: number;
   table: string | null;
   command: string;
-  message: { document: string; section: string; name: string; line: number };
+  message: { document: string; section: string; name: string; line: number; ordinal: number };
   rows: IndexedElementRow[];
 }
 
 /**
- * `elements.json`, which prepare derives from the export's documents: every table the export finds its command for,
- * once for each Message block it describes, which may be another document's (TS 29.328's of TS 29.329's commands).
+ * `elements.json`, which prepare derives from the export's documents: every table a Message block's `described_by`
+ * lists, once for each block, which may be another document's (TS 29.328's tables of TS 29.329's commands).
  */
 export interface ElementIndex {
   schema_version: number;
@@ -46,34 +47,66 @@ const sameName = (a: string | null | undefined, b: string | null | undefined) =>
 
 const isElements = (block: Block) => block.type === 'Information Elements';
 
-/** The Message block of a command in a clause. */
-export const messageBlock = (file: DadFile, section: string, name: string): Block | undefined =>
-  file.blocks.find(block => block.type === 'Message' && block.section === section && sameName(block.name, name));
+/** A clause's Message blocks of a command, in file order. */
+const messageBlocks = (file: DadFile, section: string, name: string): Block[] =>
+  file.blocks.filter(block => block.type === 'Message' && block.section === section && sameName(block.name, name));
 
-/** The Information Elements block of a clause for a command: a table, in this file's lines. */
-export const elementsBlock = (file: DadFile, section: string, command: string): Block | undefined =>
-  file.blocks.find(block => isElements(block) && block.section === section && sameName(block.name, command));
+/** Which of its clause's Message blocks of its name a block is, `-1` for none: a raw mirror's and the corrected file's agree. */
+export const messageOrdinal = (file: DadFile, block: Pick<Block, 'section' | 'name' | 'line'>): number =>
+  block.name ? messageBlocks(file, block.section, block.name).findIndex(other => other.line === block.line) : -1;
 
-/** What `elements.json` says of a set of documents. */
+/** The Message block of a command in a clause, the `ordinal`th of that name there. */
+export const messageBlock = (file: DadFile, section: string, name: string, ordinal = 0): Block | undefined =>
+  messageBlocks(file, section, name)[ordinal];
+
+/** The Information Elements block of a clause for a command and table label: a table, in this file's lines. */
+export const elementsBlock = (
+  file: DadFile,
+  section: string,
+  command: string,
+  table: string | null = null,
+): Block | undefined =>
+  file.blocks.find(
+    block =>
+      isElements(block) &&
+      block.section === section &&
+      sameName(block.name, command) &&
+      (block.fields.Table ?? null) === table,
+  );
+
+/**
+ * What `elements.json` says of a set of documents: for each Message block, the tables its `described_by` names, with
+ * the lines of the members each row maps to. A raw mirror's blocks list none, so it is read over corrected files.
+ */
 export function elementIndex(documents: (DadFile & { id: string })[], schemaVersion: number): ElementIndex {
   const byId = new Map(documents.map(file => [file.id, file]));
   const tables: ElementTable[] = [];
   for (const file of documents) {
-    for (const block of file.blocks) {
-      if (!isElements(block) || !block.name) continue;
-      for (const at of block.described ?? []) {
-        const described = byId.get(at.document);
-        const message = described && at.section ? messageBlock(described, at.section, block.name) : undefined;
-        if (!message?.rule) continue;
-        const { members } = message.rule;
+    for (const message of file.blocks) {
+      if (message.type !== 'Message' || !message.name || !message.rule) continue;
+      const { members } = message.rule;
+      for (const at of message.described_by ?? []) {
+        const block = byId
+          .get(at.document)
+          ?.blocks.find(
+            other =>
+              isElements(other) && other.section === at.section && (other.fields.Table ?? null) === (at.table ?? null),
+          );
+        if (!block?.name) continue;
         tables.push({
-          document: file.id,
+          document: at.document,
           section: block.section,
           page: block.page,
           line: block.line,
           table: block.fields.Table ?? null,
           command: block.name,
-          message: { document: at.document, section: message.section, name: message.name!, line: message.line },
+          message: {
+            document: file.id,
+            section: message.section,
+            name: message.name,
+            line: message.line,
+            ordinal: messageOrdinal(file, message),
+          },
           rows: (block.element_rows ?? []).map(row => ({
             line: row.line,
             name: row.name,
@@ -94,23 +127,37 @@ export function elementIndex(documents: (DadFile & { id: string })[], schemaVers
 
 export const emptyElements = (schemaVersion: number): ElementIndex => ({ schema_version: schemaVersion, tables: [] });
 
-/** The tables describing a Message block of a document, or a command the index lists. */
-export const tablesFor = (
+/**
+ * The tables describing a Message block of a document: with `file`, the file the block's lines are of, a raw mirror
+ * too, by its clause, name and ordinal there; without, a block of the corrected text by its line, as `commands.json`
+ * gives another document's.
+ */
+export function tablesFor(
   index: ElementIndex | undefined,
   document: string,
-  block: Pick<Block, 'section' | 'name'>,
-): ElementTable[] =>
-  index?.tables.filter(
-    table =>
-      table.message.document === document &&
-      table.message.section === block.section &&
-      sameName(table.message.name, block.name),
-  ) ?? [];
+  block: Pick<Block, 'section' | 'name' | 'line'>,
+  file?: DadFile,
+): ElementTable[] {
+  const ordinal = file ? messageOrdinal(file, block) : undefined;
+  return (
+    index?.tables.filter(
+      ({ message }) =>
+        message.document === document &&
+        (ordinal === undefined
+          ? message.line === block.line
+          : message.section === block.section && sameName(message.name, block.name) && message.ordinal === ordinal),
+    ) ?? []
+  );
+}
 
 /** The tables a document's Information Elements block is, one for each Message block it describes. */
 export const tablesOf = (index: ElementIndex | undefined, document: string, block: Block): ElementTable[] =>
   index?.tables.filter(
-    table => table.document === document && table.section === block.section && sameName(table.command, block.name),
+    table =>
+      table.document === document &&
+      table.section === block.section &&
+      table.table === (block.fields.Table ?? null) &&
+      sameName(table.command, block.name),
   ) ?? [];
 
 /** A table's row naming a member, and the table: what the stage-3 text calls the member and how it categorises it. */
@@ -156,7 +203,7 @@ export function memberMarks(
   if (!index?.tables.length) return marks;
   for (const block of file.blocks) {
     if (block.type !== 'Message' || !block.rule) continue;
-    const tables = tablesFor(index, document, block);
+    const tables = tablesFor(index, document, block, file);
     if (!tables.length) continue;
     for (const member of block.rule.members) {
       const found = memberElements(tables, member.name);
