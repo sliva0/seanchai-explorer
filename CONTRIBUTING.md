@@ -53,7 +53,10 @@ is red. Without `specifications/`, the tests that need it skip, as they do in CI
 
 Run the unit tests through `npm test`. It runs them under `scripts/guard.mjs`, which kills every test process
 once one holds more than 2 GB or the run has taken five minutes (`TEST_MEMORY_MB`, `TEST_TIME_S`), caps each
-process's heap at 1 GB and each test at two minutes, and loads `tests/setup.mjs` first. Node caps neither memory
+process's heap at 1 GB and each test at two minutes, and loads `tests/setup.mjs` first. It runs three test files at a
+time (`--test-concurrency=3`), so the whole run fits in 3 GB: node's default, a file for each core but one, booting the
+site in each, took more than that on a machine of many cores, where a run under a 3 GB cap was killed. Run it with
+another `--test-concurrency` through the guard as below where a machine has more memory to give it. Node caps neither memory
 outside the V8 heap nor a loop that never yields, as a component setting its state on every draw does, and either
 would otherwise take the machine: a failed assertion prints its operands to a depth of 1000, and printing a DOM node
 walks the whole document and window. `tests/setup.mjs` makes a strict comparison over a node fail with each node
