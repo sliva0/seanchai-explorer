@@ -265,7 +265,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "99a3ab2c25290797c86cd5a0e20772a3b2a21870"
+  "commit": "d3fd1b1fd942b6b9e419dbfaad66e52f6dc9cf2b"
 }
 ```
 
