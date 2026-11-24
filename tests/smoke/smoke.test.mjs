@@ -1790,3 +1790,101 @@ test('the shell is chosen by keyboard, and its script keeps its lines inside a n
   }
   await done();
 });
+
+test(
+  "the index's tabs: a row opens its document from any cell, a drag in it selects, and a release keeps the columns",
+  { skip },
+  async () => {
+    const { page, context, done } = await open('');
+    assert.deepEqual(
+      await page.locator('.index-tabs a').evaluateAll(links => links.map(a => [a.getAttribute('href'), a.ariaCurrent])),
+      [
+        ['#', 'true'],
+        ['#index/ietf', null],
+        ['#', 'page'],
+        ['#index/3gpp/older', null],
+      ],
+    );
+    const row = page.locator('main tbody tr:has(a.row-link[href="#29217-j00"])');
+    assert.equal(await row.locator('a').count(), 1, "one link and one stop for the keyboard, the number's");
+    const background = () => row.evaluate(node => getComputedStyle(node).backgroundColor);
+    const resting = await background();
+    // The gap after the interfaces, which no cell's text reaches.
+    const interfaces = await row.locator('.doc-interfaces').boundingBox();
+    const gap = [interfaces.x + interfaces.width - 4, interfaces.y + interfaces.height / 2];
+    await page.mouse.move(...gap);
+    assert.notEqual(await background(), resting, 'a row under the pointer is marked');
+    assert.equal(
+      await page.evaluate(([x, y]) => document.elementFromPoint(x, y).closest('a')?.getAttribute('href'), gap),
+      '#29217-j00',
+      "the number's link reaches there, a link the browser's own menu and keys act on",
+    );
+    const columns = async () =>
+      page
+        .locator('main thead th')
+        .evaluateAll(cells => cells.map(cell => Math.round(cell.getBoundingClientRect().left)));
+    const before = await columns();
+
+    // A drag over the title selects its text and opens nothing.
+    const title = await row.locator('.doc-title .cell-text').boundingBox();
+    await page.mouse.move(title.x + 1, title.y + title.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(title.x + title.width - 1, title.y + title.height / 2, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(100);
+    assert.equal(await page.evaluate(() => location.hash), '');
+    assert.ok((await page.evaluate(() => getSelection().toString())).length > 10, 'the title is selected');
+
+    // A cell's text opens the document: in a new tab with Ctrl or the middle button, and in this one plainly.
+    for (const [cell, options] of [
+      ['.doc-version', { modifiers: ['Control'] }],
+      ['.doc-title', { button: 'middle' }],
+    ]) {
+      const [opened] = await Promise.all([
+        context.waitForEvent('page'),
+        row.locator(`${cell} .cell-text`).click(options),
+      ]);
+      await opened.waitForLoadState();
+      assert.match(opened.url(), /#29217-j00$/, cell);
+      await opened.close();
+      assert.equal(await page.evaluate(() => location.hash), '', 'this tab stays');
+    }
+    await row.locator('.doc-interfaces .cell-text').click();
+    await page.waitForSelector('.document-header h1:has-text("29.217")');
+    await page.goBack();
+    await page.waitForSelector('main.index-view');
+    await page.mouse.click(...gap);
+    await page.waitForSelector('.document-header h1:has-text("29.217")');
+    await page.goBack();
+    await page.waitForSelector('main.index-view');
+
+    await page.locator('.release-tabs a', { hasText: 'Older copies' }).click();
+    await page.waitForFunction(() => location.hash === '#index/3gpp/older');
+    assert.equal(await page.evaluate(() => document.activeElement.textContent), 'Older copies1', 'the focus stays');
+    assert.deepEqual(await columns(), before, 'the columns stay where they were');
+    assert.match(await page.locator('main tbody .doc-reason').first().textContent(), /^Release 6 · /);
+    await page.locator('.index-tabs a', { hasText: 'IETF' }).click();
+    await page.waitForFunction(() => location.hash === '#index/ietf');
+    await page.goBack();
+    await page.waitForFunction(() => location.hash === '#index/3gpp/older');
+    assert.match(
+      await page.locator('main tbody .doc-reason').first().textContent(),
+      /^Release 6 · /,
+      'Back is the tab left',
+    );
+    await page.goto(base + '#29217-j00');
+    await page.waitForSelector('main #document');
+    await page.locator('header nav a', { hasText: 'Index' }).click();
+    await page.waitForFunction(() => location.hash === '#index/3gpp/older', null, { timeout: 2000 });
+
+    await page.setViewportSize({ width: 420, height: 800 });
+    assert.equal(
+      await page.evaluate(
+        () => document.querySelector('#content').scrollWidth - document.querySelector('#content').clientWidth,
+      ),
+      0,
+      'a narrow window wraps the tabs and rows, and scrolls nothing sideways',
+    );
+    await done();
+  },
+);

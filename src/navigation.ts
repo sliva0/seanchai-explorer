@@ -35,7 +35,12 @@ export interface Route extends RouteOptions {
 
 /** The Wireshark plugin's page, a route no document's id can be: ids are an export's file names, specifications and RFCs. */
 export const WIRESHARK = 'wireshark';
-const SITE_PAGES = new Set(['search', WIRESHARK]);
+/** The index's tabs other than its first, `#index/ietf`, whose route keeps the rest of its path as its section. */
+export const INDEX = 'index';
+const SITE_PAGES = new Set(['search', WIRESHARK, INDEX]);
+
+/** Whether a route is the index, at its first tab or another. */
+export const isIndex = (document: string) => !document || document === INDEX;
 
 /** Whether a route's first part names a document, and not the index or one of the site's own pages. */
 export function namesDocument(document: string): boolean {
@@ -43,7 +48,9 @@ export function namesDocument(document: string): boolean {
 }
 
 /** What a route shows, apart from where in it: a change of this is a new browser history entry. A document's corrected and raw text have different lines, so they are two pages. */
-export function pageOf(route: Pick<Route, 'document' | 'raw'>): string {
+export function pageOf(route: Pick<Route, 'document' | 'raw'> & { section?: string }): string {
+  // Each of the index's tabs is a page, so Back returns to the tab left; `#index` alone is the first, as `#` is.
+  if (isIndex(route.document)) return route.section ? `${INDEX}/${route.section}` : '';
   return namesDocument(route.document) && route.raw ? `${route.document}?raw` : route.document;
 }
 
@@ -94,7 +101,9 @@ export function parseRoute(hash: string): Route {
   const [path, query] = hash.replace(/^#/, '').split('?');
   const params = new URLSearchParams(query);
   try {
-    const [document = '', section = ''] = path.split('/').map(decodeURIComponent);
+    const [document = '', ...rest] = path.split('/').map(decodeURIComponent);
+    // A document's section is one part, its own slashes escaped; an index tab is a publisher and a release.
+    const section = document === INDEX ? rest.join('/') : (rest[0] ?? '');
     const lineNumber = (name: string) => {
       const value = Number(params.get(name));
       return params.has(name) && Number.isInteger(value) && value >= 0 ? { [name]: value } : {};

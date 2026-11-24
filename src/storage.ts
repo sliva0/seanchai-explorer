@@ -15,6 +15,8 @@ export const storageKeys = {
   installShell: 'seanchai-install-shell',
   /** Local: `visible` or `hidden`, the PDF viewer's chapters. */
   outline: 'seanchai-outline',
+  /** Local: the index's tab last shown, as its route after `#index/`, `ietf` or `3gpp/18`; empty for the first. */
+  indexTab: 'seanchai-index-tab',
   /** Local: the PDF viewer's zoom, as its select's value. */
   zoom: 'seanchai-zoom',
   /** Session: where each document was left, as JSON. */

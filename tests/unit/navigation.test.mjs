@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { pageOf, parseRoute, routeFor } from '../../src/navigation.ts';
+import { namesDocument, pageOf, parseRoute, routeFor } from '../../src/navigation.ts';
 
 test('section and raw links survive encoding and parsing', () => {
   const hash = routeFor({ document: '29272-i70', section: '7.3.138' }, { raw: true });
@@ -52,4 +52,16 @@ test('a page is what a route shows, apart from where in it', () => {
   assert.equal(page('#search?q=x'), 'search');
   assert.equal(page(''), '');
   assert.equal(page('#'), '');
+  assert.equal(page('#index'), '', "the index's first tab, whichever way it is named");
+  assert.equal(page('#index/ietf'), 'index/ietf', 'each of its other tabs a page');
+  assert.equal(page('#index/3gpp/18'), 'index/3gpp/18');
+});
+
+test("an index tab's route keeps the publisher and the release, and names no document", () => {
+  assert.deepEqual(
+    [parseRoute('#index/3gpp/older')].map(({ document, section }) => [document, section]),
+    [['index', '3gpp/older']],
+  );
+  assert.equal(parseRoute('#29214-i40/5.4/more').section, '5.4', "a document's section is one part, as before");
+  assert.equal(namesDocument('index'), false);
 });

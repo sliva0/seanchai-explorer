@@ -4,6 +4,7 @@ import type { Site } from './data.ts';
 import { DocumentPage } from './document-view.tsx';
 import type { DocumentView, ViewServices } from './document-view.tsx';
 import { HelpDialog, HelpToggle, useHelp } from './help.tsx';
+import type { IndexTab } from './index-tabs.ts';
 import { IndexView } from './index-view.tsx';
 import { JumpControls } from './jump-controls.tsx';
 import { takesTyping } from './keys.ts';
@@ -19,7 +20,8 @@ import { WiresharkView } from './wireshark-view.tsx';
 export type Page =
   /** Nothing yet: the site is still being opened. */
   | { kind: 'start' }
-  | { kind: 'index' }
+  /** The index at a tab, none where the corpus holds no documents. */
+  | { kind: 'index'; tab: IndexTab | undefined }
   /** A search; `key` is the arrival, each of which starts the page afresh. */
   | { kind: 'search'; key: number; query: string; returning: boolean; onReady(): void }
   | { kind: 'wireshark' }
@@ -43,6 +45,8 @@ export interface AppProps {
   /** Where each walk of the jump list goes, for a document's buttons. */
   jumps: JumpTargets;
   walk(walk: JumpWalk): void;
+  /** Where the header's Index goes: the index's tab last shown in this browser. */
+  indexHref: string;
 }
 
 /** The content's class, which the stylesheet lays each page out by. */
@@ -71,12 +75,17 @@ function NavLink({
   );
 }
 
-function Content({ site, page, jumps, walk }: Omit<AppProps, 'theme' | 'toggleTheme'>): ComponentChildren {
+function Content({
+  site,
+  page,
+  jumps,
+  walk,
+}: Omit<AppProps, 'theme' | 'toggleTheme' | 'indexHref'>): ComponentChildren {
   switch (page.kind) {
     case 'start':
       return null;
     case 'index':
-      return <IndexView site={site!} />;
+      return <IndexView site={site!} tab={page.tab} />;
     case 'search':
       return (
         <SearchView key={page.key} site={site!} query={page.query} returning={page.returning} onReady={page.onReady} />
@@ -137,7 +146,7 @@ function useSearchKey() {
 
 /** The site: the header, and the page the route shows under it. */
 export function App(props: AppProps) {
-  const { page, theme, toggleTheme } = props;
+  const { page, theme, toggleTheme, indexHref } = props;
   const help = useHelp();
   useSearchKey();
   const other = theme === 'light' ? 'Dark' : 'Light';
@@ -157,7 +166,7 @@ export function App(props: AppProps) {
       </a>
       <header>
         <nav>
-          <NavLink href="#" current={page.kind === 'index'}>
+          <NavLink href={indexHref} current={page.kind === 'index'}>
             Index
           </NavLink>
           <NavLink href="#search" current={page.kind === 'search'}>

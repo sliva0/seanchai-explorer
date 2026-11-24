@@ -1,119 +1,164 @@
+import type { ComponentChildren } from 'preact';
 import { useState } from 'preact/hooks';
-import { docNumber, docSubject, interfacesOf, publisherRank } from './data.ts';
+import { docNumber, docSubject, interfacesOf } from './data.ts';
 import type { Site } from './data.ts';
+import { OLDER, releaseLabel, tabHref } from './index-tabs.ts';
+import type { IndexTab } from './index-tabs.ts';
 import { routeFor } from './navigation.ts';
-import { CLICK_HINT, INTRO, PYPI, REPOSITORY, SEARCH_PLACEHOLDER } from './site-text.ts';
+import { CLICK_HINT, INTRO, OLDER_COPIES, PYPI, REPOSITORY, SEARCH_PLACEHOLDER } from './site-text.ts';
 import type { DocumentSummary } from './types.ts';
 
 /** A longer list of interfaces wraps, rather than push every title in its group across. */
 const MAX_INTERFACES_WIDTH = 24;
-
-function byName(a: DocumentSummary, b: DocumentSummary) {
-  return a.specification.localeCompare(b.specification, undefined, { numeric: true }) || a.id.localeCompare(b.id);
-}
 
 /** The heading above says the publisher and any release, so a row has only to tell an edition with no release. */
 function rowNumber(doc: DocumentSummary, site: Site): string {
   return [docNumber(doc), doc.release ? '' : site.edition(doc)].filter(Boolean).join(' ');
 }
 
-function DocumentRow({ doc, site }: { doc: DocumentSummary; site: Site }) {
-  const href = routeFor({ document: doc.id });
+const versionOf = (doc: DocumentSummary) => (doc.version ? `V${doc.version}` : '');
+
+/** A cell's text: over the row's link, so that a drag selects it, which no browser lets a drag over a link's text do. */
+function CellText({ children }: { children: ComponentChildren }) {
+  return <span class="cell-text">{children}</span>;
+}
+
+/**
+ * A row is one link, the number's, which is the row's one stop for the keyboard and reaches over the whole row, under
+ * the other cells' text; a click on that text is passed to it (see `followRow`).
+ */
+function DocumentRow({ doc, site, versioned }: { doc: DocumentSummary; site: Site; versioned: boolean }) {
   const subject = docSubject(doc);
+  const interfaces = interfacesOf(doc);
+  // The older copies' tab holds every release: the reason a copy is held says which.
+  const reason = doc.pinned && [doc.release && releaseLabel(doc.release), doc.pinned].filter(Boolean).join(' · ');
   return (
     <tr>
       <td class="doc-number">
-        <a href={href}>{rowNumber(doc, site)}</a>
+        <a class="row-link" href={routeFor({ document: doc.id })}>
+          {rowNumber(doc, site)}
+        </a>
       </td>
-      <td class="doc-interfaces">{interfacesOf(doc)}</td>
+      {versioned && <td class="doc-version">{doc.version && <CellText>{versionOf(doc)}</CellText>}</td>}
+      <td class="doc-interfaces">{interfaces && <CellText>{interfaces}</CellText>}</td>
       <td class="doc-title">
-        {/* A wider target for the mouse: the number is this row's one stop for the keyboard. */}
-        {subject && (
-          <a href={href} tabIndex={-1}>
+        {(subject || reason) && (
+          <CellText>
             {subject}
-          </a>
+            {reason && <span class="doc-reason">{reason}</span>}
+          </CellText>
         )}
-        {doc.pinned && <p>{doc.pinned}</p>}
       </td>
     </tr>
   );
 }
 
-function DocumentTable({ docs, site }: { docs: DocumentSummary[]; site: Site }) {
+/** Where the last press in a table was, to tell a click from the end of a drag. */
+let pressed: { x: number; y: number } | undefined;
+
+function press(event: MouseEvent) {
+  pressed = { x: event.clientX, y: event.clientY };
+}
+
+/**
+ * A click on a cell's text follows the row's link as a click on the link would, with its button and keys, so that the
+ * middle button or Ctrl opens it in a new tab. One ending a drag that selected text leaves the selection; a click with
+ * Ctrl leaves a selection made before it as it is, so the selection alone does not say.
+ */
+function followRow(event: MouseEvent) {
+  const target = event.target as Element;
+  if (target.closest('a') || (event.type === 'auxclick' && event.button !== 1)) return;
+  const link = target.closest('tr')?.querySelector<HTMLAnchorElement>('.row-link');
+  const dragged = pressed && Math.hypot(event.clientX - pressed.x, event.clientY - pressed.y) > 3;
+  if (!link || (dragged && document.getSelection()?.toString().trim())) return;
+  event.preventDefault();
+  const { button, ctrlKey, shiftKey, altKey, metaKey, view } = event;
+  // The event's own kind, of the window it came from.
+  const Click = event.constructor as typeof MouseEvent;
+  link.dispatchEvent(
+    new Click('click', {
+      bubbles: true,
+      cancelable: true,
+      view,
+      button,
+      ctrlKey,
+      shiftKey,
+      altKey,
+      metaKey,
+    }),
+  );
+}
+
+function DocumentTable({ docs, site, versioned }: { docs: DocumentSummary[]; site: Site; versioned: boolean }) {
   return (
     <table class="document-table">
       <colgroup>
         <col class="number-column" />
+        {versioned && <col class="version-column" />}
         <col class="interfaces-column" />
         <col class="title-column" />
       </colgroup>
       <thead>
         <tr>
           <th>Number</th>
+          {versioned && <th>Version</th>}
           <th>Interfaces</th>
           <th>Title</th>
         </tr>
       </thead>
-      <tbody>
-        {docs.toSorted(byName).map(doc => (
-          <DocumentRow key={doc.id} doc={doc} site={site} />
+      <tbody onMouseDown={press} onClick={followRow} onAuxClick={followRow}>
+        {docs.map(doc => (
+          <DocumentRow key={doc.id} doc={doc} site={site} versioned={versioned} />
         ))}
       </tbody>
     </table>
   );
 }
 
-/** Documents by publisher, newest release first, with the pinned older ones folded with their reasons. */
-function Release({ name, docs, site }: { name: string; docs: DocumentSummary[]; site: Site }) {
-  const pinned = docs.filter(doc => doc.pinned);
-  const current = docs.filter(doc => !doc.pinned);
+interface TabLink {
+  key: string;
+  href: string;
+  label: string;
+  count: number;
+  current: 'page' | 'true' | undefined;
+}
+
+/** A row of the index's tabs, each a link to its route, the one shown marked current. */
+function Tabs({ label, tabs, release }: { label: string; tabs: TabLink[]; release?: boolean }) {
   return (
-    <section>
-      {current.length > 0 && (
-        <>
-          <h2>{name}</h2>
-          <DocumentTable docs={current} site={site} />
-        </>
-      )}
-      {pinned.length > 0 && (
-        <details class="pinned-release">
-          <summary>{`${name}: ${pinned.length} held for later citations`}</summary>
-          <DocumentTable docs={pinned} site={site} />
-        </details>
-      )}
-    </section>
+    <nav class={release ? 'index-tabs release-tabs' : 'index-tabs'} aria-label={label}>
+      {tabs.map(tab => (
+        <a key={tab.key} class="index-tab" href={tab.href} aria-current={tab.current}>
+          {tab.label}
+          <span class="tab-count">{tab.count}</span>
+        </a>
+      ))}
+    </nav>
   );
 }
 
-/** A publisher's tables, separate by release and fold, with their columns one width: the two narrow ones are monospace. */
-function Publisher({
-  publisher,
-  releases,
-  site,
-}: {
-  publisher: string;
-  releases: Map<number | null, DocumentSummary[]>;
-  site: Site;
-}) {
-  const docs = [...releases.values()].flat();
-  const widest = (text: (doc: DocumentSummary) => string) => Math.max(...docs.map(doc => text(doc).length));
+/**
+ * The tab's table, its columns as wide as the publisher's widest in any of its tabs, so that a switch of release moves
+ * none: the narrow ones are monospace.
+ */
+function TabPanel({ tab, site }: { tab: IndexTab; site: Site }) {
+  const { publisher, release } = tab;
+  const widest = (text: (doc: DocumentSummary) => string) => Math.max(...publisher.docs.map(doc => text(doc).length));
+  const versioned = publisher.docs.some(doc => doc.release !== null);
   const style = {
     '--number-width': `${widest(doc => rowNumber(doc, site))}ch`,
+    '--version-width': `${widest(versionOf)}ch`,
     '--interfaces-width': `${Math.min(MAX_INTERFACES_WIDTH, widest(interfacesOf))}ch`,
   };
+  const heading = publisher.releases.length > 1 ? `${publisher.publisher} · ${release.label}` : publisher.publisher;
   return (
-    <div class="publisher-group" style={style}>
-      {[...releases]
-        .toSorted(([a], [b]) => (b ?? -1) - (a ?? -1))
-        .map(([release, docs]) => (
-          <Release
-            key={release}
-            name={`${publisher}${release ? ` · Release ${release}` : ''}`}
-            docs={docs}
-            site={site}
-          />
-        ))}
-    </div>
+    <section class="publisher-group" style={style} aria-labelledby="index-tab-heading">
+      <h2 id="index-tab-heading" class="sr-only">
+        {heading}
+      </h2>
+      {release.key === OLDER && <p class="tab-note">{OLDER_COPIES}</p>}
+      <DocumentTable docs={release.docs} site={site} versioned={versioned} />
+    </section>
   );
 }
 
@@ -142,15 +187,10 @@ function IndexSearch() {
   );
 }
 
-/** The index page: a search box, what the site is, and every document by publisher and release. */
-export function IndexView({ site }: { site: Site }) {
-  const publishers = new Map<string, Map<number | null, DocumentSummary[]>>();
-  for (const doc of site.index.documents) {
-    const releases = publishers.get(doc.publisher) ?? new Map<number | null, DocumentSummary[]>();
-    releases.set(doc.release, [...(releases.get(doc.release) ?? []), doc]);
-    publishers.set(doc.publisher, releases);
-  }
+/** The index page: a search box, what the site is, and the documents of the tab shown, by publisher and release. */
+export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined }) {
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
+  const releases = tab?.publisher.releases ?? [];
   return (
     <>
       <IndexSearch />
@@ -164,11 +204,34 @@ export function IndexView({ site }: { site: Site }) {
         </p>
         <p class="versions">{CLICK_HINT}</p>
       </div>
-      {[...publishers]
-        .toSorted(([a], [b]) => publisherRank(a) - publisherRank(b))
-        .map(([publisher, releases]) => (
-          <Publisher key={publisher} publisher={publisher} releases={releases} site={site} />
-        ))}
+      {tab && (
+        <>
+          <Tabs
+            label="Publishers"
+            tabs={tab.publishers.map(publisher => ({
+              key: publisher.slug,
+              href: tabHref(publisher.releases[0].path),
+              label: publisher.publisher,
+              count: publisher.releases[0].docs.length,
+              current: publisher === tab.publisher ? (releases.length > 1 ? 'true' : 'page') : undefined,
+            }))}
+          />
+          {releases.length > 1 && (
+            <Tabs
+              label={`${tab.publisher.publisher} releases`}
+              release
+              tabs={releases.map(release => ({
+                key: String(release.key),
+                href: tabHref(release.path),
+                label: release.label,
+                count: release.docs.length,
+                current: release === tab.release ? 'page' : undefined,
+              }))}
+            />
+          )}
+          <TabPanel tab={tab} site={site} />
+        </>
+      )}
       <footer class="versions">
         {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
           .filter(Boolean)

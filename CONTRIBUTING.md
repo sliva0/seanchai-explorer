@@ -175,7 +175,7 @@ Do not edit `src/types.ts` by hand.
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
-| `index-view.tsx`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page and search |
+| `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
 | `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts`, `site-text.ts` | the help dialog and the list of controls it shows, notices, the theme, and the site's few sentences of its own |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |

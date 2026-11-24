@@ -750,12 +750,56 @@ pre .avp-current {
 .index-view section {
   margin-bottom: var(--space-6);
 }
-.index-view h2 {
+/* A tab per publisher over a lighter one per release, each a link: the one shown is underlined in the accent, as a
+   current place is marked elsewhere, and is not bold, so that a switch moves no other tab. A narrow window wraps them. */
+.index-tabs {
+  display: flex;
+  flex-wrap: wrap;
   max-width: 72rem;
-  margin-block: var(--space-3) var(--space-2);
-  padding-bottom: var(--space-1);
   border-bottom: 1px solid var(--ui-border-strong);
-  font-size: var(--text-lg);
+}
+.index-tab {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius) var(--radius) 0 0;
+  color: var(--ui-link);
+  font-size: var(--text-md);
+  text-decoration: none;
+  white-space: nowrap;
+}
+.index-tab:hover {
+  color: var(--ui-link-hover);
+  background: var(--ui-hover);
+}
+.index-tab[aria-current] {
+  color: var(--ui-fg);
+  box-shadow: inset 0 -2px var(--ui-link);
+}
+.tab-count {
+  color: var(--ui-muted);
+  font: var(--text-xs)/1 var(--mono);
+}
+.release-tabs {
+  margin-top: var(--space-1);
+  border-bottom: 0;
+}
+.release-tabs .index-tab {
+  padding: 0.125rem var(--space-2);
+  font-size: var(--text-sm);
+}
+.release-tabs .index-tab[aria-current] {
+  box-shadow: inset 0 -1px var(--ui-link);
+}
+.index-tabs + .publisher-group {
+  margin-top: var(--space-3);
+}
+.tab-note {
+  max-width: 80ch;
+  margin: 0 0 var(--space-2);
+  color: var(--ui-muted);
+  font-size: var(--text-sm);
 }
 .document-table {
   width: 100%;
@@ -765,7 +809,10 @@ pre .avp-current {
   font: var(--text-sm)/1.5 var(--mono);
 }
 .number-column {
-  width: calc(var(--number-width) + var(--space-4));
+  width: calc(var(--number-width) + var(--space-4) + var(--space-1));
+}
+.version-column {
+  width: calc(var(--version-width) + var(--space-4));
 }
 .interfaces-column {
   width: calc(var(--interfaces-width) + var(--space-4));
@@ -773,39 +820,50 @@ pre .avp-current {
 .document-table tbody tr + tr {
   border-top: 1px solid var(--ui-divider);
 }
+/* A row is one link: the number's reaches over it, under each cell's text, which a drag can select. */
+.document-table tbody tr {
+  position: relative;
+}
+.document-table tbody tr:hover {
+  background: var(--ui-hover);
+}
+.row-link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.document-table td a {
+  text-decoration: none;
+}
+.cell-text {
+  position: relative;
+  cursor: pointer;
+}
+.document-table tbody tr:hover .row-link {
+  color: var(--ui-link-hover);
+  text-decoration: underline;
+}
 .document-table td {
   padding: var(--space-1) var(--space-4) var(--space-1) 0;
   vertical-align: baseline;
 }
-.document-table a {
-  text-decoration: none;
+/* The rows' hover band reaches past the first column's text by a little. */
+.document-table td:first-child,
+.document-table th:first-child {
+  padding-left: var(--space-1);
 }
-.document-table a:hover {
-  color: var(--ui-link-hover);
-  text-decoration: underline;
+.doc-version {
+  color: var(--ui-muted);
 }
 .document-table .doc-title {
   padding-right: 0;
   font: var(--text-md)/1.5 var(--sans);
 }
-.doc-title a {
-  color: inherit;
-}
-.doc-title p {
-  margin: 0;
+.doc-reason {
+  display: block;
   max-width: 80ch;
   font-size: var(--text-sm);
   color: var(--ui-muted);
-}
-.pinned-release {
-  margin-block: var(--space-3);
-  font-size: var(--text-md);
-}
-.pinned-release summary {
-  font-weight: 600;
-}
-.pinned-release table {
-  margin-top: var(--space-1);
 }
 .versions {
   color: var(--ui-muted);
@@ -826,7 +884,7 @@ pre .avp-current {
   font: var(--text-xs)/1.4 var(--sans);
   text-align: left;
 }
-/* As wide as the source pane's cut-off: number and interfaces on a line, the title under them. */
+/* As wide as the source pane's cut-off: number, version and interfaces on a line, the title under them. */
 @media (max-width: 760px) {
   .document-table,
   .document-table tbody {
@@ -835,7 +893,7 @@ pre .avp-current {
   .document-table colgroup {
     display: none;
   }
-  /* A row is a number and interfaces over a title, under no columns: the headings are left to screen readers. */
+  /* A row is a number, version and interfaces over a title, under no columns: the headings are left to screen readers. */
   .document-table thead {
     position: absolute;
     width: 1px;
@@ -845,16 +903,19 @@ pre .avp-current {
     white-space: nowrap;
   }
   .document-table tbody tr {
-    display: grid;
-    grid-template-columns: max-content minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
     column-gap: var(--space-3);
-    padding-block: var(--space-1);
+    padding: var(--space-1);
   }
-  .document-table td {
+  .document-table td,
+  .document-table td:first-child {
+    min-width: 0;
     padding: 0;
   }
   .document-table .doc-title {
-    grid-column: 1 / -1;
+    flex-basis: 100%;
   }
 }
 

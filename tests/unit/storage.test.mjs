@@ -22,6 +22,7 @@ test('the keys are the names the site has always stored under, so a reader keeps
     interpreted: 'seanchai-interpreted',
     installShell: 'seanchai-install-shell',
     outline: 'seanchai-outline',
+    indexTab: 'seanchai-index-tab',
     zoom: 'seanchai-zoom',
     positions: 'seanchai-positions',
     jumps: 'seanchai-jumps',

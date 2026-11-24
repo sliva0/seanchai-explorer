@@ -17,9 +17,18 @@ text in the order of the document, and in words where the AVP is read. It is uno
 and not affiliated with or endorsed by any of the specifications' publishers. The site
 holds no Python and reads only what `seanchai export` writes.
 
-The index opens with a search box, which `/` focuses from any page, and lists every
-document by publisher and release. Pressing `?` in the site shows the same list of mouse
-and keyboard controls as below.
+The index opens with a search box, which `/` focuses from any page, and lists the
+documents a publisher at a time, in a tab each, with how many it holds. 3GPP's, or any
+publisher's with releases, are a release at a time, in a lighter row of tabs: each release
+the corpus holds whole, newest first, and `Older copies`, the copies of older releases held
+for what a newer document cites, each with its release and why it is held. A row is
+number, version where there are releases, interfaces and title, and a click anywhere on it
+opens its document, as a link does: Ctrl or the middle button in a new tab, while a drag
+over its text selects it. The tab shown is in the address, `#index/ietf`,
+`#index/3gpp/18` or `#index/3gpp/older`, the first publisher's newest release plain `#`,
+so a link or Back and Forward come back to it, and the header's Index goes to the tab last
+shown in the browser. Pressing `?` in the site shows the same list of mouse and keyboard
+controls as below.
 
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
 copy of the site it is downloaded from.

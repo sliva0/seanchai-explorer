@@ -10,7 +10,8 @@ import type { JumpTargets } from './jump-controls.tsx';
 import { createJumpList } from './jump-list.ts';
 import type { JumpEntry, JumpWalk } from './jump-list.ts';
 import { createChords, keyWalk, takesTyping } from './keys.ts';
-import { WIRESHARK, namesDocument, pageOf, parseRoute, routeFor } from './navigation.ts';
+import { indexTabs, selectTab, tabHref, tabTitle } from './index-tabs.ts';
+import { WIRESHARK, isIndex, namesDocument, pageOf, parseRoute, routeFor } from './navigation.ts';
 import type { Route, RouteOptions } from './navigation.ts';
 import { clearNotices, noticeRegion } from './notice.ts';
 import { createPositionStore } from './positions.ts';
@@ -18,7 +19,7 @@ import { createPopups } from './popup/index.tsx';
 import { mount } from './render.ts';
 import { createSourcePane } from './source-pane.tsx';
 import type { SourcePane } from './source-pane.tsx';
-import { session } from './storage.ts';
+import { readStored, session, writeStored } from './storage.ts';
 import { initTheme } from './theme.ts';
 import type { Theme } from './theme.ts';
 import type { Line } from './types.ts';
@@ -35,6 +36,7 @@ let state: AppProps = {
   toggleTheme: () => theme.toggle(),
   jumps: {},
   walk: () => {},
+  indexHref: '#',
 };
 /** Draws the site again with `next` changed. */
 function draw(next: Partial<AppProps>) {
@@ -89,6 +91,9 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
   history.scrollRestoration = 'manual';
 
   const positions = createPositionStore(session);
+  const publisherTabs = indexTabs(site.index);
+  /** The index's tab a route's path after `index/` names, or the nearest there is. */
+  const indexTab = (path: string) => selectTab(publisherTabs, path);
   const jumps = createJumpList(session, document => !namesDocument(document) || Boolean(site.summary(document)));
 
   const targetOf = (route: Route) => ({ document: route.document, section: route.section || null, name: route.name });
@@ -134,7 +139,7 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
   }
 
   function jumpLabel({ document, line, top }: JumpEntry): string {
-    if (!document) return 'Index';
+    if (isIndex(document)) return 'Index';
     if (document === 'search') return 'Search';
     if (document === WIRESHARK) return 'Wireshark plugin';
     const summary = site.summary(document);
@@ -215,11 +220,21 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
       showJumps();
     },
   };
-  draw({ site, walk });
+  draw({ site, walk, indexHref: tabHref(indexTab(readStored('indexTab') ?? '')?.release.path ?? '') });
   // Every route link goes through here, for the history to step by document. A link's route does not say the pane is off, and without that it would switch the pane on.
   document.addEventListener('click', event => {
     const anchor = (event.target as Element).closest?.<HTMLAnchorElement>('a[href^="#"]');
-    if (!anchor || event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    // A click with another button than the first is one passed on from an index row's text, the middle button's.
+    if (
+      !anchor ||
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
     event.preventDefault();
     const href = anchor.getAttribute('href')!;
     const target = parseRoute(href);
@@ -275,12 +290,12 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
     else if (fresh && saved && !parsed.section) current.restore(saved.top, saved.offset);
   }
 
-  /** Draws a page of the site's own, and puts it where a walk back to it left it. */
-  function showPage(page: Page, title: string | undefined, place: JumpEntry | undefined) {
+  /** Draws a page of the site's own, and puts it where a walk back to it left it. `keepFocus` leaves the focus where it is. */
+  function showPage(page: Page, title: string | undefined, place: JumpEntry | undefined, keepFocus = false) {
     leaveDocument();
     setTitle(title);
     draw({ page });
-    if (arrived) focusHeading();
+    if (arrived && !keepFocus) focusHeading();
     if (place) content().scrollTop = place.offset;
   }
 
@@ -295,8 +310,15 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
     const page = pageOf(parsed);
     if (page !== shownPage) clearNotices();
     shownPage = page;
-    if (!parsed.document) {
-      showPage({ kind: 'index' }, undefined, place);
+    if (isIndex(parsed.document)) {
+      const tab = indexTab(parsed.section);
+      const path = tab?.release.path ?? '';
+      // The header's Index comes back to this tab, in this browser.
+      writeStored('indexTab', path);
+      // A tab followed from the tabs keeps the focus, on the link to it that the tab shown draws again.
+      const keepFocus = state.page.kind === 'index' && Boolean(document.activeElement?.closest('.index-tabs'));
+      draw({ indexHref: tabHref(path) });
+      showPage({ kind: 'index', tab }, tab && tabTitle(tab), place, keepFocus);
       return;
     }
     if (parsed.document === 'search') {
