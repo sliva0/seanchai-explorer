@@ -94,13 +94,19 @@ about 130 kB, which a command's popup needs from documents not loaded and which
 first document, and a build without it leaves a popup with what the open document says.
 
 Prepare writes `public/data/elements.json`, which `src/elements.ts` derives from the
-export's documents: every `Information Elements` table the export finds its command for
-(`described`), once for each Message block it describes, with the lines of the members
-each row maps to there, about 180 kB and 20 kB compressed. A member's category and row
-need it where the tables are another document's (TS 29.328's of TS 29.329's commands),
-and a row's member where the rule is. It comes with the first document too, and a build
-without it shows no categories. The site matches a table to a block by document, clause
-and command name, so a raw view finds its own blocks' lines.
+export's documents: for each Message block, every `Information Elements` table its
+`described_by` lists, with the table's rows and the lines of the members each row maps to,
+about 180 kB and 20 kB compressed. A member's category and row need it where the tables
+are another document's (TS 29.328's of TS 29.329's commands), and a row's member where the
+rule is: `described_by` says which tables, not what their rows say. It comes with the
+first document too, and a build without it shows no categories. A table names its block by
+document, clause, name, line and `ordinal`, which of the clause's blocks of that name it
+is: TS 29.272's 7.2.9 prints IDR twice, for S6a's and S6d's application ids, each
+described by its own table, which matching by name alone gave both. The corrected text and
+`commands.json` find a block's tables by its line, a raw view, whose blocks list no
+`described_by` and whose lines differ, by its clause, name and ordinal. None of this is
+schema 2's: the pinned release's export has no Information Elements blocks, so its
+`elements.json` is empty, and nothing of it goes when the pin is bumped.
 
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
@@ -108,10 +114,14 @@ its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`,
 by line. `src/constraints.ts` reads them: which hold where a name is read (unscoped ones
 always, a `Within` one as a member of that grouped AVP, a `Command` one in that command's
 Message block or Information Elements table), a rule in words, and the lines a hide leaves
-out. A rule's `kind` the site does not know, as `default` may be, is said as its line
-prints it, never refused. A raw view reads them from the corrected document by its
-blocks' names, as it reads the element index, and goes to the corrected text for a block.
-`search.json` has no entries for them.
+out. `ruleKinds` there lists every kind the schema has, each as the text prints one and
+what it says, for `ruleWords` and the help, and a test holds it to the schema's list; a
+kind the export adds later is said as its line prints it, never refused. An `encoding
+element` rule's `document` is a reference, as `TS24.008`, which a popup links to the
+corpus's newest edition of (`newestOf` in `src/data.ts`) and leaves as text where it holds
+none. A raw view reads them from the corrected document by its blocks' names, as it reads
+the element index, and goes to the corrected text for a block. `search.json` has no
+entries for them.
 
 ### Schema 2
 
@@ -121,8 +131,10 @@ schema 3 has a `Grouped AVP` with `; Reprints:`. Until the pin writes schema 3, 
 derives `commands.json` itself where the export has none, with `commandIndex` in
 `src/commands.ts`, which `tests/unit/commands.test.mjs` holds to what schema 3 exports.
 Neither writes Interpreted Constraints blocks, which the site reads only where they are,
-so a schema-2 export shows none and no "Interpreted" control. Once the pin is bumped to a
-release writing schema 3, delete:
+so a schema-2 export shows none and no "Interpreted" control, nor Information Elements
+blocks, so its `elements.json` is empty and its search has no information elements. The
+element index, read from `described_by`, and the raw view's matching by ordinal stay after
+the bump. Once the pin is bumped to a release writing schema 3, delete:
 
 - the `2` in `READ_SCHEMAS` in `src/schema.ts`, and the module itself if only
   `SCHEMA_VERSION` is left, as `src/data.ts` and `scripts/prepare.mjs` then compare
@@ -146,8 +158,12 @@ it reads the versions from its `-- seanchai:versions` line.
 `tests/fixtures/plugin/` holds a few lines standing in for it, which the unit and smoke tests serve.
 
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
-that lacks one. A build copies the export's grammar, or else this one, to the generated
-`public/syntax/` and never changes this one.
+that lacks one. `src/highlight.ts` runs a grammar's `match` rules and its `begin`/`end`
+regions, held on a stack from line to line, as the Information Elements block whose rows
+end in a category (`constant.language.category.dad`, which `layout.css` colours, where the
+older grammar took an M for an AVP flag); it refuses any other key, as `while`, rather
+than match nothing. A build copies the export's grammar, or else this one, to the
+generated `public/syntax/` and never changes this one.
 
 ## Generated files
 

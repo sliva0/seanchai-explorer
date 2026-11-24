@@ -3,20 +3,19 @@
 A static site over the [Seanchaí](https://github.com/sliva0/seanchai) corpus, live at
 <https://sliva0.github.io/seanchai-explorer/>: every Diameter dictionary read from 3GPP
 specifications and RFCs as one page, highlighted with the corpus's own TextMate grammar,
-with a source pane beside the text showing the document it was read from. AVP and
-command names link to their definitions and details, section and page numbers to the
-source document, and search covers specifications, AVPs, commands, applications,
-registry rows, result codes, bits, features and every line of text; a name is also
-found by its initials or a misspelling, labelled approximate and listed after the
-precise matches. A result lists its documents one a line, and past ten, the first ten
-with a toggle for the rest. A command's members carry what its specification's
-Information Elements tables say of them, their element and category (M, C or O), with
-the way from a member to its row and back, in that document or another. What a clause's
-prose says of an AVP's value or presence, as a reader read it, is shown as interpreted
-constraints: in the text in the order of the document, and in words where the AVP is read.
-It is unofficial and not affiliated with or endorsed by any of the
-specifications' publishers. The site holds no Python and reads only what
-`seanchai export` writes.
+with a source pane beside the text showing the document it was read from. AVP and command
+names link to their definitions and details, section and page numbers to the source
+document, and search covers specifications, AVPs, commands, applications, registry rows,
+result codes, bits, features, information elements and every line of text; a name is also
+found by its initials or a misspelling, labelled approximate and listed after the precise
+matches. A result lists its documents one a line, and past ten, the first ten with a
+toggle for the rest. A command's members carry what its specification's Information
+Elements tables say of them, their element and category (M, C or O), with the way from a
+member to its row and back, in that document or another. What a clause's prose says of an
+AVP's value or presence, as a reader read it, is shown as interpreted constraints: in the
+text in the order of the document, and in words where the AVP is read. It is unofficial
+and not affiliated with or endorsed by any of the specifications' publishers. The site
+holds no Python and reads only what `seanchai export` writes.
 
 The index opens with a search box, which `/` focuses from any page, and lists every
 document by publisher and release. Pressing `?` in the site shows the same list of mouse
@@ -68,38 +67,46 @@ every other document printing it, and apart from them those printing its name fo
 another command.
 
 An `Information Elements` block is a specification's table of a command's information
-elements, the AVP each maps to and its category: M mandatory, C conditional, O
-optional. A member of the command's `; Type: Message` block that a table names has its
-category beside its line, laid over the text after its end and left out of a copy, and
-its popup or inspector names the element and goes to the table's row, `Element`. An AVP
-in a row goes back to the member, `Member`, which may be in another document: TS 29.328's
-and TS 29.228's tables describe TS 29.329's and TS 29.229's commands, and those two
-documents hold nothing else. A row naming an AVP the rule lacks says so, as does a table
-naming no command, and a command's popup lists its tables and each AVP's category. The
-section list titles a clause of tables by the commands they describe, as `Information
-Elements ULR, ULA`.
+elements, the AVP each maps to and its category: M mandatory, C conditional, O optional,
+which the text colours as the grammar scopes it. The tables describing a command are those
+the export lists for its block, so where a clause prints a command twice, as TS 29.272's
+7.2.9 does IDR for S6a's and S6d's application ids, each block has its own. A member of
+the command's `; Type: Message` block that a table names has its category beside its line,
+laid over the text after its end and left out of a copy, and its popup or inspector names
+the element and goes to the table's row, `Element`. An AVP in a row goes back to the
+member, `Member`, which may be in another document: TS 29.328's and TS 29.228's tables
+describe TS 29.329's and TS 29.229's commands, and those two documents hold nothing else.
+A row naming an AVP the rule lacks says so, as does a table naming no command, and a
+command's popup lists its tables and each AVP's category. The section list titles a clause
+of tables by the commands they describe, as `Information Elements ULR, ULA`. Search lists
+the elements in a section of their own, by their names in the tables, each with its
+command, category and AVPs, and its link going to its table's clause.
 
 An `Interpreted Constraints` block is what a clause's prose says of an AVP's value or
-presence, "encoded as a TBCD-string", "values 0 to 255", "shall be present only if bit X is
-set", as a reader read it: each rule follows the sentences it was read from, verbatim. No
-document prints it as structure, so the site marks it as interpreted wherever it shows it.
-The blocks stand in the corrected text after the blocks of their clause, with a dashed edge
-on the left, their quotes wrapped at the pane's edge and their `;; interpreted` note opening
-the declaration's record as a correction's does; the raw text has none. "Interpreted" in a
-document's strip hides them and shows them again, kept in the browser for every document;
-a move to a line among them shows them for that page. A block holds for its AVP wherever
-the document reads it, within a grouped AVP (`; Within:`), or in a command (`; Command:`). A
-member, table row or Information Elements row reading an AVP that blocks hold for there has
-an italic i after its line, beside its category, its title the rules in words, and the AVP's
-popup and the inspector list them, each rule in words ("3 octets", "0 to 255",
-"TBCD-encoded E.164 number", "present only if DSR-Flags has bit … set"), with its quote, and
-a text-only one, a rule no checker can run, as its quote. Each block offers `Read in`, its
-clause in the publisher's copy and `Jump to` the block. An AVP read in a document with no
-block on it wherever read shows those of the document its link names, once loaded, as the
-corpus takes an AVP's from its origin. The help says what each encoding's codec is, and
-[docs/constraints.md](https://github.com/sliva0/seanchai/blob/main/docs/constraints.md) how
-they are read and checked. Search has no entries of its own for them, as the export gives
-none: their lines are found as any line of text is.
+presence, "encoded as a TBCD-string", "values 0 to 255", "shall be present only if bit X
+is set", as a reader read it: each rule follows the sentences it was read from, verbatim.
+No document prints it as structure, so the site marks it as interpreted wherever it shows
+it. The blocks stand in the corrected text after the blocks of their clause, with a dashed
+edge on the left, their quotes wrapped at the pane's edge and their `;; interpreted` note
+opening the declaration's record as a correction's does; the raw text has none.
+"Interpreted" in a document's strip hides them and shows them again, kept in the browser
+for every document; a move to a line among them shows them for that page. A block holds
+for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
+command (`; Command:`). A member, table row or Information Elements row reading an AVP
+that blocks hold for there has an italic i after its line, beside its category, its title
+the rules in words, and the AVP's popup and the inspector list them, each rule in words
+("3 octets", "0 to 255", "TBCD-encoded E.164 number", "present only if DSR-Flags has bit …
+set", "read as FALSE when absent" for a `default`, "at most one of bits 3, 6 set" for
+`bits`), with its quote, and a text-only one, a rule no checker can run, as its quote. An
+`encoding element` rule names another document's element; where the corpus holds that
+document, its name links to it. Each block offers `Read in`, its clause in the publisher's
+copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
+shows those of the document its link names, once loaded, as the corpus takes an AVP's from
+its origin. The help says what each kind of rule says, as the text prints one, and what
+each encoding's codec is, and
+[docs/constraints.md](https://github.com/sliva0/seanchai/blob/main/docs/constraints.md)
+how they are read and checked. Search has no entries of its own for them, as the export
+gives none: their lines are found as any line of text is.
 
 ## Keyboard
 
