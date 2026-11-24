@@ -199,6 +199,20 @@ permission. So there are two builds, and the plain one is the safe one:
 
 Self-hosted output is for an organisation's own use behind its own access control.
 
+Either build, with `SEANCHAI_UNLINKED=1` in its environment, names nothing of the
+open-source project: no link to it or word of GitHub or PyPI, no introduction of the site
+on the index, which keeps its search box, its line of the corpus, seanchai and build mode,
+and its hint, no pointer to another build in the source pane, no command generating the
+Wireshark plugin from PyPI where the build has none, and a plugin whose links go nowhere
+until the Wireshark page sets this site's address in it, as its download and install
+commands do. The build ends by checking it, `scripts/check-unlinked.mjs`, and fails if a
+file of the site's own, outside the corpus's `data/`, still names the project.
+
+```sh
+SEANCHAI_UNLINKED=1 npm run build
+SEANCHAI_UNLINKED=1 npm run build:self-hosted
+```
+
 ## Building
 
 Node 24 or newer with npm, and [uv](https://docs.astral.sh/uv/). Nothing else: the
@@ -282,6 +296,7 @@ contract.
 | `SEANCHAI_PINNED` | `1` runs what `seanchai-release.json` pins, even inside a checkout or with a `seanchai` on `PATH`. |
 | `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout if there is one, otherwise here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
+| `SEANCHAI_UNLINKED` | `1` builds a site naming nothing of the open-source project (see "Two build modes"). |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |
 
 ## License

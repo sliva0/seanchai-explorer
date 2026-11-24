@@ -1,5 +1,6 @@
 import { Fragment } from 'preact';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { UNLINKED } from './build-options.ts';
 import { siteURL } from './data.ts';
 import type { Site } from './data.ts';
 import { attempt } from './notice.ts';
@@ -271,10 +272,16 @@ export function WiresharkView({ site }: { site: Site }) {
       <section class="plugin-ways" aria-label="Install">
         {missing ? (
           <>
-            <p>Not in this build. Generate it with:</p>
-            <pre>
-              <code>{generateCommand(address)}</code>
-            </pre>
+            {UNLINKED ? (
+              <p>Not in this build.</p>
+            ) : (
+              <>
+                <p>Not in this build. Generate it with:</p>
+                <pre>
+                  <code>{generateCommand(address)}</code>
+                </pre>
+              </>
+            )}
             <FolderTable />
           </>
         ) : (

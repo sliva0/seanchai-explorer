@@ -187,6 +187,7 @@ Do not edit `src/types.ts` by hand.
 | `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
+| `build-options.ts` | what a build is asked for beyond its mode, as constants `vite.config.ts` defines: `SEANCHAI_UNLINKED` |
 | `controls.ts`, `help.tsx`, `notice.ts`, `theme.ts`, `site-text.ts` | the help dialog and the list of controls it shows, notices, the theme, and the site's few sentences of its own |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |
 | `types.ts` | generated from the export's schema |

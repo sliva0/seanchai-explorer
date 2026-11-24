@@ -1,4 +1,5 @@
 import type { ComponentChildren } from 'preact';
+import { UNLINKED } from './build-options.ts';
 import { useState } from 'preact/hooks';
 import { docNumber, docSubject, interfacesOf } from './data.ts';
 import type { Site } from './data.ts';
@@ -195,16 +196,20 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
     <>
       <IndexSearch />
       <div class="index-intro">
-        <p>{INTRO}</p>
+        {!UNLINKED && <p>{INTRO}</p>}
         {/* What this site was built from, and the project's two pages, on one line. */}
         <p class="versions">
           {[corpus && `Corpus ${corpus}`, seanchai && `seanchai ${seanchai}`, `${site.mode} build`]
             .filter(Boolean)
             .join(' · ')}
-          {' · '}
-          <a href={REPOSITORY}>GitHub</a>
-          {' · '}
-          <a href={PYPI}>PyPI</a>
+          {!UNLINKED && (
+            <>
+              {' · '}
+              <a href={REPOSITORY}>GitHub</a>
+              {' · '}
+              <a href={PYPI}>PyPI</a>
+            </>
+          )}
         </p>
         <p class="versions">{CLICK_HINT}</p>
       </div>

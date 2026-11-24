@@ -1,3 +1,4 @@
+import { UNLINKED } from './build-options.ts';
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
 import type { Place } from './avp-places.ts';
@@ -108,6 +109,11 @@ function PaneHeader({
 
 /** What the pane says of a PDF this build does not hold, beside what it shows instead. */
 function SelfHostNote({ doc, brief }: { doc: DocumentSummary; brief: boolean }) {
+  // A build that names nothing of the project points at no other build of it either.
+  if (UNLINKED)
+    return brief ? null : (
+      <p class="inspector-note">{`This build cannot show the PDF of ${docVersioned(doc)}, for licensing reasons.`}</p>
+    );
   return brief ? (
     <p class="inspector-note">{`The PDF of ${docVersioned(doc)} is shown here in a self-hosted build.`}</p>
   ) : (

@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { elementIndex } from '../src/elements.ts';
 import { tableIndex } from '../src/tables.ts';
-import { PLUGIN_PATH } from '../src/plugin-file.ts';
+import { PLUGIN_PATH, withExplorer } from '../src/plugin-file.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
 import {
   hasCommand,
@@ -130,3 +130,11 @@ async function makePlugin() {
   console.warn(`Building without the Wireshark plugin: ${problem}`);
 }
 await makePlugin();
+
+// A build naming nothing of the project ships a plugin that links nowhere until the page sets this site's address in
+// it, as its download and install commands do: its default is the project's own site.
+if (process.env.SEANCHAI_UNLINKED === '1' && existsSync(plugin)) {
+  const rewrite = withExplorer(await readFile(plugin, 'utf8'), '');
+  if (!rewrite.written) throw new Error(`Cannot unlink the Wireshark plugin: ${rewrite.reason}`);
+  await writeFile(plugin, rewrite.text);
+}

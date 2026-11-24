@@ -74,7 +74,41 @@ test('public build ships no PDF, viewer or PDF.js, and fails if it does', async 
   );
   assert.equal(check.status, 1);
   assert.match(check.stderr, /sources\/a\.pdf/);
+  const named = unlinkedCheck();
+  assert.equal(named.status, 1, 'a build of the project names it, as the check finds');
+  assert.match(named.stderr, /assets\/main-[\w-]+\.js: .*GitHub/);
 });
+
+/** The check a SEANCHAI_UNLINKED=1 build ends with, run on the last build whatever it was. */
+const unlinkedCheck = () =>
+  spawnSync('node', ['scripts/check-unlinked.mjs', '--always', dist], { cwd: root, encoding: 'utf8' });
+
+/** The corpus's own files naming the project, which the check leaves: a document's text may cite it. */
+async function corpusMentions() {
+  const entries = await readdir(path.join(dist, 'data'), { recursive: true, withFileTypes: true });
+  const found = [];
+  for (const entry of entries.filter(entry => entry.isFile() && /\.(json|txt)$/.test(entry.name))) {
+    const file = path.join(entry.parentPath, entry.name);
+    if (/github\.com|github\.io|pypi\.org|GitHub|PyPI/.test(await readFile(file, 'utf8')))
+      found.push(path.relative(dist, file));
+  }
+  return found;
+}
+
+/** What a SEANCHAI_UNLINKED=1 build must hold: nothing of the project in the site's own files, its plugin linking nowhere. */
+async function checkUnlinked() {
+  const check = unlinkedCheck();
+  assert.equal(check.status, 0, check.stderr);
+  const page = await readFile(path.join(dist, 'index.html'), 'utf8');
+  assert.doesNotMatch(page, /GitHub|PyPI/);
+  if (existsSync(path.join(dist, 'plugin')))
+    assert.match(
+      await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8'),
+      /^local EXPLORER = "" -- seanchai:explorer$/m,
+    );
+  const mentions = await corpusMentions();
+  if (mentions.length) console.log(`The corpus's own data naming the project, left as it is: ${mentions.join(', ')}`);
+}
 
 // Asked of the seanchai the build runs, by running it: a release older than the plugin has no such command.
 const pluginSkip =
@@ -94,23 +128,34 @@ test('the public build ships the Wireshark plugin', { skip: pluginSkip }, async 
   await checkPlugin();
 });
 
+test('a SEANCHAI_UNLINKED=1 public build names nothing of the project, and its build says so', async () => {
+  npm('build', { SEANCHAI_UNLINKED: '1' });
+  assert.equal((await checkExport()).mode, 'public');
+  await checkUnlinked();
+});
+
 const skip = !existsSync(specifications) && 'no specifications directory';
 
-test('self-hosted build ships the PDFs, viewer and PDF.js', { skip }, async () => {
-  npm('build:self-hosted');
-  const index = await checkExport();
-  assert.equal(index.mode, 'self-hosted');
-  const documents = index.documents.filter(doc => doc.source.local);
-  assert.ok(documents.length > 40);
-  for (const doc of documents) {
-    const bytes = await readFile(path.join(dist, 'data', doc.source.local));
-    assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
-  }
-  assert.ok((await readFile(path.join(dist, 'viewer.html'), 'utf8')).includes('viewerContainer'));
-  assert.ok((await readFile(path.join(dist, 'pdfjs/wasm/openjpeg.wasm'))).length > 0);
-  assert.ok((await checkRfcAnchors(index)) > 0);
-  if (!pluginSkip) await checkPlugin();
-});
+test(
+  'self-hosted build ships the PDFs, viewer and PDF.js, and with SEANCHAI_UNLINKED=1 names nothing of the project',
+  { skip },
+  async () => {
+    npm('build:self-hosted', { SEANCHAI_UNLINKED: '1' });
+    const index = await checkExport();
+    assert.equal(index.mode, 'self-hosted');
+    const documents = index.documents.filter(doc => doc.source.local);
+    assert.ok(documents.length > 40);
+    for (const doc of documents) {
+      const bytes = await readFile(path.join(dist, 'data', doc.source.local));
+      assert.equal(bytes.subarray(0, 5).toString(), '%PDF-');
+    }
+    assert.ok((await readFile(path.join(dist, 'viewer.html'), 'utf8')).includes('viewerContainer'));
+    assert.ok((await readFile(path.join(dist, 'pdfjs/wasm/openjpeg.wasm'))).length > 0);
+    assert.ok((await checkRfcAnchors(index)) > 0);
+    if (!pluginSkip) await checkPlugin();
+    await checkUnlinked();
+  },
+);
 
 test('a self-hosted export is refused for a public build', { skip }, async () => {
   const result = spawnSync('node', ['scripts/prepare.mjs'], {
