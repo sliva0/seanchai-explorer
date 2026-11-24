@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import test from 'node:test';
-import { pinText, releaseArgs, seanchaiWays } from '../../scripts/seanchai.mjs';
+import { checkout, downloads, pinText, releaseArgs, seanchaiWays } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const site = path.join(root, 'public/syntax/dad.tmLanguage.json');
@@ -175,6 +175,15 @@ test('a plain build runs the pin, even inside a checkout; SEANCHAI_ROOT or SEANC
   assert.deepEqual(ways({ SEANCHAI_ON_PATH: '1' }), [['seanchai', false, 'export']]);
   assert.deepEqual(ways({ SEANCHAI_ROOT: '/work/seanchai', SEANCHAI_ON_PATH: '1', SEANCHAI_PINNED: '1' }), pin);
 });
+
+test(
+  "npm run sources downloads into this repository's specifications/, never a checkout's",
+  { skip: Boolean(process.env.SEANCHAI_SPECIFICATIONS) },
+  () => {
+    assert.equal(downloads, path.join(root, 'specifications'));
+    if (checkout) assert.ok(!downloads.startsWith(path.join(checkout, 'specifications')));
+  },
+);
 
 test('a pin of versions runs them from PyPI, and a pin of a commit runs its two packages from the repository', () => {
   const versions = { seanchai: '0.3.0', 'seanchai-corpus': '2027.01.01' };

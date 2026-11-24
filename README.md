@@ -259,8 +259,9 @@ npm run build               # the public site, in dist/
 ```
 
 A self-hosted site also ships the source documents, which are downloaded once, about
-200 MB, into `specifications/` here, or into the Seanchaí checkout's where this repository
-is inside one:
+200 MB, into `specifications/` here. A build reads that, else the `specifications/` of
+the Seanchaí checkout this repository is inside, which no script here writes: a download
+without conversion there would drop the documents the checkout converted.
 
 ```sh
 npm ci
@@ -334,7 +335,7 @@ contract.
 | `SEANCHAI_ROOT` | A Seanchaí checkout to run through `uv run` instead of the pin, its working tree as it is; `../..` is the one this repository is inside. |
 | `SEANCHAI_ON_PATH` | `1` runs the `seanchai` on `PATH` instead of the pin. |
 | `SEANCHAI_PINNED` | `1` runs what `seanchai-release.json` pins, whatever else is set; it is the default. |
-| `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` in the checkout `SEANCHAI_ROOT` names or this repository is inside, otherwise here. |
+| `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` here for both; a build reads the one of the checkout `SEANCHAI_ROOT` names or this repository is inside where there is none here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 | `SEANCHAI_UNLINKED` | `1` builds a site naming nothing of the open-source project (see "Two build modes"). |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |

@@ -13,9 +13,8 @@ import { hasCommand } from '../../scripts/seanchai.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const dist = path.join(root, 'dist');
-const specifications =
-  process.env.SEANCHAI_SPECIFICATIONS ??
-  path.join(process.env.SEANCHAI_ROOT ?? path.join(root, '../..'), 'specifications');
+// The documents a build reads, as scripts/seanchai.mjs finds them.
+const { specifications } = await import('../../scripts/seanchai.mjs');
 
 function npm(script, env = {}) {
   const result = spawnSync('npm', ['run', '-s', script], {

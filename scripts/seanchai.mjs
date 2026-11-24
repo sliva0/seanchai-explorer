@@ -67,12 +67,20 @@ export function seanchaiWays(args, { extract = false, env = process.env } = {}) 
 }
 
 /**
- * The `seanchai corpus download` directory: `SEANCHAI_SPECIFICATIONS`, else the checkout's that `SEANCHAI_ROOT` names
- * or this repository is inside, or `specifications/` here. Only documents are read from it, never the checkout's code.
+ * Where `npm run sources` downloads the source documents: `SEANCHAI_SPECIFICATIONS`, else `specifications/` here. Never
+ * a Seanchaí checkout's own by default: a download without conversion there would drop the documents it converted.
  */
-export const specifications = path.resolve(
-  process.env.SEANCHAI_SPECIFICATIONS ?? path.join(root ?? checkout ?? project, 'specifications'),
-);
+export const downloads = path.resolve(process.env.SEANCHAI_SPECIFICATIONS ?? path.join(project, 'specifications'));
+
+/**
+ * The source documents a build reads, only reads: `SEANCHAI_SPECIFICATIONS`, else `specifications/` here if
+ * `npm run sources` filled it, else the one of the checkout `SEANCHAI_ROOT` names or this repository is inside.
+ */
+export const specifications = process.env.SEANCHAI_SPECIFICATIONS
+  ? downloads
+  : ([downloads, ...[root, checkout].filter(Boolean).map(dir => path.join(dir, 'specifications'))].find(dir =>
+      existsSync(dir),
+    ) ?? downloads);
 
 /**
  * Runs `seanchai` with `args` the first of `seanchaiWays` there is. Returns `spawnSync`'s result, with `pinned` where it
