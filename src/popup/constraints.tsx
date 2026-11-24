@@ -79,12 +79,26 @@ function RuleText({ site, rule, printed }: { site: Site; rule: ConstraintRule; p
   );
 }
 
+/**
+ * A rule as the text prints it, its kind the keyword, as the block's line has it, less its indent: `requires DSR-Flags
+ * bit "Trace Data Withdrawal"`.
+ */
+function Printed({ text }: { text: string }) {
+  const [, kind = '', rest = ''] = text.trim().match(/^(\S+)(.*)$/) ?? [];
+  return (
+    <code class="constraint-printed">
+      <span class="constraint-keyword">{kind}</span>
+      {rest}
+    </code>
+  );
+}
+
 const INTERPRETED_NOTE =
   "Interpreted: a reader's reading of the clause's prose, pinned to the sentence quoted. The document prints no such rule as structure: trust it as far as the quote.";
 
 /**
- * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words with the
- * sentences they were read from, where they hold, and the way to the block and its clause. The block is in the
+ * What the Interpreted Constraints say of the name where it stands, each block's rules as the text prints them and in
+ * plain words, with the sentences they were read from, where they hold, and the way to the block and its clause. The block is in the
  * corrected text, which a raw view's way goes to.
  */
 export function ConstraintFacts({
@@ -123,9 +137,9 @@ export function ConstraintFacts({
             if (textOnly(reading.rules))
               return (
                 <li key={index} class="constraint-reading constraint-text-only">
-                  <span class="constraint-kind" title="A rule no checker can run: the quote says it">
-                    text only
-                  </span>{' '}
+                  <span class="constraint-rule" title="A rule no checker can run: the quote says it">
+                    <Printed text="text-only" />
+                  </span>
                   {quotes}
                 </li>
               );
@@ -134,12 +148,17 @@ export function ConstraintFacts({
               <li key={index} class="constraint-reading">
                 <details>
                   <summary title="The quote it was read from">
-                    {rules.map((rule, at) => (
-                      <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
-                        {at > 0 && ' · '}
-                        <RuleText site={site} rule={rule} printed={lineText(doc, rule.line)} />
-                      </span>
-                    ))}
+                    {rules.map(rule => {
+                      const printed = lineText(doc, rule.line);
+                      return (
+                        <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
+                          <Printed text={printed} />
+                          <span class="constraint-words">
+                            <RuleText site={site} rule={rule} printed={printed} />
+                          </span>
+                        </span>
+                      );
+                    })}
                   </summary>
                   {quotes}
                 </details>

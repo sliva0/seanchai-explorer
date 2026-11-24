@@ -61,13 +61,13 @@ const elements: Annotator = (file, document, site) => {
 };
 
 /**
- * Interpreted Constraints: a block's lines are `interpreted`, its quotes `constraint-quote`, and the blank lines before
+ * Interpreted Constraints: a block's lines are `interpreted`, its quotes `interpreted-quote`, and the blank lines before
  * it `interpreted-gap`, which hiding the blocks leaves out with them. A line reading an AVP that the corrected file's
  * constraints hold for there has an italic i in its mark, its title the rules in words.
  */
 const constraints: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
-  const classes = { interpreted: 'interpreted', quote: 'interpreted constraint-quote', gap: 'interpreted-gap' };
+  const classes = { interpreted: 'interpreted', quote: 'interpreted interpreted-quote', gap: 'interpreted-gap' };
   for (const [line, kind] of interpretedLines(file)) lines.set(line, { class: classes[kind] });
   const source = site.held(document) ?? file;
   for (const [line, found] of constraintLines(file, source)) {

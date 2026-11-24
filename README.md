@@ -91,16 +91,19 @@ An `Interpreted Constraints` block is what a clause's prose says of an AVP's val
 presence, "encoded as a TBCD-string", "values 0 to 255", "shall be present only if bit X
 is set", as a reader read it: each rule follows the sentences it was read from, verbatim.
 No document prints it as structure, so the site marks it as interpreted wherever it shows
-it. The blocks stand in the corrected text after the blocks of their clause, with a dashed
-edge on the left, their quotes wrapped at the pane's edge and their `;; interpreted` note
-opening the declaration's record as a correction's does; the raw text has none.
+it, quietly. The blocks stand in the corrected text after the blocks of their clause and
+read as the rest of it, in the same font and colours: a quote is a string, a little dimmer
+than the rules read from it, wrapped at the pane's edge under its first letter, and a rule
+its kind and operands as the grammar scopes them. Two things mark a block as interpreted: a
+thin rule left of its lines, in the hue of the i below, and its `;; interpreted` note,
+which opens the declaration's record as a correction's does. The raw text has none.
 "Interpreted" in a document's strip hides them and shows them again, kept in the browser
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
 command (`; Command:`). A member, table row or Information Elements row reading an AVP
 that blocks hold for there has an italic i after its line, beside any category, its title
-the rules in words, and the AVP's popup and the inspector list them, each rule in words
-("3 octets", "0 to 255", "TBCD-encoded E.164 number", "present only if DSR-Flags has bit …
+the rules in words, and the AVP's popup and the inspector list them, each rule as the text
+prints it and, under it, in words ("3 octets", "0 to 255", "TBCD-encoded E.164 number", "present only if DSR-Flags has bit …
 set", "read as FALSE when absent" for a `default`, "at most one of bits 3, 6 set" for
 `bits`), with its quote, and a text-only one, a rule no checker can run, as its quote. An
 `encoding element` rule names another document's element; where the corpus holds that

@@ -225,6 +225,64 @@ test(
   },
 );
 
+test(
+  'an Interpreted Constraints block reads as the text: one font, its quote wrapped at the pane under its first letter, one rule left of it',
+  { skip },
+  async () => {
+    const { page, done } = await open('#29272-j60/5.2.2.2.1');
+    // TS 29.272's lines, as the fixture holds them: a block's Type line, a long quote and the rule read from it.
+    const [type, quote, rule] = [1320, 1328, 1329].map(line => page.locator(`.dad-line[data-line="${line}"]`));
+    await quote.waitFor();
+    await quote.scrollIntoViewIfNeeded();
+    const laid = await page.evaluate(() => {
+      const line = n => document.querySelector(`.dad-line[data-line="${n}"]`);
+      const quote = line(1328);
+      const font = node => {
+        const style = getComputedStyle(node);
+        return [style.fontFamily, style.fontSize, style.lineHeight, style.fontStyle].join(' ');
+      };
+      const string = quote.querySelector('[class*="string.quoted"]');
+      const parts = [...string.getClientRects()];
+      const pane = document.querySelector('#document');
+      const content =
+        pane.getBoundingClientRect().left + pane.clientLeft + parseFloat(getComputedStyle(pane).paddingLeft);
+      const probe = document.createElement('span');
+      probe.textContent = 'x';
+      quote.append(probe);
+      const char = probe.getBoundingClientRect().width;
+      probe.remove();
+      const pre = pane.querySelector('pre').getBoundingClientRect().width;
+      quote.style.whiteSpace = 'pre';
+      const unwrapped = quote.scrollWidth;
+      quote.style.whiteSpace = '';
+      const gutter = getComputedStyle(line(1320), '::before');
+      return {
+        sameFont: [font(quote), font(string), font(line(1329)), font(line(1300))].every(f => f === font(line(1300))),
+        lines: parts.length,
+        firstAtLine: Math.round(parts[0].left - content),
+        hanging: Math.abs(parts[1].left - parts[0].left - char) < 1,
+        withinPane: Math.max(...parts.map(part => part.right)) <= pane.getBoundingClientRect().right,
+        widensNothing: unwrapped > pre,
+        gutter: [gutter.content, gutter.width, gutter.backgroundColor !== 'rgba(0, 0, 0, 0)'],
+        typeTint: getComputedStyle(line(1320)).backgroundColor,
+      };
+    });
+    assert.deepEqual(laid, {
+      sameFont: true,
+      lines: 3,
+      firstAtLine: 0,
+      hanging: true,
+      withinPane: true,
+      widensNothing: true,
+      gutter: ['""', '2px', true],
+      typeTint: 'rgba(0, 0, 0, 0)',
+    });
+    assert.match(await rule.textContent(), /^ {4}requires DSR-Flags bit/);
+    assert.equal(await type.locator('.correction-toggle').textContent(), ';; interpreted');
+    await done();
+  },
+);
+
 test('public, desktop: ; Reprints: links to the document a reprint comes from', { skip }, async () => {
   const { page, context, done } = await open('#29109-j00');
   const pages = [];

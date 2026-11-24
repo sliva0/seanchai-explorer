@@ -520,23 +520,22 @@ pre {
   color: var(--warning);
   box-shadow: inset 0 0 0 1px var(--warning);
 }
-/* Interpreted, not printed: a dashed edge, as the blocks' own lines have. */
+/* Interpreted, not printed: an i in the hue of the rule beside an Interpreted Constraints block's lines. */
 .constraint-mark::after {
   content: "i";
+  color: var(--interpreted);
   font:
     italic 600 1.15em/1 Georgia,
     "Times New Roman",
     serif;
 }
 .constraint-mark:not(.element-mark) {
-  box-shadow: none;
-  outline: 1px dashed var(--ui-border-strong);
-  outline-offset: -1px;
+  box-shadow: inset 0 0 0 1px var(--interpreted-edge);
 }
 .element-mark.constraint-mark::after {
   margin-left: 0.45em;
   padding-left: 0.45em;
-  border-left: 1px dashed var(--ui-border-strong);
+  border-left: 1px solid var(--ui-border);
 }
 .dad-line {
   display: block;
@@ -657,20 +656,39 @@ pre [class*="empty-cell"] {
 }
 /*
  * An Interpreted Constraints block: a reader's reading of a clause's prose, which the document prints as no structure.
- * A dashed edge in the correction notes' hue, two dashes a line so they run on from line to line; its `; Type:` line
- * keeps a corrected line's tint, as its note cites the declaration.
+ * It is .dad text and reads as any other block does, in the same font and colours. What marks it as interpreted is one
+ * thin rule in the gutter left of its lines, in the hue of the i beside a name it holds for, and its `; Type:` line's
+ * `;; interpreted` note, which opens the declaration's record: that line has no corrected line's tint.
  */
 .dad-line.interpreted {
-  background-image: repeating-linear-gradient(to bottom, var(--interpreted-edge) 0 0.375lh, transparent 0.375lh 0.75lh);
-  background-repeat: no-repeat;
-  background-size: 2px 100%;
+  position: relative;
 }
-/* A quote wraps where the pane ends, or at about the width of the text's longer lines, under its own first letter. */
-.dad-line.constraint-quote {
-  max-width: max(48ch, min(100ch, 100cqi - 2 * var(--space-3)));
+.dad-line.interpreted::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(-1 * var(--space-2));
+  width: 2px;
+  background: var(--interpreted-edge);
+}
+.dad-line.interpreted.corrected-line:not(.target-line) {
+  background: none;
+}
+/*
+ * A quote is one long line: it wraps at the pane's edge, in the same font, each line after its first under the first
+ * letter after its opening quote, never widening the text that the other blocks scroll in. A little dimmer than the
+ * rules read from it, so the eye lands on the rules.
+ */
+.dad-line.interpreted-quote {
+  max-width: max(40ch, 100cqi);
   padding-left: 1ch;
   text-indent: -1ch;
   white-space: pre-wrap;
+  overflow-wrap: break-word;
+}
+.dad-line.interpreted-quote [class*="string.quoted"] {
+  color: color-mix(in srgb, var(--syntax-string) 72%, var(--ui-bg));
 }
 #document.interpreted-hidden .dad-line.interpreted,
 #document.interpreted-hidden .dad-line.interpreted-gap {
@@ -1213,7 +1231,7 @@ mark {
 .fact-note {
   color: var(--ui-muted);
 }
-/* What interpreted constraints hold where the name is read: a dashed edge, as their blocks have in the text. It gives way and scrolls where the popup is full. */
+/* What interpreted constraints hold where the name is read: a thin rule, as their blocks have in the text. It gives way and scrolls where the popup is full. */
 .popup-constraints {
   display: flex;
   flex: 0 1 auto;
@@ -1224,7 +1242,7 @@ mark {
   overscroll-behavior: contain;
   scrollbar-width: thin;
   padding-left: var(--space-2);
-  border-left: 2px dashed var(--interpreted-edge);
+  border-left: 2px solid var(--interpreted-edge);
 }
 .constraints-title {
   display: flex;
@@ -1243,34 +1261,49 @@ mark {
   padding: 0;
   list-style: none;
 }
+/* A reading: each rule as the text prints it, its words under it, and the sentences it was read from, dimmer. */
+.constraint-reading + .constraint-reading {
+  margin-top: 2px;
+}
+/* Its marker beside the first rule's line, every rule in the column after it. */
 .constraint-reading summary {
-  font-weight: 600;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  row-gap: 2px;
 }
 .constraint-reading summary::before {
-  margin-left: 0;
+  margin: 0.4em 0.35em 0 0;
 }
-.constraint-reading details[open] > summary {
-  margin-bottom: 2px;
+.constraint-rule {
+  display: block;
+  grid-column: 2;
 }
-.constraint-text-only {
-  padding-left: calc(0.45em + 0.55em);
+.constraint-printed {
+  font: inherit;
+  overflow-wrap: anywhere;
 }
-.constraint-kind {
+.constraint-keyword {
+  color: var(--syntax-keyword);
+  font-weight: bold;
+}
+.constraint-words {
+  display: block;
   color: var(--ui-muted);
-  font-style: italic;
+}
+.constraint-text-only,
+.constraint-quote {
+  padding-left: calc(0.45em + 0.35em);
 }
 .constraint-quote {
   display: block;
-  color: var(--syntax-string);
-  font-family: var(--sans);
-  font-style: italic;
+  margin-top: 2px;
+  color: color-mix(in srgb, var(--syntax-string) 72%, var(--ui-bg));
+  font-style: normal;
   overflow-wrap: anywhere;
+  quotes: '"' '"';
 }
 .constraint-text-only .constraint-quote {
-  display: inline;
-}
-.constraint-reading details .constraint-quote {
-  padding-left: calc(0.45em + 0.55em);
+  padding-left: 0;
 }
 .constraint-group + .constraint-group {
   padding-top: var(--space-1);

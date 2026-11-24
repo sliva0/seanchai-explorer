@@ -40,10 +40,11 @@ function ConstraintsHelp() {
       <h3>Interpreted constraints</h3>
       <p class="help-note">
         What a clause's prose says of an AVP's value or presence, as a reader read it, pinned to the sentences quoted:
-        no document prints it as structure. Its blocks have a dashed edge in the corrected text, which "Interpreted" in
-        the strip hides and shows for every document; a line reading an AVP they hold for has an italic i after it, and
-        a name's popup lists them in words, each with its quote. Trust a rule as far as its quote. A rule is one of
-        these kinds:
+        no document prints it as structure. Its blocks read as the rest of the corrected text, with a thin rule left of
+        their lines and an ";; interpreted" note opening the declaration's record; "Interpreted" in the strip hides and
+        shows them for every document. A line reading an AVP they hold for has an italic i after it, and a name's popup
+        lists them, each rule as the text prints it and in words, with its quote. Trust a rule as far as its quote. A
+        rule is one of these kinds:
       </p>
       <dl class="help-list help-rule-kinds">
         {Object.entries(ruleKinds).map(([kind, { printed, says }]) => (

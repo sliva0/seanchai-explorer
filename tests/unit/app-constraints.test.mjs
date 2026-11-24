@@ -51,7 +51,9 @@ test('the corrected text of TS 29.272', async t => {
         const type = lineAt(document, DSR_BLOCK);
         assert.ok(type.classList.contains('interpreted'));
         assert.ok(type.classList.contains('corrected-line'), 'its note cites the declaration');
-        assert.ok(lineAt(document, DSR_QUOTE).classList.contains('constraint-quote'));
+        assert.ok(lineAt(document, DSR_QUOTE).classList.contains('interpreted-quote'));
+        assert.ok(lineAt(document, DSR_QUOTE).classList.contains('interpreted'));
+        assert.ok(!lineAt(document, DSR_QUOTE + 1).classList.contains('interpreted-quote'), 'a rule is no quote');
         assert.ok(lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted-gap'));
         assert.ok(!lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted'));
         const note = type.querySelector('.correction-toggle');
@@ -100,14 +102,20 @@ test('the corrected text of TS 29.272', async t => {
           'https://github.com/sliva0/seanchai/blob/main/docs/constraints.md',
         );
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
-        assert.deepEqual(texts(section, '.constraint-reading summary'), ['not 0']);
+        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-printed'), ['exclude 0']);
+        assert.deepEqual(texts(section, '.constraint-reading summary .constraint-words'), ['not 0']);
+        assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
         assert.match(
           section.querySelector('.constraint-reading details q').textContent,
           /shall not have a value of zero/,
         );
         const textOnly = texts(section, '.constraint-text-only');
         assert.equal(textOnly.length, 2);
-        assert.match(textOnly[1], /^text only NOTE: If interworking with MAP is needed/);
+        assert.deepEqual(texts(section, '.constraint-text-only .constraint-printed'), ['text-only', 'text-only']);
+        assert.match(
+          section.querySelectorAll('.constraint-text-only q')[1].textContent,
+          /^NOTE: If interworking with MAP is needed/,
+        );
         const route = routeOf(section.querySelector('.place-constraint .view-action').getAttribute('href'));
         assert.equal(route.get('line'), String(APN_BLOCK));
         assert.ok(!section.textContent.includes('DSR-Flags'), "the command's are not this place's");
@@ -116,7 +124,11 @@ test('the corrected text of TS 29.272', async t => {
         const inCommand = await popupOf(page, nameOn(document, 'Context-Identifier', DSR_MEMBER));
         const dsr = inCommand.querySelector('.popup-constraints');
         assert.deepEqual(texts(dsr, '.constraint-scope'), ['in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1']);
-        assert.deepEqual(texts(dsr, '.constraint-reading summary'), [
+        assert.deepEqual(texts(dsr, '.constraint-reading summary .constraint-printed'), [
+          'requires DSR-Flags bit "PDN subscription contexts Withdrawal" or DSR-Flags bit "PDP contexts Withdrawal"',
+          'exclude 0',
+        ]);
+        assert.deepEqual(texts(dsr, '.constraint-reading summary .constraint-words'), [
           'present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
           'not 0',
         ]);
@@ -130,7 +142,8 @@ test('the corrected text of TS 29.272', async t => {
       const popup = await popupOf(page, subject);
       assert.equal(texts(popup, '.popup-context p')[0], 'Here: the AVP of interpreted constraints · 7.3.9');
       const rule = popup.querySelector('.constraint-rule');
-      assert.equal(rule.textContent, 'PLMN ID, MCC and MNC in 3 octets');
+      assert.match(rule.querySelector('.constraint-printed').textContent, /^encoding plmn-id\b/);
+      assert.equal(rule.querySelector('.constraint-words').textContent, 'PLMN ID, MCC and MNC in 3 octets');
       assert.match(rule.title, /^MCC and MNC in 3 octets/);
       await closePopup(page);
       const condition = await popupOf(page, nameOn(document, 'DSR-Flags', DSR_QUOTE + 1));
@@ -144,8 +157,8 @@ test('the corrected text of TS 29.272', async t => {
     await t.test("a default and a rule on an AVP's own bits are said in words, in the popup and the mark", async () => {
       const bits = await popupOf(page, nameOn(document, 'DSR-Flags', DSR_FLAGS_MEMBER));
       assert.ok(
-        texts(bits, '.constraint-reading summary').includes('at most one of bits 3, 6 set'),
-        texts(bits, '.constraint-reading summary').join('\n'),
+        texts(bits, '.constraint-reading .constraint-words').includes('at most one of bits 3, 6 set'),
+        texts(bits, '.constraint-reading .constraint-words').join('\n'),
       );
       await closePopup(page);
       assert.match(
@@ -153,7 +166,7 @@ test('the corrected text of TS 29.272', async t => {
         /at most one of bits 3, 6 set/,
       );
       const nor = await popupOf(page, nameOn(document, 'NOR-Flags', NOR_FLAGS_MEMBER));
-      assert.ok(texts(nor, '.constraint-reading summary').includes('read as 0 when absent'));
+      assert.ok(texts(nor, '.constraint-reading .constraint-words').includes('read as 0 when absent'));
       await closePopup(page);
       assert.match(
         lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
@@ -167,12 +180,12 @@ test('the corrected text of TS 29.272', async t => {
       present(link);
       assert.equal(link.textContent, 'TS 29.329');
       assert.equal(link.getAttribute('href'), '#29329-j10');
-      assert.equal(held.querySelector('.constraint-rule').textContent, 'encoded as TS 29.329 “RAND”');
+      assert.equal(held.querySelector('.constraint-words').textContent, 'encoded as TS 29.329 “RAND”');
       await closePopup(page);
       const zone = '.dad-line.interpreted [data-avp="Regional-Subscription-Zone-Code"]';
       const unheld = await popupOf(page, document.querySelector(zone));
       absent(unheld.querySelector('.constraint-rule a'));
-      assert.equal(unheld.querySelector('.constraint-rule').textContent, 'encoded as TS23.003 clause 4.4 “Zone Code”');
+      assert.equal(unheld.querySelector('.constraint-words').textContent, 'encoded as TS23.003 clause 4.4 “Zone Code”');
       await closePopup(page);
     });
 

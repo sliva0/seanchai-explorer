@@ -35,7 +35,9 @@
   --ui-shadow: rgb(60 50 30 / 22%);
   --pdf-surround: #d8d4c8;
   --corrected-bg: #f3edfa;
-  --interpreted-edge: #a58bc0;
+  /* An interpreted rule's hue: the i beside a name, and the rule beside a block's lines, lighter. */
+  --interpreted: #6d5490;
+  --interpreted-edge: #b9a5d0;
   --warning-bg: #fde8d4;
   --warning: #b4530b;
   --warning-outline: transparent;
@@ -95,7 +97,8 @@
   --ui-shadow: rgb(0 0 0 / 55%);
   --pdf-surround: #2c2a27;
   --corrected-bg: #292433;
-  --interpreted-edge: #8b78a6;
+  --interpreted: #c0aedb;
+  --interpreted-edge: #6c5c85;
   --warning-bg: #3a2818;
   --warning: #ec9f5a;
   --mark-bg: #dfb453;
