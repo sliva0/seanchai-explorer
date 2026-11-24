@@ -2,7 +2,7 @@ import type { DadFile } from './blocks.ts';
 import { blocksSummary, constraintLines, interpretedLines } from './constraints.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
-import { categoriesOf, categoryWords, memberMarks } from './elements.ts';
+import { categoriesOf, categoryNote, categoryWords, memberMarks } from './elements.ts';
 import type { MemberElement } from './elements.ts';
 
 /**
@@ -27,24 +27,36 @@ interface MarkPart {
 /** A block type's annotations of a file's lines, by line index, read from its blocks and the site's indexes. */
 type Annotator = (file: DadFile, document: string, site: Site) => Map<number, { class?: string; mark?: MarkPart }>;
 
-/** A member's categories in the Information Elements tables describing its command, the mark's letters. */
-const categoryPart = (elements: MemberElement[]): MarkPart => ({
-  class: 'element-mark',
+/**
+ * A member's categories in the Information Elements tables describing its command, the mark's letters, and where they
+ * contradict its brackets, `element-disagrees`, its title saying how.
+ */
+const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkPart => ({
+  class: disagreements.length ? 'element-mark element-disagrees' : 'element-mark',
   data: { category: categoriesOf(elements) },
-  title: elements.map(({ table, row }) =>
-    [
-      row.category ? `${row.category}: ${categoryWords[row.category]}` : 'No category',
-      row.name,
-      table.table ? `table ${table.table}` : table.section,
-    ].join(' · '),
-  ),
+  title: [
+    ...elements.map(({ table, row }) =>
+      [
+        row.category ? `${row.category}: ${categoryWords[row.category]}` : 'No category',
+        row.name,
+        table.table ? `table ${table.table}` : table.section,
+      ].join(' · '),
+    ),
+    ...disagreements,
+  ],
 });
 
-/** Information Elements: a member a table describes has its category after it. */
+/**
+ * Information Elements: a member a table describes has its category after it where the category says what its
+ * brackets do not, a C, or contradicts them. An M on `{ }` or an O on `[ ]` the brackets say already, so it has none;
+ * its popup, the inspector and the tables say every category.
+ */
 const elements: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
-  for (const [line, found] of memberMarks(file, document, site.elements()))
-    if (categoriesOf(found)) lines.set(line, { mark: categoryPart(found) });
+  for (const [line, { member, elements: found }] of memberMarks(file, document, site.elements())) {
+    const note = categoryNote(member, found);
+    if (note && categoriesOf(found)) lines.set(line, { mark: categoryPart(found, note.disagreements) });
+  }
   return lines;
 };
 

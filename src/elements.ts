@@ -1,6 +1,6 @@
 import { perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
-import type { Block, Category, ElementRow, Line } from './types.ts';
+import type { Block, Category, ElementRow, Line, Member } from './types.ts';
 import type { ValueToken } from './values.ts';
 
 /** A row of an Information Elements table as `elements.json` carries it. `members` are the members it maps to, by their lines in the described document's corrected text. */
@@ -174,6 +174,32 @@ export const memberElements = (tables: ElementTable[], member: string): MemberEl
 export const categoriesOf = (elements: MemberElement[]) =>
   [...new Set(elements.flatMap(({ row }) => row.category ?? []))].join('/');
 
+/** Whether a member's brackets require it, `{ }` or `< >` at least once, as the corpus's linter reads them. */
+const bracketsRequire = (member: Pick<Member, 'presence' | 'min'>) => member.presence !== 'optional' && member.min >= 1;
+
+/**
+ * What a member's categories say that its brackets do not, or nothing where the brackets say it already, an M on
+ * `{ }` or `< >` and an O on `[ ]`: `conditional` for a C, which no brackets say, and `disagrees` where a row's
+ * category contradicts them, an M on `[ ]` (the corpus linter's `element-optional-in-abnf`) or an O or C on `{ }` or
+ * `< >` (`element-required-in-abnf`), with a sentence for each such row. A row offering one of several AVPs says
+ * nothing of each, so is not compared, as the linter does not compare it.
+ */
+export function categoryNote(
+  member: Pick<Member, 'name' | 'presence' | 'min'>,
+  elements: MemberElement[],
+): { kind: 'conditional' | 'disagrees'; disagreements: string[] } | undefined {
+  const required = bracketsRequire(member);
+  const disagreements = elements.flatMap(({ table, row }) => {
+    if (row.either || !row.category || (row.category === 'M') === required) return [];
+    const where = table.table ? `table ${table.table}` : `the table in ${table.section}`;
+    return required
+      ? `Its brackets require ${member.name}, and ${where} gives it ${row.category}, ${categoryWords[row.category]} (element-required-in-abnf)`
+      : `Its brackets make ${member.name} optional, and ${where} gives it M, mandatory (element-optional-in-abnf)`;
+  });
+  if (disagreements.length) return { kind: 'disagrees', disagreements };
+  return elements.some(({ row }) => row.category === 'C') ? { kind: 'conditional', disagreements } : undefined;
+}
+
 /** "IMSI · M, mandatory · one of Result-Code, Experimental-Result": what a row says its member is. */
 export const elementText = (row: Pick<ElementRow, 'name' | 'category' | 'either' | 'avps'>) =>
   [
@@ -191,15 +217,15 @@ export function elementRowAt(block: Block | undefined, line: number): ElementRow
 }
 
 /**
- * A file's lines with a member of a Message block that a table describes, and what the tables say of it: the quiet
- * mark beside the line. Read over the file at hand, a raw mirror too, by its blocks' clauses and names.
+ * A file's lines with a member of a Message block that a table describes, the member and what the tables say of it.
+ * Read over the file at hand, a raw mirror too, by its blocks' clauses and names.
  */
 export function memberMarks(
   file: DadFile,
   document: string,
   index: ElementIndex | undefined,
-): Map<number, MemberElement[]> {
-  const marks = new Map<number, MemberElement[]>();
+): Map<number, { member: Member; elements: MemberElement[] }> {
+  const marks = new Map<number, { member: Member; elements: MemberElement[] }>();
   if (!index?.tables.length) return marks;
   for (const block of file.blocks) {
     if (block.type !== 'Message' || !block.rule) continue;
@@ -207,7 +233,7 @@ export function memberMarks(
     if (!tables.length) continue;
     for (const member of block.rule.members) {
       const found = memberElements(tables, member.name);
-      if (found.length) marks.set(member.line, found);
+      if (found.length) marks.set(member.line, { member, elements: found });
     }
   }
   return marks;

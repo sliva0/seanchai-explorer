@@ -70,9 +70,15 @@ elements, the AVP each maps to and its category: M mandatory, C conditional, O o
 which the text colours as the grammar scopes it. The tables describing a command are those
 the export lists for its block, so where a clause prints a command twice, as TS 29.272's
 7.2.9 does IDR for S6a's and S6d's application ids, each block has its own. A member of
-the command's `; Type: Message` block that a table names has its category beside its line,
-laid over the text after its end and left out of a copy, and its popup or inspector names
-the element and goes to the table's row, `Element`. An AVP in a row goes back to the
+the command's `; Type: Message` block that a table names has its popup or inspector name
+the element and its category and go to the table's row, `Element`. Its line shows the
+category only where it says what the brackets do not, laid over the text after its end and
+left out of a copy: a C, which no brackets say, and, in a warning's colour with a title
+saying how, a category the brackets contradict, an M on `[ ]` or an O or C on `{ }` or
+`< >`, which the corpus's linter notes as `element-optional-in-abnf` and
+`element-required-in-abnf`. An M on `{ }` and an O on `[ ]` the brackets say already, so
+their lines show none, nor does a row offering one of several AVPs, as `Result-Code` or
+`Experimental-Result`. An AVP in a row goes back to the
 member, `Member`, which may be in another document: TS 29.328's and TS 29.228's tables
 describe TS 29.329's and TS 29.229's commands, and those two documents hold nothing else.
 A row naming an AVP the rule lacks says so, as does a table naming no command, and a
@@ -92,7 +98,7 @@ opening the declaration's record as a correction's does; the raw text has none.
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
 command (`; Command:`). A member, table row or Information Elements row reading an AVP
-that blocks hold for there has an italic i after its line, beside its category, its title
+that blocks hold for there has an italic i after its line, beside any category, its title
 the rules in words, and the AVP's popup and the inspector list them, each rule in words
 ("3 octets", "0 to 255", "TBCD-encoded E.164 number", "present only if DSR-Flags has bit …
 set", "read as FALSE when absent" for a `default`, "at most one of bits 3, 6 set" for

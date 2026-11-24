@@ -29,7 +29,7 @@ export const controlGroups: ControlGroup[] = [
       { keys: ['Alt-click'], does: 'The same place in the text and the pane' },
       {
         keys: ['Right-click'],
-        does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is, where else it is printed and its Information Elements tables. A member a table describes has its element and category (M, C or O, also beside its line) and that row, and the row its member. An AVP has the interpreted constraints that hold where it is read, an italic i beside its line, each in words with its quote and the way to its block',
+        does: 'Where it is used, with Definition and Details each offering "Jump to", which moves the text and the pane, and "Show on the right", which moves the pane alone; for a command, what it is, where else it is printed and its Information Elements tables. A member a table describes has its element and category (M, C or O) and that row, and the row its member; beside its line is a C, which its brackets cannot say, or a category they contradict, as an M on [ ]. An AVP has the interpreted constraints that hold where it is read, an italic i beside its line, each in words with its quote and the way to its block',
       },
       { keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'], does: "The browser's" },
     ],

@@ -241,11 +241,11 @@ test('public, desktop: ; Reprints: links to the document a reprint comes from', 
 });
 
 test(
-  "public, desktop: a member's category lies after its line moving no column, and its row and member lead to each other",
+  "public, desktop: a C member's category lies after its line moving no column, and its row and member lead to each other",
   { skip },
   async () => {
     const { page, done } = await open('#29329-j10/6.1.1');
-    const line = page.locator('.dad-line[data-line="24"]');
+    const line = page.locator('.dad-line[data-line="27"]');
     const mark = line.locator('.element-mark');
     await mark.waitFor();
     const laid = await line.evaluate(node => {
@@ -277,22 +277,23 @@ test(
       same: true,
       after: true,
       within: true,
-      letter: '"M"',
-      copied: '        { User-Identity }                  ; bold',
+      letter: '"C"',
+      copied: '        [ Server-Name ]                    ; bold',
     });
-    await line.locator('[data-avp="User-Identity"]').click();
+    assert.equal(await page.locator('.dad-line[data-line="24"] .line-mark').count(), 0, '{ } says M already');
+    await line.locator('[data-avp="Server-Name"]').click();
     const entry = page.locator('#source-pane .inspector-entry');
     await entry.waitFor();
-    assert.match(await entry.textContent(), /Element: User Identity \(See 7\.1\) · M, mandatory/);
+    assert.match(await entry.textContent(), /Element: Application Server Name \(See 7\.10\) · C, conditional/);
     await entry.locator('.place-element .view-action').click();
     await page.waitForSelector('.document-header h1:has-text("29.328")');
-    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '17');
-    await page.locator('.dad-line[data-line="17"] [data-avp="User-Identity"]').click({ button: 'right' });
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
+    await page.locator('.dad-line[data-line="27"] [data-avp="Server-Name"]').click({ button: 'right' });
     const popup = page.locator('.avp-popup');
     await popup.waitFor();
     await popup.locator('.place-member .view-action').click();
     await page.waitForSelector('.document-header h1:has-text("29.329")');
-    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '24');
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
     await done();
   },
 );

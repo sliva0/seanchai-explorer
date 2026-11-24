@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { memberPlaces } from '../../src/element-places.ts';
-import { elementIndex, elementsTitle, memberMarks, tablesFor } from '../../src/elements.ts';
+import { categoryNote, elementIndex, elementsTitle, memberMarks, tablesFor } from '../../src/elements.ts';
 import { absent, boot, commandNames, elementsOfFixture, popupOf, present, readFixture } from './helpers.mjs';
 
 const nameOn = (document, name, line) =>
@@ -76,7 +76,7 @@ test('of two blocks of one command in a clause, each has the tables its describe
   const marked = (from, line) =>
     memberMarks(from, '29272-j60', index)
       .get(line)
-      ?.map(({ table }) => table.table);
+      ?.elements.map(({ table }) => table.table);
   assert.deepEqual(marked(file, IDR.corrected[0] + IDR.member), ['5.2.2.1.1/1']);
   assert.deepEqual(marked(file, IDR.corrected[1] + IDR.member), ['5A.2.2.1.1/1']);
   assert.deepEqual(marked(raw, IDR.raw[1] + IDR.member), ['5A.2.2.1.1/1']);
@@ -111,20 +111,68 @@ test('a clause of tables is titled by the commands they describe, and by the num
   );
 });
 
-test("a member a table describes is marked with its category after its line, which the line's text leaves out", async () => {
+test('a category is noted where it says what the brackets do not: a C, or one contradicting them as the linter reads them', () => {
+  const member = (presence, min = 1) => ({ name: 'X', presence, min });
+  const row = (category, either = false) => ({ table: { table: '1/1', section: '1' }, row: { category, either } });
+  const kind = (presence, category, min) => categoryNote(member(presence, min), [row(category)])?.kind;
+  assert.equal(kind('required', 'M'), undefined);
+  assert.equal(kind('fixed', 'M'), undefined);
+  assert.equal(kind('optional', 'O', 0), undefined);
+  assert.equal(kind('optional', 'C', 0), 'conditional');
+  assert.equal(kind('optional', 'M', 0), 'disagrees');
+  assert.equal(kind('required', 'O'), 'disagrees');
+  assert.equal(kind('fixed', 'C'), 'disagrees');
+  assert.equal(kind('required', 'O', 0), undefined, 'a { } any number of times, none too, does not require it');
+  assert.deepEqual(categoryNote(member('required'), [row('C')]).disagreements, [
+    'Its brackets require X, and table 1/1 gives it C, conditional (element-required-in-abnf)',
+  ]);
+  assert.equal(categoryNote(member('optional', 0), [row('M', true)]), undefined, 'one of several AVPs');
+  assert.equal(categoryNote(member('optional', 0), [row('M', true), row('C')])?.kind, 'conditional');
+  assert.equal(categoryNote(member('optional', 0), [row(null)]), undefined);
+});
+
+test("a C member is marked with its category after its line, which the line's text leaves out; an M on { } or an O on [ ] is not", async () => {
   const page = await boot({ hash: '#29329-j10' });
   try {
     const { document } = page;
-    const line = lineAt(document, '24');
+    const line = lineAt(document, '27');
     const mark = line.querySelector('.element-mark');
     present(mark);
-    assert.equal(mark.dataset.category, 'M');
+    assert.equal(mark.dataset.category, 'C');
+    assert.ok(!mark.classList.contains('element-disagrees'));
     assert.equal(mark.getAttribute('aria-hidden'), 'true');
-    assert.equal(mark.title, 'M: mandatory · User Identity (See 7.1) · table 6.1.1.1');
+    assert.equal(mark.title, 'C: conditional · Application Server Name (See 7.10) · table 6.1.1.1');
     assert.equal(mark.textContent, '', 'drawn by CSS, so a copy of the text leaves it');
-    assert.equal(line.textContent, '        { User-Identity }                  ; bold\n', 'the text as it was');
+    assert.equal(line.textContent, '        [ Server-Name ]                    ; bold\n', 'the text as it was');
     assert.equal(mark.nextSibling.textContent, '\n', 'before the newline, where it lies after the text');
+    absent(lineAt(document, '24').querySelector('.line-mark'), '{ } says M already');
+    absent(lineAt(document, '25').querySelector('.line-mark'), '[ ] says O already');
     absent(lineAt(document, '10').querySelector('.element-mark'), "the rule's head is no member");
+  } finally {
+    await page.close();
+  }
+});
+
+test('a category its brackets contradict is marked as a disagreement, and a row offering one of several AVPs is not', async () => {
+  const page = await boot({ hash: '#29283-j00' });
+  try {
+    const { document } = page;
+    const mark = lineAt(document, '21').querySelector('.element-mark');
+    present(mark);
+    assert.equal(mark.dataset.category, 'M');
+    assert.ok(mark.classList.contains('element-disagrees'));
+    assert.equal(
+      mark.title,
+      [
+        'M: mandatory · MC Service ID · table 6.2.1-1',
+        'Its brackets make User-Identifier optional, and table 6.2.1-1 gives it M, mandatory (element-optional-in-abnf)',
+      ].join('\n'),
+    );
+    absent(lineAt(document, '23').querySelector('.line-mark'), 'an O on [ ]');
+    absent(
+      lineAt(document, '39').querySelector('.line-mark'),
+      'Result, M, is one of Result-Code and Experimental-Result',
+    );
   } finally {
     await page.close();
   }

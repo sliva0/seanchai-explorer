@@ -515,6 +515,11 @@ pre {
 .element-mark::before {
   content: attr(data-category);
 }
+/* A category its brackets contradict, an M on [ ] or an O or C on { } or < >: in the warning's hue; its title says how. */
+.element-disagrees {
+  color: var(--warning);
+  box-shadow: inset 0 0 0 1px var(--warning);
+}
 /* Interpreted, not printed: a dashed edge, as the blocks' own lines have. */
 .constraint-mark::after {
   content: "i";
