@@ -1888,3 +1888,30 @@ test(
     await done();
   },
 );
+
+test(
+  'an opened note keeps its line as short as shut, and its record starts on the next line with what it cites',
+  { skip },
+  async () => {
+    const { page, done } = await open('#29153-j00');
+    const note = page.locator('pre .dad-line:has(.correction-note)').first();
+    const toggle = note.locator('.correction-toggle').first();
+    const shut = await toggle.textContent();
+    const width = (await toggle.boundingBox()).width;
+    await toggle.click();
+    assert.equal(await toggle.textContent(), shut);
+    assert.equal((await toggle.boundingBox()).width, width, 'the line is no longer');
+    const [line, citation, reason] = await Promise.all(
+      [toggle, note.locator('.correction-citation'), note.locator('.correction-reason')].map(part =>
+        part.boundingBox(),
+      ),
+    );
+    assert.match(await note.locator('.correction-citation').textContent(), /^\(TS29\.153\.py#[\w-]+\)$/);
+    assert.ok(citation.y >= line.y + line.height - 1, 'what it cites is under the line');
+    assert.ok(reason.y >= citation.y + citation.height - 1, 'and why under that');
+    const next = await note.locator('xpath=following-sibling::*[1]').boundingBox();
+    assert.ok(next.y - (reason.y + reason.height) < 2, 'and the next line straight under it, no empty line between');
+    assert.match(await note.locator('.correction-reason').textContent(), /^— /);
+    await done();
+  },
+);

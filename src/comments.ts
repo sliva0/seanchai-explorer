@@ -6,3 +6,8 @@ export function compactComment(text: string): string {
     .replace(/\s*\(occurr?ence\s+\d+\)/gi, '')
     .trimEnd();
 }
+
+/** What `compactComment` leaves out, in order: the citations and any occurrence, `(occurrence 2) (TS29.229.py#x)`. */
+export function commentCitations(text: string): string {
+  return (text.match(/\((?:[\w.-]+\.py#[\w-]+|occurr?ence\s+\d+)\)/gi) ?? []).join(' ');
+}

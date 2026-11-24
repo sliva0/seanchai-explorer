@@ -106,7 +106,9 @@ than the rules read from it, wrapped at the pane's edge under its first letter, 
 its kind and operands as the grammar scopes them, a long one wrapped at the pane's edge
 four characters in past its own indent. Two things mark a block as interpreted: a
 thin rule left of its lines, in the hue of the i below, and its `;; interpreted` note,
-which opens the declaration's record as a correction's does. The raw text has none.
+which opens the declaration's record as a correction's `;; corrected`, `;; supplied`,
+`;; inserted` or `;; deleted` does: under the line, which keeps its short note, what the
+note cites on a line of its own, then why. The raw text has none.
 "Interpreted" in a document's strip hides them and shows them again, kept in the browser
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a

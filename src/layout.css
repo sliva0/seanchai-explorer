@@ -642,7 +642,17 @@ pre [class*="empty-cell"] {
   cursor: pointer;
   text-align: left;
 }
+.correction-toggle[aria-expanded="true"] {
+  border-bottom-style: solid;
+}
+/* The record a note opens, under its line: what it cites on a line of its own, then why, in the note's colour. */
 .correction-detail {
+  color: var(--syntax-reference);
+  font-style: italic;
+}
+.correction-detail,
+.correction-citation,
+.correction-reason {
   display: block;
   max-width: 80ch;
   white-space: normal;

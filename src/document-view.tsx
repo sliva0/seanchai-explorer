@@ -9,7 +9,7 @@ import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { lineAnnotations } from './annotations.ts';
 import type { LineAnnotation } from './annotations.ts';
-import { compactComment } from './comments.ts';
+import { commentCitations, compactComment } from './comments.ts';
 import { interpretedLines } from './constraints.ts';
 import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
@@ -41,13 +41,21 @@ export interface ViewServices {
 // The text is tens of thousands of nodes, drawn once by hand below and never again: a component drawing it would be
 // diffed whenever anything around it changed.
 
+/**
+ * A `;;` note, as short open as shut, which opens the declaration's record under its line: what the note cites, on a
+ * line of its own, then why. The record goes at the line's end, after its newline (see `renderLines`), which would
+ * otherwise leave an empty line under it.
+ */
 function correctionNode(token: HighlightedToken, reason: string, id: string): HTMLElement {
   const comment = element('span', undefined, 'correction correction-note');
   const toggle = element('button', compactComment(token.text), 'correction-toggle');
   toggle.type = 'button';
   toggle.title = `${token.text}\n${reason}`;
   toggle.setAttribute('aria-expanded', 'false');
-  const full = element('span', ` — ${reason}`, 'correction-detail');
+  const full = element('span', undefined, 'correction-detail');
+  const citations = commentCitations(token.text);
+  if (citations) full.append(element('span', citations, 'correction-citation'));
+  full.append(element('span', `— ${reason}`, 'correction-reason'));
   full.id = id;
   full.hidden = true;
   toggle.setAttribute('aria-controls', id);
@@ -55,10 +63,12 @@ function correctionNode(token: HighlightedToken, reason: string, id: string): HT
   return comment;
 }
 
-function toggleCorrection(toggle: HTMLButtonElement, token: HighlightedToken) {
-  const full = toggle.nextElementSibling as HTMLElement;
+function toggleCorrection(toggle: HTMLButtonElement) {
+  const id = toggle.getAttribute('aria-controls');
+  const full = [...toggle.closest('.dad-line')!.querySelectorAll<HTMLElement>('.correction-detail')].find(
+    detail => detail.id === id,
+  )!;
   full.hidden = !full.hidden;
-  toggle.textContent = full.hidden ? compactComment(token.text) : token.text.trimEnd();
   toggle.setAttribute('aria-expanded', String(!full.hidden));
 }
 
@@ -138,6 +148,7 @@ function renderLines(
       } else row.append(tokenNode(token, index, line, lines, doc, site, prefer));
     });
     if (annotation?.after) beforeNewline(row, annotation.after);
+    for (const record of row.querySelectorAll('.correction-detail')) row.append(record);
     pre.append(row);
   });
   return pre;
@@ -284,7 +295,7 @@ function createText(
     const target = event.target as Element;
     const correction = target.closest<HTMLButtonElement>('.correction-toggle');
     if (correction) {
-      toggleCorrection(correction, tokenOf(correction.parentElement!));
+      toggleCorrection(correction);
       return;
     }
     const node = target.closest<HTMLElement>('[data-token]');

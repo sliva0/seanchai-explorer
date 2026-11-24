@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { compactComment } from '../../src/comments.ts';
+import { commentCitations, compactComment } from '../../src/comments.ts';
 
 test('compact comments remove only citation and occurrence markers', () => {
   assert.equal(
@@ -29,4 +29,20 @@ test('compact comments remove only citation and occurrence markers', () => {
     compactComment(';; AVP * - - - - Grouped - - - - ; the * [ AVP ] wildcard'),
     ';; AVP * - - - - Grouped - - - - ; the * [ AVP ] wildcard',
   );
+});
+
+test("a note's citations are what its compact form leaves out, in order", () => {
+  assert.equal(
+    commentCitations(";; deleted: AVP rule 'Session-Id' (occurrence 2) (TS29.229.py#rta-session-id-repeated)"),
+    '(occurrence 2) (TS29.229.py#rta-session-id-repeated)',
+  );
+  assert.equal(
+    commentCitations(';; corrected: (TS29.061.py#acr-ms-timezone-spelling)'),
+    '(TS29.061.py#acr-ms-timezone-spelling)',
+  );
+  assert.equal(
+    commentCitations(';; inserted: from clause 16.4.7 (TS29.061.py#3gpp-sgsn-mcc-mnc-row)'),
+    '(TS29.061.py#3gpp-sgsn-mcc-mnc-row)',
+  );
+  assert.equal(commentCitations(';; note (keep this explanation)'), '', 'none');
 });

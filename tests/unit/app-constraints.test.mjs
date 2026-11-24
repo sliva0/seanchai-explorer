@@ -63,9 +63,11 @@ test('the corrected text of TS 29.272', async t => {
         const note = type.querySelector('.correction-toggle');
         assert.equal(note.textContent, ';; interpreted');
         click(page, note);
+        assert.equal(note.textContent, ';; interpreted', 'open as shut');
+        assert.match(type.querySelector('.correction-citation').textContent, /^\(TS29\.272\.py#[\w-]+\)$/);
         assert.match(
-          type.querySelector('.correction-detail').textContent,
-          /^ — interpreted from table 5\.2\.2\.2\.1\/1: /,
+          type.querySelector('.correction-reason').textContent,
+          /^— interpreted from table 5\.2\.2\.2\.1\/1: /,
         );
         click(page, note);
       },

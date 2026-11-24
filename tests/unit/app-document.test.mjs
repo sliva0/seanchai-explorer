@@ -9,12 +9,27 @@ test('notes expand, comments are styled by kind and raw lines are marked', async
     const { document } = page;
     const note = document.querySelector('pre .correction-toggle');
     assert.ok(note.parentElement.classList.contains('correction-note'));
-    const detail = note.nextElementSibling;
+    const detail = document.getElementById(note.getAttribute('aria-controls'));
+    same(detail.parentElement, note.closest('.dad-line'), 'at the end of its line, after its newline');
+    assert.ok(detail.previousSibling.textContent.endsWith('\n'));
     assert.equal(detail.hidden, true);
     assert.equal(note.getAttribute('aria-expanded'), 'false');
+    const shut = note.textContent;
+    assert.match(shut, /^;; \w+/);
+    assert.doesNotMatch(shut, /\.py#/, 'shut, it cites nothing');
     click(page, note);
     assert.equal(detail.hidden, false);
     assert.equal(note.getAttribute('aria-expanded'), 'true');
+    assert.equal(note.textContent, shut, 'open, the line keeps its short note');
+    assert.deepEqual(
+      [...detail.children].map(part => [part.className, part.textContent.slice(0, 2)]),
+      [
+        ['correction-citation', '(T'],
+        ['correction-reason', '— '],
+      ],
+      'the record opens with what the note cites, on a line of its own, then why',
+    );
+    assert.match(detail.firstElementChild.textContent, /^\(TS29\.153\.py#[\w-]+\)$/);
     click(page, note);
     assert.equal(detail.hidden, true);
     await page.go('#29153-j00?raw=1');
