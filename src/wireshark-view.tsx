@@ -102,9 +102,9 @@ const SHELLS = [
 ] as const;
 
 /**
- * The terminal way: a choice of shell, kept for the next visit, and its commands with a Copy button, which says what
- * it did on itself, where the reader is looking, and in a status line. Nothing where the address cannot be quoted
- * for a shell.
+ * The terminal way: a choice of shell, kept for the next visit, and its commands with a Copy button. A copy is said
+ * once where the reader looks, on the button, and to a screen reader in a status line unseen; text selected instead
+ * is said in that line, shown, the button left as it was. Nothing where the address cannot be quoted for a shell.
  */
 function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
   const [current, setCurrent] = useState(() => resolveInstallShell(readStored('installShell')));
@@ -145,11 +145,11 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
           ))}
         </div>
         {/* A live region is announced only if it was there before its text. */}
-        <span class="copy-status" role="status">
+        <span class={copied ? 'copy-status sr-only' : 'copy-status'} role="status">
           {copied === undefined ? '' : copied ? 'Copied' : 'Selected: press Ctrl+C'}
         </span>
         <button type="button" class="control" aria-label="Copy the commands" onClick={() => void onCopy()}>
-          {copied === undefined ? 'Copy' : copied ? 'Copied' : 'Press Ctrl+C'}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
       <pre class="plugin-command">

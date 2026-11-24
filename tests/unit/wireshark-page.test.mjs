@@ -193,7 +193,14 @@ test('the page shows its versions, the script for the chosen shell and the downl
     const copyStatus = document.querySelector('.copy-status');
     assert.equal(copyStatus.getAttribute('role'), 'status');
     assert.equal(copyStatus.textContent, 'Copied');
+    assert.ok(copyStatus.classList.contains('sr-only'), 'announced, not shown');
     assert.equal(copyButton.textContent, 'Copied', 'said on the button, where the reader looks');
+    const shown = element =>
+      [...element.childNodes]
+        .map(node => (node.nodeType !== 1 ? node.textContent : node.classList.contains('sr-only') ? '' : shown(node)))
+        .join(' ');
+    const bar = document.querySelector('.plugin-command-bar');
+    assert.equal(shown(bar).match(/Copied/g)?.length, 1, 'shown once');
     Object.defineProperty(window.navigator, 'clipboard', {
       configurable: true,
       value: { writeText: async () => Promise.reject(new Error('denied')) },
@@ -201,7 +208,9 @@ test('the page shows its versions, the script for the chosen shell and the downl
     click(page, copyButton);
     await page.settle();
     assert.equal(copyStatus.textContent, 'Selected: press Ctrl+C');
-    assert.equal(copyButton.textContent, 'Press Ctrl+C');
+    assert.ok(!copyStatus.classList.contains('sr-only'), 'shown');
+    assert.equal(copyButton.textContent, 'Copy', 'said once, in the status line');
+    assert.equal(shown(bar).match(/Ctrl\+C/g)?.length, 1);
     document.execCommand = () => true;
     click(page, copyButton);
     await page.settle();

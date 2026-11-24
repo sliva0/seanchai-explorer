@@ -1646,6 +1646,34 @@ test(
   },
 );
 
+test(
+  'a copy of the install commands is said once where seen, on the button, and in a status line unseen',
+  { skip },
+  async () => {
+    const { page, done } = await open('#wireshark', { permissions: ['clipboard-read', 'clipboard-write'] });
+    const bar = page.locator('.plugin-command-bar');
+    await bar.getByRole('button', { name: 'Copy the commands' }).click();
+    await page.waitForFunction(() => document.querySelector('.copy-status').textContent !== '');
+    const said = await bar.evaluate(element => {
+      const status = element.querySelector('.copy-status');
+      const { width, height } = status.getBoundingClientRect();
+      return {
+        status: status.textContent,
+        button: element.querySelector('button').textContent,
+        unseen: width <= 1 && height <= 1,
+      };
+    });
+    assert.equal(said.status, 'Copied');
+    assert.equal(said.button, 'Copied');
+    assert.ok(said.unseen, 'the status line is not seen');
+    assert.equal(
+      await page.evaluate(() => navigator.clipboard.readText()),
+      await page.locator('.plugin-command code').textContent(),
+    );
+    await done();
+  },
+);
+
 test('the shell is chosen by keyboard, and its script keeps its lines inside a narrow page', { skip }, async () => {
   const { page, done } = await open('#wireshark', { viewport: { width: 360, height: 800 } });
   const posix = page.getByRole('radio', { name: 'bash / zsh / sh' });
