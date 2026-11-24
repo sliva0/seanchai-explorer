@@ -134,12 +134,16 @@ export type AvpFlag = 'M' | 'V' | 'P';
  * `index.json`: what the export is and which documents it holds. `generator`
  * marks the directory as an export, which a later export may replace.
  * `corpus_version` is null for a corpus other than the installed one.
+ * `releases` are the 3GPP releases the corpus holds whole, oldest first: a
+ * document of one of them that `pinned` gives no reason for is that
+ * release's copy, read as the release reads it.
  */
 export interface Index {
   corpus_version: string | null;
   documents: DocumentSummary[];
   generator: 'seanchai';
   mode: 'public' | 'self-hosted';
+  releases: number[];
   schema_version: number;
   seanchai_version: string | null;
 }
