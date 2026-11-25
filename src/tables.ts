@@ -1,7 +1,6 @@
 import { perFile } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
 import type { SourcePosition } from './navigation.ts';
-import { isInterpreted } from './constraints.ts';
 import type { Block } from './types.ts';
 
 // A block's `; Table:` line names the table it was read from: a clause can hold several, so the number is a link to the
@@ -14,14 +13,10 @@ export interface TablePlace {
   section: string;
 }
 
-/**
- * `tables.json`, which prepare derives from the export's documents: each document's tables by number, and how many
- * Interpreted Constraints blocks each holding any has, which the index marks its row with.
- */
+/** `tables.json`, which prepare derives from the export's documents: each document's tables by number. */
 export interface TableIndex {
   schema_version: number;
   tables: Record<string, Record<string, TablePlace>>;
-  interpreted?: Record<string, number>;
 }
 
 export const emptyTables = (schemaVersion: number): TableIndex => ({ schema_version: schemaVersion, tables: {} });
@@ -47,16 +42,7 @@ export function tableIndex(documents: (DadFile & { id: string })[], schemaVersio
     tables: Object.fromEntries(
       documents.map(doc => [doc.id, fileTables(doc)] as const).filter(([, tables]) => Object.keys(tables).length),
     ),
-    interpreted: Object.fromEntries(
-      documents.map(doc => [doc.id, doc.blocks.filter(isInterpreted).length] as const).filter(([, count]) => count > 0),
-    ),
   };
-}
-
-/** How many Interpreted Constraints blocks a document has, as `tables.json` says; none where it says nothing of it. */
-export function interpretedCount(index: TableIndex | undefined, id: string): number | undefined {
-  const count = index?.interpreted?.[id];
-  return typeof count === 'number' && Number.isInteger(count) && count > 0 ? count : undefined;
 }
 
 /** Where a block's `; Table:` number takes the source: its page, and the table's caption on or near it. */

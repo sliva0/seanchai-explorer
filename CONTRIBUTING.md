@@ -147,9 +147,7 @@ export's documents: each document's tables by their `; Table:` number, at the fi
 printing it, its line and clause, an `Interpreted Constraints` block's left out, as it
 names the table it was read from. A table a popup names links to its block through it
 where that document is not loaded; one loaded is read itself. It comes with the first
-document, and without it such a table is text. Its `interpreted` counts each document's
-Interpreted Constraints blocks, which the index fetches it for, marking a row `¶ 157`; an
-index without it, or a count of another shape (`interpretedCount`), marks none. The export gives a `; Table:` line no
+document, and without it such a table is text. The export gives a `; Table:` line no
 link: `src/tables.ts`'s reader splits its number into a token of its own whose `source`
 carries `table`, which the pane's readers find the caption by.
 

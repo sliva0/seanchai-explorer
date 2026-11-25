@@ -189,13 +189,6 @@ export const indexPage = {
   version: 'Version',
   interfaces: 'Interfaces',
   title: 'Title',
-  /**
-   * [limit] After a row's title, where the document has interpreted constraints: the ¶ that marks them in its text and
-   * how many blocks, "¶ 105"; its title says what they are.
-   */
-  interpreted: (count: number) => `¶ ${count}`,
-  interpretedTitle: (count: number) =>
-    `${count} Interpreted Constraints ${count === 1 ? 'block' : 'blocks'}: what the prose says of an AVP's value or presence, as a reader read it`,
   /** An older edition's label in lists where the corpus holds a newer one: `release` is its number, "Rel-11". */
   edition: (release: number) => `Rel-${release}`,
 };

@@ -2230,28 +2230,21 @@ test(
   },
 );
 
-test(
-  "an interpreted rule's value goes to its row and has the row's popup; the index marks the documents interpreted",
-  { skip },
-  async () => {
-    const { page, done } = await open('#29329-j10');
-    const value = page.locator('.dad-line[data-line="330"] a.value-name', {
-      hasText: 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC',
-    });
-    await value.scrollIntoViewIfNeeded();
-    await value.click({ button: 'right' });
-    await page.locator('.avp-popup[data-value="DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"]').waitFor();
-    assert.match(await page.locator('.avp-popup').textContent(), /Result code \d+ of Experimental-Result-Code/);
-    await page.keyboard.press('Escape');
-    await value.click({ modifiers: ['Alt'] });
-    await page.waitForFunction(() => location.hash.includes('?name=DIAMETER_ERROR_TRANSPARENT_DATA+OUT_OF_SYNC'));
-    assert.match(await page.locator('.target-line').textContent(), /^"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"/);
-    await page.goto(new URL('#index/3gpp/19', page.url()).href);
-    await page.locator('.doc-interpreted').first().waitFor();
-    assert.deepEqual(await page.locator('.doc-interpreted').allTextContents(), ['¶ 157', '¶ 258', '¶ 15']);
-    await done();
-  },
-);
+test("an interpreted rule's value goes to its row and has the row's popup", { skip }, async () => {
+  const { page, done } = await open('#29329-j10');
+  const value = page.locator('.dad-line[data-line="330"] a.value-name', {
+    hasText: 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC',
+  });
+  await value.scrollIntoViewIfNeeded();
+  await value.click({ button: 'right' });
+  await page.locator('.avp-popup[data-value="DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"]').waitFor();
+  assert.match(await page.locator('.avp-popup').textContent(), /Result code \d+ of Experimental-Result-Code/);
+  await page.keyboard.press('Escape');
+  await value.click({ modifiers: ['Alt'] });
+  await page.waitForFunction(() => location.hash.includes('?name=DIAMETER_ERROR_TRANSPARENT_DATA+OUT_OF_SYNC'));
+  assert.match(await page.locator('.target-line').textContent(), /^"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"/);
+  await done();
+});
 
 test(
   "viewed at one of the build's addresses, the plugin page offers the file as served; elsewhere it says why it sets this one",

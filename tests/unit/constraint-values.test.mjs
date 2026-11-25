@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { constraintBlocks, markConstraints, namedValues, ruleNote, ruleWords } from '../../src/constraints.ts';
-import { interpretedCount, tableIndex } from '../../src/tables.ts';
+import { tableIndex } from '../../src/tables.ts';
 import { enumeratedTables, namedValueRow, valueRowAt } from '../../src/values.ts';
 import { readFixture } from './helpers.mjs';
 
@@ -295,16 +295,8 @@ test('the IP filter codecs are said in words, with their layouts for a title', (
   assert.equal(words({ kind: 'encoding', codec: 'ip-filter-next' }), 'encoded as ip-filter-next', 'one to come');
 });
 
-test("the index of tables counts each document's interpreted blocks, and a count of no shape the site knows is none", async () => {
+test('the index of tables holds the tables alone, no count of interpreted blocks', async () => {
   const { documents, schema_version } = await readFixture('index.json');
   const docs = await Promise.all(documents.map(async doc => ({ ...(await readFixture(doc.path)), id: doc.id })));
-  const index = tableIndex(docs, schema_version);
-  assert.deepEqual(index.interpreted, { '29272-j60': 157, '29273-j20': 258, '29329-j10': 15 });
-  assert.equal(interpretedCount(index, '29273-j20'), 258);
-  assert.equal(interpretedCount(index, '29328-j20'), undefined, 'none');
-  assert.equal(interpretedCount({ tables: {} }, '29273-j20'), undefined, 'an index saying nothing of them');
-  assert.equal(interpretedCount({ tables: {}, interpreted: { a: '3', b: -1, c: 1.5 } }, 'a'), undefined);
-  assert.equal(interpretedCount({ tables: {}, interpreted: { a: '3', b: -1, c: 1.5 } }, 'b'), undefined);
-  assert.equal(interpretedCount({ tables: {}, interpreted: null }, 'c'), undefined);
-  assert.equal(interpretedCount(undefined, 'a'), undefined);
+  assert.deepEqual(Object.keys(tableIndex(docs, schema_version)), ['schema_version', 'tables']);
 });

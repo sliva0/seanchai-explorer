@@ -962,13 +962,6 @@ pre .avp-current {
   padding-right: 0;
   font: var(--text-md)/1.5 var(--sans);
 }
-/* After a title, the ¶ of a document with interpreted constraints and how many blocks, in the ¶'s hue. */
-.doc-interpreted {
-  margin-left: var(--space-2);
-  font-size: var(--text-sm);
-  color: var(--interpreted);
-  white-space: nowrap;
-}
 .doc-reason {
   display: block;
   max-width: 80ch;

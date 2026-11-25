@@ -30,8 +30,7 @@ opens its document, as a link does: Ctrl or the middle button in a new tab, whil
 over its text selects it. The tab shown is in the address, `#index/ietf`,
 `#index/3gpp/18` or `#index/3gpp/older`, the first publisher's newest release plain `#`,
 so a link or Back and Forward come back to it, and the header's Index goes to the tab last
-shown in the browser. A document with interpreted constraints says so after its title, `¶ 157`, the mark its
-text gives them and how many blocks it holds, which a title says in words. Pressing `?` in the site shows the help: the same list of mouse and
+shown in the browser. Pressing `?` in the site shows the help: the same list of mouse and
 keyboard controls and line marks as below, the PDF viewer's keys in a self-hosted build only,
 and what interpreted constraints are.
 
