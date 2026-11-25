@@ -20,6 +20,8 @@ const reused = path.join(specifications, '3gpp/Rel-19/PDF/ts_129128v190200p.pdf'
 const values = path.join(specifications, '3gpp/Rel-19/PDF/ts_129272v190600p.pdf');
 const repeating = path.join(specifications, '3gpp/Rel-19/PDF/ts_129468v190000p.pdf');
 const rfc = path.join(specifications, 'rfc/rfc5580.txt');
+const elements = path.join(specifications, '3gpp/Rel-19/PDF/ts_129328v190200p.pdf');
+const quoted = path.join(specifications, '3gpp/Rel-19/PDF/ts_129214v190300p.pdf');
 const skip = !existsSync(executablePath)
   ? `no browser at ${executablePath}`
   : !existsSync(pdf) || !existsSync(rfc)
@@ -56,11 +58,15 @@ before(async () => {
               ? values
               : name === '/29468-j00.pdf'
                 ? repeating
-                : /^\/rfc\d+\.txt$/.test(name)
-                  ? path.join(specifications, 'rfc', name.slice(1))
-                  : name.startsWith('/pdfjs/')
-                    ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
-                    : path.join(dist, name);
+                : name === '/29328-j20.pdf'
+                  ? elements
+                  : name === '/29214-j30.pdf'
+                    ? quoted
+                    : /^\/rfc\d+\.txt$/.test(name)
+                      ? path.join(specifications, 'rfc', name.slice(1))
+                      : name.startsWith('/pdfjs/')
+                        ? path.join(root, 'node_modules/pdfjs-dist', name.slice('/pdfjs/'.length))
+                        : path.join(dist, name);
       try {
         const body = await readFile(file);
         response.writeHead(200, { 'content-type': types[path.extname(file)] ?? 'application/octet-stream' });
@@ -695,6 +701,111 @@ test(
         filter: 'none',
         canvas: true,
       });
+    } finally {
+      await context.close();
+    }
+  },
+);
+
+const viewerOf = (file, hash) => `${base}viewer.html?file=${encodeURIComponent(`${base}${file}`)}#${hash}`;
+
+test(
+  "TS 29.328 table 6.1.1.1: an Information Elements row is found by its AVP, in the table's second column, and its match selected",
+  { skip: skip || (!existsSync(elements) && `no ${elements}`) },
+  async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    try {
+      await page.goto(viewerOf('29328-j20.pdf', 'page=14&search=6.1.1&name=Server-Name&row=1'));
+      await settled(page, 'Server-Name');
+      await page.waitForFunction(() => document.querySelector('.highlight.selected')?.textContent === 'Server-Name');
+      const state = await viewerState(page);
+      assert.ok(state.selectedTop >= 0 && state.selectedTop < 80, `the row at the top: ${JSON.stringify(state)}`);
+      // The selected match is the row's own: its line holds the element's name in the first column.
+      const row = await page.evaluate(() => {
+        const box = document.querySelector('.highlight.selected').getBoundingClientRect();
+        return [...document.querySelectorAll('.textLayer span')]
+          .filter(span => {
+            const other = span.getBoundingClientRect();
+            return Math.abs(other.top + other.height / 2 - (box.top + box.height / 2)) < 4;
+          })
+          .map(span => span.textContent)
+          .join(' ');
+      });
+      // As the PDF prints it: "Application Server-Name", then Server-Name, C.
+      assert.match(row, /^Application Server-Name Server-Name\s+C\b/);
+      await page.screenshot({ path: process.env.SHOTS ? `${process.env.SHOTS}/pane-row-29328.png` : undefined });
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  },
+);
+
+test(
+  "TS 29.214 5.4.0: an interpreted rule's quote is found from its clause on, and its first words selected",
+  { skip: skip || (!existsSync(quoted) && `no ${quoted}`) },
+  async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 900 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    try {
+      const quote = 'The AF shall set the "Prefix Length" to 128 and encode the Ipv6 address';
+      await page.goto(viewerOf('29214-j30.pdf', `page=62&search=5.4.0&quote=${encodeURIComponent(quote)}`));
+      const query = quote.split(' ').slice(0, 8).join(' ');
+      await settled(page, query);
+      const state = await viewerState(page);
+      // pdf.js marks a match a span at a time: all of them together read as the quote's first words.
+      const selected = await page.evaluate(() =>
+        [...document.querySelectorAll('.highlight.selected')].map(node => node.textContent).join(''),
+      );
+      assert.match(selected.replace(/\s+/g, ' '), /^The ?AF shall set the "Prefix Length" to/, JSON.stringify(state));
+      assert.ok(state.selectedTop >= 0 && state.selectedTop < 80, `the sentence at the top: ${JSON.stringify(state)}`);
+      assert.ok(state.selectedPage >= 62, 'from the clause on');
+      await page.screenshot({ path: process.env.SHOTS ? `${process.env.SHOTS}/pane-quote-29214.png` : undefined });
+      // A quote the page does not print leaves the clause as the place, and highlights nothing.
+      await page.evaluate(() => {
+        location.hash = `page=62&search=5.4.0&quote=${encodeURIComponent('No such sentence is printed in this clause at all')}`;
+      });
+      await page.waitForFunction(() => document.querySelector('#find').value === '5.4.0');
+      assert.deepEqual(errors, []);
+    } finally {
+      await context.close();
+    }
+  },
+);
+
+test(
+  'the RFC reader shows a quote over a page break, its running footer and header left unmarked',
+  { skip: skip || (!existsSync(path.join(specifications, 'rfc/rfc6733.txt')) && 'no RFC 6733') },
+  async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+    const page = await context.newPage();
+    try {
+      const quote = 'Therefore, it is possible that a DPR/DPA exchange completes while application messages';
+      await page.goto(
+        `${base}rfc.html?file=${encodeURIComponent(`${base}rfc6733.txt`)}#page=22&section=2.1.1&quote=${encodeURIComponent(quote)}`,
+      );
+      await page.waitForSelector('.rfc-match-line');
+      const marked = await page.evaluate(() =>
+        [...document.querySelectorAll('.rfc-match-line')].map(node => node.textContent.trim()),
+      );
+      assert.deepEqual(marked, [
+        'delivery mechanism is used.  Therefore, it is possible that a DPR/DPA',
+        'exchange completes while application messages are still in transit,',
+      ]);
+      const first = await page.evaluate(() => {
+        const top = document.querySelector('#rfc').getBoundingClientRect().top + 12;
+        return [...document.querySelectorAll('.rfc-line')]
+          .find(line => line.getBoundingClientRect().bottom > top)
+          .textContent.trim();
+      });
+      assert.match(first, /Therefore, it is possible/);
+      assert.ok(await page.evaluate(() => document.querySelector('.rfc-match-line').classList.contains('landing')));
+      await page.screenshot({ path: process.env.SHOTS ? `${process.env.SHOTS}/pane-quote-rfc6733.png` : undefined });
     } finally {
       await context.close();
     }

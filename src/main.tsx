@@ -1,4 +1,5 @@
 import { App } from './app.tsx';
+import { linePosition } from './avp-places.ts';
 import type { AppProps, Page } from './app.tsx';
 import { docVersioned, openSite, paneKind, siteURL } from './data.ts';
 import type { Site } from './data.ts';
@@ -463,6 +464,9 @@ async function start(site: Site, highlighter: ReturnType<typeof createHighlighte
         const known = doc.sections.find(section => section.section === parsed.source!.position.section);
         sourcePane.show({ ...known, ...parsed.source.position, page: parsed.source.position.page ?? known?.page }, doc);
       } else if (value) sourcePane.show(value.position, current.doc);
+      else if (parsed.line !== undefined && !parsed.raw && linePosition(current.doc, parsed.line, parsed.name))
+        // A line gone to, a row or a member of another document's among them: the pane goes to what it prints.
+        sourcePane.show(linePosition(current.doc, parsed.line, parsed.name)!, current.doc);
       else {
         const position =
           current.doc.sections.find(section => section.section === parsed.section) ?? current.doc.sections[0];

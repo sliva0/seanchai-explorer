@@ -191,7 +191,11 @@ edition read where the corpus holds it, else to its newest; a popup gives only w
 check means for the value where that is short (`shortCheck`) and a tag where the depth is
 not `full`. A rule is said once, in words (`ruleWords`), its line as printed their title; where the
 words are the line as printed, a kind or shape the site does not know, it is shown as printed
-alone. Its quotes are folded to a line each where longer (`Quote` in `popup/constraints.tsx`,
+alone. A block's place carries its first quote's needle as `quote` in its position, which
+the route keeps as `sourceQuote` and the readers take as `quote`; each quote has a button of
+its own where the pane shows the document. A place in another document whose position the
+index cannot give is read by `linePosition` once that document loads, in `showPlace` and the
+router, as the row or member at its line. Its quotes are folded to a line each where longer (`Quote` in `popup/constraints.tsx`,
 measured as laid out), but a text-only reading's, and the section is folded under its heading
 (`ConstraintSection`) until a ¶ sends the reader there (`unfoldConstraints`, from `showMark`). A raw view reads them from the corrected document by its blocks' names, as it reads
 the element index, and goes to the corrected text for a block. `search.json` has no
@@ -259,7 +263,7 @@ Do not edit `src/types.ts` by hand.
 | `annotations.ts` | what a block type adds to its lines beside the highlighting: a class, and a mark after the text |
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
-| `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
+| `source-pane.tsx`, `pdf-navigation.ts`, `quote-text.ts` | the pane beside the text and the place it is sent to, a row by any of its columns or a quote by its first words (`quoteNeedle`, `findQuote`), and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
 | `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts`, `landing.ts` | the jump list, its keys and buttons, where each document was left, and the highlight of where a move lands |
 | `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |

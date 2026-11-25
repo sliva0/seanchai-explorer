@@ -383,3 +383,27 @@ export function placeRoute(place: Place, doc: Pick<Document, 'id'>, raw: boolean
     ...(place.position ? { source: { document: place.document, position: place.position } } : {}),
   });
 }
+
+/**
+ * Where the source prints line `line` of a file, where that line is a row or a member naming `name`, or anything where
+ * no name is asked: a row of an Information Elements or AVP table as the row naming it, from its table's page; a value
+ * table's row by its name beside its number; a member of a rule as its name's first mention on the block's page.
+ * Nothing for any other line, or one naming another name, whose clause is all that is known of it.
+ */
+export function linePosition(file: DadFile, line: number, name?: string | null): SourcePosition | undefined {
+  const block = blockAt(file, line);
+  if (!block) return undefined;
+  const at = { section: block.section, page: block.page };
+  const names = (found: string | null | undefined) => Boolean(found) && (!name || found === name);
+  const elementRow = block.element_rows?.find(row => row.line === line);
+  const avp = elementRow?.avps?.find(names);
+  if (avp) return { ...at, name: avp, row: true };
+  const tableRow = block.rows?.find(row => row.line === line);
+  if (tableRow && names(tableRow.name)) return { ...at, name: tableRow.name, row: true };
+  const valueRow = block.value_rows?.find(row => row.line === line);
+  if (valueRow && names(valueRow.name)) return { ...at, name: valueRow.name, row: true, value: valueRow.value };
+  const member = block.rule?.members.find(member => member.line === line);
+  if (!member || !names(member.name)) return undefined;
+  // On its block's page, the name's first mention there; with no page, the clause and the name.
+  return block.page ? { ...at, name: member.name, exact: true, occurrence: true } : { ...at, name: member.name };
+}

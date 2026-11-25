@@ -241,6 +241,7 @@ export function paneURL(doc: Pick<DocumentSummary, 'source'>, position: SourcePo
   if (position.printed) hash.set('printed', position.printed);
   if (position.exact) hash.set('exact', '1');
   if (position.table) hash.set('table', position.table);
+  if (position.quote) hash.set('quote', position.quote);
   url.hash = hash.toString();
   return url;
 }

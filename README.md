@@ -92,7 +92,9 @@ line, which says its brackets and its bold, `Show in source` after `Here:`; an e
 its category, `Element: Wildcarded PSI (See 7.1A) · O, optional`, the document, clause and
 table of the row stating it, `TS 29.328 · 6.1.3 · table 6.1.3.1`, a link to that row in
 that document's text, loaded as the view goes there and kept on the jump list, then `Show
-in source`, one for each table stating it; a row's flags and From, its table a link to the
+in source`, one for each table stating it, which the pane opens at that row, found by the AVP in
+the table's second column, its match selected; a line gone to in another document moves the pane
+to the row or member it is once that document has loaded; a row's flags and From, its table a link to the
 row and `Show in source`; a command's application id where its header prints none, the
 clause it is from a link. An Information Elements table's rows print no condition: their
 Description cell stays in the document, which `Show in source` opens at the table. What
@@ -226,7 +228,12 @@ for `members`, "unique across APN-Configuration instances" for `unique` within o
 "is 1 if Monitoring-Type is 1" for `values`, "holds the same value as the request's User-Name"
 for `equals`, "never sent in STR" for `absent`), with its quote, one line ending in an
 ellipsis where it is longer, its title the whole sentence, which a click, Enter or Space opens
-whole and closes again, and a text-only one, a rule
+whole and closes again, and where the pane shows the document a `Source` button sending the
+pane to that sentence, as the block's place's `Show in source` does to its first: the PDF
+viewer finds its first dozen words, or six, from the clause's heading on through its
+subclauses and a page past, compared on letters and digits alone, and selects them; the RFC
+reader marks and flashes every line of it, over a page's running footer and header; where it
+is not found the clause is the place, with nothing highlighted; and a text-only one, a rule
 no checker can run on one message, as a `not checked` tag and its quote. What the
 Wireshark plugin makes of a rule is a terse tag at most, its title saying more: `partly
 checked` or `not checked` for an element rule it checks so, `needs request` for one reading

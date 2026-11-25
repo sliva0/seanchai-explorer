@@ -796,41 +796,10 @@ pre [class*="link.declaration"] {
   background: var(--target-bg);
   box-shadow: -3px 0 var(--target-edge);
 }
-/*
- * Where the reader was sent, a line of the text or a section of a popup: a light tint and an outline in the edge's
- * colour fading in over the node's own background in 150 ms, held 0.5 s and fading out in 1.5 s, 2150 ms in all, as
- * `LANDING` in landing.ts, which takes the class off once it has run. The tint is pale enough for any text on it to keep
- * 4.5:1, the outline saying where it is; the stops leave out 0% and 100%, which are the node's own.
- */
-@keyframes landing {
-  7%,
-  30.2% {
-    background-color: var(--target-flash);
-    outline-color: var(--target-edge);
-  }
-}
-/* With reduced motion, the tint and outline alone for as long, gone at once at the end. */
-@keyframes landing-still {
-  from,
-  to {
-    background-color: var(--target-flash);
-    outline-color: var(--target-edge);
-  }
-}
-.landing {
-  outline: 2px solid transparent;
-  outline-offset: -2px;
-  animation: landing 2150ms ease-out;
-}
 /* A line's outline stands just outside it, clear of its first character, as its bar does, and shows on a line focused. */
 .dad-line.landing {
   outline: 2px solid transparent;
   outline-offset: 0;
-}
-@media (prefers-reduced-motion: reduce) {
-  .landing {
-    animation-name: landing-still;
-  }
 }
 .dad-line.corrected-line {
   background: var(--corrected-bg);
@@ -1658,6 +1627,30 @@ mark {
   font-style: normal;
   overflow-wrap: anywhere;
   quotes: '"' '"';
+}
+/* A quote and, where the pane shows its document, the button showing its sentence there, at the line's end. */
+.constraint-quote-line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-1);
+  margin-top: 2px;
+}
+.constraint-quote-line .constraint-quote {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+}
+.quote-source.control {
+  flex: none;
+  height: 1.25rem;
+  padding-block: 0;
+}
+.constraint-text-only .constraint-quote-line {
+  display: inline;
+}
+.constraint-text-only .quote-source {
+  margin-left: var(--space-1);
+  vertical-align: baseline;
 }
 /* A quote longer than its line, folded to it, its end an ellipsis, until a click opens it whole. */
 .constraint-quote-folded {

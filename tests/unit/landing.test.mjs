@@ -13,7 +13,8 @@ test('a landing fades in shortly, holds briefly and fades out more slowly, about
 });
 
 test("the stylesheet's landing runs as long as the timer, its stops where the fade in ends and the fade out starts", async () => {
-  const css = await readFile(new URL('../../src/layout.css', import.meta.url), 'utf8');
+  // In theme.css, which every page loads: the text's, the RFC reader's and the PDF viewer's.
+  const css = await readFile(new URL('../../src/theme.css', import.meta.url), 'utf8');
   const keyframes = css.match(/@keyframes landing \{([\s\S]*?)\n\}/)[1];
   const stops = [...keyframes.matchAll(/([\d.]+)%/g)].map(([, at]) => Number(at));
   assert.deepEqual(stops, [

@@ -283,6 +283,9 @@ export const constraintsSection = {
   about: 'What is this?',
   aboutTitle:
     'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
+  /** [limit] Beside a quote, where the pane shows its document: its button showing that sentence there, and its tooltip. */
+  quoteSource: 'Source',
+  quoteSourceTitle: 'Show this sentence in the source pane, highlighted',
   /** A rule's words' tooltip: the rule as the document view prints it. */
   printedTitle: (printed: string) => `As written: ${printed}`,
   /**

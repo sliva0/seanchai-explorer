@@ -5,8 +5,8 @@ import type { ElementTable, IndexedElementRow } from './elements.ts';
 import type { Document } from './types.ts';
 
 /**
- * Where a table's row is: in this document, the row of the file at hand, raw or corrected, which its name finds,
- * and in the pane the table's clause at the AVP; in another, the row's line there, which the view goes to.
+ * Where a table's row is: in this document, the row of the file at hand, raw or corrected, which its name finds; in
+ * another, the row's line there, which the view goes to; and in the pane the row naming the AVP, from the table's page.
  */
 export function elementPlace(
   table: ElementTable,
@@ -16,15 +16,11 @@ export function elementPlace(
   doc: Pick<Document, 'id'>,
 ): Place {
   const target = { document: table.document, section: table.section, name: avp };
-  if (table.document !== doc.id) return { document: table.document, target, line: row.line };
+  const position = { section: table.section, page: table.page, name: avp, row: true };
+  if (table.document !== doc.id) return { document: table.document, position, target, line: row.line };
   const block = elementsBlock(file, table.section, table.command, table.table);
   const line = blockRowOf(block, row)?.line;
-  return {
-    document: doc.id,
-    position: { section: table.section, page: table.page, name: avp, row: true },
-    target,
-    line: line ?? block?.line,
-  };
+  return { document: doc.id, position, target, line: line ?? block?.line };
 }
 
 /** Where a table is: its `; Type:` line, in this document the one of the file at hand, and in the pane its clause. */

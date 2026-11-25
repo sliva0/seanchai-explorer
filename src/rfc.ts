@@ -1,4 +1,6 @@
 import { locateRow, rfcPages, tableLines } from './rfc-text.ts';
+import { land } from './landing.ts';
+import { findQuote, quoteNeedles, runningLine } from './quote-text.ts';
 import { namePattern } from './table-row.ts';
 import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
@@ -61,10 +63,16 @@ function navigate() {
         )?.lines
       : null;
   const table = params.get('table') ? tableLines(lines, params.get('table')!) : null;
+  const quote = params.get('quote') && params.get('exact') !== '1' ? quoteAt(params.get('quote')!, section) : null;
   goTo(
     params.get('exact') === '1'
       ? page
-      : ((table && spans[table[0]]) ?? (row && spans[row[0]]) ?? section ?? page ?? pages[0]),
+      : ((quote && spans[quote[0]]) ??
+          (table && spans[table[0]]) ??
+          (row && spans[row[0]]) ??
+          section ??
+          page ??
+          pages[0]),
   );
   // A name as a whole word: "Load" marks neither "Load-Type" nor "loaded".
   const query = name ? namePattern(name, 'giu', '\\p{L}\\p{N}_-') : null;
@@ -79,11 +87,32 @@ function navigate() {
     spans[table[1]].classList.add('rfc-match-line');
     marked.push(table[1]);
   }
+  // The sentence a rule was read from, every line of it, landed on as the text's lines are.
+  if (quote)
+    for (let index = quote[0]; index <= quote[1]; index++) {
+      if (runningLine(lines[index].text) || !lines[index].text.trim()) continue;
+      spans[index].classList.add('rfc-match-line');
+      land(spans[index]);
+      marked.push(index);
+    }
   // The row prints the name wrapped or misspelt: show the line landed on instead.
   if (row && !marked.some(index => index >= row[0] && index <= row[1])) {
     spans[row[0]].classList.add('rfc-match-line');
     marked.push(row[0]);
   }
+}
+/**
+ * The lines a quote an interpreted rule was read from runs over, from its clause's heading on, across a page's running
+ * footer and header: the longer needle first, then a shorter one. Null where neither is found.
+ */
+function quoteAt(quote: string, section: HTMLElement | undefined): [number, number] | null {
+  const from = section ? spans.indexOf(section) : 0;
+  const texts = lines.map(line => (runningLine(line.text) ? '' : line.text));
+  for (const needle of quoteNeedles(quote)) {
+    const found = findQuote(texts, needle, Math.max(0, from));
+    if (found) return found;
+  }
+  return null;
 }
 function markName(index: number, query: RegExp) {
   const text = lines[index].text;

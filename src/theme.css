@@ -254,6 +254,37 @@ details[open] > summary::before,
 .disclosure[aria-expanded="true"]::before {
   rotate: 90deg;
 }
+/*
+ * Where the reader was sent, a line of the text, a section of a popup or a line of an RFC in the pane: a light tint and an outline in the edge's
+ * colour fading in over the node's own background in 150 ms, held 0.5 s and fading out in 1.5 s, 2150 ms in all, as
+ * `LANDING` in landing.ts, which takes the class off once it has run. The tint is pale enough for any text on it to keep
+ * 4.5:1, the outline saying where it is; the stops leave out 0% and 100%, which are the node's own.
+ */
+@keyframes landing {
+  7%,
+  30.2% {
+    background-color: var(--target-flash);
+    outline-color: var(--target-edge);
+  }
+}
+/* With reduced motion, the tint and outline alone for as long, gone at once at the end. */
+@keyframes landing-still {
+  from,
+  to {
+    background-color: var(--target-flash);
+    outline-color: var(--target-edge);
+  }
+}
+.landing {
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  animation: landing 2150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing {
+    animation-name: landing-still;
+  }
+}
 .sr-only {
   position: absolute;
   width: 1px;

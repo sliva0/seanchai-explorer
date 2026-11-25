@@ -108,8 +108,6 @@ interface ElementClaim {
   place: Place;
   /** The row's document, clause and table, as the link to it says them. */
   where: string;
-  /** Where the publisher's copy prints the row, for a row of a document the pane does not show. */
-  position?: Place['position'];
 }
 
 /** A claim on a line of its own, with the way to the place stating it right after it. */
@@ -131,7 +129,7 @@ function Claim({
         <JumpLink site={site} pane={pane} request={request} place={claim.place}>
           {claim.where}
         </JumpLink>
-        <SourceButton site={site} pane={pane} request={request} place={claim.place} position={claim.position} />
+        <SourceButton site={site} pane={pane} request={request} place={claim.place} />
       </span>
     </div>
   );
@@ -522,7 +520,6 @@ function elementFacts(
         where: [label(table.document), table.section, table.table ? tableName(table.table) : '']
           .filter(Boolean)
           .join(' · '),
-        position: { section: table.section, page: table.page },
       })),
       places: [],
     };

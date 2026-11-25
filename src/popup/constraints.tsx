@@ -34,6 +34,7 @@ import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
+import { quoteNeedle } from '../quote-text.ts';
 import { Counted, placeRows, TableLink } from './shared.tsx';
 import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
 
@@ -413,6 +414,7 @@ function ConstraintGroup({
   listed: { doc, item, on, bare },
   here,
   inline,
+  pane,
 }: {
   site: Site;
   placeRow: ReturnType<typeof placeRows>;
@@ -420,13 +422,45 @@ function ConstraintGroup({
   listed: Listed;
   here: boolean;
   inline?: boolean;
+  pane: Parameters<typeof placeRows>[1];
 }) {
   const { block } = item;
+  // Where the pane shows the document, each quote is a way to its sentence there, the first the block's place's.
+  const inPane = pane.shows(site.summary(doc.id));
+  const quoted = (text: string | undefined) => {
+    const quote = text && quoteNeedle(text);
+    return quote ? { quote } : {};
+  };
+  const quoteSource = (text: string) =>
+    inPane && quoteNeedle(text) ? (
+      <button
+        class="control quote-source"
+        type="button"
+        title={constraintsSection.quoteSourceTitle}
+        onClick={() =>
+          pane.openPlace(
+            {
+              document: doc.id,
+              position: { section: block.section, page: block.page, ...quoted(text) },
+              target: { document: doc.id, section: block.section },
+              line: block.line,
+            },
+            request.doc,
+          )
+        }
+      >
+        {constraintsSection.quoteSource}
+      </button>
+    ) : null;
   const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
   const where = ruleWhere(item, name => shortName(site, doc, name));
   const place: Place = {
     document: doc.id,
-    position: { section: block.section, page: block.page },
+    position: {
+      section: block.section,
+      page: block.page,
+      ...quoted((block.readings ?? []).flatMap(reading => reading.quotes)[0]?.text),
+    },
     target: { document: doc.id, section: block.section },
     line: block.line,
   };
@@ -458,7 +492,10 @@ function ConstraintGroup({
         {(block.readings ?? []).map((reading, index) => {
           const only = textOnly(reading.rules);
           const quotes = (here ? [] : reading.quotes).map(quote => (
-            <Quote key={quote.line} text={quote.text} whole={only} />
+            <span key={quote.line} class="constraint-quote-line">
+              <Quote text={quote.text} whole={only} />
+              {quoteSource(quote.text)}
+            </span>
           ));
           if (only)
             return (
@@ -611,6 +648,7 @@ export function ConstraintFacts({
           listed={item}
           here={opened(item.doc, item.item)}
           inline={inline}
+          pane={pane}
         />
       ))}
     </ConstraintSection>
@@ -654,6 +692,7 @@ export function CommandConstraintFacts({
           listed={{ doc, item, bare: true }}
           here={false}
           inline={inline}
+          pane={pane}
         />
       ))}
     </ConstraintSection>

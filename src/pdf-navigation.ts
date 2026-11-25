@@ -1,6 +1,7 @@
 import type { PDFDocumentProxy, TextContent } from 'pdfjs-dist/types/src/display/api';
 import { exactName, looseName, namePattern, normalizeName, rowEvidence, takeName, titleNames } from './table-row.ts';
 import type { NameMatch, RowFound } from './table-row.ts';
+import { findQuote, quoteNeedles } from './quote-text.ts';
 
 export type Outline = NonNullable<Awaited<ReturnType<PDFDocumentProxy['getOutline']>>>;
 /** `query` is the text to find there when it is not the name asked for, `found` how a row link got there. */
@@ -186,6 +187,56 @@ function valueRowBeside(
 /** The top of the table row whose first cell is `name`. */
 export function rowOnPage(items: TextContent['items'], name: string): number | null {
   return findRow(items, exactName(name))?.top ?? null;
+}
+
+/**
+ * The top of a table row naming `name` in a column after its first, the whole of its cell, however the cell wraps: an
+ * Information Elements table's AVP, beside the element's name in its first. A sentence naming it is one long cell.
+ */
+export function cellRowOnPage(items: TextContent['items'], name: string): { top: number; text: string } | null {
+  const match = exactName(name);
+  const lines = textLines(items).map(line => ({ ...line, cells: lineCells(line.items) }));
+  for (let i = 0; i < lines.length; i++) {
+    for (const first of lines[i].cells.slice(1)) {
+      let column = normalizeName(nameText(first.text));
+      if (!column || !match.starts(column)) continue;
+      let text = first.text;
+      let cell = first;
+      const height = lines[i].items[0].height;
+      for (let j = i + 1; !match.whole(column) && j < lines.length && lines[j - 1].y - lines[j].y < 2 * height; j++) {
+        const next = lines[j].cells.find(next => next.x < cell.end && next.end > cell.x);
+        if (!next) break;
+        const part = normalizeName(nameText(next.text));
+        if (!part || !match.starts(column + part)) break;
+        column += part;
+        text = `${text}${text.endsWith('-') ? '' : ' '}${next.text}`;
+        cell = next;
+      }
+      // "Wildcarded-Public-" goes on below it: that is Wildcarded-Public-Identity, not Wildcarded-Public.
+      if (match.whole(column) && !text.endsWith('-')) return { top: lines[i].top, text };
+    }
+  }
+  return null;
+}
+
+/**
+ * The top of the line a quote's `needle` starts on, read over the page's lines on their letters and digits alone, and
+ * the needle as the find is to look for it; below `under`, a clause heading's top, where one is on the page.
+ */
+export function quoteOnPage(
+  items: TextContent['items'],
+  needle: string,
+  under = Infinity,
+): { top: number; text: string } | null {
+  const lines = textLines(items);
+  const from = lines.findIndex(line => line.top <= under);
+  if (from < 0) return null;
+  const found = findQuote(
+    lines.map(line => line.text),
+    needle,
+    from,
+  );
+  return found ? { top: lines[found[0]].top, text: needle } : null;
 }
 
 /** The top of the value table's row naming `name`, beside the number `value` if said: names repeat among a page's tables, numbers tell them apart. */
@@ -375,6 +426,8 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
       [inSection, 'row', row(name)],
       ...(printed ? [[inSection, 'printed', row(printed)] as [number[], RowFound, Look]] : []),
       [inSection, 'loose', items => looseRowOnPage(items, name)],
+      // An Information Elements table names the AVP in a later column, the element in its first.
+      [inSection, 'row', items => cellRowOnPage(items, name)],
       // A clause's description table can number its rows, with the name in the second column.
       ...(titled && value === undefined
         ? [[inSection, 'row', items => findValueRow(items, exactName(name))] as [number[], RowFound, Look]]
@@ -471,6 +524,44 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     return fallback;
   }
   /**
+   * Where a quote an interpreted rule was read from is: the first line from its clause's heading on that its words
+   * start, through the clause, its subclauses and a page past them where a paragraph runs on, a dozen pages at most;
+   * the longer needle first, then a shorter one, which a page break or a misprint does not cut. Null where none is
+   * found: the clause is the place then, as without a quote.
+   */
+  async function locateQuote(
+    section: string,
+    hint: number,
+    active: () => boolean,
+    quote: string,
+  ): Promise<Destination | null> {
+    const key = JSON.stringify(['quote', section, hint, quote]);
+    if (destinations.has(key)) return destinations.get(key)!;
+    const needles = quoteNeedles(quote);
+    const bookmark = find(await outline, section);
+    if (!active()) return null;
+    const start = (bookmark?.dest ? await destination(bookmark.dest) : null)?.pageNumber ?? hint;
+    const next = bookmark ? await nextBookmarkPage(bookmark, true) : null;
+    if (!active()) return null;
+    const end = Math.min(pdf.numPages, Math.max(start, hint, next ?? start) + 1, start + 11);
+    for (const needle of needles) {
+      for (let pageNumber = start; pageNumber <= end; pageNumber++) {
+        const { items, width } = await textOf(pageNumber);
+        if (!active()) return null;
+        const heading = pageNumber === start ? headingOnPage(items, section, width) : null;
+        const hit = quoteOnPage(items, needle, heading ?? Infinity);
+        if (!hit) continue;
+        // The find highlights the quote's first words: enough to see where it starts, few enough for any page's text.
+        const query = needle.split(' ').slice(0, 8).join(' ');
+        const result = { pageNumber, destArray: [null, { name: 'XYZ' }, null, hit.top, null], query };
+        destinations.set(key, result);
+        return result;
+      }
+    }
+    destinations.set(key, null);
+    return null;
+  }
+  /**
    * Where a table link goes: its caption, on the page its block names or the nearest one printing it, the caption's
    * words as the find's; null where no page prints it.
    */
@@ -494,5 +585,5 @@ export function createSectionNavigator(pdf: PDFDocumentProxy) {
     destinations.set(key, null);
     return null;
   }
-  return { outline, destination, locate, locateTable };
+  return { outline, destination, locate, locateTable, locateQuote };
 }

@@ -209,6 +209,7 @@ async function navigate() {
   const row = params.get('row') === '1';
   const table = params.get('table') ?? undefined;
   const exact = params.get('exact') === '1';
+  const quote = params.get('quote') ?? undefined;
   find.value = name ?? section;
   rowTarget = undefined;
   printedAs = undefined;
@@ -217,24 +218,34 @@ async function navigate() {
   // A table's caption, which a clause of several tables tells them apart by; its clause where no page prints it.
   const caption = table && !exact ? await navigator.locateTable(table, hint, active) : null;
   if (generation !== navigation) return;
-  const destination = caption
-    ? caption
-    : section && !exact
-      ? await navigator.locate(
-          section,
-          hint,
-          () => generation === navigation,
-          name,
-          row,
-          params.get('printed') ?? undefined,
-          {
-            ...(params.get('titled') === '1' ? { titled: true } : {}),
-            ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
-          },
-        )
-      : null;
+  // A sentence an interpreted rule was read from: its first words, from its clause on; the clause where none is found.
+  const quoted = quote && section && !exact ? await navigator.locateQuote(section, hint, active, quote) : null;
   if (generation !== navigation) return;
-  if (table && (caption || exact)) {
+  const destination = quoted
+    ? quoted
+    : caption
+      ? caption
+      : section && !exact
+        ? await navigator.locate(
+            section,
+            hint,
+            () => generation === navigation,
+            name,
+            row,
+            params.get('printed') ?? undefined,
+            {
+              ...(params.get('titled') === '1' ? { titled: true } : {}),
+              ...(params.has('value') ? { value: Number(params.get('value')) } : {}),
+            },
+          )
+        : null;
+  if (generation !== navigation) return;
+  if (quoted) {
+    // The quote's first words, found as written, not as a whole name; the pane knows the place by its clause.
+    wholeWord = false;
+    find.value = quoted.query!;
+    printedAs = { name: name ?? section, query: find.value };
+  } else if (table && (caption || exact)) {
     // The pane knows the place by its clause: the caption's find is not one the reader typed. Where no page prints
     // the caption, the clause is found as a section link's is.
     find.value = `Table ${table}`;
@@ -247,7 +258,7 @@ async function navigate() {
   else viewer.scrollPageIntoView({ pageNumber: hint });
   automaticFind = params.get('match') !== '1';
   findStart = destination?.pageNumber ?? hint;
-  if ((row || caption) && destination?.destArray[0] === null)
+  if ((row || caption || quoted) && destination?.destArray[0] === null)
     rowTarget = { page: destination.pageNumber, top: destination.destArray[3] as number };
   search(find.value, params.get('match') === '1');
   selectOutline(

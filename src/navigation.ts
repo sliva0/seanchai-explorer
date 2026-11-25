@@ -14,6 +14,8 @@ export interface SourcePosition extends Citation {
   titled?: boolean;
   value?: number;
   table?: string;
+  /** A sentence an interpreted rule was read from, which the pane finds from its clause on: its first words. */
+  quote?: string;
 }
 export interface PaneState {
   document: string;
@@ -72,6 +74,7 @@ export function routeFor(target: Target, options: RouteOptions = {}): string {
     if (position.titled) params.set('titled', '1');
     if (position.value !== undefined) params.set('value', String(position.value));
     if (position.table) params.set('sourceTable', position.table);
+    if (position.quote) params.set('sourceQuote', position.quote);
   }
   if (options.paneHidden) params.set('pane', '0');
   if (options.line !== undefined) params.set('line', String(options.line));
@@ -94,6 +97,7 @@ function parseSource(params: URLSearchParams): PaneState | undefined {
       ...(params.get('row') === '1' ? { row: true } : {}),
       ...(params.get('titled') === '1' ? { titled: true } : {}),
       ...(params.get('sourceTable') ? { table: params.get('sourceTable')! } : {}),
+      ...(params.get('sourceQuote') ? { quote: params.get('sourceQuote')! } : {}),
       ...(params.has('value') && Number.isInteger(Number(params.get('value')))
         ? { value: Number(params.get('value')) }
         : {}),
