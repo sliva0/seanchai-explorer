@@ -147,7 +147,9 @@ export's documents: each document's tables by their `; Table:` number, at the fi
 printing it, its line and clause, an `Interpreted Constraints` block's left out, as it
 names the table it was read from. A table a popup names links to its block through it
 where that document is not loaded; one loaded is read itself. It comes with the first
-document, and without it such a table is text. The export gives a `; Table:` line no
+document, and without it such a table is text. Its `interpreted` counts each document's
+Interpreted Constraints blocks, which the index fetches it for, marking a row `¶ 157`; an
+index without it, or a count of another shape (`interpretedCount`), marks none. The export gives a `; Table:` line no
 link: `src/tables.ts`'s reader splits its number into a token of its own whose `source`
 carries `table`, which the pane's readers find the caption by.
 
@@ -167,7 +169,12 @@ list too, and a shape it does not know makes the rule said as its line prints it
 thrown on. `markConstraints`, one of `data.ts`'s readers, makes every name of a path its
 own token on the rule's line, with `constraintRef`, the path to it, and the link of the
 member it is (in the grouped AVP before it, the request, the block's command or grouped
-AVP), `request` and `/` left as text the grammar scopes; and links `; Command-Section:` and
+AVP), `request` and `/` left as text the grammar scopes; marks every value or bit a rule
+names (`namedValues`, a condition's, a `default`'s, a `bits` rule's) whose row the file holds
+(`namedValueRow` in `src/values.ts`) as that row's name, `valueRow` as a value table's has,
+inside its quotes where the line quotes it, an `Enumerated AVP` block's values read as rows
+(`enumeratedTables`) for it; links `; Command:` to the print `scopeMessage` finds, where the
+export gave no link or one to another print; and links `; Command-Section:` and
 `; Request-Section:`. `readersFor` gives the blocks on other AVPs whose rules read a name
 where it is read, `commandConstraints` those of a command its lines cannot show, on an AVP
 only its `* [ AVP ]` admits or `absent`, which the ¶ on that line and the command's popup

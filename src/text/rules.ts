@@ -95,6 +95,21 @@ export const codecs: Record<Exclude<Codec, 'element'>, { words: string; layout: 
     layout:
       'A 6-octet MAC address as text: each octet as two upper-case hexadecimal digits, separated by dashes (for example, "00-10-A4-23-19-C0"; TS 29.273 sections 5.2.3.23 and 5.2.3.30).',
   },
+  'ip-filter': {
+    words: 'IP filter rule (permit, no options)',
+    layout:
+      'An IPFilterRule as TS 29.212 restricts it: "permit", the direction "in" or "out", a protocol number or "ip", "from" a source and "to" a destination, each "any", "assigned" or an IPv4 or IPv6 address with an optional mask width, then optional ports and port ranges; no options and no "!" (RFC 6733 section 4.3.1, as TS 29.212 section 5.3.34 restricts it).',
+  },
+  'ip-filter-out': {
+    words: 'IP filter rule of direction out',
+    layout:
+      'An IP filter rule as TS 29.212 restricts it, of the direction "out" (for example, "permit out 17 from 192.0.2.10/32 5060 to assigned"; TS 29.212 sections 5.3.13, 5.3.54 and 5.4.2).',
+  },
+  'ip-filter-flow': {
+    words: 'IP filter rule describing one flow',
+    layout:
+      'An IP filter rule as TS 29.212 restricts it, describing one IP flow: no "assigned", and the source port, where given, a single port, not a list or range (for example, "permit in 17 from 192.0.2.10 5060 to 198.51.100.7 5060"; RFC 6733 section 4.3.1, as TS 29.214 section 5.3.8 restricts it).',
+  },
   element: {
     layout:
       "An information element of another specification, named by its document, section, and name. The rule's popup and the inspector show what the element is, how far the Wireshark plugin checks it, and the editions its layout was read from.",
@@ -115,6 +130,8 @@ export const ruleText = {
   anyValue: 'any value',
   /** A length's unit where the rule names none. */
   octets: 'octets',
+  /** A value's name of digits only, quoted, as it would read as a number: “16”. */
+  namedValue: (name: string) => `“${name}”`,
   /** A bit a rule names by its bit table's name, quoted: “Trace Data Withdrawal”. */
   namedBit: (name: string) => `“${name}”`,
   /** A `bits` rule's bits: "bit 1", "bits 4, 5, 6, 7". */

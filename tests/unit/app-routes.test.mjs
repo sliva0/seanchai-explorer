@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SCHEMA_VERSION } from '../../src/types.ts';
-import { absent, boot, click, notSame, readFixture, same, settle } from './helpers.mjs';
+import { absent, boot, click, notSame, present, readFixture, same, settle } from './helpers.mjs';
 
 test('an unknown document and an unsupported export say so, the second before any other fetch', async () => {
   const page = await boot({ hash: '#does-not-exist' });
@@ -393,5 +393,47 @@ test('each route sets its title and heading, and navigation moves focus', async 
     assert.equal(window.location.hash, before);
   } finally {
     await page.close();
+  }
+});
+
+test('the index marks a document with interpreted constraints by the ¶ and how many blocks, once tables.json comes', async () => {
+  const page = await boot({ hash: '#index/3gpp/19' });
+  try {
+    const { document } = page;
+    await settle();
+    assert.ok(page.fetched.includes('data/tables.json'), 'the index of tables the documents fetch anyway');
+    assert.ok(!page.fetched.some(path => path.startsWith('data/documents/')), 'and no document');
+    const marks = [...document.querySelectorAll('main tbody tr')].flatMap(row => {
+      const mark = row.querySelector('.doc-title .doc-interpreted');
+      return mark ? [[row.querySelector('.row-link').textContent, mark.textContent, mark.title]] : [];
+    });
+    assert.deepEqual(
+      marks.map(([number, text]) => [number, text]),
+      [
+        ['29.272', '¶ 157'],
+        ['29.273', '¶ 258'],
+        ['29.329', '¶ 15'],
+      ],
+    );
+    assert.match(marks[0][2], /^157 Interpreted Constraints blocks: what the prose says of an AVP's value or presence/);
+    const row = document.querySelector('main tbody tr .doc-interpreted').closest('.cell-text');
+    present(row, "inside the title's text, which a click on passes to the row's link");
+  } finally {
+    await page.close();
+  }
+});
+
+test('an index of tables saying nothing of interpreted constraints, or failing, marks no row', async () => {
+  const odd = (path, data) => (path === 'data/tables.json' ? { ...data, interpreted: 'many' } : data);
+  const missing = path => (path === 'data/tables.json' ? { ok: false, status: 404 } : undefined);
+  for (const options of [{ transform: odd }, { serve: missing }]) {
+    const page = await boot({ hash: '#index/3gpp/19', ...options });
+    try {
+      await settle();
+      absent(page.document.querySelector('.doc-interpreted'));
+      assert.ok(page.document.querySelector('main tbody tr'), 'the rows as before');
+    } finally {
+      await page.close();
+    }
   }
 });

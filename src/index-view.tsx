@@ -1,10 +1,12 @@
 import type { ComponentChildren } from 'preact';
-import { useState } from 'preact/hooks';
+import { useEffect, useState } from 'preact/hooks';
 import { docNumber, docSubject, interfacesOf } from './data.ts';
 import type { Site } from './data.ts';
 import { OLDER, releaseLabel, tabHref } from './index-tabs.ts';
 import type { IndexTab } from './index-tabs.ts';
 import { routeFor } from './navigation.ts';
+import { interpretedCount } from './tables.ts';
+import type { TableIndex } from './tables.ts';
 import { githubName, indexIntro, indexPage as text, PYPI, pypiName, REPOSITORY } from './text/site.ts';
 import type { DocumentSummary } from './types.ts';
 
@@ -27,8 +29,19 @@ function CellText({ children }: { children: ComponentChildren }) {
  * A row is one link, the number's, which is the row's one stop for the keyboard and reaches over the whole row, under
  * the other cells' text; a click on that text is passed to it (see `followRow`).
  */
-function DocumentRow({ doc, site, versioned }: { doc: DocumentSummary; site: Site; versioned: boolean }) {
+function DocumentRow({
+  doc,
+  site,
+  versioned,
+  tables,
+}: {
+  doc: DocumentSummary;
+  site: Site;
+  versioned: boolean;
+  tables: TableIndex | undefined;
+}) {
   const subject = docSubject(doc);
+  const interpreted = interpretedCount(tables, doc.id);
   const interfaces = interfacesOf(doc);
   // The older copies' tab holds every release: the reason a copy is held says which.
   const reason = doc.pinned && [doc.release && releaseLabel(doc.release), doc.pinned].filter(Boolean).join(' · ');
@@ -42,9 +55,14 @@ function DocumentRow({ doc, site, versioned }: { doc: DocumentSummary; site: Sit
       {versioned && <td class="doc-version">{doc.version && <CellText>{versionOf(doc)}</CellText>}</td>}
       <td class="doc-interfaces">{interfaces && <CellText>{interfaces}</CellText>}</td>
       <td class="doc-title">
-        {(subject || reason) && (
+        {(subject || reason || interpreted) && (
           <CellText>
             {subject}
+            {interpreted && (
+              <span class="doc-interpreted" title={text.interpretedTitle(interpreted)}>
+                {text.interpreted(interpreted)}
+              </span>
+            )}
             {reason && <span class="doc-reason">{reason}</span>}
           </CellText>
         )}
@@ -89,7 +107,17 @@ function followRow(event: MouseEvent) {
   );
 }
 
-function DocumentTable({ docs, site, versioned }: { docs: DocumentSummary[]; site: Site; versioned: boolean }) {
+function DocumentTable({
+  docs,
+  site,
+  versioned,
+  tables,
+}: {
+  docs: DocumentSummary[];
+  site: Site;
+  versioned: boolean;
+  tables: TableIndex | undefined;
+}) {
   return (
     <table class="document-table">
       <colgroup>
@@ -108,7 +136,7 @@ function DocumentTable({ docs, site, versioned }: { docs: DocumentSummary[]; sit
       </thead>
       <tbody onMouseDown={press} onClick={followRow} onAuxClick={followRow}>
         {docs.map(doc => (
-          <DocumentRow key={doc.id} doc={doc} site={site} versioned={versioned} />
+          <DocumentRow key={doc.id} doc={doc} site={site} versioned={versioned} tables={tables} />
         ))}
       </tbody>
     </table>
@@ -141,7 +169,7 @@ function Tabs({ label, tabs, release }: { label: string; tabs: TabLink[]; releas
  * The tab's table, its columns as wide as the publisher's widest in any of its tabs, so that a switch of release moves
  * none: the narrow ones are monospace.
  */
-function TabPanel({ tab, site }: { tab: IndexTab; site: Site }) {
+function TabPanel({ tab, site, tables }: { tab: IndexTab; site: Site; tables: TableIndex | undefined }) {
   const { publisher, release } = tab;
   const widest = (text: (doc: DocumentSummary) => string) => Math.max(...publisher.docs.map(doc => text(doc).length));
   const versioned = publisher.docs.some(doc => doc.release !== null);
@@ -158,7 +186,7 @@ function TabPanel({ tab, site }: { tab: IndexTab; site: Site }) {
         {heading}
       </h2>
       {release.key === OLDER && <p class="tab-note">{text.olderCopiesNote}</p>}
-      <DocumentTable docs={release.docs} site={site} versioned={versioned} />
+      <DocumentTable docs={release.docs} site={site} versioned={versioned} tables={tables} />
     </section>
   );
 }
@@ -191,6 +219,11 @@ function IndexSearch() {
 /** The index page: a search box, what the site is, and the documents of the tab shown, by publisher and release. */
 export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined }) {
   const { corpus_version: corpus, seanchai_version: seanchai } = site.index;
+  // Which documents have interpreted constraints, from the index of tables the pages fetch anyway: marked once it comes.
+  const [tables, setTables] = useState(() => site.tables());
+  useEffect(() => {
+    if (!tables) void site.loadTables().then(index => setTables(() => index));
+  }, []);
   const releases = tab?.publisher.releases ?? [];
   return (
     <>
@@ -238,7 +271,7 @@ export function IndexView({ site, tab }: { site: Site; tab: IndexTab | undefined
               }))}
             />
           )}
-          <TabPanel tab={tab} site={site} />
+          <TabPanel tab={tab} site={site} tables={tables} />
         </>
       )}
     </>

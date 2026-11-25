@@ -3,7 +3,8 @@ import type { DadFile } from './blocks.ts';
 import { codecs, elementText, markText, ruleKinds, ruleText, scopeText } from './text/rules.ts';
 import { blockRowKey, commandDocument, markSectionLine } from './elements.ts';
 import type { Block, ConstraintRule, ElementRow, Line, Target } from './types.ts';
-import type { ValueToken } from './values.ts';
+import { namedValueRow } from './values.ts';
+import type { ValueRow, ValueToken } from './values.ts';
 
 /*
  * Interpreted Constraints: what a clause's prose says of an AVP's value or presence, as a reader declared it, pinned to
@@ -253,6 +254,13 @@ function boundsWords(low: number | null | undefined, high: number | null | undef
   return unit ? ruleText.anyNumberOf(unit) : ruleText.anyValue;
 }
 
+/**
+ * A value as a rule names it: a number as it is, a name as its table spells it, one of digits only, which would read
+ * as a number, quoted: “16”, Report-Amount's value 4.
+ */
+const valueWords = (value: number | string) =>
+  typeof value === 'string' && /^\d+$/.test(value) ? ruleText.namedValue(value) : String(value);
+
 /** A bit as a rule names it: its number, or its bit table's name. */
 const bitWords = (bit: number | string) => (typeof bit === 'number' ? String(bit) : ruleText.namedBit(bit));
 
@@ -389,7 +397,10 @@ export function conditionWords(condition: Condition): string {
     const other = referenceWords(value as ConstraintRef);
     return negated ? ruleText.differsFrom(avp, other) : ruleText.equalsOther(avp, other);
   }
-  if (value != null) return negated ? ruleText.isNot(avp, String(value)) : ruleText.is(avp, String(value));
+  if (value != null)
+    return negated
+      ? ruleText.isNot(avp, valueWords(value as number | string))
+      : ruleText.is(avp, valueWords(value as number | string));
   return negated ? ruleText.isAbsent(avp) : ruleText.isPresent(avp);
 }
 
@@ -465,12 +476,12 @@ export function ruleWords(rule: ConstraintRule, printed: string, where: RuleWher
       return boundsWords(rule.low, rule.high);
     case 'exclude':
       return (rule.values ?? []).length > 1
-        ? ruleText.noneOf(rule.values!.join(', '))
-        : ruleText.not(String(rule.values?.[0] ?? ''));
+        ? ruleText.noneOf(rule.values!.map(valueWords).join(', '))
+        : ruleText.not(rule.values?.length ? valueWords(rule.values[0]) : '');
     case 'encoding':
       return encodingWords(rule);
     case 'default':
-      return ruleText.readAs(String(rule.value ?? ruleText.aDefault));
+      return ruleText.readAs(rule.value == null ? ruleText.aDefault : valueWords(rule.value));
     case 'bits': {
       const bits = (rule.bits ?? []) as (number | string)[];
       const list = bits.map(bitWords).join(', ');
@@ -487,7 +498,7 @@ export function ruleWords(rule: ConstraintRule, printed: string, where: RuleWher
       const values = rule.values ?? [];
       const alternatives = alternativesOf(rule);
       if (!alternatives || !values.length) return printed.trim();
-      const said = values.length > 1 ? ruleText.oneOf(values.join(', ')) : String(values[0]);
+      const said = values.length > 1 ? ruleText.oneOf(values.map(valueWords).join(', ')) : valueWords(values[0]);
       return ruleText.values(said, alternativesWords(alternatives));
     }
     case 'equals': {
@@ -737,15 +748,150 @@ function markReference(line: Line, start: number, end: number, name: string, ref
   }
 }
 
+/** A value a rule names by its name, of the AVP `avp`: a bit where `bit`, else a value. */
+interface NamedValue {
+  avp: string;
+  name: string;
+  bit: boolean;
+}
+
 /**
- * Marks what an Interpreted Constraints block's lines name beyond the export's links: `; Command-Section:` a link to
- * the command's clause and `; Request-Section:` to the request's, and on a rule's line every name of each path it
- * reads, `request/` left out, each its own name linking to the member it is, with the path to it, so that a popup
- * reads it where the path reaches it. A path the line does not print as the export gives it is left as text.
+ * The values a rule names, in the order its line prints them, each with the AVP it is a value of: a `bits` rule's
+ * bits and a `default`'s value on the block's AVP `own`, then each condition's value or bit on the AVP it names. A
+ * number is none: it is no name.
+ */
+export function namedValues(rule: ConstraintRule, own: string): NamedValue[] {
+  const found: NamedValue[] = [];
+  if (rule.kind === 'bits')
+    for (const bit of (rule.bits ?? []) as unknown[])
+      if (typeof bit === 'string') found.push({ avp: own, name: bit, bit: true });
+  if (rule.kind === 'default' && typeof rule.value === 'string') found.push({ avp: own, name: rule.value, bit: false });
+  if (rule.kind === 'values' || rule.kind === 'exclude')
+    for (const value of (rule.values ?? []) as unknown[])
+      if (typeof value === 'string') found.push({ avp: own, name: value, bit: false });
+  for (const alternative of alternativesOf(rule) ?? [])
+    for (const { path, value, bit } of alternative) {
+      const avp = path[path.length - 1];
+      if (typeof value === 'string') found.push({ avp, name: value, bit: false });
+      if (typeof bit === 'string') found.push({ avp, name: bit, bit: true });
+    }
+  return found;
+}
+
+/** A name a rule's line may print bare; any other it quotes, as one of digits only, which would read as a number. */
+const BARE_VALUE = /^(?=.*[A-Za-z_])[A-Za-z0-9][A-Za-z0-9_-]*$/;
+
+/**
+ * Where a line prints a value's name at or past `from`: the name inside its quotes, `"H(E)NB_LOCAL_IP_ADDRESS_CHANGE"`,
+ * `"16"`, or bare, `3GPP_PS_DATA_OFF_CHANGE`, a whole word. The first of either; none where it prints neither.
+ */
+function printedValue(text: string, name: string, from: number): [number, number] | undefined {
+  const quoted = `"${name.replace(/["\\]/g, '\\$&')}"`;
+  const inQuotes = text.indexOf(quoted, from);
+  let bare = BARE_VALUE.test(name) ? text.indexOf(name, from) : -1;
+  while (
+    bare >= 0 &&
+    (NAME_CHAR.test(text[bare - 1] ?? '') ||
+      NAME_CHAR.test(text[bare + name.length] ?? '') ||
+      /["(]/.test(text[bare - 1] ?? '') ||
+      /[")]/.test(text[bare + name.length] ?? ''))
+  )
+    bare = text.indexOf(name, bare + 1);
+  if (inQuotes >= 0 && (bare < 0 || inQuotes < bare)) return [inQuotes + 1, inQuotes + quoted.length - 1];
+  return bare >= 0 ? [bare, bare + name.length] : undefined;
+}
+
+/**
+ * Marks `start` to `end` of a line as the name of a value row, which links, finds the row in the source and has a
+ * popup as the row's own name does: a plain token holding just that, split around it. Anything else is left as it is.
+ */
+function markValue(line: Line, start: number, end: number, row: ValueRow) {
+  let at = 0;
+  for (const [index, token] of (line.tokens as ValueToken[]).entries()) {
+    const stop = at + token.text.length;
+    if (start >= at && end <= stop) {
+      if (token.kind || token.correction || token.command || token.source || token.avp || token.target) return;
+      const named: ValueToken = {
+        text: token.text.slice(start - at, end - at),
+        valueRow: row,
+        source: row.position as NonNullable<ValueToken['source']>,
+        target: { ...(row.target ?? { document: row.table.avp?.target?.document ?? '' }), name: row.name },
+      };
+      if (!named.target!.section) named.target!.section = row.table.section;
+      const parts: ValueToken[] = [
+        { text: token.text.slice(0, start - at) },
+        named,
+        { text: token.text.slice(end - at) },
+      ];
+      line.tokens.splice(index, 1, ...parts.filter(part => part.text));
+      return;
+    }
+    at = stop;
+  }
+}
+
+/** Marks the values a rule's line names that the file gives its AVP's numbers or bits, in the order it prints them. */
+function markValues(file: DadFile, line: Line, rule: ConstraintRule, own: string) {
+  const text = line.tokens.map(token => token.text).join('');
+  let from = text.length - text.trimStart().length + rule.kind.length;
+  for (const { avp, name, bit } of namedValues(rule, own)) {
+    const span = printedValue(text, name, from);
+    if (!span) continue;
+    from = span[1];
+    const row = namedValueRow(file, avp, name, bit);
+    if (row) markValue(line, span[0], span[1], row);
+  }
+}
+
+/**
+ * Makes a block's `; Command:` name a link to the print of the command it is scoped to: where the export left it text,
+ * as where the document prints the command for several applications and only `; Application-ID:` says which (TS
+ * 29.212's CC-Request for Gx, Gxx, Sd and S15), and where it links the command's first print in this document though
+ * the block is scoped to another (TS 29.273's Diameter-EAP-Request for SWm, first printed for STa).
+ */
+function markCommandLine(file: DadFile, item: ConstraintBlock) {
+  const { block, scope } = item;
+  const message = scope.command ? scopeMessage(file, item) : undefined;
+  const document = (file as DadFile & { id?: string }).id;
+  if (!message || !document) return;
+  const prefix = '; Command: ';
+  for (let index = block.line; index <= block.last; index++) {
+    const tokens = file.lines[index]?.tokens;
+    const first = tokens?.[0];
+    const linked = tokens?.length && first?.text === prefix ? tokens[1] : undefined;
+    if (linked?.target && linked.text === scope.command) {
+      if (linked.target.document === document && linked.target.section !== message.section)
+        linked.target = { ...linked.target, section: message.section };
+      return;
+    }
+    if (!tokens || tokens.length !== 1 || !first || first.target || first.source || first.kind || first.correction)
+      continue;
+    if (!first.text.startsWith(prefix + scope.command)) continue;
+    const rest = first.text.slice(prefix.length + scope.command!.length);
+    if (rest.trim()) return;
+    tokens.splice(
+      0,
+      1,
+      { text: prefix },
+      { text: scope.command!, target: { document, section: message.section } },
+      ...(rest ? [{ text: rest }] : []),
+    );
+    return;
+  }
+}
+
+/**
+ * Marks what an Interpreted Constraints block's lines name beyond the export's links: `; Command:` a link to the
+ * command's print where the export gives none, `; Command-Section:` a link to the command's clause and
+ * `; Request-Section:` to the request's, and on a rule's line every name of each path it reads, `request/` left out,
+ * each its own name linking to the member it is, with the path to it, so that a popup reads it where the path reaches
+ * it; and every value or bit it names that the file has a row of, linking to that
+ * row. A path or value the line does not print as the export gives it is left as text.
  */
 export const markConstraints = perFile(file => {
   for (const item of constraintBlocks(file)) {
     const { block } = item;
+    markCommandLine(file, item);
     markSectionLine(file, block, 'Command-Section', commandDocument(file, block));
     markSectionLine(file, block, 'Request-Section', block.request_target?.document ?? undefined);
     for (const reading of block.readings ?? [])
@@ -771,6 +917,7 @@ export const markConstraints = perFile(file => {
           });
           from = start + printed.length;
         }
+        markValues(file, line, rule, item.avp);
       }
   }
   return true;

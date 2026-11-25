@@ -240,3 +240,31 @@ test("self-hosted: a row of a clause's stated origin is no row to find: its use 
     await page.close();
   }
 });
+
+test("an interpreted rule's value is its row's name: a popup of the row, and an alt-click goes to it", async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document, window } = page;
+    const rule = document.querySelector('.dad-line[data-line="330"]');
+    const values = [...rule.querySelectorAll('a.value-name')];
+    assert.equal(values.length, 14, "each of the rule's result codes, which the document's table defines");
+    const spaced = values.find(node => node.textContent === 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC');
+    assert.ok(spaced, 'a quoted name, its quotes left outside the link');
+    assert.equal(spaced.previousSibling.textContent.at(-1), '"');
+    assert.ok(spaced.getAttribute('href').startsWith('#29329-j10/6.2.2.'));
+    rightClick(page, spaced);
+    await settle();
+    const popup = document.querySelector('.avp-popup');
+    assert.equal(popup.dataset.value, 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC');
+    assert.match(popup.textContent, /Result code \d+ of Experimental-Result-Code/);
+    popup.querySelector('.popup-title button').click();
+    click(page, spaced, { altKey: true });
+    await settle();
+    assert.match(window.location.hash, /\?name=DIAMETER_ERROR_TRANSPARENT_DATA\+OUT_OF_SYNC&/);
+    const target = document.querySelector('.target-line');
+    assert.ok(target.textContent.startsWith('"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"'), 'to its row');
+    assert.ok(!target.classList.contains('interpreted'));
+  } finally {
+    await page.close();
+  }
+});

@@ -673,6 +673,11 @@ pre [class*="enum-note"] {
   color: var(--syntax-string);
   background: var(--syntax-string-bg);
 }
+/* A value an interpreted rule names and links to its row, bare or in quotes: coloured as the row's own name is. */
+pre .value-name[class*="variable.other.avp"] {
+  color: var(--syntax-string);
+  background: var(--syntax-string-bg);
+}
 pre [class*="empty-cell"] {
   color: var(--ui-muted);
 }
@@ -932,6 +937,13 @@ pre .avp-current {
 .document-table .doc-title {
   padding-right: 0;
   font: var(--text-md)/1.5 var(--sans);
+}
+/* After a title, the ¶ of a document with interpreted constraints and how many blocks, in the ¶'s hue. */
+.doc-interpreted {
+  margin-left: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--interpreted);
+  white-space: nowrap;
 }
 .doc-reason {
   display: block;
@@ -1427,6 +1439,12 @@ mark {
   scrollbar-width: thin;
   padding-left: var(--space-2);
   border-left: 2px solid var(--interpreted-edge);
+}
+/* A popup listing them stands taller: its list, the one part giving way, scrolls in what the facts above it leave, and
+   beside an AVP's table rows that was a block at a time where a name is read by a score of rules (TS 29.212's
+   Event-Trigger in CCR). */
+.avp-popup:has(.popup-constraints) {
+  max-height: min(88vh, 48rem);
 }
 /* In a command's popup, beside its long list of places, which scrolls first: its own rules keep their lines up to a cap. */
 .command-constraints {

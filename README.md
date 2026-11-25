@@ -30,7 +30,8 @@ opens its document, as a link does: Ctrl or the middle button in a new tab, whil
 over its text selects it. The tab shown is in the address, `#index/ietf`,
 `#index/3gpp/18` or `#index/3gpp/older`, the first publisher's newest release plain `#`,
 so a link or Back and Forward come back to it, and the header's Index goes to the tab last
-shown in the browser. Pressing `?` in the site shows the help: the same list of mouse and
+shown in the browser. A document with interpreted constraints says so after its title, `¶ 157`, the mark its
+text gives them and how many blocks it holds, which a title says in words. Pressing `?` in the site shows the help: the same list of mouse and
 keyboard controls and line marks as below, the PDF viewer's keys in a self-hosted build only,
 and what interpreted constraints are.
 
@@ -206,13 +207,21 @@ Result-Code is DIAMETER_SUCCESS". Every name of a path is a name of its own on t
 line, `request` and `/` scoped apart and no names: it links to the member it is, in the
 grouped AVP before it, the request or the block's command, and its popup says so, `Here:
 member of the request, read by an interpreted rule on EPS-User-State`, with `Member` going
-to that line. A rule reading the request says under it that the Wireshark plugin checks it
+to that line. A value or bit a rule names is the name of its row where the document lists it, in
+a value table or its AVP's `Enumerated AVP` block: `3GPP_PS_DATA_OFF_CHANGE`, or in its quotes
+`"H(E)NB_LOCAL_IP_ADDRESS_CHANGE"`, a link, a popup and a place in the source as the row's own
+name is; one another document defines, as RFC 6733's `DIAMETER_SUCCESS`, is text. A name of
+digits only, which the line quotes, `"16"` (TS 29.272's Report-Amount, its value 4), reads
+“16” in words, where a number reads 16. A rule reading the request says under it that the Wireshark plugin checks it
 only when the capture holds the request, and its block offers `Request`, the request's
 block, where `request_target` and `; Request-Section:` put it. A member of the request, or
 of a path's grouped AVP, lists in its popup the rules on other AVPs that read it there,
 `rule on EPS-User-State · in IDA`. A block scoped to a command holds in the print its
 `; Command-Section:` names, where a document prints the command more than once under one
-application (TS 29.273's Diameter-EAP-Answer for STa and SWd). An AVP a command's body
+application (TS 29.273's Diameter-EAP-Answer for STa and SWd), and its `; Command:` links to
+that print, or where the document prints the command for several applications and only
+`; Application-ID:` tells them apart, as TS 29.212 does CC-Request for Gx, Gxx, Sd and S15,
+to that application's. An AVP a command's body
 admits only through `* [ AVP ]`, as TS 29.273's session-handling clauses keep
 Auth-Session-State out of STa's commands, has no member line to mark: its ¶ is on the
 command's `* [ AVP ]` line, its title naming the AVP, "Auth-Session-State: never sent in
@@ -359,7 +368,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "479e9821d1fa7240d1ec47d632e9304a71b0791d"
+  "commit": "2bd9acc62b7b57515c6dd60e2fe7f8ca753811e6"
 }
 ```
 

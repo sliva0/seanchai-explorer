@@ -113,12 +113,65 @@ export const valueTables = perFile(({ lines, blocks }) =>
     }),
 );
 
-/** A link's row: the one named so at its target or in its table. */
+/**
+ * The names an `Enumerated AVP` block gives its AVP's numbers, each read as a row of a value table of the kind values,
+ * the block its table: what an interpreted rule naming one links to, and the place its popup and the source find. The
+ * block's own lines are left as they are, its values being its AVP's lines. A range of numbers is no row.
+ */
+export const enumeratedTables = perFile(file => {
+  const document = (file as DadFile & { id?: string }).id ?? '';
+  return file.blocks
+    .filter(block => block.type === 'Enumerated AVP' && block.name)
+    .map(block => {
+      const { section, page } = block;
+      const target: Target = { document, section };
+      const table: ValueTable = {
+        kind: 'values',
+        avp: { name: block.name!, target },
+        featureListId: null,
+        application: null,
+        section,
+        page,
+        line: block.line,
+        rows: [],
+      };
+      for (const value of block.values ?? []) {
+        if (value.kind !== 'value' || value.first !== value.last || !value.name) continue;
+        table.rows.push({
+          name: value.name,
+          value: value.first,
+          mark: null,
+          origin: null,
+          line: value.line,
+          target,
+          position: { section, page, name: value.name, row: true, value: value.first },
+          table,
+        });
+      }
+      return table;
+    });
+});
+
+/** A link's row: the one named so at its target or in its table, a value table's before an Enumerated AVP block's. */
 export function valueRowAt(file: DadFile, section: string, name: string): ValueRow | undefined {
-  const rows = valueTables(file)
-    .flatMap(table => table.rows)
-    .filter(row => row.name === name);
-  return rows.find(row => row.target?.section === section) ?? rows.find(row => row.table.section === section);
+  const find = (tables: ValueTable[]) => {
+    const rows = tables.flatMap(table => table.rows).filter(row => row.name === name);
+    return rows.find(row => row.target?.section === section) ?? rows.find(row => row.table.section === section);
+  };
+  return find(valueTables(file)) ?? find(enumeratedTables(file));
+}
+
+/**
+ * The row giving a value of AVP `avp` the name `name` in a file: of its bit table where `bit`, else of its value
+ * tables, result codes among them, or its `Enumerated AVP` block. None where the file names no such value, as for a
+ * Result-Code value RFC 6733 defines.
+ */
+export function namedValueRow(file: DadFile, avp: string, name: string, bit: boolean): ValueRow | undefined {
+  const rows = [...valueTables(file), ...enumeratedTables(file)]
+    .filter(table => table.avp?.name === avp && (table.kind === 'bits') === bit)
+    .flatMap(table => table.rows.filter(row => row.name === name));
+  // A result code's row defining it before one saying another document does.
+  return rows.find(row => !row.origin) ?? rows[0];
 }
 
 /** Every kind of value table, in the order search lists them, each with its words. */
