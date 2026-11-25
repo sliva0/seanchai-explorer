@@ -253,7 +253,9 @@ Every move of the text, within a document or to another, keeps the place it leav
 list for the tab, which goes back to it to the pixel and survives a reload. A move of the
 pane alone is not on the list: the text has not gone anywhere. The arrows left of a
 document's title walk the list too, and a browser's Back and Forward step between
-documents, the index and search.
+documents, the index and search. Where a move lands, the line, or the section of a popup a
+mark opened it at, is tinted: in quickly, held a second and a half, then fading out slowly,
+about four seconds in all; with reduced motion the tint holds still as long and goes at once.
 
 | Keys | Do |
 |---|---|

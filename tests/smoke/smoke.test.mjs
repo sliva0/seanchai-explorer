@@ -1161,6 +1161,46 @@ test('with reduced motion a jump is instant, and the landing still shows', { ski
 });
 
 test(
+  'a landing holds its tint a second and more, fades out slowly and goes after about four seconds; with reduced motion it holds still as long',
+  { skip },
+  async () => {
+    for (const reducedMotion of ['no-preference', 'reduce']) {
+      const { page, done } = await open('#29217-j00?pane=0', { reducedMotion });
+      const { flash, samples } = await page.evaluate(async () => {
+        const probe = document.createElement('div');
+        probe.style.backgroundColor = 'var(--target-flash)';
+        document.body.append(probe);
+        const flash = getComputedStyle(probe).backgroundColor;
+        probe.remove();
+        const links = document.querySelectorAll('.section-list a');
+        const link = links[links.length - 2];
+        link.click();
+        const row = document.getElementById(`section-${link.textContent}`);
+        const began = performance.now();
+        const samples = [];
+        for (const at of [1000, 3000, 4700]) {
+          await new Promise(resolve => setTimeout(resolve, at - (performance.now() - began)));
+          samples.push({
+            at,
+            on: row.classList.contains('landing'),
+            background: getComputedStyle(row).backgroundColor,
+          });
+        }
+        return { flash, samples };
+      });
+      const [held, late, gone] = samples;
+      const said = `${reducedMotion}: ${JSON.stringify(samples)}`;
+      assert.ok(held.on && held.background === flash, `held at a second: ${said}`);
+      assert.ok(late.on, `still on at three seconds: ${said}`);
+      if (reducedMotion === 'reduce') assert.equal(late.background, flash, `no fade: ${said}`);
+      else assert.notEqual(late.background, flash, `fading: ${said}`);
+      assert.ok(!gone.on && gone.background !== flash, `gone: ${said}`);
+      await done();
+    }
+  },
+);
+
+test(
   'a document comes back to the pixel, through the index, history, a reload and the jump list',
   { skip },
   async () => {

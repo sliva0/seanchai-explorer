@@ -14,6 +14,7 @@ import { interpretedLines } from './constraints.ts';
 import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
+import { land } from './landing.ts';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { PopupRequest, Popups } from './popup/index.tsx';
 import { fallbackPlace, markDetails, placeRoute, resolverOf, tokenPlace } from './avp-places.ts';
@@ -364,10 +365,7 @@ function createText(
     );
     if (!section) return;
     section.scrollIntoView?.({ block: 'nearest' });
-    section.classList.remove('landing');
-    void section.offsetWidth;
-    section.classList.add('landing');
-    section.addEventListener('animationend', () => section.classList.remove('landing'), { once: true });
+    land(section);
   }
 
   pre.addEventListener('click', event => {
@@ -417,13 +415,8 @@ function createText(
     focusable = node;
   };
 
-  /** A stronger tint fading to the line's own, once it has come to rest, to show where the motion ended. */
-  function flash(row: HTMLElement) {
-    row.classList.remove('landing');
-    void row.offsetWidth;
-    row.classList.add('landing');
-    row.addEventListener('animationend', () => row.classList.remove('landing'), { once: true });
-  }
+  /** A stronger tint fading in and out over the line's own, once it has come to rest, to show where the motion ended. */
+  const flash = land;
 
   // Where the view came to rest goes to the URL and the session once, not at every step of the way there.
   let resting: ReturnType<typeof setTimeout> | undefined;

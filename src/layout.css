@@ -788,15 +788,31 @@ pre [class*="link.declaration"] {
   background: var(--target-bg);
   box-shadow: inset 3px 0 var(--target-edge);
 }
-/* From a stronger tint to whatever the line's own background is. A fade of colour, so reduced motion keeps it. */
+/*
+ * Where the reader was sent, a line of the text or a section of a popup: a stronger tint fading in over whatever the
+ * node's own background is in 150 ms, held 1.5 s and fading out in 2.5 s, 4150 ms in all, as `LANDING` in landing.ts,
+ * which takes the class off once it has run. The stops leave out 0% and 100%, which are the node's own background.
+ */
 @keyframes landing {
-  from {
+  3.6%,
+  39.8% {
     background-color: var(--target-flash);
   }
 }
-.dad-line.landing,
-.popup-constraints.landing {
-  animation: landing 600ms ease-out;
+/* With reduced motion, the tint alone for as long, gone at once at the end. */
+@keyframes landing-still {
+  from,
+  to {
+    background-color: var(--target-flash);
+  }
+}
+.landing {
+  animation: landing 4150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing {
+    animation-name: landing-still;
+  }
 }
 .dad-line.corrected-line {
   background: var(--corrected-bg);
