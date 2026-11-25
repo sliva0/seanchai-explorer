@@ -36,6 +36,14 @@ export const ruleKinds: Record<ConstraintRule['kind'], { printed: string; says: 
     printed: 'values 1 if Other-AVP = 1',
     says: 'Allowed integer values when a condition on a sibling AVP holds.',
   },
+  equals: {
+    printed: 'equals request/User-Name',
+    says: "Holds the same value, octet for octet, as the AVP named, where both are present: in an answer, usually the request's.",
+  },
+  absent: {
+    printed: 'absent',
+    says: "Never sent in the block's scope: its command (; Command:), its grouped AVP (; Within:), or anywhere the document uses it.",
+  },
   'text-only': {
     printed: 'text-only',
     says: 'Prose-only rule that cannot be checked on a single message; read the quote directly.',
@@ -82,6 +90,11 @@ export const codecs: Record<Exclude<Codec, 'element'>, { words: string; layout: 
     words: 'time zone offset from UTC (15-minute units)',
     layout: 'Signed decimal offset from UTC in 15-minute units (for example, "+8").',
   },
+  'mac-address': {
+    words: 'MAC address as text (00-10-A4-23-19-C0)',
+    layout:
+      'A 6-octet MAC address as text: each octet as two upper-case hexadecimal digits, separated by dashes (for example, "00-10-A4-23-19-C0"; TS 29.273 sections 5.2.3.23 and 5.2.3.30).',
+  },
   element: {
     layout:
       "An information element of another specification, named by its document, section, and name. The rule's popup and the inspector show what the element is, how far the Wireshark plugin checks it, and the editions its layout was read from.",
@@ -116,12 +129,30 @@ export const ruleText = {
   membersAtLeastOneOf: 'at least one of',
   membersPresent: 'present',
   membersOnly: 'no members present except',
-  /** A condition on a sibling AVP: "DSR-Flags has bit “X” set", "Result-Code is DIAMETER_SUCCESS". */
+  /**
+   * The AVP a condition is on: a member of the request, "the request's IDR-Flags", and a member of a grouped AVP,
+   * "MIP-Home-Agent-Host in MIP6-Agent-Info", its grouped AVPs outermost first, joined.
+   */
+  requests: (name: string) => `the request's ${name}`,
+  memberIn: (name: string, parents: string) => `${name} in ${parents}`,
+  pathJoin: ' › ',
+  /**
+   * A condition on an AVP: "DSR-Flags has bit “X” set", "Result-Code is DIAMETER_SUCCESS", and with "not" "the
+   * request's ULR-Flags does not have bit “X” set", "is not 2", "is absent"; a value read from another AVP, "Result-Code
+   * equals the request's Result-Code".
+   */
   hasBit: (avp: string, bit: string) => `${avp} has bit ${bit} set`,
+  lacksBit: (avp: string, bit: string) => `${avp} does not have bit ${bit} set`,
   is: (avp: string, value: string) => `${avp} is ${value}`,
+  isNot: (avp: string, value: string) => `${avp} is not ${value}`,
+  equalsOther: (avp: string, other: string) => `${avp} equals ${other}`,
+  differsFrom: (avp: string, other: string) => `${avp} differs from ${other}`,
   isPresent: (avp: string) => `${avp} is present`,
-  /** Conditions joined. */
+  isAbsent: (avp: string) => `${avp} is absent`,
+  /** Conditions that must all hold, joined; then alternatives, and alternatives of which one joins several conditions. */
+  and: ' and ',
   or: ' or ',
+  orAfterAnd: ', or ',
   /** The predicates tying a member's presence to its siblings, before their conditions. */
   presentIf: 'present if',
   absentIf: 'absent if',
@@ -147,6 +178,11 @@ export const ruleText = {
   /** A `values` rule: "is 1 if Monitoring-Type is 1", "is one of 1, 2 if …". */
   values: (said: string, conditions: string) => `is ${said} if ${conditions}`,
   oneOf: (values: string) => `one of ${values}`,
+  /** An `equals` rule: "holds the same value as the request's User-Name". */
+  sameValueAs: (other: string) => `holds the same value as ${other}`,
+  /** An `absent` rule: "never sent in STR", "never sent in Non-3GPP-User-Data", and with no scope. */
+  neverSentIn: (scope: string) => `never sent in ${scope}`,
+  neverSent: 'never sent',
   /** A rule no checker can run on one message. */
   textOnly: 'cannot be checked on a single message',
 };
@@ -201,6 +237,8 @@ export const markText = {
   heading: (heading: string) => `${heading}:`,
   /** A rule's line. */
   item: (words: string) => `• ${words}`,
+  /** On a command's `* [ AVP ]` line, a rule on an AVP the line does not name: "Auth-Session-State: never sent in DEA". */
+  named: (avp: string, words: string) => `${avp}: ${words}`,
   /** A rule no checker can run, as its quote, cut at a word near 100 characters with … */
   textOnly: (quote: string) => `cannot be checked on a single message: “${quote}”`,
   cut: (quote: string) => `${quote}…`,
@@ -226,4 +264,13 @@ export const constraintsSection = {
     'Cannot be checked automatically on a single message (marked text-only in the document view); read the quote directly.',
   /** [limit] A block's place's label, before its colon. */
   readIn: 'From',
+  /** [limit] The place of the request a block's rules read, before its colon: the request's block. */
+  request: 'Request',
+  /** Under a rule reading the request its answer answers. */
+  needsRequest: 'The Wireshark plugin checks this only when the capture holds the request.',
+  /**
+   * The scope line of a block on another AVP whose rules read the name here: "rule on Subscription-Data", before where it
+   * holds.
+   */
+  ruleOn: (avp: string) => `rule on ${avp}`,
 };

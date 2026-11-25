@@ -1,6 +1,7 @@
 import type { DadFile } from './blocks.ts';
 import { commandFacts, emptyIndex } from './commands.ts';
 import type { CommandIndex } from './commands.ts';
+import { markConstraints } from './constraints.ts';
 import { emptyElements, markElements } from './elements.ts';
 import type { ElementIndex } from './elements.ts';
 import { DataError } from './errors.ts';
@@ -295,9 +296,16 @@ export interface Site {
 
 /**
  * The readers of the block types that mark tokens as names on their first reading of a file: a value table's rows, a
- * command's names, an element's AVPs. A new block type whose lines name something adds its reader here.
+ * command's names, an element's AVPs, the names an interpreted rule reads. A new block type whose lines name something adds its reader here.
  */
-const readers: ((file: DadFile) => unknown)[] = [markTables, valueTables, resultCodeTables, commandFacts, markElements];
+const readers: ((file: DadFile) => unknown)[] = [
+  markTables,
+  valueTables,
+  resultCodeTables,
+  commandFacts,
+  markElements,
+  markConstraints,
+];
 
 /** A file whose names link as other names do from the moment it is read. */
 function marked<T extends DadFile>(file: T): T {

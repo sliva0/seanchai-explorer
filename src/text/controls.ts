@@ -38,7 +38,7 @@ export const controlGroups: ControlGroup[] = [
       },
       {
         keys: ['Right-click'],
-        does: 'Open the name\'s popup: uses, flags, and every place it is declared but the one opened on, each with "Jump to" for both panes and "Show in source" for the source pane only: Definition (where it gets its code, in the defining document for an AVP reused from another, or a note where this build lacks it), Reused (this document\'s Reused AVPs row), Rule (its Grouped AVP rule here) and Details; for commands, identity, other definitions, Information Elements tables, and the tables of result codes an answer may carry; for such a code, its number and the document defining it. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used.',
+        does: 'Open the name\'s popup: uses, flags, and every place it is declared but the one opened on, each with "Jump to" for both panes and "Show in source" for the source pane only: Definition (where it gets its code, in the defining document for an AVP reused from another, or a note where this build lacks it), Reused (this document\'s Reused AVPs row), Rule (its Grouped AVP rule here) and Details; for commands, identity, other definitions, Information Elements tables, and the tables of result codes an answer may carry; for such a code, its number and the document defining it. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used, and the rules on other AVPs that read them there; a command lists those its lines cannot show, as an AVP never sent in it.',
       },
       {
         keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],
@@ -49,8 +49,8 @@ export const controlGroups: ControlGroup[] = [
         does: "In a block header: jump to that place in the source document; a ;\u00a0Table: link goes to the table's caption.",
       },
       {
-        keys: ['; Command-Section:'],
-        does: 'In an Information Elements header: go to the section printing the command the table describes, where a document prints it more than once.',
+        keys: ['; Command-Section:', '; Request-Section:'],
+        does: "In an Information Elements or Interpreted Constraints header: go to the section printing the command the block is about, where a document prints it more than once; a ;\u00a0Request-Section: goes to the section printing the request an answer's rules read.",
       },
       {
         keys: ['Table link'],
@@ -76,7 +76,7 @@ export const controlGroups: ControlGroup[] = [
       {
         keys: ['¶'],
         mark: 'constraint',
-        does: 'Interpreted constraints apply to the AVP here: hover to preview the rules, or click it (or press Enter) to open them in the popup or inspector.',
+        does: "Interpreted constraints apply to the AVP here: hover to preview the rules, or click it (or press Enter) to open them in the popup or inspector. On a command's * [ AVP ] line, they are on AVPs only that line admits, as one never sent in the command, and open in the command's popup.",
       },
     ],
   },

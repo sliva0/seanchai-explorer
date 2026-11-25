@@ -325,13 +325,13 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
       'optional, any number of times · any other AVP',
     ]);
     popup.querySelector('.popup-title button').click();
-    popup = await popupOf(page, at('User-Identity', '318'));
+    popup = await popupOf(page, at('User-Identity', '378'));
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: rule for Grouped AVP User-Identity · 6.3.1']);
     absent(popup.querySelector('.popup-contents'), 'not on its own rule, whose members the text prints');
     absent(popup.querySelector('.place-rule'), 'nor the rule as a place');
     absent(popup.querySelector('.place-details'), 'nor the clause it is in');
     popup.querySelector('.popup-title button').click();
-    popup = await popupOf(page, at('External-Identifier', '279'));
+    popup = await popupOf(page, at('External-Identifier', '299'));
     assert.deepEqual(texts(popup, '.popup-context p'), ['Here: a row of Reused AVPs 6.3/2']);
     assert.deepEqual(texts(popup, '.popup-row-title'), [], 'the "Here:" line names the row opened on');
     absent(popup.querySelector('.popup-flags'), 'nor its cells again');
@@ -524,7 +524,7 @@ test("Next and a use in the list draw a name's popup again for the use gone to, 
     same(document.activeElement, popup.querySelectorAll('.usage-link')[head], 'the focus on the entry pressed');
     assert.match(popup.querySelector('.popup-actions span').textContent, new RegExp(`^\\Use ${head + 1}/`));
     const use = document.querySelector('pre .avp-current');
-    assert.equal(use.closest('.dad-line').dataset.line, '318');
+    assert.equal(use.closest('.dad-line').dataset.line, '378');
     await easing();
     await frames();
     const line = Number(use.closest('.dad-line').dataset.line);

@@ -89,6 +89,9 @@ export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
  *   clause 4.3.1), the clause allowing no other (TS 29.272 clause 7.3.98).
  * - `time-zone`: the offset from UTC in units of 15 minutes, a sign and
  *   decimal digits, `+8` (TS 29.272 clause 7.3.163).
+ * - `mac-address`: a 6-octet MAC address as text, each octet two
+ *   upper-case hexadecimal digits, separated by dashes,
+ *   `00-10-A4-23-19-C0` (TS 29.273 clauses 5.2.3.23 and 5.2.3.30).
  * - `element`: an information element another document defines, carried
  *   whole: `document`, and the `clause` and `element` name where the
  *   clause gives them. Checked no further than a length rule states.
@@ -104,6 +107,7 @@ export type Codec =
   | 'epc-plmn-domain'
   | 'ip-address'
   | 'time-zone'
+  | 'mac-address'
   | 'element';
 /**
  * What a `bits` rule says of the bits it names, and a `members` rule of
@@ -369,10 +373,12 @@ export interface Document {
  *   Elements block's;
  * - `interpreted`, `avp_target` and `readings` for an Interpreted
  *   Constraints block, `name` being the AVP it constrains, `avp_target`
- *   where its `; AVP:` line links, and `fields` its scope (`Command`,
- *   `Application-ID` or `Within`) and `Versions`. `interpreted` is true
- *   only here: a person read the block in the clause's prose, and no
- *   document prints it as structure.
+ *   where its `; AVP:` line links, `request_target` where the request
+ *   its rules read is printed, for a block scoped to an answer whose
+ *   rules read one, and `fields` its scope (`Command`, `Application-ID`,
+ *   `Command-Section`, `Request-Section` or `Within`) and `Versions`.
+ *   `interpreted` is true only here: a person read the block in the
+ *   clause's prose, and no document prints it as structure.
  *
  * `commands` marks where its lines name a command.
  */
@@ -398,6 +404,7 @@ export interface Block {
   name?: string | null;
   page: number | null;
   readings?: ConstraintReading[];
+  request_target?: Target | null;
   reservations?: Reservation[];
   result_codes?: ResultCodeLine[];
   rows?: TableRow[];
@@ -520,16 +527,17 @@ export interface ConstraintQuote {
  * `element`'s `document`, `clause` and `element`, with `element_entry`,
  * the element registry's entry for it, omitted where it has none;
  * `present-if`,
- * `absent-if`, `requires` and `excludes` their `conditions`, alternatives;
+ * `absent-if`, `requires` and `excludes` their `conditions`, alternatives,
+ * each conditions joined by `and`;
  * `default` its `value`; `bits` its `relation` and `bits`; `members` its
  * `relation` and `members`; `values` its `values` and `conditions`;
- * `unique` and `text-only` nothing.
+ * `equals` its `reference`; `unique`, `absent` and `text-only` nothing.
  */
 export interface ConstraintRule {
   bits?: number[];
   clause?: string | null;
   codec?: Codec | null;
-  conditions?: ConstraintCondition[];
+  conditions?: ConstraintCondition[][];
   document?: string | null;
   element?: string | null;
   element_entry?: ElementEntry | null;
@@ -548,23 +556,39 @@ export interface ConstraintRule {
     | 'members'
     | 'unique'
     | 'values'
+    | 'equals'
+    | 'absent'
     | 'text-only';
   line: number;
   low?: number | null;
   members?: string[];
+  reference?: ConstraintReference | null;
   relation?: BitsRelation | null;
   unit?: LengthUnit | null;
   value?: number | string | null;
   values?: number[];
 }
 /**
- * A predicate's condition: the sibling `avp` present, holding `value`,
- * or with `bit` set, a number or a name.
+ * A predicate's condition: the AVP `root` and `path` name present,
+ * holding `value` (a number, a name, or the value of the AVP a
+ * `ConstraintReference` names), or with `bit` set, a number or a name; with
+ * `negated`, not so.
  */
 export interface ConstraintCondition {
-  avp: string;
   bit?: number | string | null;
-  value?: number | string | null;
+  negated?: boolean;
+  path: string[];
+  root?: 'request' | null;
+  value?: number | string | ConstraintReference | null;
+}
+/**
+ * An AVP a rule reads beside its own, by `path`, the names from the
+ * block's scope down to it, or with `root` `request` from the request
+ * its answer answers, the block's `request_target`.
+ */
+export interface ConstraintReference {
+  path: string[];
+  root?: 'request' | null;
 }
 /**
  * The element registry's entry for an `encoding element` rule

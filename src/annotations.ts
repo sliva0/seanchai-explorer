@@ -1,9 +1,11 @@
+import { blockAt } from './blocks.ts';
 import type { DadFile } from './blocks.ts';
-import { constraintLines, interpretedLines, markTitle } from './constraints.ts';
+import { admittedBy, constraintLines, interpretedLines, markTitle } from './constraints.ts';
 import type { Site } from './data.ts';
 import { element } from './dom.ts';
 import { categoriesOf, categoryNote, categoryWords, memberMarks } from './elements.ts';
 import type { MemberElement } from './elements.ts';
+import type { ValueToken } from './values.ts';
 import { markWords } from './text/document.ts';
 import { tableName } from './text/terms.ts';
 
@@ -68,12 +70,23 @@ const elements: Annotator = (file, document, site) => {
   return lines;
 };
 
+/** The first line of the block holding `line` that names its command, which a click opens the command's popup on. */
+function commandLine(file: DadFile, line: number): number | undefined {
+  const block = blockAt(file, line);
+  if (!block) return undefined;
+  for (let index = block.line; index <= block.last; index++)
+    if ((file.lines[index]?.tokens as ValueToken[] | undefined)?.some(token => token.command)) return index;
+  return undefined;
+}
+
 /**
  * Interpreted Constraints: a block's lines are `interpreted`, its quotes `interpreted-quote`, its rules
  * `interpreted-rule`, and the blank lines before
  * it `interpreted-gap`, which hiding the blocks leaves out with them. A line reading an AVP that the corrected file's
  * constraints hold for there has a ¶ in its mark, read from prose, its title where from and the rules in words, and a
- * click on it opens the AVP's popup or inspector at them; `reads` names the AVPs, to find the name on the line.
+ * click on it opens the AVP's popup or inspector at them; `reads` names the AVPs, to find the name on the line. On a
+ * command's `* [ AVP ]` line, the rules on AVPs only it admits, `head` the line naming the command, whose popup a click
+ * opens at them.
  */
 const constraints: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
@@ -87,11 +100,13 @@ const constraints: Annotator = (file, document, site) => {
   const source = site.held(document) ?? file;
   for (const [line, found] of constraintLines(file, source)) {
     const reads = [...new Set(found.map(item => item.avp))].join(' ');
+    const admits = admittedBy(file, line, found);
+    const head = admits.length ? commandLine(file, line) : undefined;
     lines.set(line, {
       ...lines.get(line),
       mark: {
         class: 'constraint-mark',
-        data: { interpreted: String(found.length), reads },
+        data: { interpreted: String(found.length), reads, ...(head === undefined ? {} : { head: String(head) }) },
         title: markTitle(file, source, line, found),
         control: true,
       },

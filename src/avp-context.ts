@@ -1,6 +1,8 @@
 import { avpRows, blockAt, byName, cell, perFile } from './blocks.ts';
 import type { AvpRow, DadFile } from './blocks.ts';
 import { isInterpreted, lineText } from './constraints.ts';
+import type { ConstraintRef } from './constraints.ts';
+import type { ValueToken } from './values.ts';
 import { elementRowAt } from './elements.ts';
 import type { Block, ElementRow } from './types.ts';
 import type { Member, Presence } from './types.ts';
@@ -26,14 +28,15 @@ export interface Rule {
 /**
  * What one line says of a name on it: a member of a rule, the rule's own head, a table's row, an information element's,
  * or a line of Interpreted Constraints: the AVP they are on (`subject`), the grouped AVP they hold within (`scope`), or
- * a member a `members` rule names (`member`), or a condition of a rule (`condition`).
+ * a member a `members` rule names (`member`), or a condition of a rule (`condition`), with `ref` the path to it where
+ * the rule reads it through grouped AVPs or from the request.
  */
 export type Use =
   | { kind: 'member'; rule: Rule; member: Member }
   | { kind: 'head'; rule: Rule }
   | { kind: 'row'; row: AvpRow }
   | { kind: 'element'; block: Block; row: ElementRow }
-  | { kind: 'constraint'; block: Block; role: 'subject' | 'scope' | 'member' | 'condition' };
+  | { kind: 'constraint'; block: Block; role: 'subject' | 'scope' | 'member' | 'condition'; ref?: ConstraintRef };
 
 const rulesOf = perFile(
   ({ blocks }) =>
@@ -63,8 +66,8 @@ export const ruleAt = (file: DadFile, index: number): Rule | undefined => {
   return block && rulesOf(file).get(block);
 };
 
-/** What the line at `index` says of `name`. */
-export function useAt(file: DadFile, index: number, name: string): Use | undefined {
+/** What the line at `index` says of `name`, the token opened on where there is one. */
+export function useAt(file: DadFile, index: number, name: string, token?: ValueToken): Use | undefined {
   const block = blockAt(file, index);
   if (!block) return undefined;
   const rule = rulesOf(file).get(block);
@@ -82,7 +85,8 @@ export function useAt(file: DadFile, index: number, name: string): Use | undefin
         : /^\s+members\s/.test(text)
           ? 'member'
           : 'condition';
-    return { kind: 'constraint', block, role };
+    const ref = role === 'condition' && token?.avp === name ? token.constraintRef : undefined;
+    return { kind: 'constraint', block, role, ...(ref ? { ref } : {}) };
   }
   const element = elementRowAt(block, index);
   if (element) return element.avps?.includes(name) ? { kind: 'element', block, row: element } : undefined;

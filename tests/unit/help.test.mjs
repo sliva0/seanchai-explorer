@@ -120,17 +120,33 @@ test("it lists every control of controls.ts but the PDF viewer's, the README's k
     const constraints = help.querySelector('.help-constraints');
     assert.deepEqual(
       [...constraints.children].map(node => node.className || node.tagName),
-      ['H3', 'help-note', 'help-note', 'help-note', 'help-list help-rule-kinds', 'help-note', 'help-list help-codecs'],
-      'two paragraphs, then the rule kinds and the codecs, each after its line',
+      [
+        'H3',
+        'help-note',
+        'help-note',
+        'help-note',
+        'help-list help-rule-kinds',
+        'help-note',
+        'help-note',
+        'help-list help-codecs',
+      ],
+      'two paragraphs, then the rule kinds, how conditions are written, and the codecs, each after its line',
     );
-    assert.match(constraints.children[2].textContent, /a note under seanchai\.interpreted\.$/);
+    assert.match(
+      constraints.children[2].textContent,
+      /a note under seanchai\.interpreted\. A rule reading the request an answer answers is checked only when the capture holds that request\.$/,
+    );
+    assert.match(constraints.children[5].textContent, /request\/Name is a member of the request it answers/);
+    assert.ok(kinds.includes('equals request/User-Name') && kinds.includes('absent'), kinds.join('\n'));
+    const codecs = [...help.querySelectorAll('.help-codecs dt')].map(node => node.textContent);
+    assert.ok(codecs.includes('mac-address'), codecs.join('\n'));
     assert.match(constraints.children[2].textContent, /"encoding element" rule only as far as the document defining/);
     const mouse = help.querySelector('.help-group');
     assert.equal(mouse.querySelectorAll('.help-note').length, 1);
     assert.equal(mouse.querySelector('.help-note').textContent.split('. ').length, 1, 'one sentence of note');
     assert.deepEqual(
       [...mouse.querySelectorAll('dt')].slice(-3).map(node => node.textContent),
-      ['; Section: or ; Page: or ; Table:', '; Command-Section:', 'Table link'],
+      ['; Section: or ; Page: or ; Table:', '; Command-Section: or ; Request-Section:', 'Table link'],
       "a block header's links and a popup's table as rows of their own",
     );
     const codec = [...help.querySelectorAll('.help-codecs dt')].findIndex(node => node.textContent === 'element');

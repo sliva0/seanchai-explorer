@@ -337,38 +337,50 @@ function markAvp(line: Line, start: number, end: number, avp: string) {
   }
 }
 
-const COMMAND_SECTION = '; Command-Section: ';
-
 /**
- * Splits a block's `; Command-Section:` number out of its line into a link to that clause: in the document its
- * `; Command:` name links to, which a `; From:` table's is another's, else the one the export found it described in,
- * else the file's own. A line the export split already is left as it is.
+ * Splits the number of a block's directive, as `; Command-Section:` or `; Request-Section:`, out of its line into a
+ * link to that clause of `document`, the file's own where none is given. A line the export split already is left as
+ * it is.
  */
-function markCommandSection(file: DadFile, block: Block) {
-  const section = block.fields['Command-Section'];
+export function markSectionLine(file: DadFile, block: Block, directive: string, document?: string) {
+  const section = block.fields[directive];
   if (!section) return;
-  const own = (file as DadFile & { id?: string }).id;
-  let document: string | undefined;
+  const prefix = `; ${directive}: `;
   for (let index = block.line; index <= block.last; index++) {
     const tokens = file.lines[index]?.tokens;
-    if (!tokens) continue;
-    if (tokens[0]?.text === '; Command: ') document ??= tokens[1]?.target?.document;
-    const first = tokens[0];
-    if (!first || first.target || first.source || first.kind || !first.text.startsWith(COMMAND_SECTION + section))
+    const first = tokens?.[0];
+    if (!tokens || !first || first.target || first.source || first.kind || !first.text.startsWith(prefix + section))
       continue;
-    const rest = first.text.slice(COMMAND_SECTION.length + section.length);
+    const rest = first.text.slice(prefix.length + section.length);
     if (rest && !/^\s/.test(rest)) return;
-    document ??= block.described?.[0]?.document ?? own;
-    if (!document) return;
+    const to = document ?? (file as DadFile & { id?: string }).id;
+    if (!to) return;
     tokens.splice(
       0,
       1,
-      { text: COMMAND_SECTION },
-      { text: section, target: { document, section } },
+      { text: prefix },
+      { text: section, target: { document: to, section } },
       ...(rest ? [{ text: rest }] : []),
     );
     return;
   }
+}
+
+/** The document a block's `; Command:` name links to, where the export links it. */
+export const commandDocument = (file: DadFile, block: Block) => {
+  for (let index = block.line; index <= block.last; index++) {
+    const tokens = file.lines[index]?.tokens;
+    if (tokens?.[0]?.text === '; Command: ') return tokens[1]?.target?.document ?? undefined;
+  }
+  return undefined;
+};
+
+/**
+ * A block's `; Command-Section:` number as a link to that clause: in the document its `; Command:` name links to,
+ * which a `; From:` table's is another's, else the one the export found it described in, else the file's own.
+ */
+function markCommandSection(file: DadFile, block: Block) {
+  markSectionLine(file, block, 'Command-Section', commandDocument(file, block) ?? block.described?.[0]?.document);
 }
 
 /**

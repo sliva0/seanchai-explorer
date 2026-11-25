@@ -106,6 +106,15 @@ export const avpPopup = {
   constraintScope: (on: string) => `scope of interpreted constraints on ${on}`,
   constraintMember: (on: string, scope: string) => `member referenced in an interpreted rule on ${on}${scope}`,
   constraintCondition: (on: string, scope: string) => `condition AVP in an interpreted rule on ${on}${scope}`,
+  /**
+   * A name a rule reads through a path or from the request: "member of the request, read by an interpreted rule on
+   * Subscription-Data · in ULA", "member of MIP6-Agent-Info, read by …", "member of the request's Subscription-Data, …".
+   */
+  constraintReached: (holder: string, on: string, scope: string) =>
+    `member of ${holder}, read by an interpreted rule on ${on}${scope}`,
+  theRequest: 'the request',
+  requests: (name: string) => `the request's ${name}`,
+  pathJoin: ' › ',
   /** The scope after it: " · within APN-Configuration", " · in ULR". */
   within: (name: string) => ` · within ${name}`,
   in: (name: string) => ` · in ${name}`,

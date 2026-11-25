@@ -46,17 +46,18 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 |---|---|
 | Click | its Details or its definition, as "Click goes to" in the document toolbar says (Details unless changed), in the source pane alone, which opens if it was switched off; where the pane cannot show the source, what the name is, in the pane; with "Click shows uses" on, where it is used |
 | Alt-click | the same place in the text and the pane; on the Grouped rule a document prints for an AVP it reuses from another, the definition in that document |
-| Right-click | where it is used, and every place it is declared but the one opened on, each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden: `Definition`, `Reused`, `Rule` and `Details` (see below); for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too |
+| Right-click | where it is used, and every place it is declared but the one opened on, each offering `Jump to`, which moves the text and the pane, and `Show in source`, which moves the pane alone and opens it if hidden: `Definition`, `Reused`, `Rule` and `Details` (see below); for a command, what it is, where else it is printed and its Information Elements tables, each place offering the same two; for a member a table describes, its element, category and row, and for the row its member; for an AVP, the interpreted constraints that hold where it is read, which a click on the ¶ beside its line opens too, and the rules on other AVPs that read it there; for a command, those of its constraints its lines cannot show, as an AVP never sent in it |
 | Ctrl-, Shift- or Cmd-click | the browser's |
 | `; Section:`, `; Page:` or `; Table:` in a block header | that place in the source document, a `; Table:` its table's caption |
-| `; Command-Section:` in an Information Elements header | the section printing the command the table describes |
+| `; Command-Section:` in an Information Elements or Interpreted Constraints header | the section printing the command the block is about |
+| `; Request-Section:` in an Interpreted Constraints header | the section printing the request an answer's rules read |
 | a table in a popup or the inspector | the table's block in the text |
 
 | Line marks, after a line's end and left out of a copy | |
 |---|---|
 | `C`, `OC`, `OM` | a member's category in its command's Information Elements table that its brackets cannot say: C conditional, TS 32.299's OC and OM conditional or mandatory where the operator provisions it |
 | `M`, `O`, `C`, `-` in a warning's colour | a category its brackets contradict, as an M on `[ ]`, or a member the ABNF holds, not struck out, that the table marks `-`, not used; its title says how |
-| `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them |
+| `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them; on a command's `* [ AVP ]` line, those on AVPs only that line admits, each named, which open in the command's popup |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
 text where it is. "Click goes to" is kept in the browser for every document. In a window
@@ -192,8 +193,31 @@ and, under it, as the text prints it ("3 octets", "0 to 255", "TBCD-encoded E.16
 for `bits`, of an unsigned integer or an OctetString's octets read as one big-endian
 number, "at least one of A, B present" or "no members present except IMEI, Software-Version"
 for `members`, "unique across APN-Configuration instances" for `unique` within one,
-"is 1 if Monitoring-Type is 1" for `values`), with its quote, and a text-only one, a rule
-no checker can run on one message, as "Cannot be checked on a single message" and its quote. An `encoding element` rule names another document's
+"is 1 if Monitoring-Type is 1" for `values`, "holds the same value as the request's User-Name"
+for `equals`, "never sent in STR" for `absent`), with its quote, and a text-only one, a rule
+no checker can run on one message, as "Cannot be checked on a single message" and its quote. A rule's conditions read as the
+grammar joins them, `and` binding tighter than `or`, `not` negating one: "present if
+Result-Code is DIAMETER_SUCCESS and TWAN-Connection-Mode has bit “MC-MODE” set", and a
+comma before `or` where an alternative joins several. A name may be a path through grouped
+AVPs, `MIP6-Agent-Info/MIP-Home-Agent-Host`, said "MIP-Home-Agent-Host in MIP6-Agent-Info",
+and in a block on an answer `request/` names a member of the request it answers, said "the
+request's": "present if the request's IDR-Flags has bit “EPS User State Request” set and
+Result-Code is DIAMETER_SUCCESS". Every name of a path is a name of its own on the rule's
+line, `request` and `/` scoped apart and no names: it links to the member it is, in the
+grouped AVP before it, the request or the block's command, and its popup says so, `Here:
+member of the request, read by an interpreted rule on EPS-User-State`, with `Member` going
+to that line. A rule reading the request says under it that the Wireshark plugin checks it
+only when the capture holds the request, and its block offers `Request`, the request's
+block, where `request_target` and `; Request-Section:` put it. A member of the request, or
+of a path's grouped AVP, lists in its popup the rules on other AVPs that read it there,
+`rule on EPS-User-State · in IDA`. A block scoped to a command holds in the print its
+`; Command-Section:` names, where a document prints the command more than once under one
+application (TS 29.273's Diameter-EAP-Answer for STa and SWd). An AVP a command's body
+admits only through `* [ AVP ]`, as TS 29.273's session-handling clauses keep
+Auth-Session-State out of STa's commands, has no member line to mark: its ¶ is on the
+command's `* [ AVP ]` line, its title naming the AVP, "Auth-Session-State: never sent in
+DEA", and a click opens the command's popup, which lists, as its inspector does, the blocks
+its lines cannot show, those on such an AVP and every `absent` rule of the command. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
 rule's names link to their AVPs as the text's do. Under an element rule, what the corpus's
 element registry says of it: what the element is, what the Wireshark plugin checks of it
@@ -335,7 +359,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "3029b54d64f493900babe40910776121df663360"
+  "commit": "479e9821d1fa7240d1ec47d632e9304a71b0791d"
 }
 ```
 

@@ -48,8 +48,14 @@ test("self-hosted: a command's name and abbreviation are names, which go to its 
   }
 });
 
+/** The fixture's commands but TS 29.273's, which prints AA-Answer for applications of its own. */
+const without29273 = (path, data) =>
+  path !== 'data/commands.json'
+    ? data
+    : { ...data, commands: data.commands.filter(command => command.document !== '29273-j20') };
+
 test("self-hosted: a command's popup says its header, where its application comes from, and gives its block and partner both ways", async () => {
-  const page = await boot({ hash: '#29061-6f0', mode: 'self-hosted' });
+  const page = await boot({ hash: '#29061-6f0', mode: 'self-hosted', transform: without29273 });
   try {
     const { document } = page;
     const popup = await popupOf(page, commandNames(document, '265 answer')[1]);
@@ -131,7 +137,7 @@ test("self-hosted: a command's popup lists its registry row and every other docu
       : {
           ...data,
           commands: [
-            ...data.commands,
+            ...without29273(path, data).commands,
             elsewhere('29109-j00'),
             elsewhere('29153-j00', { name: 'AA-Answer-Renamed', section: '5.6.2', line: 50 }),
             elsewhere('29217-j00', { section: '5.6.1', line: 60, application: 1, scope: null, header: 1 }),

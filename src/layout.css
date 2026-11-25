@@ -1428,6 +1428,11 @@ mark {
   padding-left: var(--space-2);
   border-left: 2px solid var(--interpreted-edge);
 }
+/* In a command's popup, beside its long list of places, which scrolls first: its own rules keep their lines up to a cap. */
+.command-constraints {
+  flex-shrink: 0;
+  max-height: 18rem;
+}
 .constraints-title {
   display: flex;
   align-items: baseline;
@@ -1504,6 +1509,12 @@ mark {
 /* A source read wraps between sources, not inside one: "TS 29.274 V19.6.0 (8.21.5)". */
 .element-source {
   white-space: nowrap;
+}
+/* Under a rule reading the request its answer answers: that the Wireshark plugin checks it only with the request. */
+.constraint-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--ui-muted);
 }
 .constraint-quote {
   display: block;

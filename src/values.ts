@@ -45,6 +45,11 @@ export interface ValueToken extends Token {
   originOf?: ValueRow;
   details?: SourcePosition;
   command?: CommandRef;
+  /**
+   * On an Interpreted Constraints rule's line, the path a name ends, from the block's scope or the request (`root`),
+   * through the grouped AVPs it names.
+   */
+  constraintRef?: { root: 'request' | null; path: string[] };
 }
 
 /** The value tables of a file. The first reading marks the rows' tokens, so a row links as any table row does. */

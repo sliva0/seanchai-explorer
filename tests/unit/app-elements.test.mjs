@@ -147,8 +147,8 @@ test("a C member is marked with its category after its line, which the line's te
     assert.equal(mark.textContent, '', 'drawn by CSS, so a copy of the text leaves it');
     assert.equal(line.textContent, '        [ Server-Name ]                    ; bold\n', 'the text as it was');
     assert.equal(mark.nextSibling.textContent, '\n', 'before the newline, where it lies after the text');
-    absent(lineAt(document, '24').querySelector('.line-mark'), '{ } says M already');
-    absent(lineAt(document, '25').querySelector('.line-mark'), '[ ] says O already');
+    absent(lineAt(document, '24').querySelector('.element-mark'), '{ } says M already');
+    absent(lineAt(document, '25').querySelector('.element-mark'), '[ ] says O already');
     absent(lineAt(document, '10').querySelector('.element-mark'), "the rule's head is no member");
   } finally {
     await page.close();

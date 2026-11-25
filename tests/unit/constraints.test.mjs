@@ -2,10 +2,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  admittedBy,
+  alternativesOf,
   blockContext,
+  commandConstraints,
   constraintBlocks,
   constraintLines,
   constraintsFor,
+  markConstraints,
+  readersFor,
+  readsRequest,
+  referenceContext,
+  requestMessage,
   elementEntry,
   elementParts,
   holdsIn,
@@ -84,7 +92,10 @@ test('a rule is said in plain words, and a kind the site does not know as the fi
     'no members present except IMEI, Software-Version',
   );
   assert.equal(words({ kind: 'members', relation: 'every', members: ['A'] }, '    members every A'), 'members every A');
-  assert.equal(words({ kind: 'unique' }, '', 'APN-Configuration'), 'unique across APN-Configuration instances');
+  assert.equal(
+    words({ kind: 'unique' }, '', { within: 'APN-Configuration' }),
+    'unique across APN-Configuration instances',
+  );
   assert.equal(words({ kind: 'unique' }), 'unique across grouped AVP instances');
   assert.equal(
     words({ kind: 'values', values: [1], conditions: [{ avp: 'Monitoring-Type', value: 1 }] }),
@@ -187,7 +198,7 @@ test("TS 29.272's default, bits, members, unique and values rules are read with 
   assert.equal(ruleWords(nor.rule, ''), 'defaults to 0 when absent');
   assert.equal(rules.filter(({ rule }) => rule.kind === 'default').length, 9);
   const count = kind => rules.filter(({ rule }) => rule.kind === kind).length;
-  assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [10, 3, 2, 1]);
+  assert.deepEqual(['bits', 'members', 'unique', 'values'].map(count), [10, 3, 2, 2]);
   assert.deepEqual(said('CSG-Id', 'bits'), ['bits 0, 1, 2, 3, 4 clear']);
 });
 
@@ -250,7 +261,7 @@ test("a line reading an AVP is marked where the corrected file's blocks hold for
   const raw = await readFixture('documents/29272-j60.raw.json');
   const message = doc.blocks.find(block => block.type === 'Message' && block.name === 'Delete-Subscriber-Data-Request');
   assert.deepEqual(blockContext(doc, message), {
-    command: { name: 'Delete-Subscriber-Data-Request', application: message.command.application_id },
+    command: { name: 'Delete-Subscriber-Data-Request', application: message.command.application_id, section: '7.2.11' },
   });
   const member = message.rule.members.find(item => item.name === 'Context-Identifier');
   const lines = constraintLines(doc, doc);
@@ -270,4 +281,238 @@ test("a line reading an AVP is marked where the corrected file's blocks hold for
   const rawMember = rawMessage.rule.members.find(item => item.name === 'Context-Identifier');
   assert.ok(constraintLines(raw, doc).has(rawMember.line), "the raw file's member, by its block's name");
   assert.equal(constraintLines(raw, raw).size, 0, 'the raw file has no blocks of its own');
+});
+
+const cond = (path, more = {}) => ({ path: path.split('/'), ...more });
+
+test('conditions joined by and and or, negated, on a path or the request, are said in words', () => {
+  assert.equal(
+    words({
+      kind: 'present-if',
+      conditions: [
+        [
+          cond('IDR-Flags', { root: 'request', bit: 'EPS User State Request' }),
+          cond('Result-Code', { value: 'DIAMETER_SUCCESS' }),
+        ],
+      ],
+    }),
+    "present if the request's IDR-Flags has bit “EPS User State Request” set and Result-Code is DIAMETER_SUCCESS",
+  );
+  assert.equal(
+    words({
+      kind: 'present-if',
+      conditions: [[cond('MIP6-Agent-Info'), cond('MIP6-Agent-Info/MIP-Home-Agent-Host', { negated: true })]],
+    }),
+    'present if MIP6-Agent-Info is present and MIP-Home-Agent-Host in MIP6-Agent-Info is absent',
+  );
+  assert.equal(
+    words({
+      kind: 'present-if',
+      conditions: [
+        [cond('Server-Assignment-Type', { root: 'request', value: 'REGISTRATION' }), cond('Result-Code', { value: 1 })],
+        [cond('Server-Assignment-Type', { root: 'request', value: 'PGW_UPDATE' })],
+      ],
+    }),
+    "present if the request's Server-Assignment-Type is REGISTRATION and Result-Code is 1, or the request's Server-Assignment-Type is PGW_UPDATE",
+    'a comma before or where an alternative joins several, as and binds tighter',
+  );
+  assert.equal(
+    words({ kind: 'absent-if', conditions: [[cond('A')], [cond('B')]] }),
+    'absent if A is present or B is present',
+  );
+  assert.equal(
+    words({
+      kind: 'requires',
+      conditions: [[cond('Subscription-Data/Monitoring-Event-Configuration', { root: 'request' })]],
+    }),
+    "present only if Monitoring-Event-Configuration in the request's Subscription-Data is present",
+  );
+  assert.equal(
+    words({ kind: 'excludes', conditions: [[cond('A/B/C', { value: 0 })]] }),
+    'never present if C in A › B is 0',
+  );
+  assert.equal(
+    words({
+      kind: 'excludes',
+      conditions: [[cond('Flags', { bit: 3, negated: true }), cond('X', { value: 2, negated: true })]],
+    }),
+    'never present if Flags does not have bit 3 set and X is not 2',
+  );
+  assert.equal(
+    words({
+      kind: 'present-if',
+      conditions: [[cond('Result-Code', { value: { root: 'request', path: ['Result-Code'] } })]],
+    }),
+    "present if Result-Code equals the request's Result-Code",
+    'a value read from another AVP',
+  );
+  assert.equal(
+    words({
+      kind: 'present-if',
+      conditions: [[cond('Result-Code', { value: { root: 'request', path: ['Result-Code'] }, negated: true })]],
+    }),
+    "present if Result-Code differs from the request's Result-Code",
+  );
+  assert.equal(
+    words({
+      kind: 'values',
+      values: [0, 1],
+      conditions: [[cond('Monitoring-Type', { value: 2 }), cond('L/M', { value: 1 })]],
+    }),
+    'is one of 0, 1 if Monitoring-Type is 2 and M in L is 1',
+  );
+  assert.equal(
+    words({ kind: 'equals', reference: { root: 'request', path: ['User-Name'] } }),
+    "holds the same value as the request's User-Name",
+  );
+  assert.equal(
+    words({ kind: 'equals', reference: { root: null, path: ['A', 'B'] } }),
+    'holds the same value as B in A',
+  );
+  assert.equal(words({ kind: 'absent' }, '', { command: 'STR' }), 'never sent in STR');
+  assert.equal(words({ kind: 'absent' }, '', { within: 'Non-3GPP-User-Data' }), 'never sent in Non-3GPP-User-Data');
+  assert.equal(words({ kind: 'absent' }), 'never sent');
+  assert.equal(
+    words({ kind: 'absent' }, '', { within: 'G', command: 'STR' }),
+    'never sent in G',
+    'a grouped AVP is its own scope',
+  );
+});
+
+test('a condition or reference of a shape the site does not know is said as the file prints it, never thrown on', () => {
+  const printed = '    present-if Other bit 3';
+  const said = rule => words(rule, printed);
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: ['A'], root: 'answer' }]] }), printed.trim(), 'a root');
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: [] }]] }), printed.trim(), 'no names');
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: 'A' }]] }), printed.trim(), 'a path as text');
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: ['A'], value: { avp: 'B' } }]] }), printed.trim());
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: ['A'], value: 1, bit: 2 }]] }), printed.trim());
+  assert.equal(said({ kind: 'present-if', conditions: [[{ path: ['A'], negated: 'yes' }]] }), printed.trim());
+  assert.equal(said({ kind: 'present-if', conditions: [[]] }), printed.trim(), 'an empty alternative');
+  assert.equal(said({ kind: 'present-if', conditions: { path: ['A'] } }), printed.trim(), 'no list');
+  assert.equal(said({ kind: 'present-if' }), printed.trim(), 'no conditions');
+  assert.equal(said({ kind: 'values', values: [1], conditions: [[7]] }), printed.trim());
+  assert.equal(said({ kind: 'equals' }), printed.trim(), 'an equals naming nothing');
+  assert.equal(said({ kind: 'equals', reference: { root: 'answer', path: ['A'] } }), printed.trim());
+  assert.equal(
+    said({ kind: 'present-if', conditions: [{ avp: 'Old' }] }),
+    'present if Old is present',
+    "an older export's flat list of conditions on a sibling",
+  );
+  assert.equal(alternativesOf({ conditions: [[{ path: ['A'], future: true }]] })?.length, 1, 'more fields are fine');
+  assert.equal(readsRequest({ kind: 'present-if', conditions: [[{ path: ['A'], root: 'answer' }]] }), false);
+  assert.equal(readsRequest({ kind: 'equals', reference: { root: 'request', path: ['A'] } }), true);
+  assert.equal(readsRequest({ kind: 'absent' }), false);
+});
+
+test('a name an interpreted rule reads is its own name, linking to the member it is, the request and its / not names', async () => {
+  const doc = { ...(await readFixture('documents/29272-j60.json')), id: '29272-j60' };
+  markConstraints(doc);
+  const named = line => doc.lines[line].tokens.filter(token => token.avp);
+  // EPS-User-State in IDA: present-if request/IDR-Flags bit "EPS User State Request" and Result-Code = DIAMETER_SUCCESS
+  const ida = named(1226);
+  assert.deepEqual(
+    ida.map(token => [token.text, token.constraintRef]),
+    [
+      ['IDR-Flags', { root: 'request', path: ['IDR-Flags'] }],
+      ['Result-Code', { root: null, path: ['Result-Code'] }],
+    ],
+  );
+  assert.deepEqual(ida[0].target, { document: '29272-j60', section: '7.3.103' }, "the IDR's member's link");
+  assert.equal(
+    doc.lines[1226].tokens.map(token => token.text).join(''),
+    '    present-if request/IDR-Flags bit "EPS User State Request" and Result-Code = DIAMETER_SUCCESS\n',
+    'the line as printed',
+  );
+  assert.ok(!doc.lines[1226].tokens.some(token => token.avp === 'request'), 'request/ is not a name');
+  // Visited-Network-Identifier in NOR: present-if MIP6-Agent-Info and not MIP6-Agent-Info/MIP-Home-Agent-Host
+  assert.deepEqual(
+    named(1509).map(token => [token.text, token.constraintRef.path.join('/'), token.target?.document]),
+    [
+      ['MIP6-Agent-Info', 'MIP6-Agent-Info', '29272-j60'],
+      ['MIP6-Agent-Info', 'MIP6-Agent-Info', '29272-j60'],
+      ['MIP-Home-Agent-Host', 'MIP6-Agent-Info/MIP-Home-Agent-Host', 'rfc4004'],
+    ],
+    "each name of the path its own, the member's link where MIP6-Agent-Info's rule gives it",
+  );
+  assert.equal(markConstraints(doc), true, 'read once a file');
+  assert.equal(named(1226).length, 2, 'not marked twice');
+  const block = constraintBlocks(doc).find(item => item.block.line === 1217).block;
+  assert.equal(requestMessage(doc, block).line, 174, "the IDR of the block's application, of the two 7.2.9 prints");
+  assert.deepEqual(referenceContext(doc, block, { root: 'request', path: ['IDR-Flags'] }), {
+    command: { name: 'Insert-Subscriber-Data-Request', application: 16777251, section: '7.2.9' },
+  });
+  assert.deepEqual(referenceContext(doc, block, { root: null, path: ['A', 'B'] }), { within: 'A' });
+  const readers = readersFor(doc, 'IDR-Flags', referenceContext(doc, block, { root: 'request', path: ['IDR-Flags'] }));
+  assert.deepEqual(
+    readers.map(item => item.avp),
+    ['EPS-User-State', 'EPS-Location-Information', 'Local-Time-Zone'],
+    "the IDA's rules reading the IDR's IDR-Flags",
+  );
+  assert.deepEqual(
+    readersFor(doc, 'IDR-Flags', { command: { name: 'Insert-Subscriber-Data-Answer', section: '7.2.10' } }),
+    [],
+    "the answer's own IDR-Flags is no request's",
+  );
+  assert.deepEqual(
+    readersFor(doc, 'MIP-Home-Agent-Host', { within: 'MIP6-Agent-Info' }).map(item => item.avp),
+    ['Visited-Network-Identifier'],
+  );
+});
+
+test("TS 29.273's blocks hold in the print their Command-Section names, and an absent AVP only * [ AVP ] admits is marked there", async () => {
+  const doc = { ...(await readFixture('documents/29273-j20.json')), id: '29273-j20' };
+  markConstraints(doc);
+  const message = section => doc.blocks.find(block => block.type === 'Message' && block.section === section);
+  const sta = message('5.2.2.1.2');
+  const swa = message('4.2.2.1.2');
+  assert.deepEqual(blockContext(doc, sta), {
+    command: { name: 'Diameter-EAP-Answer', application: 16777250, section: '5.2.2.1.2' },
+  });
+  const wlcp = blockContext(doc, sta);
+  assert.deepEqual(
+    constraintsFor(doc, 'WLCP-Key', wlcp).map(item => item.block.section),
+    ['5.1.2.1.1', '5.1.2.3.1', '5.2.3.33'],
+  );
+  assert.deepEqual(
+    constraintsFor(doc, 'WLCP-Key', { ...wlcp, command: { ...wlcp.command, section: '6.2.2.1.1.2' } }).map(
+      item => item.block.section,
+    ),
+    ['5.2.3.33'],
+    "SWd's print of the command under the same application holds only the AVP's own clause",
+  );
+  const members = rule => new Set(rule.members.map(member => member.name));
+  const absentHere = commandConstraints(doc, blockContext(doc, sta), members(sta.rule));
+  assert.deepEqual(
+    absentHere.map(item => [item.avp, item.block.section]),
+    [['Auth-Session-State', '5.2.4']],
+    "STa's DEA leaves Auth-Session-State to its * [ AVP ]",
+  );
+  assert.deepEqual(commandConstraints(doc, blockContext(doc, swa), members(swa.rule)), [], "not SWa's");
+  const lines = constraintLines(doc, doc);
+  const wildcard = sta.rule.members.find(member => member.name === 'AVP').line;
+  assert.ok(lines.get(wildcard).some(item => item.avp === 'Auth-Session-State'));
+  assert.deepEqual(admittedBy(doc, wildcard, lines.get(wildcard)), ['Auth-Session-State']);
+  assert.ok(
+    markTitle(doc, doc, wildcard, lines.get(wildcard)).includes('• Auth-Session-State: never sent in DEA'),
+    markTitle(doc, doc, wildcard, lines.get(wildcard)).join('\n'),
+  );
+  const swaWildcard = swa.rule.members.find(member => member.name === 'AVP').line;
+  assert.ok(!lines.has(swaWildcard), "SWa's DEA has no such block");
+  // ; Command-Section: and ; Request-Section: of an Interpreted Constraints block link to their clauses.
+  const linked = (line, section) => doc.lines[line].tokens.find(token => token.text === section)?.target;
+  assert.deepEqual(linked(5350, '9.2.2.2.2'), { document: '29273-j20', section: '9.2.2.2.2' });
+  assert.deepEqual(linked(5351, '9.2.2.2.1'), { document: '29273-j20', section: '9.2.2.2.1' });
+  const block = constraintBlocks(doc).find(item => item.block.line === 5346);
+  assert.equal(block.scope.commandSection, '9.2.2.2.2');
+  assert.equal(block.scope.requestSection, '9.2.2.2.1');
+  assert.equal(requestMessage(doc, block.block).section, '9.2.2.2.1');
+});
+
+test('a block naming a Command-Section holds only there, where the place read says which print it is', () => {
+  const block = { scope: { command: 'X', application: 1, commandSection: '5.2' } };
+  assert.ok(holdsIn(block, { command: { name: 'X', application: 1, section: '5.2' } }));
+  assert.ok(!holdsIn(block, { command: { name: 'X', application: 1, section: '4.2' } }));
+  assert.ok(holdsIn(block, { command: { name: 'X', application: 1 } }), 'a place not saying which print');
+  assert.ok(holdsIn({ scope: { command: 'X' } }, { command: { name: 'X', section: '4.2' } }));
 });

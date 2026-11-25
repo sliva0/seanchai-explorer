@@ -36,7 +36,7 @@ function Group({ title, note, controls, marks }: ControlGroup) {
 /**
  * What interpreted constraints are, said once for every popup naming one: what they are and how far to trust them,
  * how the text and the toolbar show them and what the Wireshark plugin checks, then each kind of rule as the text
- * prints it and each codec's layout.
+ * prints it, how a rule's conditions are written, and each codec's layout.
  */
 function ConstraintsHelp() {
   return (
@@ -55,6 +55,7 @@ function ConstraintsHelp() {
           </Fragment>
         ))}
       </dl>
+      <p class="help-note">{helpText.conditions}</p>
       <p class="help-note">{helpText.codecs}</p>
       <dl class="help-list help-codecs">
         {Object.entries(codecs).map(([codec, { layout }]) => (

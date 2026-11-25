@@ -49,7 +49,7 @@ test('a member says its rule, its brackets and how many of it there may be', asy
   assert.equal(useAt(udr, 24, 'MSISDN'), undefined, 'not a name the line has');
   assert.equal(useAt(udr, 14, 'User-Data-Request').kind, 'head');
   assert.equal(ruleAt(udr, 10), ruleAt(udr, 29), 'its `; Type:` line is in the block');
-  assert.equal(ruleAt(udr, 236), undefined, 'a table is no rule');
+  assert.equal(ruleAt(udr, 256), undefined, 'a table is no rule');
 });
 
 test("a member's bounds read as RFC 6733 counts them", () => {
@@ -184,7 +184,7 @@ test("an Answer Message block's rule is a rule its members are in", async () => 
 test("a row's flags in M, V, P order with what each means, P left out as deprecated, then its other cells as words", async () => {
   const udr = await fresh('29329-j10');
   const [row] = avpRows(udr, 'User-Identity');
-  assert.deepEqual([row.type, row.table, row.line], ['AVP Table', '6.3.1', 236]);
+  assert.deepEqual([row.type, row.table, row.line], ['AVP Table', '6.3.1', 256]);
   assert.deepEqual(
     flagRules(row).map(({ bit, rule }) => [bit, rule]),
     [

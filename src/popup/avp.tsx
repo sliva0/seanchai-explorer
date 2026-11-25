@@ -24,10 +24,12 @@ import type { Place } from '../avp-places.ts';
 import { avpRows as rowsOf, blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
-import { referenceText } from '../constraints.ts';
+import { constraintBlocks, referenceText, requestMessage, scopeMessage } from '../constraints.ts';
+import type { ConstraintRef } from '../constraints.ts';
 import { elementPlace, memberPlaces } from '../element-places.ts';
 import { blockRowKey, elementText, memberElements, sameElementRow, tablesFor, tablesOf } from '../elements.ts';
 import type { ElementTable } from '../elements.ts';
+import type { Block } from '../types.ts';
 import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
@@ -65,6 +67,32 @@ const tableOf = (row: AvpRow) => [row.type, row.table ?? row.section].filter(Boo
 const ruleName = (rule: Rule) => words.ruleName(rule.kind === 'Message' ? words.command : rule.kind, rule.label);
 
 /**
+ * The member line a name an interpreted rule reads is, where the rule's path reaches it: in the grouped AVP before it,
+ * the request, the block's command or grouped AVP, or its own AVP. None where the file prints no such member.
+ */
+function reachedPlace(file: DadFile, document: string, block: Block, ref: ConstraintRef): Place | undefined {
+  const name = ref.path[ref.path.length - 1];
+  const parent = ref.path.length > 1 ? ref.path[ref.path.length - 2] : undefined;
+  const item = constraintBlocks(file).find(found => found.block === block);
+  const grouped = (avp: string) => file.blocks.find(found => found.type === 'Grouped AVP' && found.rule?.name === avp);
+  const holder = parent
+    ? grouped(parent)
+    : ref.root === 'request'
+      ? requestMessage(file, block)
+      : item?.scope.command
+        ? scopeMessage(file, item)
+        : grouped(item?.scope.within ?? block.name ?? '');
+  const member = holder?.rule?.members.find(found => found.name === name);
+  if (!holder || !member) return undefined;
+  return {
+    document,
+    position: { section: holder.section, page: holder.page },
+    target: { document, section: holder.section, name },
+    line: member.line,
+  };
+}
+
+/**
  * What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is, and
  * what the Information Elements tables say of it, `elements`.
  */
@@ -87,6 +115,9 @@ function UseContext({ site, document, use, elements }: { site: Site; document: s
       : block.fields.Command
         ? words.in(block.fields.Command)
         : '';
+    const { ref } = use;
+    const parents = ref?.path.slice(0, -1).join(words.pathJoin);
+    const holder = ref && (parents ? (ref.root ? words.requests(parents) : parents) : ref.root ? words.theRequest : '');
     const what =
       role === 'subject'
         ? words.constraintSubject(scope)
@@ -94,7 +125,9 @@ function UseContext({ site, document, use, elements }: { site: Site; document: s
           ? words.constraintScope(on!)
           : role === 'member'
             ? words.constraintMember(on!, scope)
-            : words.constraintCondition(on!, scope);
+            : holder
+              ? words.constraintReached(holder, on!, scope)
+              : words.constraintCondition(on!, scope);
     lines.push(<p>{words.here(what, block.section)}</p>);
   } else if (use.kind === 'element') {
     const { block } = use;
@@ -465,7 +498,7 @@ export function AvpPopup(props: PopupProps) {
       }),
     )
     .filter(row => row !== undefined);
-  const use = useAt(request.file, Number(lineOf(here).dataset.line), name);
+  const use = useAt(request.file, Number(lineOf(here).dataset.line), name, request.token);
   const { rows: definitionRows, rule } = definitionFacts(site, request, use, defining);
   const key = definitionRows.length ? keyEntries(definitionRows.map(({ row }) => row)) : [];
   const keyed = definitionRows.find(({ row }) => flagTable(row).length) ?? definitionRows[0];
@@ -485,6 +518,9 @@ export function AvpPopup(props: PopupProps) {
     ) : undefined;
   const { definition, details, listed, missing } = declared;
   const elements = elementFacts(site, request, use, placeRow);
+  // A name an interpreted rule reads: the member it is where the rule's path reaches it, in this file.
+  const reached =
+    use?.kind === 'constraint' && use.ref ? reachedPlace(request.file, doc.id, use.block, use.ref) : undefined;
   // Every place it is declared, but the one opened on, which the "Here:" line names.
   const openedRow = use?.kind === 'row' ? use.row.line : undefined;
   const onRow = (place: Place | undefined) => place?.document === doc.id && place.line === openedRow;
@@ -526,6 +562,7 @@ export function AvpPopup(props: PopupProps) {
       !(use?.kind === 'head' && details.position?.section === use.rule.section) &&
       placeRow(words.details, 'place-details', details),
     ...elements.places,
+    reached && placeRow(words.member, 'place-member', reached),
   ];
   const hasPlaces = placed.some(Boolean) || tables.length > 0;
 

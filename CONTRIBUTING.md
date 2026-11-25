@@ -81,10 +81,12 @@ file in its own process; the other unit tests cover one module each.
 any other before fetching anything else, and prepare refuses the export, saying the
 schema it found and the one it reads, as it does one without `commands.json`. There is no
 compatibility with an older `seanchai`: the pin moves with the site (README.md, "Bumping
-the pinned release"). `tests/fixtures/export` is nine real documents cut from a real
+the pinned release"). `tests/fixtures/export` is ten real documents cut from a real
 public export, TS 29.328 among them for its Information Elements tables of TS 29.329's
-commands, and TS 29.272 for its Interpreted Constraints blocks. TS 29.272 is the longest,
-seconds to draw in the unit tests, so a test file booting it shares one page among its checks.
+commands, and TS 29.272, TS 29.273 and TS 29.329 for their Interpreted Constraints blocks,
+TS 29.273's with `; Command-Section:`, `; Request-Section:` and `absent` rules. TS 29.272
+and TS 29.273 are the longest, seconds to draw in the unit tests, so a test file booting
+one shares one page among its checks.
 
 The site reads a document's structure from the export and never from its text: each
 file's `blocks` give its rules and their members, its AVP tables and registries row by
@@ -151,11 +153,25 @@ carries `table`, which the pane's readers find the caption by.
 
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
-`Command` with `Application-ID`) and `Versions`, and `readings`, each `quotes` and `rules`
-by line. `src/constraints.ts` reads them: which hold where a name is read (unscoped ones
-always, a `Within` one as a member of that grouped AVP, a `Command` one in that command's
-Message block or Information Elements table), a rule in words, and the lines a hide leaves
-out, of which the quotes and rules wrap at the pane's edge. `ruleKinds` there lists every
+`Command` with `Application-ID`, `Command-Section` and `Request-Section`) and `Versions`,
+`request_target`, where the request its rules read is printed, and `readings`, each `quotes`
+and `rules` by line. `src/constraints.ts` reads them: which hold where a name is read
+(unscoped ones always, a `Within` one as a member of that grouped AVP, a `Command` one in
+that command's Message block or Information Elements table, at its `Command-Section` where
+it names one, the place read saying which print it is by its section), a rule in words,
+and the lines a hide leaves out, of which the quotes and rules wrap at the pane's edge. A
+rule's `conditions` are alternatives, each a list of conditions that must all hold, each
+`{root, path, value, bit, negated}`, `value` a number, a name or a reference `{root, path}`,
+as an `equals` rule's `reference` is; `alternativesOf` reads them, an older export's flat
+list too, and a shape it does not know makes the rule said as its line prints it, never
+thrown on. `markConstraints`, one of `data.ts`'s readers, makes every name of a path its
+own token on the rule's line, with `constraintRef`, the path to it, and the link of the
+member it is (in the grouped AVP before it, the request, the block's command or grouped
+AVP), `request` and `/` left as text the grammar scopes; and links `; Command-Section:` and
+`; Request-Section:`. `readersFor` gives the blocks on other AVPs whose rules read a name
+where it is read, `commandConstraints` those of a command its lines cannot show, on an AVP
+only its `* [ AVP ]` admits or `absent`, which the ¶ on that line and the command's popup
+list. `ruleKinds` there lists every
 kind the schema has, each as the text prints one and what it says, for `ruleWords` and the
 help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
 or `members` relation, is said as its line prints it, never refused. A `unique` rule is

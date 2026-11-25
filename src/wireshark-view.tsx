@@ -305,6 +305,8 @@ export function WiresharkView({ site }: { site: Site }) {
         <p>
           {words.notesCount}
           <code>seanchai.notes</code>
+          {words.requestMissing}
+          <code>seanchai.request_missing</code>
           {words.runs}
           <code>tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors {'>'} 0"</code>
           {'.'}

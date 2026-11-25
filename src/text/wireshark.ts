@@ -25,10 +25,16 @@ export const wiresharkPage = {
     violation: { severity: 'Error', reports: 'Violated specification rules.' },
     warning: { severity: 'Warning', reports: '"Should not" rules broken, or undefined values.' },
     note: { severity: 'Note', reports: 'Incomplete corpus data, or an unknown AVP or command without the M bit.' },
-    interpreted: { severity: 'Note', reports: 'Violated interpreted constraints; the source ends in "interpreted".' },
+    interpreted: {
+      severity: 'Note',
+      reports:
+        'Violated interpreted constraints; the source ends in "interpreted". Rules on the request an answer answers are checked only when the capture holds the request.',
+    },
   },
   /** Under the table, around `seanchai.notes`, which follows this. */
   notesCount: 'Interpreted notes are counted in ',
+  /** Then, around `seanchai.request_missing`, which follows this. */
+  requestMissing: ', and the rules an answer leaves unchecked without its request in ',
   /** Then, around the tshark command, which follows this; a full stop closes it. */
   runs: '. Requires Wireshark 4.2 or later, and also works with tshark: ',
   /** The install section's name, for a screen reader. */

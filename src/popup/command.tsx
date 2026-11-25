@@ -19,6 +19,7 @@ import type { CommandRef } from '../commands.ts';
 import { tablePlace as elementsPlace } from '../element-places.ts';
 import { categoriesOf, memberElements, tablesFor } from '../elements.ts';
 import { listingsFor } from '../result-codes.ts';
+import { CommandConstraintFacts } from './constraints.tsx';
 import type { PopupProps } from './root.tsx';
 import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
 import { commandPopup as words } from '../text/popup.ts';
@@ -100,6 +101,8 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
     command.document === doc.id &&
     !!rule &&
     ruleAt(file, Number(opener.closest<HTMLElement>('.dad-line')?.dataset.line)) === rule;
+  // The corrected document printing it, whose Interpreted Constraints blocks a command's popup lists what its lines cannot show of.
+  const constraintDoc = command && (command.document === doc.id ? doc : site.held(command.document));
   const all = allCommands(file, doc, index);
   // The Information Elements tables describing the block, which may be another document's: a block of the file at hand
   // by its place among its clause's, one from the index by its line in the corrected text.
@@ -231,6 +234,16 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
       {rule?.members.length && !ownBlock ? (
         <RuleContents rule={rule} open={false} title={words.avps} categories={categories} />
       ) : null}
+      {command && rule && constraintDoc && (
+        <CommandConstraintFacts
+          site={site}
+          pane={pane}
+          request={request}
+          doc={constraintDoc}
+          context={{ command: { name: command.name, application: command.application, section: command.section } }}
+          members={new Set(rule.members.map(member => member.name))}
+        />
+      )}
       {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}
     </Panel>
   );

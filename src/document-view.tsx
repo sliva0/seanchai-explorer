@@ -335,13 +335,19 @@ function createText(
 
   /**
    * A mark of interpreted constraints opens what a plain click on its name opens where that shows them, the inspector,
-   * or else the name's popup, and brings their section into view with a flash.
+   * or else the name's popup, and brings their section into view with a flash; on a command's `* [ AVP ]` line, its
+   * command's.
    */
   function showConstraints(mark: HTMLElement) {
     const reads = (mark.dataset.reads ?? '').split(' ');
-    const node = [...mark.closest('.dad-line')!.querySelectorAll<HTMLElement>('[data-avp]')].find(name =>
-      reads.includes(name.dataset.avp!),
-    );
+    // On a command's `* [ AVP ]` line, rules on AVPs it does not name: its command's popup lists them.
+    const head = mark.dataset.head;
+    const node =
+      head === undefined
+        ? [...mark.closest('.dad-line')!.querySelectorAll<HTMLElement>('[data-avp]')].find(name =>
+            reads.includes(name.dataset.avp!),
+          )
+        : (pre.querySelector<HTMLElement>(`.dad-line[data-line="${head}"] [data-command]`) ?? undefined);
     if (!node) return;
     const plain = { altKey: false, ctrlKey: false, metaKey: false, shiftKey: false };
     const action = clickAction(

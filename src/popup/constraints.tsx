@@ -6,20 +6,28 @@ import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import {
   blockContext,
+  commandConstraints,
+  constraintBlocks,
+  commandShort,
   constraintsFor,
   elementEntry,
   elementParts,
   lineText,
   membersParts,
+  readersFor,
+  readsRequest,
+  referenceContext,
   referenceText,
+  requestMessage,
   ruleNote,
+  ruleWhere,
   ruleWords,
   scopeWords,
   textOnly,
   unscoped,
   elementRowContext,
 } from '../constraints.ts';
-import type { ConstraintBlock, ReadContext } from '../constraints.ts';
+import type { ConstraintBlock, ReadContext, RuleWhere } from '../constraints.ts';
 import { docName, newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
@@ -28,11 +36,15 @@ import type { PopupRequest } from './root.tsx';
 import { Counted, placeRows, TableLink } from './shared.tsx';
 import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
 
-/** Where a use reads its name: in the command or grouped AVP of its block, or wherever. */
+/**
+ * Where a use reads its name: in the command or grouped AVP of its block, or wherever; a name an interpreted rule reads
+ * where its path reaches it, a member of the grouped AVP before it or of the request.
+ */
 function useContext(file: DadFile, use: Use | undefined): ReadContext {
   if (!use || use.kind === 'head' || use.kind === 'row') return {};
   if (use.kind === 'member') return blockContext(file, blockAt(file, use.rule.line));
   if (use.kind === 'element') return elementRowContext(use.block, use.row, blockContext(file, use.block));
+  if (use.ref) return referenceContext(file, use.block, use.ref);
   return blockContext(file, use.block);
 }
 
@@ -55,17 +67,54 @@ export function constraintsHere(
   return [...found, ...origin.map(item => ({ doc: away, item }))];
 }
 
+/** Whether two blocks hold in the same place: the same grouped AVP, or the same print of the same command. */
+const sameScope = ({ scope: a }: ConstraintBlock, { scope: b }: ConstraintBlock) =>
+  (a.within ?? '') === (b.within ?? '') &&
+  (a.command ?? '').toLowerCase() === (b.command ?? '').toLowerCase() &&
+  a.application === b.application &&
+  a.commandSection === b.commandSection;
+
+/**
+ * The blocks of the document on other AVPs whose rules read the name where it is read, through a path or the request.
+ * Opened on a rule's path through a grouped AVP, those in the rule's own command or grouped AVP: the grouped AVP alone
+ * does not say which command's.
+ */
+export function readersHere(request: PopupRequest, use: Use | undefined): ConstraintBlock[] {
+  const { doc, token } = request;
+  const found = readersFor(doc, token.avp!, useContext(request.file, use));
+  if (use?.kind !== 'constraint' || !use.ref || use.ref.path.length < 2) return found;
+  const opened = constraintBlocks(doc).find(item => item.block.line === use.block.line);
+  return opened ? found.filter(item => sameScope(item, opened)) : found;
+}
+
+/** A command's short name: its abbreviation, as the corpus's index or else the file names it. */
+const shortName = (site: Site, doc: Document, name: string) =>
+  site.commands()?.commands.find(command => command.name.toLowerCase() === name.toLowerCase() && command.abbreviation)
+    ?.abbreviation ?? commandShort(doc, name);
+
 /**
  * "within APN-Configuration · 7.3.35", "in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1", the table a link to its block in the
- * text, which the block's rules were read from.
+ * text, which the block's rules were read from; `on` a block on another AVP, "rule on Subscription-Data · in ULA ·
+ * 5.2.1.1.1", and `bare` one in its command's popup, the AVP alone, "Auth-Session-State · 5.2.4".
  */
-function ScopeLine({ site, doc, item: { block, scope } }: { site: Site; doc: Document; item: ConstraintBlock }) {
-  const short = (name: string) =>
-    site.commands()?.commands.find(command => command.name.toLowerCase() === name.toLowerCase() && command.abbreviation)
-      ?.abbreviation ?? name;
+function ScopeLine({
+  site,
+  doc,
+  item: { block, scope, avp },
+  on,
+  bare,
+}: {
+  site: Site;
+  doc: Document;
+  item: ConstraintBlock;
+  on?: boolean;
+  bare?: boolean;
+}) {
+  const short = (name: string) => shortName(site, doc, name);
+  const words = bare ? [avp] : [on && constraintsSection.ruleOn(avp), scopeWords({ scope }, short)];
   return (
     <div class="constraint-scope">
-      {[scopeWords({ scope }, short), block.section].filter(Boolean).join(' · ')}
+      {[...words, block.section].filter(Boolean).join(' · ')}
       {block.fields.Table && (
         <>
           {' · '}
@@ -105,20 +154,20 @@ function MemberNames({ doc, rule, names }: { doc: Document; rule: ConstraintRule
 
 /**
  * A rule in words, an element rule's document a link to its newest edition where the corpus holds it, TS 24.008 text
- * where it does not, and a `members` rule's names links to their AVPs. A `unique` rule is said of `within`.
+ * where it does not, and a `members` rule's names links to their AVPs. A `unique` or `absent` rule is said of `where`.
  */
 function RuleText({
   site,
   doc: file,
   rule,
   printed,
-  within,
+  where,
 }: {
   site: Site;
   doc: Document;
   rule: ConstraintRule;
   printed: string;
-  within?: string;
+  where: RuleWhere;
 }) {
   const members = rule.kind === 'members' ? membersParts(rule) : undefined;
   if (members)
@@ -131,7 +180,7 @@ function RuleText({
     );
   const held = rule.kind === 'encoding' && rule.codec === 'element' && rule.document;
   const doc = held ? newestOf(site.index.documents, rule.document!) : undefined;
-  if (!doc) return <>{ruleWords(rule, printed, within)}</>;
+  if (!doc) return <>{ruleWords(rule, printed, where)}</>;
   const { before, after } = elementParts(rule);
   return (
     <>
@@ -248,10 +297,147 @@ function showConstraintsHelp() {
 /** What the section is, in two sentences: the title of its button opening the help there. */
 export const INTERPRETED_NOTE = constraintsSection.aboutTitle;
 
+/** A block as a popup lists it, with the document it is in; `on` a block on another AVP, `bare` in its command's popup. */
+interface Listed {
+  doc: Document;
+  item: ConstraintBlock;
+  on?: boolean;
+  bare?: boolean;
+}
+
+/**
+ * A block's rules in a popup: where they hold, each reading's rules in plain words and under them as the text prints
+ * them, with the sentences they were read from, and the way to the block, its clause and the request its rules read.
+ * `here`, opened in the block itself, it says only its rules in words and an element rule's registry entry, as the
+ * text prints the rest right there.
+ */
+function ConstraintGroup({
+  site,
+  placeRow,
+  request,
+  listed: { doc, item, on, bare },
+  here,
+}: {
+  site: Site;
+  placeRow: ReturnType<typeof placeRows>;
+  request: PopupRequest;
+  listed: Listed;
+  here: boolean;
+}) {
+  const { block } = item;
+  const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
+  const where = ruleWhere(item, name => shortName(site, doc, name));
+  const place: Place = {
+    document: doc.id,
+    position: { section: block.section, page: block.page },
+    target: { document: doc.id, section: block.section },
+    line: block.line,
+  };
+  // The request the block's rules read: its Message block, where the document printing it is at hand.
+  const target = block.request_target;
+  const requestDoc = target && (target.document === doc.id ? doc : site.held(target.document));
+  const requestBlock = requestDoc && requestMessage(requestDoc, block);
+  const requestPlace: Place | undefined = target?.section
+    ? {
+        document: target.document,
+        position: { section: target.section!, page: requestBlock?.page ?? null },
+        target: { document: target.document, section: target.section },
+        ...(requestBlock ? { line: requestBlock.line } : {}),
+      }
+    : undefined;
+  const requestLabel = [
+    target && target.document !== request.doc.id && site.summary(target.document)
+      ? site.label(site.summary(target.document)!)
+      : '',
+    requestBlock ? (requestBlock.abbreviation ?? requestBlock.name) : '',
+    target?.section,
+  ]
+    .filter(Boolean)
+    .join(' · ');
+  return (
+    <div class={`constraint-group${on ? ' constraint-reader' : ''}`}>
+      {!here && <ScopeLine site={site} doc={doc} item={item} on={on} bare={bare} />}
+      <ul class="constraint-readings">
+        {(block.readings ?? []).map((reading, index) => {
+          const quotes = (here ? [] : reading.quotes).map(quote => (
+            <q key={quote.line} class="constraint-quote">
+              {quote.text}
+            </q>
+          ));
+          if (textOnly(reading.rules))
+            return (
+              <li key={index} class="constraint-reading constraint-text-only">
+                <span class="constraint-rule" title={constraintsSection.textOnlyTitle}>
+                  <span class="constraint-words">{constraintsSection.textOnly}</span>
+                </span>
+                {quotes}
+              </li>
+            );
+          const rules = reading.rules.filter(rule => rule.kind !== 'text-only');
+          return (
+            <li key={index} class="constraint-reading">
+              {rules.map(rule => {
+                const printed = lineText(doc, rule.line);
+                const entry = elementEntry(rule);
+                return (
+                  <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
+                    <span class="constraint-words">
+                      <RuleText site={site} doc={doc} rule={rule} printed={printed} where={where} />
+                    </span>
+                    {!here && <Printed doc={doc} line={rule.line} />}
+                    {entry && <ElementRows site={site} entry={entry} />}
+                    {readsRequest(rule) && <span class="constraint-note">{constraintsSection.needsRequest}</span>}
+                  </span>
+                );
+              })}
+              {quotes}
+            </li>
+          );
+        })}
+      </ul>
+      {!here && (
+        <div class="popup-places constraint-places">
+          {placeRow(
+            constraintsSection.readIn,
+            'place-constraint',
+            place,
+            [label, block.section].filter(Boolean).join(' · '),
+          )}
+          {requestPlace && placeRow(constraintsSection.request, 'place-request', requestPlace, requestLabel)}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** The section of a popup listing blocks, its heading counting them, with its button opening the help at them. */
+function ConstraintSection({
+  count,
+  children,
+  className = '',
+}: {
+  count: number;
+  children: ComponentChild;
+  className?: string;
+}) {
+  return (
+    <section class={`popup-constraints ${className}`.trim()} aria-label={constraintsSection.label}>
+      <div class="constraints-title">
+        <Counted title={constraintsSection.heading} count={count} />
+        <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
+          {constraintsSection.about}
+        </button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
 /**
  * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words and under them
- * as the text prints them, with the sentences they were read from, where they hold, and the way to the block and its clause. The block is in the
- * corrected text, which a raw view's way goes to.
+ * as the text prints them, with the sentences they were read from, where they hold, and the way to the block and its
+ * clause; then the blocks on other AVPs whose rules read it there. The block is in the corrected text, which a raw
+ * view's way goes to.
  */
 export function ConstraintFacts({
   site,
@@ -264,85 +450,70 @@ export function ConstraintFacts({
   request: PopupRequest;
   use: Use | undefined;
 }) {
-  const found = constraintsHere(site, request, use);
-  if (!found.length) return null;
+  const found: Listed[] = constraintsHere(site, request, use);
   // Opened in a block of them, the text prints its scope, rules and quotes right there: of that block the popup says
   // only what the text does not, its rules in words and an element rule's registry entry.
   const opened = (doc: Document, item: ConstraintBlock) =>
     use?.kind === 'constraint' && doc.id === request.doc.id && item.block.line === use.block.line;
+  const listed = new Set(found.map(({ item }) => item));
+  const readers: Listed[] = readersHere(request, use)
+    .filter(item => !listed.has(item) && !opened(request.doc, item))
+    .map(item => ({ doc: request.doc, item, on: true }));
+  const all = [...found, ...readers];
+  if (!all.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
-  const groups: ComponentChild[] = found.map(({ doc, item }) => {
-    const { block } = item;
-    const here = opened(doc, item);
-    const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
-    const place: Place = {
-      document: doc.id,
-      position: { section: block.section, page: block.page },
-      target: { document: doc.id, section: block.section },
-      line: block.line,
-    };
-    return (
-      <div key={`${doc.id}:${block.line}`} class="constraint-group">
-        {!here && <ScopeLine site={site} doc={doc} item={item} />}
-        <ul class="constraint-readings">
-          {(block.readings ?? []).map((reading, index) => {
-            const quotes = (here ? [] : reading.quotes).map(quote => (
-              <q key={quote.line} class="constraint-quote">
-                {quote.text}
-              </q>
-            ));
-            if (textOnly(reading.rules))
-              return (
-                <li key={index} class="constraint-reading constraint-text-only">
-                  <span class="constraint-rule" title={constraintsSection.textOnlyTitle}>
-                    <span class="constraint-words">{constraintsSection.textOnly}</span>
-                  </span>
-                  {quotes}
-                </li>
-              );
-            const rules = reading.rules.filter(rule => rule.kind !== 'text-only');
-            return (
-              <li key={index} class="constraint-reading">
-                {rules.map(rule => {
-                  const printed = lineText(doc, rule.line);
-                  const entry = elementEntry(rule);
-                  return (
-                    <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
-                      <span class="constraint-words">
-                        <RuleText site={site} doc={doc} rule={rule} printed={printed} within={item.scope.within} />
-                      </span>
-                      {!here && <Printed doc={doc} line={rule.line} />}
-                      {entry && <ElementRows site={site} entry={entry} />}
-                    </span>
-                  );
-                })}
-                {quotes}
-              </li>
-            );
-          })}
-        </ul>
-        {!here && (
-          <div class="popup-places constraint-places">
-            {placeRow(
-              constraintsSection.readIn,
-              'place-constraint',
-              place,
-              [label, block.section].filter(Boolean).join(' · '),
-            )}
-          </div>
-        )}
-      </div>
-    );
-  });
   return (
-    <section class="popup-constraints" aria-label={constraintsSection.label}>
-      <div class="constraints-title">
-        <Counted title={constraintsSection.heading} count={found.length} />
-        <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
-          {constraintsSection.about}
-        </button>
-      </div>
-      {groups}
-    </section>
+    <ConstraintSection count={all.length}>
+      {all.map(item => (
+        <ConstraintGroup
+          key={`${item.doc.id}:${item.item.block.line}`}
+          site={site}
+          placeRow={placeRow}
+          request={request}
+          listed={item}
+          here={opened(item.doc, item.item)}
+        />
+      ))}
+    </ConstraintSection>
+  );
+}
+
+/**
+ * What the Interpreted Constraints say of a command that its body's lines cannot show: the blocks scoped to it on an
+ * AVP its rule does not print, which only its `* [ AVP ]` admits, and those saying an AVP is never sent in it, each
+ * named by its AVP. `doc` is the corrected document printing the command, `context` where it is read and `members`
+ * the names its rule prints.
+ */
+export function CommandConstraintFacts({
+  site,
+  pane,
+  request,
+  doc,
+  context,
+  members,
+}: {
+  site: Site;
+  pane: Parameters<typeof placeRows>[1];
+  request: PopupRequest;
+  doc: Document;
+  context: ReadContext;
+  members: Set<string>;
+}) {
+  const found = commandConstraints(doc, context, members);
+  if (!found.length) return null;
+  const placeRow = placeRows(site, pane, { ...request, raw: false });
+  return (
+    <ConstraintSection count={found.length} className="command-constraints">
+      {found.map(item => (
+        <ConstraintGroup
+          key={`${doc.id}:${item.block.line}`}
+          site={site}
+          placeRow={placeRow}
+          request={request}
+          listed={{ doc, item, bare: true }}
+          here={false}
+        />
+      ))}
+    </ConstraintSection>
   );
 }

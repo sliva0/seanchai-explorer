@@ -419,7 +419,7 @@ test('a document opens with the blocks hidden where the browser keeps that choic
 });
 
 test('a document with no blocks has no control, and a raw view marks lines by the corrected blocks', async () => {
-  const page = await boot({ hash: '#29329-j10' });
+  const page = await boot({ hash: '#29328-j20' });
   try {
     absent(toggleOf(page.document));
   } finally {

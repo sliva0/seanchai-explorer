@@ -370,7 +370,7 @@ test(
       letter: '"C"',
       copied: '        [ Server-Name ]                    ; bold',
     });
-    assert.equal(await page.locator('.dad-line[data-line="24"] .line-mark').count(), 0, '{ } says M already');
+    assert.equal(await page.locator('.dad-line[data-line="24"] .element-mark').count(), 0, '{ } says M already');
     await line.locator('[data-avp="Server-Name"]').click();
     const entry = page.locator('#source-pane .inspector-entry');
     await entry.waitFor();
@@ -686,7 +686,8 @@ test(
   "a name's popup moves with its name as the text scrolls, waits at the text's edge when it has left, and Next takes it to the next use",
   { skip },
   async () => {
-    const { page, done } = await open('#29329-j10');
+    // Tall enough for the popup, its interpreted constraints among it, to sit below its name with room to move.
+    const { page, done } = await open('#29329-j10', { viewport: { width: 1280, height: 1200 } });
     const name = page.locator('pre .dad-line[data-line="24"] [data-avp="User-Identity"]');
     await name.click({ button: 'right' });
     await page.waitForSelector('.avp-popup');
@@ -707,7 +708,10 @@ test(
     await frames(page);
     const text = await boxOf(page, '#document');
     const away = await boxOf(page, '.avp-popup');
-    assert.ok(away.top >= text.top && away.bottom <= 800 && away.left >= 0 && away.right <= 1280, JSON.stringify(away));
+    assert.ok(
+      away.top >= text.top && away.bottom <= 1200 && away.left >= 0 && away.right <= 1280,
+      JSON.stringify(away),
+    );
     near(away.top, text.top + 8, 'at the top of the text');
     assert.equal(await page.locator('.avp-popup').getAttribute('data-detached'), 'up');
     await page.locator('#document').evaluate(node => {
@@ -1550,9 +1554,16 @@ test(
   { skip },
   async () => {
     const fetched = [];
-    const { page, done } = await open('#29061-6f0', {}, async page =>
-      page.on('request', request => fetched.push(new URL(request.url()).pathname)),
-    );
+    const { page, done } = await open('#29061-6f0', {}, async page => {
+      page.on('request', request => fetched.push(new URL(request.url()).pathname));
+      // TS 29.273 prints AA-Answer for applications of its own, which this popup's compactness does not count on.
+      await page.route('**/data/commands.json', async route => {
+        const response = await route.fetch();
+        const data = await response.json();
+        const commands = data.commands.filter(command => command.document !== '29273-j20');
+        await route.fulfill({ response, json: { ...data, commands } });
+      });
+    });
     assert.ok(fetched.includes('/data/commands.json'), 'the index comes with the document');
     assert.ok(!fetched.includes('/data/search.json'), 'search data does not');
     const abbreviation = page.locator('pre button[data-command="265 answer"]', { hasText: 'AAA' });
@@ -1966,6 +1977,53 @@ test(
     const popup = page.locator('.avp-popup .popup-constraints');
     await popup.waitFor();
     assert.equal(await page.locator('.avp-popup').getAttribute('data-avp'), 'SGSN-Number');
+    await page.keyboard.press('Escape');
+    await done();
+  },
+);
+
+test(
+  'public: a rule reading the request highlights request/, links each name, and says the plugin checks it with the request',
+  { skip },
+  async () => {
+    const { page, done } = await open('#29272-j60/5.2.2.1.1');
+    // EPS-User-State in IDA: present-if request/IDR-Flags bit "EPS User State Request" and Result-Code = DIAMETER_SUCCESS
+    const rule = page.locator('.dad-line.interpreted-rule', {
+      hasText: 'request/IDR-Flags bit "EPS User State Request"',
+    });
+    await rule.waitFor();
+    assert.equal(await rule.locator('[class*="keyword.other.root.dad"]').textContent(), 'request');
+    assert.deepEqual(await rule.locator('[data-avp]').evaluateAll(nodes => nodes.map(node => node.dataset.avp)), [
+      'IDR-Flags',
+      'Result-Code',
+    ]);
+    const root = await rule
+      .locator('[class*="keyword.other.root.dad"]')
+      .evaluate(node => getComputedStyle(node).fontWeight);
+    assert.ok(Number(root) >= 600, `bold as a keyword, ${root}`);
+    await rule.locator('[data-avp="IDR-Flags"]').click({ button: 'right' });
+    const popup = page.locator('.avp-popup');
+    await popup.waitFor();
+    assert.match(
+      await popup.locator('.popup-context p').first().textContent(),
+      /^Here: member of the request, read by an interpreted rule on EPS-User-State · in Insert-Subscriber-Data-Answer/,
+    );
+    await popup.locator('.place-member .view-action').click();
+    await page.waitForFunction(() => document.querySelector('.target-line')?.textContent.includes('IDR-Flags'));
+    assert.match(await page.locator('.target-line').textContent(), /\[ IDR-Flags \]/, "to the IDR's member");
+    const member = page.locator('.target-line [data-avp="IDR-Flags"]');
+    await member.click({ button: 'right' });
+    const readers = page.locator('.avp-popup .constraint-reader');
+    await readers.first().waitFor();
+    assert.equal(await readers.count(), 3);
+    assert.equal(
+      await readers.first().locator('.constraint-words').textContent(),
+      "present if the request's IDR-Flags has bit “EPS User State Request” set and Result-Code is DIAMETER_SUCCESS",
+    );
+    assert.equal(
+      await readers.first().locator('.constraint-note').textContent(),
+      'The Wireshark plugin checks this only when the capture holds the request.',
+    );
     await page.keyboard.press('Escape');
     await done();
   },
