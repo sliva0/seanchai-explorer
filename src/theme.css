@@ -49,7 +49,8 @@
   --mark-fg: #2a2000;
   --target-bg: #fdedb6;
   --target-edge: #a87400;
-  --target-flash: #f5c542;
+  /* Where a move landed: as pale, for text to keep its contrast at the peak, the edge outlining it. */
+  --target-flash: #fde7a4;
   --find-bg: rgb(255 196 0 / 32%);
   /* The current match is told apart by its edge; its wash stays light enough to read through. */
   --find-current-bg: rgb(255 150 40 / 30%);
@@ -74,6 +75,8 @@
   --syntax-optional-strong: #004b7c;
   --syntax-string: #814559;
   --syntax-string-bg: rgb(190 70 110 / 9%);
+  /* A quoted sentence an interpreted rule was read from: the string's hue, a little quieter. */
+  --quote: #864f61;
   color: var(--ui-fg);
   background: var(--ui-bg);
   scrollbar-color: var(--ui-scrollbar) transparent;
@@ -110,7 +113,7 @@
   --mark-fg: #1f1700;
   --target-bg: #3b3115;
   --target-edge: #e8ba4e;
-  --target-flash: #7d6420;
+  --target-flash: #40341a;
   --find-bg: rgb(232 186 78 / 28%);
   --find-current-bg: rgb(255 140 50 / 26%);
   --find-current-edge: #ffb066;
@@ -125,6 +128,7 @@
   --syntax-required-strong: #aef1bb;
   --syntax-optional-strong: #b9e4ff;
   --syntax-string: #eab7c6;
+  --quote: #d5a7b5;
   /* Light text holds its contrast here, and backgrounds would only break a dense line into patches. */
   --syntax-keyword-bg: transparent;
   --syntax-type-bg: transparent;

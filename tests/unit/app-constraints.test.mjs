@@ -162,6 +162,7 @@ test('the corrected text of TS 29.272', async t => {
       const section = entry.querySelector('.popup-constraints');
       present(section);
       assert.ok(section.classList.contains('landing'), 'brought into view with a flash');
+      assert.equal(section.querySelector('.constraints-fold').open, true, 'unfolded, as the reader was sent to it');
       absent(document.querySelector('.avp-popup'));
     });
 
@@ -172,7 +173,15 @@ test('the corrected text of TS 29.272', async t => {
         const section = popup.querySelector('.popup-constraints');
         present(section);
         assert.equal(section.getAttribute('aria-label'), 'Interpreted constraints');
-        assert.match(section.querySelector('.constraints-title').textContent, /^Interpreted 1/);
+        // Folded under its heading, as Uses is, which says how many and what they are.
+        const fold = section.querySelector(':scope > details.constraints-fold');
+        assert.equal(fold.open, false, 'folded');
+        assert.equal(fold.querySelector('summary'), section.querySelector('.constraints-title'));
+        assert.equal(section.querySelector('.constraints-title').textContent, 'Interpreted 1 1 on this AVP');
+        assert.equal(section.querySelector('.constraints-gist').textContent.trim(), '1 on this AVP');
+        // Nothing to toggle: each rule is said in words, as printed only in their tooltip.
+        absent(section.querySelector('input'));
+        fold.open = true;
         const about = section.querySelector('.constraints-about');
         assert.equal(about.tagName, 'BUTTON', 'no link out: the help says what they are');
         about.click();
@@ -180,7 +189,7 @@ test('the corrected text of TS 29.272', async t => {
         assert.ok(document.getElementById('help').querySelector('.help-constraints'));
         document.querySelector('.help-toggle').click();
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
-        // Each rule once, in words, as printed its tooltip; the toggle shows it as printed under them too.
+        // Each rule once, in words, as printed its tooltip.
         assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), [], 'not said twice');
         assert.deepEqual(texts(section, '.constraint-reading .constraint-words').slice(0, 2), [
           'not 0',
@@ -188,22 +197,7 @@ test('the corrected text of TS 29.272', async t => {
         ]);
         const first = section.querySelector('.constraint-rule');
         assert.equal(first.querySelector('.constraint-words').title, 'As written: exclude 0');
-        const written = section.querySelector('.constraints-written input');
-        assert.equal(written.checked, false);
-        click(page, written);
-        await settle();
-        const shown = document.querySelector('.avp-popup .popup-constraints');
-        assert.deepEqual(texts(shown, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
-        assert.deepEqual(
-          [...shown.querySelector('.constraint-rule').children].map(part => part.className),
-          ['constraint-words', 'constraint-printed'],
-          'the words first, as printed under them',
-        );
-        assert.equal(window.localStorage.getItem('seanchai-rules-as-written'), 'shown', 'kept for every popup');
-        assert.equal(shown.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
-        click(page, shown.querySelector('.constraints-written input'));
-        await settle();
-        assert.equal(window.localStorage.getItem('seanchai-rules-as-written'), 'hidden');
+        assert.equal(window.localStorage.getItem('seanchai-rules-as-written'), null, 'nothing kept');
         assert.equal(
           section.querySelector('.constraints-about').title,
           'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
@@ -227,6 +221,11 @@ test('the corrected text of TS 29.272', async t => {
 
         const inCommand = await popupOf(page, nameOn(document, 'Context-Identifier', DSR_MEMBER));
         const dsr = inCommand.querySelector('.popup-constraints');
+        assert.equal(
+          dsr.querySelector('.constraints-fold').open,
+          false,
+          'folded again: a popup keeps nothing of the last',
+        );
         assert.deepEqual(texts(dsr, '.constraint-scope'), ['in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1']);
         assert.deepEqual(
           [...dsr.querySelectorAll('.constraint-reading .constraint-words')].map(words => words.title),
@@ -242,6 +241,74 @@ test('the corrected text of TS 29.272', async t => {
         ]);
         assert.ok(!dsr.textContent.includes('APN-Configuration'));
         await closePopup(page);
+      },
+    );
+
+    await t.test(
+      'a quote longer than its line is one line until a click, Enter or Space opens it whole, each on its own, and nothing keeps it open',
+      async () => {
+        // happy-dom lays nothing out: a folded quote longer than the shortest of them is wider than its 300 px line.
+        let popup = await popupOf(page, nameOn(document, 'Context-Identifier', APN_MEMBER));
+        const ruled = () => [...popup.querySelectorAll('.constraint-reading:not(.constraint-text-only) q')];
+        const limit = Math.min(...ruled().map(quote => quote.textContent.length));
+        assert.ok(
+          ruled().every(quote => !quote.hasAttribute('role')),
+          'laid out nowhere, none is longer than its line',
+        );
+        await closePopup(page);
+        const proto = window.HTMLElement.prototype;
+        Object.defineProperty(proto, 'scrollWidth', {
+          configurable: true,
+          get() {
+            return this.classList.contains('constraint-quote-folded') && this.textContent.length > limit ? 900 : 200;
+          },
+        });
+        Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => 300 });
+        try {
+          popup = await popupOf(page, nameOn(document, 'Context-Identifier', APN_MEMBER));
+          const quotes = ruled();
+          const long = quotes.filter(quote => quote.textContent.length > limit);
+          assert.ok(long.length > 0 && long.length < quotes.length, `${long.length} long of ${quotes.length}`);
+          for (const quote of quotes) {
+            const folds = quote.textContent.length > limit;
+            assert.ok(quote.classList.contains('constraint-quote-folded'), 'drawn to one line');
+            assert.equal(quote.getAttribute('role'), folds ? 'button' : null, quote.textContent);
+            assert.equal(quote.getAttribute('tabindex'), folds ? '0' : null);
+            assert.equal(quote.getAttribute('aria-expanded'), folds ? 'false' : null);
+            // The whole sentence its tooltip, where the line cuts it.
+            assert.equal(quote.title, folds ? quote.textContent : '');
+          }
+          // A text-only reading's quote is all it says: whole, never folded.
+          const textOnly = popup.querySelector('.constraint-text-only q');
+          assert.ok(!textOnly.classList.contains('constraint-quote-folded'));
+          absent(textOnly.getAttribute('role'));
+
+          const [first] = long;
+          click(page, first);
+          await settle();
+          assert.equal(first.getAttribute('aria-expanded'), 'true');
+          assert.ok(!first.classList.contains('constraint-quote-folded'), 'whole');
+          for (const other of quotes.filter(quote => quote !== first))
+            assert.ok(other.classList.contains('constraint-quote-folded'), 'the others stay folded');
+          first.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+          await settle();
+          assert.equal(first.getAttribute('aria-expanded'), 'false', 'Enter folds it again');
+          assert.ok(first.classList.contains('constraint-quote-folded'));
+          first.dispatchEvent(new window.KeyboardEvent('keydown', { key: ' ', bubbles: true }));
+          await settle();
+          assert.equal(first.getAttribute('aria-expanded'), 'true', 'and Space opens it');
+          await closePopup(page);
+
+          popup = await popupOf(page, nameOn(document, 'Context-Identifier', APN_MEMBER));
+          assert.ok(
+            ruled().every(quote => quote.classList.contains('constraint-quote-folded')),
+            'a new popup folds them all',
+          );
+          await closePopup(page);
+        } finally {
+          delete proto.scrollWidth;
+          delete proto.clientWidth;
+        }
       },
     );
 

@@ -212,10 +212,11 @@ prose, beside any category. Its title says where the rules were read from, "From
 description:", "From this member's description in table 5.2.2.2.1/1" or "From the prose of
 section 7.3.102", then each in words, a text-only one as "cannot be checked on a single
 message" and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
-pane is one, at them, flashing. The popup and the inspector list them in a section of their
-own, on a faint tint of the ¶'s hue behind a firmer rule than the text's, each rule once, in
-words, as the text prints it its title, and under them too where `As written` beside the
-heading asks, kept in the browser; a rule the words cannot say, of a kind or shape the site
+pane is one, at them, unfolded and flashing. The popup and the inspector list them in a section of their
+own, on a faint tint of the ¶'s hue behind a firmer rule than the text's, folded as Uses is
+under a heading counting them and saying what they are, `Interpreted 5  2 on this AVP · 3
+reading it`, opened by a click and by nothing kept from one popup to the next; each rule once, in
+words, as the text prints it its title; a rule the words cannot say, of a kind or shape the site
 does not know, is shown as printed alone ("3 octets", "0 to 255", "always 3", "TBCD-encoded E.164 number",
 "present only if DSR-Flags has bit … set", "defaults to FALSE when absent" for a `default`,
 "at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bits set except 9"
@@ -223,7 +224,9 @@ for `bits`, of an unsigned integer or an OctetString's octets read as one big-en
 number, "at least one of A, B present" or "no members present except IMEI, Software-Version"
 for `members`, "unique across APN-Configuration instances" for `unique` within one,
 "is 1 if Monitoring-Type is 1" for `values`, "holds the same value as the request's User-Name"
-for `equals`, "never sent in STR" for `absent`), with its quote, and a text-only one, a rule
+for `equals`, "never sent in STR" for `absent`), with its quote, one line ending in an
+ellipsis where it is longer, its title the whole sentence, which a click, Enter or Space opens
+whole and closes again, and a text-only one, a rule
 no checker can run on one message, as a `not checked` tag and its quote. What the
 Wireshark plugin makes of a rule is a terse tag at most, its title saying more: `partly
 checked` or `not checked` for an element rule it checks so, `needs request` for one reading
@@ -283,8 +286,9 @@ list for the tab, which goes back to it to the pixel and survives a reload. A mo
 pane alone is not on the list: the text has not gone anywhere. The arrows left of a
 document's title walk the list too, and a browser's Back and Forward step between
 documents, the index and search. Where a move lands, the line, or the section of a popup a
-mark opened it at, is tinted: in quickly, held a second and a half, then fading out slowly,
-about four seconds in all; with reduced motion the tint holds still as long and goes at once.
+mark opened it at, is tinted and outlined: in quickly, held half a second, then fading out
+over a second and a half, about two seconds in all, the tint pale enough for all the text on it
+to keep its contrast; with reduced motion the tint and outline hold still as long and go at once.
 
 | Keys | Do |
 |---|---|

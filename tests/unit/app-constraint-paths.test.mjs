@@ -89,6 +89,8 @@ test('TS 29.272: rules reading the request, and names on a path', async t => {
           readers[0].querySelector('.constraint-scope').textContent,
           /^rule on EPS-User-State · in IDA · 5\.2\.2\.1\.1/,
         );
+        // Folded, its heading says they are all rules on other AVPs reading it.
+        assert.equal(popup.querySelector('.constraints-gist').textContent.trim(), '3 reading it');
         const tag = readers[0].querySelector('.constraint-tag');
         assert.equal(tag.textContent, 'needs request', 'a terse tag');
         assert.equal(tag.title, 'The Wireshark plugin checks this only when the capture holds the request.');
@@ -144,6 +146,7 @@ test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the 
       const section = entry.querySelector('.popup-constraints');
       present(section);
       assert.ok(section.classList.contains('landing'));
+      assert.equal(section.querySelector('.constraints-fold').open, true, 'unfolded at them');
       assert.deepEqual(texts(section, '.constraint-scope'), ['Auth-Session-State · 5.2.4']);
       assert.deepEqual(texts(section, '.constraint-words'), ['never sent in DEA']);
       assert.equal(
@@ -162,7 +165,12 @@ test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the 
       const popup = await popupOf(page, head);
       const section = popup.querySelector('.popup-constraints');
       present(section);
-      assert.match(section.querySelector('.constraints-title').textContent, /^Interpreted 1/);
+      assert.equal(
+        section.querySelector('.constraints-title').textContent,
+        'Interpreted 1',
+        'no gist: all are its own',
+      );
+      assert.equal(section.querySelector('.constraints-fold').open, false, 'folded, opened on the name');
       assert.deepEqual(texts(section, '.constraint-words'), ['never sent in DEA']);
       assert.equal(
         section.querySelector('.constraint-words').title,

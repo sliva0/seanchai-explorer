@@ -15,6 +15,7 @@ import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
 import type { HighlightedLine, HighlightedToken } from './highlight.ts';
 import { land } from './landing.ts';
+import { unfoldConstraints } from './popup/constraints.tsx';
 import { parseRoute, routeFor } from './navigation.ts';
 import type { PopupRequest, Popups } from './popup/index.tsx';
 import { fallbackPlace, markDetails, placeRoute, resolverOf, tokenPlace } from './avp-places.ts';
@@ -357,7 +358,7 @@ function createText(
   /**
    * A line's mark opens what a plain click on the name it is about opens where that shows what the mark says, the
    * inspector, or else the name's popup, and brings that part of it into view, flashing: for interpreted constraints'
-   * ¶ their section, on a command's `* [ AVP ]` line in its command's popup; for a member's category the lines stating
+   * ¶ their section, unfolded, on a command's `* [ AVP ]` line in its command's popup; for a member's category the lines stating
    * it, each with the row of its table.
    */
   function showMark(mark: HTMLElement) {
@@ -387,6 +388,8 @@ function createText(
       ...holder.querySelectorAll<HTMLElement>(category ? '.popup-claim' : '.popup-constraints'),
     ]);
     if (!parts.length) return;
+    // The Interpreted section is folded until the reader is sent to it.
+    if (!category) unfoldConstraints(parts[0]);
     parts[0].scrollIntoView?.({ block: 'nearest' });
     for (const part of category ? parts : parts.slice(0, 1)) land(part);
   }

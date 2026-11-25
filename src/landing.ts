@@ -1,8 +1,8 @@
 /**
- * How long a "you were sent here" highlight lasts, in milliseconds: a short fade in, a hold, a slow fade out. The
- * `landing` keyframes in layout.css hold the same, 4150 ms in all, their stops at 150 ms and 1650 ms.
+ * How long a "you were sent here" highlight lasts, in milliseconds: a short fade in, a short hold, a slower fade out.
+ * The `landing` keyframes in layout.css hold the same, 2150 ms in all, their stops at 150 ms and 650 ms.
  */
-export const LANDING = { in: 150, hold: 1500, out: 2500 } as const;
+export const LANDING = { in: 150, hold: 500, out: 1500 } as const;
 export const LANDING_MS = LANDING.in + LANDING.hold + LANDING.out;
 
 const timers = new WeakMap<Element, ReturnType<typeof setTimeout>>();

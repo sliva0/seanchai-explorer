@@ -137,13 +137,24 @@ for (const theme of ['light', 'dark']) {
     check(3, '--ui-border-strong', '--ui-bg', '--ui-surface', '--ui-chrome');
     check(3, '--warning', '--warning-bg');
     check(3, '--target-edge', '--target-bg');
+    // A quote a rule was read from, on a line of the text.
+    check(4.5, '--quote', ...bands);
+    // Where a move landed, at its peak: the flash, opaque, under all a line or a popup's section prints, a token's tint
+    // over it, and its outline at 3:1 on it and on what is around it.
+    for (const name of ['--ui-fg', '--ui-muted', '--ui-link', '--interpreted', '--quote', ...syntax]) {
+      const tint = tokens[`${name.replace(/-strong$/, '')}-bg`];
+      const under = tint ? over(tint, tokens['--target-flash']) : tokens['--target-flash'];
+      const value = contrast(tokens[name], under);
+      if (value < 4.5) failures.push(`${name} on --target-flash: ${value.toFixed(2)} < 4.5`);
+    }
+    check(3, '--target-edge', '--target-flash', '--target-bg', ...surfaces, ...bands);
     // Interpreted material in a popup (the raised panel) or the inspector (the pane, on the page's own or the surface):
     // its rule on them, at 3:1, and its text on its tint over them, at 4.5:1.
     const panels = ['--ui-bg', '--ui-surface', '--ui-raised'];
     check(3, '--interpreted-rule', ...panels);
     for (const surface of panels) {
       const tinted = over(tokens['--interpreted-tint'], over(tokens[surface], tokens['--ui-bg']));
-      for (const name of ['--ui-fg', '--ui-muted', '--ui-link', '--interpreted']) {
+      for (const name of ['--ui-fg', '--ui-muted', '--ui-link', '--interpreted', '--quote']) {
         const value = contrast(tokens[name], tinted);
         if (value < 4.5) failures.push(`${name} on --interpreted-tint on ${surface}: ${value.toFixed(2)} < 4.5`);
       }

@@ -1232,37 +1232,45 @@ test('with reduced motion a jump is instant, and the landing still shows', { ski
 });
 
 test(
-  'a landing holds its tint a second and more, fades out slowly and goes after about four seconds; with reduced motion it holds still as long',
+  'a landing holds a pale tint and an outline half a second, fades out over more and goes after about two seconds; with reduced motion it holds still as long',
   { skip },
   async () => {
     for (const reducedMotion of ['no-preference', 'reduce']) {
       const { page, done } = await open('#29217-j00?pane=0', { reducedMotion });
-      const { flash, samples } = await page.evaluate(async () => {
+      const { flash, edge, samples } = await page.evaluate(async () => {
         const probe = document.createElement('div');
         probe.style.backgroundColor = 'var(--target-flash)';
         document.body.append(probe);
+        probe.style.outlineColor = 'var(--target-edge)';
+        document.body.append(probe);
         const flash = getComputedStyle(probe).backgroundColor;
+        const edge = getComputedStyle(probe).outlineColor;
         probe.remove();
         const links = document.querySelectorAll('.section-list a');
         const link = links[links.length - 2];
         link.click();
         const row = document.getElementById(`section-${link.textContent}`);
+        // From when the line comes to rest and lands, after any scroll there.
+        while (!row.classList.contains('landing')) await new Promise(requestAnimationFrame);
         const began = performance.now();
         const samples = [];
-        for (const at of [1000, 3000, 4700]) {
+        for (const at of [400, 1300, 2600]) {
           await new Promise(resolve => setTimeout(resolve, at - (performance.now() - began)));
+          const style = getComputedStyle(row);
           samples.push({
             at,
             on: row.classList.contains('landing'),
-            background: getComputedStyle(row).backgroundColor,
+            background: style.backgroundColor,
+            outline: `${style.outlineStyle} ${style.outlineColor}`,
           });
         }
-        return { flash, samples };
+        return { flash, edge, samples };
       });
       const [held, late, gone] = samples;
       const said = `${reducedMotion}: ${JSON.stringify(samples)}`;
-      assert.ok(held.on && held.background === flash, `held at a second: ${said}`);
-      assert.ok(late.on, `still on at three seconds: ${said}`);
+      assert.ok(held.on && held.background === flash, `held at 0.4 s: ${said}`);
+      assert.equal(held.outline, `solid ${edge}`, `outlined: ${said}`);
+      assert.ok(late.on, `still on at 1.3 s: ${said}`);
       if (reducedMotion === 'reduce') assert.equal(late.background, flash, `no fade: ${said}`);
       else assert.notEqual(late.background, flash, `fading: ${said}`);
       assert.ok(!gone.on && gone.background !== flash, `gone: ${said}`);
@@ -2079,6 +2087,7 @@ test(
     await section.waitFor();
     assert.equal(await page.locator('.inspector-entry').getAttribute('aria-label'), 'SGSN-Number');
     assert.ok(await section.evaluate(node => node.classList.contains('landing')), 'flashing');
+    assert.ok(await section.locator('.constraints-fold').evaluate(node => node.open), 'unfolded at them');
     const inView = await section.evaluate(node => {
       const box = node.getBoundingClientRect();
       return box.top >= 0 && box.top < innerHeight;
@@ -2092,6 +2101,64 @@ test(
     const popup = page.locator('.avp-popup .popup-constraints');
     await popup.waitFor();
     assert.equal(await page.locator('.avp-popup').getAttribute('data-avp'), 'SGSN-Number');
+    await page.keyboard.press('Escape');
+    await done();
+  },
+);
+
+test(
+  "public: a popup's Interpreted section is folded under a heading saying what it holds, a long quote is a line until clicked, and a ¶ opens the section",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29272-j60/7.3.35', { viewport: { width: 700, height: 900 } });
+    const name = page.locator('.dad-line[data-line="2315"] [data-avp="Context-Identifier"]');
+    await name.click({ button: 'right' });
+    const section = page.locator('.avp-popup .popup-constraints');
+    await section.waitFor();
+    const fold = section.locator('.constraints-fold');
+    assert.equal(await fold.evaluate(node => node.open), false, 'folded');
+    assert.equal(await section.locator('.constraints-title').textContent(), 'Interpreted 1 1 on this AVP');
+    assert.equal(await section.locator('.constraint-group').first().isVisible(), false, 'its rules out of view');
+    const folded = await section.evaluate(node => node.getBoundingClientRect().height);
+    assert.ok(folded < 32, `a line high, ${folded}`);
+    await section.locator('.constraints-title').click();
+    assert.equal(await fold.evaluate(node => node.open), true);
+    assert.ok(await section.locator('.constraints-about').isVisible(), 'the help on the heading line');
+    const heading = await section.locator('.constraints-title').boundingBox();
+    const about = await section.locator('.constraints-about').boundingBox();
+    assert.ok(Math.abs(about.y - heading.y) < 4 && about.x > heading.x + 100, 'at its right');
+
+    // A quote longer than its line is a line, ending in an ellipsis, its title the whole; a click opens it whole.
+    const quote = section.locator('.constraint-reading:not(.constraint-text-only) q[role="button"]').first();
+    await quote.waitFor();
+    const line = await quote.evaluate(node => ({
+      height: node.getBoundingClientRect().height,
+      lineHeight: parseFloat(getComputedStyle(node).lineHeight),
+      cut: node.scrollWidth > node.clientWidth,
+      ellipsis: getComputedStyle(node).textOverflow,
+      title: node.title === node.textContent,
+    }));
+    assert.ok(line.cut && line.height <= line.lineHeight + 1, JSON.stringify(line));
+    assert.equal(line.ellipsis, 'ellipsis');
+    assert.ok(line.title, 'the whole quote its title');
+    await quote.click();
+    assert.equal(await quote.getAttribute('aria-expanded'), 'true');
+    const whole = await quote.evaluate(node => node.getBoundingClientRect().height);
+    assert.ok(whole > line.height * 1.5, `whole, ${whole}`);
+    await quote.press('Enter');
+    assert.equal(await quote.getAttribute('aria-expanded'), 'false', 'Enter folds it again');
+    near(await quote.evaluate(node => node.getBoundingClientRect().height), line.height, 'a line again');
+    await page.keyboard.press('Escape');
+
+    // A popup keeps nothing of the last; a ¶ sends the reader to the section, unfolded, flashing.
+    await name.click({ button: 'right' });
+    await section.waitFor();
+    assert.equal(await fold.evaluate(node => node.open), false, 'folded again');
+    await page.keyboard.press('Escape');
+    await page.locator('.dad-line[data-line="2315"] button.constraint-mark').click();
+    await section.waitFor();
+    assert.equal(await fold.evaluate(node => node.open), true, 'the ¶ unfolds it');
+    assert.ok(await section.evaluate(node => node.classList.contains('landing')), 'flashing');
     await page.keyboard.press('Escape');
     await done();
   },
@@ -2128,6 +2195,10 @@ test(
     assert.match(await page.locator('.target-line').textContent(), /\[ IDR-Flags \]/, "to the IDR's member");
     const member = page.locator('.target-line [data-avp="IDR-Flags"]');
     await member.click({ button: 'right' });
+    // Folded, its heading says what it holds; a click opens it.
+    const heading = page.locator('.avp-popup .constraints-title');
+    assert.equal(await heading.textContent(), 'Interpreted 3 3 reading it');
+    await heading.click();
     const readers = page.locator('.avp-popup .constraint-reader');
     await readers.first().waitFor();
     assert.equal(await readers.count(), 3);

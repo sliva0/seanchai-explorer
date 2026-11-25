@@ -25,7 +25,7 @@ import {
   ruleWords,
   scopeWords,
 } from '../../src/constraints.ts';
-import { elementDepth } from '../../src/text/rules.ts';
+import { constraintsSection, elementDepth } from '../../src/text/rules.ts';
 import { readFixture } from './helpers.mjs';
 
 const words = (rule, printed = '', within) => ruleWords({ line: 0, ...rule }, printed, within);
@@ -515,4 +515,11 @@ test('a block naming a Command-Section holds only there, where the place read sa
   assert.ok(!holdsIn(block, { command: { name: 'X', application: 1, section: '4.2' } }));
   assert.ok(holdsIn(block, { command: { name: 'X', application: 1 } }), 'a place not saying which print');
   assert.ok(holdsIn({ scope: { command: 'X' } }, { command: { name: 'X', section: '4.2' } }));
+});
+
+test('the folded Interpreted heading says how many blocks are on the AVP and how many read it, each only where some are', () => {
+  assert.equal(constraintsSection.gist(2, 3), '2 on this AVP · 3 reading it');
+  assert.equal(constraintsSection.gist(1, 0), '1 on this AVP');
+  assert.equal(constraintsSection.gist(0, 4), '4 reading it');
+  assert.equal(constraintsSection.gist(0, 0), '');
 });

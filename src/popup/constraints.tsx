@@ -1,5 +1,5 @@
 import { Fragment } from 'preact';
-import { useState } from 'preact/hooks';
+import { useLayoutEffect, useRef, useState } from 'preact/hooks';
 import type { ComponentChild } from 'preact';
 import type { Use } from '../avp-context.ts';
 import type { Place } from '../avp-places.ts';
@@ -33,7 +33,6 @@ import { docName, newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
-import { readStored, writeStored } from '../storage.ts';
 import type { PopupRequest } from './root.tsx';
 import { Counted, placeRows, TableLink } from './shared.tsx';
 import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
@@ -340,6 +339,56 @@ function checkTags(rule: ConstraintRule, entry: ElementEntry | undefined): Compo
   return tags;
 }
 
+/**
+ * A sentence a rule was read from, which the rule's words say already: one line, ending in an ellipsis, where it is
+ * longer, its whole text its title, opening whole on a click, Enter or Space and closing again the same way; whole
+ * where it fits, and where `whole`, a text-only reading's, whose quote is all it says. Nothing keeps it open.
+ */
+function Quote({ text, whole }: { text: string; whole?: boolean }) {
+  const node = useRef<HTMLQuoteElement>(null);
+  const [open, setOpen] = useState(false);
+  const [long, setLong] = useState(false);
+  // Measured folded, again as its width changes: drawn in a closed section it has none until the section opens.
+  useLayoutEffect(() => {
+    const quote = node.current;
+    if (!quote || whole || open) return;
+    const measure = () => setLong(quote.scrollWidth > quote.clientWidth + 1);
+    measure();
+    if (typeof ResizeObserver !== 'function') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(quote);
+    return () => observer.disconnect();
+  }, [whole, open]);
+  if (whole) return <q class="constraint-quote">{text}</q>;
+  const toggle = () => setOpen(shown => !shown);
+  return (
+    <q
+      ref={node}
+      class={`constraint-quote${open ? '' : ' constraint-quote-folded'}`}
+      title={long ? text : undefined}
+      {...(long || open
+        ? {
+            role: 'button',
+            tabIndex: 0,
+            'aria-expanded': open,
+            onClick: () => {
+              // A reader selecting the sentence's words is not asking for it to fold.
+              if (open && String(node.current?.ownerDocument.getSelection?.() ?? '')) return;
+              toggle();
+            },
+            onKeyDown: (event: KeyboardEvent) => {
+              if (event.key !== 'Enter' && event.key !== ' ') return;
+              event.preventDefault();
+              toggle();
+            },
+          }
+        : {})}
+    >
+      {text}
+    </q>
+  );
+}
+
 /** A block as a popup lists it, with the document it is in; `on` a block on another AVP, `bare` in its command's popup. */
 interface Listed {
   doc: Document;
@@ -350,10 +399,10 @@ interface Listed {
 
 /**
  * A block's rules in a popup: where they hold, each reading's rules once, in plain words, the rule as the text prints it
- * their tooltip and, where `written`, under them, or as printed alone where the words could not say it; what an
- * element's layout means for the value where that is short; a terse tag where the plugin checks a rule partly, not at
- * all or only with the request; the sentences they were read from, and the way to the block, its clause and the
- * request its rules read. `here`, opened in the block itself, it says only its rules in words, as the text prints the
+ * their tooltip, or as printed alone where the words could not say it; what an element's layout means for the value
+ * where that is short; a terse tag where the plugin checks a rule partly, not at all or only with the request; the
+ * sentences they were read from, each folded to a line, and the way to the block, its clause and the request its rules
+ * read. `here`, opened in the block itself, it says only its rules in words, as the text prints the
  * rest right there. `inline`, in the inspector, an element rule has what the registry says of its checking under a
  * closed Checking.
  */
@@ -363,7 +412,6 @@ function ConstraintGroup({
   request,
   listed: { doc, item, on, bare },
   here,
-  written,
   inline,
 }: {
   site: Site;
@@ -371,7 +419,6 @@ function ConstraintGroup({
   request: PopupRequest;
   listed: Listed;
   here: boolean;
-  written: boolean;
   inline?: boolean;
 }) {
   const { block } = item;
@@ -409,12 +456,11 @@ function ConstraintGroup({
       {!here && <ScopeLine site={site} doc={doc} item={item} on={on} bare={bare} />}
       <ul class="constraint-readings">
         {(block.readings ?? []).map((reading, index) => {
+          const only = textOnly(reading.rules);
           const quotes = (here ? [] : reading.quotes).map(quote => (
-            <q key={quote.line} class="constraint-quote">
-              {quote.text}
-            </q>
+            <Quote key={quote.line} text={quote.text} whole={only} />
           ));
-          if (textOnly(reading.rules))
+          if (only)
             return (
               <li key={index} class="constraint-reading constraint-text-only">
                 <span class="constraint-rule">
@@ -450,7 +496,6 @@ function ConstraintGroup({
                         <RuleText site={site} doc={doc} rule={rule} printed={printed} where={where} />
                       </span>
                     )}
-                    {!fallback && written && !here && <Printed doc={doc} line={rule.line} />}
                     {(value || tags.length > 0) && (
                       <span class="constraint-meta">
                         {value && <span class="constraint-value">{value}</span>}
@@ -486,56 +531,47 @@ function ConstraintGroup({
   );
 }
 
-/** Whether rules show as printed under their words, as the reader last chose in any popup. */
-const readWritten = () => readStored('rulesAsWritten') === 'shown';
-
 /**
- * The section of a popup listing blocks, its heading counting them, with the toggle showing each rule as printed under
- * its words where `toggle` and its button opening the help at them.
+ * The section of a popup listing blocks, folded under its heading as Uses is, the heading counting them and saying in
+ * `gist` what they are, with its button opening the help at them. A ¶ or anything else sending the reader to them opens
+ * it (`unfoldConstraints`); nothing keeps it open from one popup to the next.
  */
 function ConstraintSection({
   count,
+  gist,
   children,
   className = '',
-  written,
-  setWritten,
 }: {
   count: number;
+  gist?: string;
   children: ComponentChild;
   className?: string;
-  written: boolean;
-  setWritten?: (written: boolean) => void;
 }) {
   return (
     <section class={`popup-constraints ${className}`.trim()} aria-label={constraintsSection.label}>
-      <div class="constraints-title">
-        <Counted title={constraintsSection.heading} count={count} />
-        {setWritten && (
-          <label class="constraints-written" title={constraintsSection.asWrittenTitle}>
-            <input
-              type="checkbox"
-              checked={written}
-              onChange={event => {
-                const shown = (event.currentTarget as HTMLInputElement).checked;
-                writeStored('rulesAsWritten', shown ? 'shown' : 'hidden');
-                setWritten(shown);
-              }}
-            />
-            {constraintsSection.asWritten}
-          </label>
-        )}
+      <details class="constraints-fold">
+        <summary class="constraints-title">
+          <Counted title={constraintsSection.heading} count={count} />
+          {gist && <span class="constraints-gist"> {gist}</span>}
+        </summary>
         <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
           {constraintsSection.about}
         </button>
-      </div>
-      {children}
+        {children}
+      </details>
     </section>
   );
 }
 
+/** Opens a popup's or the inspector's Interpreted section, folded until the reader is sent to it. */
+export function unfoldConstraints(section: Element) {
+  const fold = section.querySelector<HTMLDetailsElement>(':scope > .constraints-fold');
+  if (fold) fold.open = true;
+}
+
 /**
- * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words and under them
- * as the text prints them, with the sentences they were read from, where they hold, and the way to the block and its
+ * What the Interpreted Constraints say of the name where it stands, each block's rules in plain words, the text's line
+ * their tooltip, with the sentences they were read from, where they hold, and the way to the block and its
  * clause; then the blocks on other AVPs whose rules read it there. The block is in the corrected text, which a raw
  * view's way goes to.
  */
@@ -552,7 +588,6 @@ export function ConstraintFacts({
   use: Use | undefined;
   inline?: boolean;
 }) {
-  const [written, setWritten] = useState(readWritten);
   const found: Listed[] = constraintsHere(site, request, use);
   // Opened in a block of them, the text prints its scope, rules and quotes right there: of that block the popup says
   // only what the text does not, its rules in words and an element rule's registry entry.
@@ -565,10 +600,8 @@ export function ConstraintFacts({
   const all = [...found, ...readers];
   if (!all.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
-  // Opened in the one block listed, the text prints its rules right there: there is nothing to toggle.
-  const toggles = all.some(item => !opened(item.doc, item.item));
   return (
-    <ConstraintSection count={all.length} written={written} setWritten={toggles ? setWritten : undefined}>
+    <ConstraintSection count={all.length} gist={constraintsSection.gist(found.length, readers.length)}>
       {all.map(item => (
         <ConstraintGroup
           key={`${item.doc.id}:${item.item.block.line}`}
@@ -577,7 +610,6 @@ export function ConstraintFacts({
           request={request}
           listed={item}
           here={opened(item.doc, item.item)}
-          written={written}
           inline={inline}
         />
       ))}
@@ -608,12 +640,11 @@ export function CommandConstraintFacts({
   members: Set<string>;
   inline?: boolean;
 }) {
-  const [written, setWritten] = useState(readWritten);
   const found = commandConstraints(doc, context, members);
   if (!found.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
   return (
-    <ConstraintSection count={found.length} className="command-constraints" written={written} setWritten={setWritten}>
+    <ConstraintSection count={found.length} className="command-constraints">
       {found.map(item => (
         <ConstraintGroup
           key={`${doc.id}:${item.block.line}`}
@@ -622,7 +653,6 @@ export function CommandConstraintFacts({
           request={request}
           listed={{ doc, item, bare: true }}
           here={false}
-          written={written}
           inline={inline}
         />
       ))}

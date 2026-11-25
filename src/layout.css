@@ -784,7 +784,7 @@ pre [class*="link.declaration"] {
   white-space: nowrap;
 }
 .dad-line.interpreted-quote [class*="string.quoted"] {
-  color: color-mix(in srgb, var(--syntax-string) 72%, var(--ui-bg));
+  color: var(--quote);
 }
 #document.interpreted-hidden .dad-line.interpreted,
 #document.interpreted-hidden .dad-line.interpreted-gap {
@@ -797,25 +797,35 @@ pre [class*="link.declaration"] {
   box-shadow: -3px 0 var(--target-edge);
 }
 /*
- * Where the reader was sent, a line of the text or a section of a popup: a stronger tint fading in over whatever the
- * node's own background is in 150 ms, held 1.5 s and fading out in 2.5 s, 4150 ms in all, as `LANDING` in landing.ts,
- * which takes the class off once it has run. The stops leave out 0% and 100%, which are the node's own background.
+ * Where the reader was sent, a line of the text or a section of a popup: a light tint and an outline in the edge's
+ * colour fading in over the node's own background in 150 ms, held 0.5 s and fading out in 1.5 s, 2150 ms in all, as
+ * `LANDING` in landing.ts, which takes the class off once it has run. The tint is pale enough for any text on it to keep
+ * 4.5:1, the outline saying where it is; the stops leave out 0% and 100%, which are the node's own.
  */
 @keyframes landing {
-  3.6%,
-  39.8% {
+  7%,
+  30.2% {
     background-color: var(--target-flash);
+    outline-color: var(--target-edge);
   }
 }
-/* With reduced motion, the tint alone for as long, gone at once at the end. */
+/* With reduced motion, the tint and outline alone for as long, gone at once at the end. */
 @keyframes landing-still {
   from,
   to {
     background-color: var(--target-flash);
+    outline-color: var(--target-edge);
   }
 }
 .landing {
-  animation: landing 4150ms ease-out;
+  outline: 2px solid transparent;
+  outline-offset: -2px;
+  animation: landing 2150ms ease-out;
+}
+/* A line's outline stands just outside it, clear of its first character, as its bar does, and shows on a line focused. */
+.dad-line.landing {
+  outline: 2px solid transparent;
+  outline-offset: 0;
 }
 @media (prefers-reduced-motion: reduce) {
   .landing {
@@ -1488,7 +1498,7 @@ mark {
   flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-1);
-  min-height: 3rem;
+  position: relative;
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
@@ -1503,19 +1513,38 @@ mark {
 .avp-popup:has(.popup-constraints) {
   max-height: min(88vh, 48rem);
 }
+/* Folded, as Uses is, under a heading saying how many and what they are; open, it keeps a few lines where it gives way. */
+.popup-constraints:has(> .constraints-fold[open]) {
+  min-height: 3rem;
+}
+.popup-constraints:has(> .constraints-fold:not([open])) {
+  flex: none;
+}
+.constraints-fold > .constraint-group {
+  margin-top: var(--space-1);
+}
+.constraints-fold[open] .constraints-gist {
+  display: none;
+}
 /* In a command's popup, beside its long list of places, which scrolls first: its own rules keep their lines up to a cap. */
 .command-constraints {
   flex-shrink: 0;
   max-height: 18rem;
 }
 .constraints-title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.constraints-gist {
+  margin-left: var(--space-2);
   color: var(--ui-muted);
 }
+/* Open, on the heading's line at its right. */
 .constraints-about {
-  margin-left: auto;
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-2);
   padding: 0;
   border: 0;
   color: var(--ui-link);
@@ -1622,23 +1651,27 @@ mark {
   color: var(--ui-muted);
   cursor: pointer;
 }
-/* The toggle showing each rule as printed under its words, quiet beside the heading. */
-.constraints-written {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3em;
-  cursor: pointer;
-}
-.constraints-written input {
-  margin: 0;
-}
 .constraint-quote {
   display: block;
   margin-top: 2px;
-  color: color-mix(in srgb, var(--syntax-string) 72%, var(--ui-bg));
+  color: var(--quote);
   font-style: normal;
   overflow-wrap: anywhere;
   quotes: '"' '"';
+}
+/* A quote longer than its line, folded to it, its end an ellipsis, until a click opens it whole. */
+.constraint-quote-folded {
+  overflow: hidden;
+  overflow-wrap: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.constraint-quote[role="button"] {
+  cursor: pointer;
+}
+.constraint-quote[role="button"]:hover {
+  text-decoration: underline 1px color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 3px;
 }
 .constraint-group + .constraint-group {
   padding-top: var(--space-1);

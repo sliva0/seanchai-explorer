@@ -4,10 +4,11 @@ import test from 'node:test';
 import { Window } from 'happy-dom';
 import { land, LANDING, LANDING_MS } from '../../src/landing.ts';
 
-test('a landing fades in shortly, holds and fades out slowly, several seconds in all', () => {
+test('a landing fades in shortly, holds briefly and fades out more slowly, about two seconds in all', () => {
   assert.ok(LANDING.in <= 250, 'in');
-  assert.ok(LANDING.hold >= 1000, 'held');
-  assert.ok(LANDING.out >= 2000, 'out');
+  assert.ok(LANDING.hold >= 300 && LANDING.hold <= 800, 'held');
+  assert.ok(LANDING.out >= 1000 && LANDING.out <= 2000 && LANDING.out > LANDING.hold, 'out');
+  assert.ok(LANDING_MS <= 2500, 'in all');
   assert.equal(LANDING_MS, LANDING.in + LANDING.hold + LANDING.out);
 });
 
@@ -19,7 +20,15 @@ test("the stylesheet's landing runs as long as the timer, its stops where the fa
     Math.round((LANDING.in / LANDING_MS) * 1000) / 10,
     Math.round(((LANDING.in + LANDING.hold) / LANDING_MS) * 1000) / 10,
   ]);
-  assert.match(css, new RegExp(`\\.landing \\{\\s*animation: landing ${LANDING_MS}ms`));
+  assert.match(css, new RegExp(`\\.landing \\{[^}]*animation: landing ${LANDING_MS}ms`));
+  // A pale tint and an outline: both keyframes set both, which the node's own outline, transparent, fades from.
+  for (const name of ['landing', 'landing-still'])
+    assert.match(
+      css.match(new RegExp(`@keyframes ${name} \\{([\\s\\S]*?)\\n\\}`))[1],
+      /background-color: var\(--target-flash\);\s*outline-color: var\(--target-edge\);/,
+      name,
+    );
+  assert.match(css, /\.landing \{\s*outline: 2px solid transparent;/);
   // Reduced motion keeps the tint for as long, without the fades.
   assert.match(css, /prefers-reduced-motion: reduce\) \{\s*\.landing \{\s*animation-name: landing-still;/);
 });

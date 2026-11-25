@@ -11,8 +11,6 @@ export const storageKeys = {
   clickTarget: 'seanchai-click-target',
   /** Local: `shown` or `hidden`, a document's Interpreted Constraints blocks. */
   interpreted: 'seanchai-interpreted',
-  /** Local: `shown` or `hidden`, each interpreted rule as printed under its words in a popup and the inspector. */
-  rulesAsWritten: 'seanchai-rules-as-written',
   /** Local: `posix` or `fish`, the shell the Wireshark page's install script is written for. */
   installShell: 'seanchai-install-shell',
   /** Local: `visible` or `hidden`, the PDF viewer's chapters. */

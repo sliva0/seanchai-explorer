@@ -273,16 +273,17 @@ export const constraintsSection = {
   label: 'Interpreted constraints',
   /** [limit] Its heading, followed by a count. A word. */
   heading: 'Interpreted',
+  /**
+   * [limit] After the folded heading's count, what the blocks are: how many hold on the name itself and how many are on
+   * other AVPs reading it, "2 on this AVP · 3 reading it", either left out where there are none.
+   */
+  gist: (on: number, reading: number) =>
+    [on > 0 && `${on} on this AVP`, reading > 0 && `${reading} reading it`].filter(Boolean).join(' · '),
   /** [limit] Its button opening the help at what they are, at the heading's right, and the button's tooltip. */
   about: 'What is this?',
   aboutTitle:
     'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
-  /**
-   * [limit] The toggle at the heading's right showing each rule as the document view prints it under its words, kept
-   * for every popup, and its tooltip. A rule's words have it as their tooltip whatever the toggle says.
-   */
-  asWritten: 'As written',
-  asWrittenTitle: 'Show each rule as the document view prints it, under its words',
+  /** A rule's words' tooltip: the rule as the document view prints it. */
   printedTitle: (printed: string) => `As written: ${printed}`,
   /**
    * [limit] Terse tags after a rule on what the Wireshark plugin makes of it, a word or two, with tooltips: a text-only
