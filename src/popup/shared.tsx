@@ -129,6 +129,76 @@ function InlinePanel({ heading, data, alignLabels, children }: PanelProps) {
 }
 
 /**
+ * The place a fact is stated, on the fact's own line: `where`, its document, clause and table, as a link going to it
+ * in the text, as a place's Jump to does, which another document is loaded for and the jump list keeps; text where the
+ * place names no target. A document the corpus does not list is text too.
+ */
+export function JumpLink({
+  site,
+  request: { doc, raw },
+  pane,
+  place,
+  children,
+}: {
+  site: Site;
+  request: Pick<PopupRequest, 'doc' | 'raw'>;
+  pane: SourcePane;
+  place: Place;
+  children: ComponentChildren;
+}) {
+  const summary = site.summary(place.document);
+  if (!summary || !place.target) return <span class="claim-where">{children}</span>;
+  return (
+    <a
+      class="claim-where"
+      href={placeRoute(place, doc, raw)}
+      title={pane.shows(summary) ? words.jumpToBoth : words.jumpToText}
+    >
+      {children}
+    </a>
+  );
+}
+
+/**
+ * Show in source, beside a fact, for the place it is stated: a button moving the pane there where the pane shows that
+ * document, else a link to the publisher's copy at `position`, the place's own where it has one; none where there is
+ * no copy to show.
+ */
+export function SourceButton({
+  site,
+  pane,
+  request: { doc },
+  place,
+  position = place.position,
+}: {
+  site: Site;
+  pane: SourcePane;
+  request: Pick<PopupRequest, 'doc'>;
+  place: Place;
+  position?: Place['position'];
+}) {
+  const summary = site.summary(place.document);
+  if (!summary) return null;
+  if (pane.shows(summary))
+    return (
+      <button
+        class="control pane-action"
+        type="button"
+        title={words.showOnTheRightTitle}
+        onClick={() => pane.openPlace(place, doc)}
+      >
+        {words.showOnTheRight}
+      </button>
+    );
+  const href = position ? sourceHref(summary, position, site.mode) : null;
+  return href ? (
+    <ExternalLink class="control source-action" href={href.href} title={words.sourceCopyTitle}>
+      {words.showOnTheRight}
+    </ExternalLink>
+  ) : null;
+}
+
+/**
  * The rows of places a popup offers, each a target of a name and the two ways to it: both panels, then the pane alone.
  * Each is there only if the place is in that medium. With no way to it in the pane, its label is the publisher's copy
  * at that place, if there is one. A place in a table says the table after it, a link to the table's block in the text. A row is left out, as undefined, for a document the corpus does not list.

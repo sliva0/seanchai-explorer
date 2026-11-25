@@ -8,6 +8,7 @@ import {
   identities,
   pane,
   paneAt,
+  factText,
   popupOf,
   present,
   rightClick,
@@ -294,18 +295,24 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
       [...document.querySelectorAll('pre [data-avp]')].find(
         node => node.dataset.avp === name && node.closest('.dad-line').dataset.line === line,
       );
-    const texts = (popup, selector) => [...popup.querySelectorAll(selector)].map(node => node.textContent);
+    const texts = (popup, selector) => [...popup.querySelectorAll(selector)].map(factText);
     let popup = await popupOf(page, at('User-Identity', '24'));
     assert.deepEqual(texts(popup, '.popup-context p'), [
       'Here: in command User-Data-Request (UDR) · 6.1.1',
       'Required { } · must be present, in any position · exactly once',
       'Bold in source: defined or modified in this document',
-      'Element: User Identity (See 7.1) · M, mandatory',
     ]);
+    present(popup.querySelector('.popup-here .pane-action, .popup-here .source-action'), 'the line in the source');
+    assert.deepEqual(
+      texts(popup, '.popup-claim .claim-text, .popup-claim .claim-where'),
+      ['Element: User Identity (See 7.1) · M, mandatory', 'TS 29.328 · 6.1.1 · table 6.1.1.1'],
+      'the element and category, with the row of the table saying them',
+    );
+    absent(popup.querySelector('.place-element'), 'no place apart from the claim');
     assert.deepEqual(
       texts(popup, '.popup-row-title'),
-      ['AVP Table 6.3.1 · 3GPP Sh/Ph'],
-      "the row's table and the application of its commands, opened away from it; alone, not marked as applying",
+      ['AVP Table 6.3.1 · 3GPP Sh/Ph · Definition'],
+      "the row's table and the application of its commands, opened away from it; alone, not marked as applying; the Definition, which no place repeats",
     );
     assert.deepEqual(texts(popup, '.popup-flags th, .popup-flags td'), ['Must', 'M, V'], 'no empty columns, no P');
     assert.match(popup.querySelector('.popup-flags td').title, /^M must be set\. Mandatory/);
@@ -361,6 +368,12 @@ test("a name's popup says how the line opened on uses it, the flags its row sets
     const rows = [...popup.querySelectorAll('.popup-row')];
     assert.deepEqual(texts(rows[0], '.popup-flags th, .popup-flags td'), ['Must not', 'M, V'], "the command's table");
     assert.deepEqual(texts(rows.at(-1), '.popup-flags th, .popup-flags td'), ['Must not', 'V'], "RFC 7944's");
+    assert.equal(
+      rows.at(-1).querySelector('.flags-differ').textContent,
+      'Flags differ from AVP Table 6.3.1, which applies here: M not stated in this table, must not be set in that one',
+      'shown because they differ from those applying here, saying how',
+    );
+    absent(rows[0].querySelector('.flags-differ'));
   } finally {
     await page.close();
   }
@@ -377,7 +390,7 @@ test('a popup drawn again once its document loads keeps the use stepped to, the 
       ),
     );
     const first = document.querySelector('.avp-popup');
-    const titles = popup => [...popup.querySelectorAll('.popup-row-title')].map(node => node.textContent);
+    const titles = popup => [...popup.querySelectorAll('.popup-row-title')].map(factText);
     assert.ok(!titles(first).includes('AVP Table 9.2 · RFC 7944'), 'RFC 7944 is not loaded yet');
     const next = [...first.querySelectorAll('.popup-actions button')].find(node => node.textContent === 'Next');
     next.focus();
@@ -421,7 +434,7 @@ test('a popup drawn again once its document loads leaves a focus outside it wher
       ),
     );
     const first = document.querySelector('.avp-popup');
-    const titles = () => [...first.querySelectorAll('.popup-row-title')].map(node => node.textContent);
+    const titles = () => [...first.querySelectorAll('.popup-row-title')].map(factText);
     assert.ok(!titles().includes('AVP Table 9.2 · RFC 7944'), 'RFC 7944 is not loaded yet');
     const outside = document.querySelector('header .theme-toggle');
     outside.focus();

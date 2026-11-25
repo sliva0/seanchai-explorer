@@ -12,6 +12,8 @@ export const popupShared = {
   jumpToText: 'Jump here in the document view',
   showOnTheRight: 'Show in source',
   showOnTheRightTitle: 'Show in the source pane only (opens it if hidden)',
+  /** Show in source's tooltip where it opens the publisher's copy, the pane not showing the document. */
+  sourceCopyTitle: "Open the publisher's copy at this place",
   /** A place's label, before its colon: "Definition: 7.3.2". */
   placeLabel: (label: string) => `${label}:`,
   /** [limit] The buttons stepping through a name's uses: a word each. */
@@ -128,6 +130,25 @@ export const avpPopup = {
   hereRow: (type: string) => `Here: a row of ${type} `,
   /** After a table's name, for the row of a table that applies where the name is read. */
   appliesHere: ' · applies here',
+  /** After a table's name, for a row that is a place the AVP is declared at, which no place row repeats: " · Definition". */
+  rowRole: (role: string) => ` · ${role}`,
+  /**
+   * Under a row, the other tables' rows saying the same, each a link to its row: "Also in AVP Table 6.3.0.1 · TS
+   * 29.229", or only its flags, the rest of that row shown apart, "Same flags in AVP Table 7.1.0.1".
+   */
+  alsoIn: 'Also in ',
+  sameFlagsIn: 'Same flags in ',
+  alsoBetween: ', ',
+  /**
+   * Under a row whose flags are not those of the row above them, `from`, which may apply where the name is read: how,
+   * bit by bit, "M must be set in this table, must not be set in that one".
+   */
+  flagsDiffer: (from: string, applies: boolean, bits: string) =>
+    `Flags differ from ${from}${applies ? ', which applies here' : ''}: ${bits}`,
+  bitDiffers: (bit: string, ours: string, theirs: string) => `${bit} ${ours} in this table, ${theirs} in that one`,
+  bitsBetween: '; ',
+  /** A bit a row says nothing of, in `bitDiffers`. */
+  notStated: 'not stated',
   /** An application a table's commands are of, where none is named. */
   applicationId: (id: number) => `Application-ID ${id}`,
   /** What an Information Elements row says of a member: "Element: SGSN number (See 7.3.102) · C, conditional". */
@@ -176,7 +197,9 @@ export const commandPopup = {
   /** Its second line: "Application-ID 16777251 · S6a/S6d", and where the header prints none, where the id is from. */
   applicationId: (id: number | string) => `Application-ID ${id}`,
   noApplicationId: 'No Application-ID in command header',
-  idFrom: (section: string) => `from section ${section} (not in header)`,
+  /** Around the clause, a link to it: " · from section 7.1 (not in header)". */
+  idFromBefore: ' · from section ',
+  idFromAfter: ' (not in header)',
   /** What tells another definition from this one: its code, its application, or none. */
   otherCode: (code: number) => `code ${code}`,
   otherApplication: (id: number, name: string) => `Application-ID ${id}${name ? ` ${name}` : ''}`,

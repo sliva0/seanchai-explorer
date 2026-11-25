@@ -93,10 +93,16 @@ export const clickWords = {
 
 /** What the marks after a line say, in their tooltips. */
 export const markWords = {
-  /** A member's category in its command's table: "C: conditional · SGSN number (See 7.3.102) · table 5.2.1.1.1/1". */
-  category: (category: string, words: string) => `${category}: ${words}`,
+  /**
+   * A member's category in its command's table, the row's document, where it is another, and table, and the row's name
+   * where it has one: "C, conditional, in TS 29.328 table 6.1.3.1: Service Indication (See 7.4)".
+   */
+  category: (category: string, words: string, where: string, name: string | null) =>
+    `${category}, ${words}, in ${where}${name ? `: ${name}` : ''}`,
   /** A row printing no category. */
-  noCategory: 'No category',
+  noCategory: (where: string, name: string | null) => `No category in ${where}${name ? `: ${name}` : ''}`,
+  /** The last line of a category's title: what a click on it does. */
+  categoryClick: 'Click to see the row stating it',
   /** A category its brackets contradict, after the category's line; the linter's rule closes it. */
   bracketsRequire: (member: string, where: string, category: string) =>
     `ABNF brackets mark ${member} as required, but ${where} lists it as ${category} (element-required-in-abnf)`,

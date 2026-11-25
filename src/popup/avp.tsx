@@ -12,11 +12,11 @@ import {
   groupedRules,
   otherCells,
   presenceText,
-  rowSaysMore,
   ruleAt,
+  sayOnce,
   useAt,
 } from '../avp-context.ts';
-import type { AvpRow, FlagRule, Rule, Use } from '../avp-context.ts';
+import type { AvpRow, FlagRule, Rule, Said, Use } from '../avp-context.ts';
 import { avpIdentities, avpTables } from '../avp-facts.ts';
 import type { AvpIdentity } from '../avp-facts.ts';
 import { namePlaces, resolverOf } from '../avp-places.ts';
@@ -28,13 +28,23 @@ import { constraintBlocks, referenceText, requestMessage, scopeMessage } from '.
 import type { ConstraintRef } from '../constraints.ts';
 import { elementPlace, memberPlaces } from '../element-places.ts';
 import { blockRowKey, elementText, memberElements, sameElementRow, tablesFor, tablesOf } from '../elements.ts';
-import type { ElementTable } from '../elements.ts';
 import type { Block } from '../types.ts';
 import { valueTableTitle } from '../values.ts';
 import { ConstraintFacts } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
-import { Counted, Entries, Panel, placeRows, RuleContents, Steps, TableLink } from './shared.tsx';
+import {
+  Counted,
+  Entries,
+  JumpLink,
+  Panel,
+  placeRows,
+  RuleContents,
+  SourceButton,
+  Steps,
+  TableLink,
+} from './shared.tsx';
 import { avpPopup as words, flagText, popupShared } from '../text/popup.ts';
+import { tableName } from '../text/terms.ts';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
@@ -92,15 +102,81 @@ function reachedPlace(file: DadFile, document: string, block: Block, ref: Constr
   };
 }
 
+/** What one Information Elements row says of a member, and the row saying it, which may be in another document. */
+interface ElementClaim {
+  text: string;
+  place: Place;
+  /** The row's document, clause and table, as the link to it says them. */
+  where: string;
+  /** Where the publisher's copy prints the row, for a row of a document the pane does not show. */
+  position?: Place['position'];
+}
+
+/** A claim on a line of its own, with the way to the place stating it right after it. */
+function Claim({
+  site,
+  pane,
+  request,
+  claim,
+}: {
+  site: Site;
+  pane: PopupProps['pane'];
+  request: PopupRequest;
+  claim: ElementClaim;
+}) {
+  return (
+    <div class="popup-element popup-claim">
+      <span class="claim-text">{claim.text}</span>
+      <span class="claim-source">
+        <JumpLink site={site} pane={pane} request={request} place={claim.place}>
+          {claim.where}
+        </JumpLink>
+        <SourceButton site={site} pane={pane} request={request} place={claim.place} position={claim.position} />
+      </span>
+    </div>
+  );
+}
+
 /**
- * What the line opened on says of the name: the rule it is a member of and how, the rule it heads, the row it is, and
- * what the Information Elements tables say of it, `elements`.
+ * What the line opened on says of the name: the rule it is a member of and how, with the way to the line in the
+ * source, which says its brackets and its bold, the rule it heads, the row it is, and what the Information Elements
+ * tables say of it: `notes` said of the row opened on, and `claims` of a member, each with the row saying it.
  */
-function UseContext({ site, document, use, elements }: { site: Site; document: string; use: Use; elements: string[] }) {
+function UseContext({
+  site,
+  pane,
+  request,
+  use,
+  elements: { notes, claims },
+}: {
+  site: Site;
+  pane: PopupProps['pane'];
+  request: PopupRequest;
+  use: Use;
+  elements: { notes: string[]; claims: ElementClaim[] };
+}) {
+  const document = request.doc.id;
   const lines: ComponentChild[] = [];
   if (use.kind === 'member') {
     const { rule, member } = use;
-    lines.push(<p>{words.inRule(ruleName(rule), rule.section)}</p>);
+    const line: Place = {
+      document,
+      position: {
+        section: rule.section,
+        page: blockAt(request.file, rule.line)?.page ?? null,
+        name: member.name,
+        exact: true,
+        occurrence: true,
+      },
+      target: { document, section: rule.section, name: member.name },
+      line: member.line,
+    };
+    lines.push(
+      <p class="popup-here">
+        {words.inRule(ruleName(rule), rule.section)}{' '}
+        <SourceButton site={site} pane={pane} request={request} place={line} />
+      </p>,
+    );
     lines.push(<p class="presence">{presenceText(member)}</p>);
     if (member.bold) lines.push(<p class="fact-note">{words.bold}</p>);
     if (member.struck) lines.push(<p class="fact-note">{words.struckLeftOut}</p>);
@@ -154,7 +230,8 @@ function UseContext({ site, document, use, elements }: { site: Site; document: s
         )}
       </p>,
     );
-  for (const text of elements) lines.push(<p class="popup-element">{text}</p>);
+  for (const text of notes) lines.push(<p class="popup-element">{text}</p>);
+  for (const claim of claims) lines.push(<Claim site={site} pane={pane} request={request} claim={claim} />);
   return <div class="popup-context">{lines}</div>;
 }
 
@@ -188,31 +265,94 @@ function FlagsTable({ columns }: { columns: ReturnType<typeof flagTable> }) {
   );
 }
 
+/** A row as the lines under another name it: its table, and its document where that is another. */
+function rowLabel(site: Site, request: PopupRequest, { row, document }: DefinitionRow) {
+  const summary = document !== request.doc.id ? site.summary(document) : undefined;
+  return [tableOf(row), summary ? site.label(summary) : ''].filter(Boolean).join(' · ');
+}
+
+/** What the popup shares with the lines it draws under a row, to link to the rows they name. */
+interface RowContext {
+  site: Site;
+  pane: PopupProps['pane'];
+  request: PopupRequest;
+}
+
 /**
- * A row's flags, then its other cells: From, its marks. Its title says which table it is of, but not for the row
- * opened on, which the "Here:" line names. `keyButton`, the "?" button, goes after its flags, or after its first cell.
+ * Under a row, the rows it says all that, or the flags that, other tables' rows say, `prefix` before them, each a link
+ * to its row: "Also in AVP Table 6.3.0.1 · TS 29.229".
+ */
+function AlsoLine({ context, rows, prefix }: { context: RowContext; rows: DefinitionRow[]; prefix: string }) {
+  if (!rows.length) return null;
+  const { site, pane, request } = context;
+  return (
+    <p class="popup-also">
+      {prefix}
+      {rows.map((other, index) => (
+        <Fragment key={index}>
+          {index > 0 && words.alsoBetween}
+          <JumpLink site={site} pane={pane} request={request} place={other.place}>
+            {rowLabel(site, request, other)}
+          </JumpLink>
+        </Fragment>
+      ))}
+    </p>
+  );
+}
+
+/** How a row's flags differ from those of the row above giving flags, bit by bit. */
+function FlagsDiffer({ context, item }: { context: RowContext; item: DefinitionRow }) {
+  if (!item.differs) return null;
+  const { from, bits } = item.differs;
+  const rule = (said?: FlagRule) => (said ? flagWords[said] : words.notStated);
+  return (
+    <p class="popup-row-note flags-differ">
+      {words.flagsDiffer(
+        rowLabel(context.site, context.request, from),
+        from.applies,
+        bits.map(([bit, ours, theirs]) => words.bitDiffers(bit, rule(ours), rule(theirs))).join(words.bitsBetween),
+      )}
+    </p>
+  );
+}
+
+/**
+ * A row's flags, then its other cells: From, its marks. Its title says which table it is of, a link to the row, with
+ * Show in source; its flags are left out where a row above gives the same. `keyButton`, the "?" button, goes after its
+ * flags, or after its first cell. Under it, the other rows saying the same.
  */
 function RowFacts({
-  title,
+  context,
+  item,
   applies,
-  row,
+  role,
   keyButton,
 }: {
-  title: string | undefined;
+  context: RowContext;
+  item: DefinitionRow;
   applies: boolean;
-  row: AvpRow;
+  /** What the row is among the places the AVP is declared at, which its title then says, as no place repeats it. */
+  role?: string;
   keyButton?: ComponentChild;
 }) {
-  const columns = flagTable(row);
+  const { site, pane, request } = context;
+  const { row } = item;
+  const columns = item.flagsShown ? [] : flagTable(row);
   const cells = otherCells(row);
+  const summary = item.document !== request.doc.id ? site.summary(item.document) : undefined;
+  const rest = [item.applications.join(', '), summary ? site.label(summary) : ''].filter(Boolean).join(' · ');
   return (
     <div class={applies ? 'popup-row popup-row-here' : 'popup-row'}>
-      {title !== undefined && (
-        <div class="popup-row-title">
-          {title}
-          {applies && <span class="popup-row-applies">{words.appliesHere}</span>}
-        </div>
-      )}
+      <div class="popup-row-title">
+        <JumpLink site={site} pane={pane} request={request} place={item.place}>
+          {tableOf(row)}
+        </JumpLink>
+        {rest && ` · ${rest}`}
+        {role && <span class="popup-row-role">{words.rowRole(role)}</span>}
+        {applies && <span class="popup-row-applies">{words.appliesHere}</span>}{' '}
+        <SourceButton site={site} pane={pane} request={request} place={item.place} />
+      </div>
+      <FlagsDiffer context={context} item={item} />
       {columns.length > 0 && (
         <div class="popup-flags-line">
           <FlagsTable columns={columns} />
@@ -232,22 +372,37 @@ function RowFacts({
           ))}
         </dl>
       )}
+      <AlsoLine context={context} rows={item.also} prefix={words.alsoIn} />
+      <AlsoLine context={context} rows={item.sameFlagsIn} prefix={words.sameFlagsIn} />
     </div>
   );
 }
 
 /**
  * The row the popup was opened on, which the text prints beside it: its flags in words, in one line, and the "?" with
- * what its columns mean, rather than its cells again.
+ * what its columns mean, rather than its cells again; under it, the other rows saying the same.
  */
-function RowLine({ row, keyButton }: { row: AvpRow; keyButton?: ComponentChild }) {
-  const said = flagTable(row).map(([rule, bits]) => words.flagLine(bits.join(', '), flagWords[rule]));
-  if (!said.length && !keyButton) return null;
+function RowLine({
+  context,
+  item,
+  keyButton,
+}: {
+  context: RowContext;
+  item: DefinitionRow;
+  keyButton?: ComponentChild;
+}) {
+  const said = flagTable(item.row).map(([rule, bits]) => words.flagLine(bits.join(', '), flagWords[rule]));
   return (
-    <p class="popup-row-line">
-      {said.join(' · ')}
-      {keyButton && [said.length ? ' ' : '', keyButton]}
-    </p>
+    <>
+      {(said.length > 0 || keyButton) && (
+        <p class="popup-row-line">
+          {said.join(' · ')}
+          {keyButton && [said.length ? ' ' : '', keyButton]}
+        </p>
+      )}
+      <AlsoLine context={context} rows={item.also} prefix={words.alsoIn} />
+      <AlsoLine context={context} rows={item.sameFlagsIn} prefix={words.sameFlagsIn} />
+    </>
   );
 }
 
@@ -279,11 +434,25 @@ function keyEntries(rows: AvpRow[]): [string, string, string?][] {
 /** At most this many applications are named for a table; one for more says nothing of which. */
 const NAMED_APPLICATIONS = 3;
 
+/** A row of an AVP table the popup shows, with where it is, and what it shares with the others shown (`sayOnce`). */
+type DefinitionRow = Said<{
+  row: AvpRow;
+  document: string;
+  /** The applications its table's commands are of, as their document or the registry names them. */
+  applications: string[];
+  /** Its table applies to the command the name is read in. */
+  applies: boolean;
+  /** Where the row is: its line in the text, and its clause and page in the source. */
+  place: Place;
+}>;
+
 /**
- * The rows the files at hand give a name, each said once, and the Grouped rule they give it. The row opened on comes
- * first, then those of a table that applies to the command opened in: one whose commands it is among, or in another
- * document one for its application. Each row has the applications its table's commands are of, as their document or
- * the registry names them.
+ * The rows the files at hand give a name, and the Grouped rule they give it. The row opened on comes first, then those
+ * of a table that applies to the command opened in: one whose commands it is among, or in another document one for its
+ * application; then this document's before another's. What several rows say alike is said once: a row saying all
+ * another above it says is left out and named under it, "Also in", and the flags of a row that are those of the first
+ * row giving flags are left out and the row named under that one, "Same flags in"; flags that differ from those say
+ * how. Each row has the applications its table's commands are of, as their document or the registry names them.
  */
 function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined, defining?: string) {
   const files = filesOf(site, request, defining);
@@ -307,20 +476,19 @@ function definitionFacts(site: Site, request: PopupRequest, use: Use | undefined
         (file === request.file
           ? commands.includes(here)
           : here.command.application_id !== null && ids.includes(here.command.application_id));
-      return { row, document, applications, applies };
+      const place: Place = {
+        document,
+        position: { section: row.section, page: blockAt(file, row.line)?.page ?? null, name: row.name, row: true },
+        target: { document, section: row.section, name: row.name },
+        line: row.line,
+      };
+      return { row, document, applications, applies, place };
     }),
   );
+  all.sort((a, b) => Number(b.document === request.doc.id) - Number(a.document === request.doc.id));
   all.sort((a, b) => Number(b.applies) - Number(a.applies));
   if (use?.kind === 'row') all.sort((a, b) => Number(b.row === use.row) - Number(a.row === use.row));
-  const seen = new Set<string>();
-  const rows = all
-    .filter(({ row }) => {
-      const key = JSON.stringify([row.type, row.cells.filter(([column]) => column !== 'Name')]);
-      if (!rowSaysMore(row) || seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    })
-    .slice(0, 3);
+  const rows: DefinitionRow[] = sayOnce(all).slice(0, 3);
   const rule = use?.kind === 'head' ? use.rule : files.flatMap(({ file, name }) => groupedRules(file, name))[0];
   return { rows, rule };
 }
@@ -335,32 +503,31 @@ function elementFacts(
   request: PopupRequest,
   use: Use | undefined,
   placeRow: ReturnType<typeof placeRows>,
-): { notes: string[]; places: ComponentChild[] } {
+): { notes: string[]; claims: ElementClaim[]; places: ComponentChild[] } {
   const { doc, file } = request;
   const name = request.token.avp!;
   const index = site.elements();
   const label = (document: string) =>
     document === doc.id ? '' : site.summary(document) ? site.label(site.summary(document)!) : document;
-  const tableWhere = (table: ElementTable) => [label(table.document), table.section].filter(Boolean).join(' · ');
   if (use?.kind === 'member') {
     const block = blockAt(file, use.rule.line);
     const found = block ? memberElements(tablesFor(index, doc.id, block, file), use.member.name) : [];
+    // Each row stating the member's element and category, with the way to that row: in its table, which may be
+    // another document's, and in the source at the table's page.
     return {
-      notes: found.map(({ row }) => words.elementLine(elementText(row))),
-      places: found
-        .map(({ table, row }) =>
-          placeRow(
-            words.elementPlace,
-            'place-element',
-            elementPlace(table, row, name, file, doc),
-            tableWhere(table),
-            table,
-          ),
-        )
-        .filter(row => row !== undefined),
+      notes: [],
+      claims: found.map(({ table, row }) => ({
+        text: words.elementLine(elementText(row)),
+        place: elementPlace(table, row, name, file, doc),
+        where: [label(table.document), table.section, table.table ? tableName(table.table) : '']
+          .filter(Boolean)
+          .join(' · '),
+        position: { section: table.section, page: table.page },
+      })),
+      places: [],
     };
   }
-  if (use?.kind !== 'element') return { notes: [], places: [] };
+  if (use?.kind !== 'element') return { notes: [], claims: [], places: [] };
   const { block, row } = use;
   const key = blockRowKey(block, row);
   // A row set off under a grouped AVP's row describes that AVP's member: it goes to the row it is set off under.
@@ -376,6 +543,7 @@ function elementFacts(
     };
     return {
       notes: [words.elementLine(elementText(row)), words.setOffUnder(key.parents.join(words.parentsBetween))],
+      claims: [],
       places: place ? [placeRow(words.underRow, 'place-element', place, avp)].filter(item => item !== undefined) : [],
     };
   }
@@ -405,8 +573,11 @@ function elementFacts(
       : !places.length
         ? words.notMember(block.name)
         : '';
-  return { notes: [words.elementLine(elementText(row)), unplaced].filter(Boolean), places };
+  return { notes: [words.elementLine(elementText(row)), unplaced].filter(Boolean), claims: [], places };
 }
+
+/** A place as the row it is: its document and line. */
+const placeKey = (place: Place) => `${place.document}:${place.line}`;
 
 let keys = 0;
 const lineOf = (node: Element) => node.closest<HTMLElement>('.dad-line')!;
@@ -501,7 +672,7 @@ export function AvpPopup(props: PopupProps) {
   const use = useAt(request.file, Number(lineOf(here).dataset.line), name, request.token);
   const { rows: definitionRows, rule } = definitionFacts(site, request, use, defining);
   const key = definitionRows.length ? keyEntries(definitionRows.map(({ row }) => row)) : [];
-  const keyed = definitionRows.find(({ row }) => flagTable(row).length) ?? definitionRows[0];
+  const keyed = definitionRows.find(item => flagTable(item.row).length && !item.flagsShown) ?? definitionRows[0];
   const keyButton =
     key.length > 0 ? (
       <button
@@ -518,12 +689,19 @@ export function AvpPopup(props: PopupProps) {
     ) : undefined;
   const { definition, details, listed, missing } = declared;
   const elements = elementFacts(site, request, use, placeRow);
+  const rowContext: RowContext = { site, pane, request };
   // A name an interpreted rule reads: the member it is where the rule's path reaches it, in this file.
   const reached =
     use?.kind === 'constraint' && use.ref ? reachedPlace(request.file, doc.id, use.block, use.ref) : undefined;
   // Every place it is declared, but the one opened on, which the "Here:" line names.
   const openedRow = use?.kind === 'row' ? use.row.line : undefined;
-  const onRow = (place: Place | undefined) => place?.document === doc.id && place.line === openedRow;
+  // A row whose title links to it, or one named under such a row, is a way there already: no place says it again.
+  const linked = new Set(
+    definitionRows.flatMap(item => [item, ...item.also, ...item.sameFlagsIn]).map(item => placeKey(item.place)),
+  );
+  const onRow = (place: Place | undefined) =>
+    (place?.document === doc.id && place.line === openedRow) ||
+    (place?.line !== undefined && linked.has(placeKey(place)));
   const ownRule = groupedRules(request.file, name)[0];
   const rulePlace: Place | undefined = ownRule && {
     document: doc.id,
@@ -565,6 +743,13 @@ export function AvpPopup(props: PopupProps) {
     reached && placeRow(words.member, 'place-member', reached),
   ];
   const hasPlaces = placed.some(Boolean) || tables.length > 0;
+  // A row shown whose place is left out above says what that place was.
+  const roleOf = (item: DefinitionRow) => {
+    const key = placeKey(item.place);
+    if (definition?.line !== undefined && placeKey(definition) === key) return words.definition;
+    if (listed?.line !== undefined && placeKey(listed) === key) return words.reused;
+    return undefined;
+  };
 
   // The text goes to the use, and the popup is drawn for it, as the reader left it.
   const select = (index: number) => {
@@ -590,29 +775,18 @@ export function AvpPopup(props: PopupProps) {
           ))}
         </div>
       )}
-      {use && <UseContext site={site} document={doc.id} use={use} elements={elements.notes} />}
+      {use && <UseContext site={site} pane={pane} request={request} use={use} elements={elements} />}
       <ConstraintFacts site={site} pane={pane} request={request} use={use} inline={props.inline} />
       {definitionRows.map((item, index) =>
         use?.kind === 'row' && item.row === use.row ? (
-          <RowLine key={index} row={item.row} keyButton={item === keyed ? keyButton : undefined} />
+          <RowLine key={index} context={rowContext} item={item} keyButton={item === keyed ? keyButton : undefined} />
         ) : (
           <RowFacts
             key={index}
-            title={
-              use?.kind === 'row' && item.row === use.row
-                ? undefined
-                : [
-                    tableOf(item.row),
-                    item.applications.join(', '),
-                    item.document !== doc.id && site.summary(item.document)
-                      ? site.label(site.summary(item.document)!)
-                      : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')
-            }
-            row={item.row}
+            context={rowContext}
+            item={item}
             applies={item.applies && definitionRows.length > 1}
+            role={roleOf(item)}
             keyButton={item === keyed ? keyButton : undefined}
           />
         ),

@@ -536,12 +536,17 @@ pre {
 }
 /*
  * After the end of a line, what the tables and the interpreted constraints say of the name it reads: a member's
- * category in its command's Information Elements tables, and a ¶ where interpreted constraints hold for it.
- * Laid over the text, never moving a column, as tall as the line, and drawn by CSS, so a copy of the text leaves it.
+ * category in its command's Information Elements tables, and a ¶ where interpreted constraints hold for it, each a mark
+ * of its own, side by side. Laid over the text, never moving a column, as tall as the line, and drawn by CSS, so a copy
+ * of the text leaves them.
  */
-.line-mark {
+.line-marks {
   position: absolute;
+  display: inline-flex;
+  gap: 0.3em;
   margin-left: 2ch;
+}
+.line-mark {
   padding: 0 0.4em;
   border-radius: var(--radius);
   box-shadow: inset 0 0 0 1px var(--ui-border);
@@ -577,13 +582,8 @@ button.line-mark {
 button.line-mark:hover {
   background: var(--ui-hover);
 }
-.constraint-mark:not(.element-mark) {
+.constraint-mark {
   box-shadow: inset 0 0 0 1px var(--interpreted-edge);
-}
-.element-mark.constraint-mark::after {
-  margin-left: 0.45em;
-  padding-left: 0.45em;
-  border-left: 1px solid var(--ui-border);
 }
 .dad-line {
   display: block;
@@ -1448,6 +1448,40 @@ mark {
   color: var(--ui-fg);
   font-weight: 600;
 }
+/*
+ * A fact and the place stating it, on one line where it fits: the place, its document, clause and table, a link going to
+ * it, then Show in source; on a line of their own under the fact where it does not.
+ */
+.popup-claim {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+.claim-source {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--space-2);
+}
+.popup-claim .control,
+.popup-here .control,
+.popup-row-title .control {
+  height: 1.25rem;
+  padding-block: 0;
+  vertical-align: baseline;
+}
+.popup-row-title .claim-where {
+  color: var(--ui-link);
+}
+/* Under a row: the other rows saying the same, and how its flags differ where they do. */
+.popup-also {
+  color: var(--ui-muted);
+}
+.flags-differ {
+  color: var(--ui-fg);
+  font-weight: 600;
+}
 .fact-note {
   color: var(--ui-muted);
 }
@@ -1623,6 +1657,7 @@ mark {
 .popup-row-title {
   color: var(--ui-muted);
 }
+.popup-row-role,
 .popup-row-applies {
   color: var(--ui-fg);
   font-weight: 600;

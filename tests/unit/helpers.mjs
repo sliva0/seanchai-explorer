@@ -278,3 +278,11 @@ export const press = (page, init, target = page.document.body) => {
 export const pane = document => document.querySelector('#document');
 /** Waits out a smooth scroll. */
 export const easing = () => new Promise(resolve => setTimeout(resolve, 320));
+
+/** A fact's text, less the Show in source beside it: a popup's line or row title as it reads. */
+export const factText = node =>
+  [...node.childNodes]
+    .filter(child => !child.matches?.('.pane-action, .source-action'))
+    .map(child => child.textContent)
+    .join('')
+    .trim();

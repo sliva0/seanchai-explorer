@@ -38,7 +38,7 @@ export const controlGroups: ControlGroup[] = [
       },
       {
         keys: ['Right-click'],
-        does: 'Open the name\'s popup: uses, flags, and every place it is declared but the one opened on, each with "Jump to" for both panes and "Show in source" for the source pane only: Definition (where it gets its code, in the defining document for an AVP reused from another, or a note where this build lacks it), Reused (this document\'s Reused AVPs row), Rule (its Grouped AVP rule here) and Details; for commands, identity, other definitions, Information Elements tables, and the tables of result codes an answer may carry; for such a code, its number and the document defining it. Command members linked to an Information Elements table also show their element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used, and the rules on other AVPs that read them there; a command lists those its lines cannot show, as an AVP never sent in it.',
+        does: 'Open the name\'s popup: uses, flags, and every place it is declared but the one opened on, each with "Jump to" for both panes and "Show in source" for the source pane only: Definition (where it gets its code, in the defining document for an AVP reused from another, or a note where this build lacks it), Reused (this document\'s Reused AVPs row), Rule (its Grouped AVP rule here) and Details; for commands, identity, other definitions, Information Elements tables, and the tables of result codes an answer may carry; for such a code, its number and the document defining it. Every fact has a link to the place stating it on its line, with "Show in source": the member\'s line, the Information Elements row giving its element and category (M, C, or O; in TS 32.299 also OM, OC, or - for not used), and each table row giving its flags; rows saying the same are shown once, the others named under it ("Also in"), and flags that differ from those applying here say which bits. Rows set off under a grouped AVP row name the AVPs they are under. Constrained AVPs list the interpreted constraints that apply where they are used, and the rules on other AVPs that read them there; a command lists those its lines cannot show, as an AVP never sent in it.',
       },
       {
         keys: ['Ctrl-click', 'Shift-click', 'Cmd-click'],
@@ -66,12 +66,12 @@ export const controlGroups: ControlGroup[] = [
       {
         keys: ['C', 'OC', 'OM'],
         mark: 'category',
-        does: "A member's category in its command's Information Elements table where ABNF brackets cannot express it: C, conditional; TS 32.299's OC and OM, conditional or mandatory where the operator provisions it.",
+        does: "A member's category in its command's Information Elements table where ABNF brackets cannot express it: C, conditional; TS 32.299's OC and OM, conditional or mandatory where the operator provisions it. Hover to see the table and row stating it, or click it (or press Enter) to open the popup or inspector at that row.",
       },
       {
         keys: ['M', 'O', 'C', '-'],
         mark: 'disagrees',
-        does: 'In the warning colour: a category that contradicts the ABNF brackets, such as M on [ ] or O on { }, or a member the ABNF holds that the table marks - for not used; its tooltip says how.',
+        does: 'In the warning colour: a category that contradicts the ABNF brackets, such as M on [ ] or O on { }, or a member the ABNF holds that the table marks - for not used; its tooltip says how, and a click opens the rows stating it.',
       },
       {
         keys: ['¶'],

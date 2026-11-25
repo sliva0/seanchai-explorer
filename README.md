@@ -62,8 +62,8 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 
 | Line marks, after a line's end and left out of a copy | |
 |---|---|
-| `C`, `OC`, `OM` | a member's category in its command's Information Elements table that its brackets cannot say: C conditional, TS 32.299's OC and OM conditional or mandatory where the operator provisions it |
-| `M`, `O`, `C`, `-` in a warning's colour | a category its brackets contradict, as an M on `[ ]`, or a member the ABNF holds, not struck out, that the table marks `-`, not used; its title says how |
+| `C`, `OC`, `OM` | a member's category in its command's Information Elements table that its brackets cannot say: C conditional, TS 32.299's OC and OM conditional or mandatory where the operator provisions it; its title names the row stating it, `C, conditional, in TS 29.328 table 6.1.3.1: Service Indication (See 7.4)`, and a click or Enter opens the popup or inspector at that row's line, flashing |
+| `M`, `O`, `C`, `-` in a warning's colour | a category its brackets contradict, as an M on `[ ]`, or a member the ABNF holds, not struck out, that the table marks `-`, not used; its title says how, and a click opens the rows stating it |
 | `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them; on a command's `* [ AVP ]` line, those on AVPs only that line admits, each named, which open in the command's popup |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
@@ -80,11 +80,30 @@ and the row is where it is `Reused`. A popup lists every place an AVP is declare
 one click away, but the one it was opened on: `Definition`, a note saying so where the
 build does not hold the defining document; `Reused`; `Rule`, its Grouped AVP rule in this
 document, as TS 29.272 prints one in 7.3.194 for Communication-Pattern-Set, reused from TS
-29.336; and `Details`. Details are the clause that row points to, and are left out where it
+29.336; and `Details`. Where the Definition or the Reused row is a row the popup shows for its
+flags or From, that row's title says so, `AVP Table 9.2 · RFC 7944 · Definition`, and is the
+way there, no place repeating it. Details are the clause that row points to, and are left out where it
 points nowhere else; a click then goes to the definition. A reused row's Details are the
 clause its name links to in its own document, its From cell keeping its link to the
 defining one. An alt-click on the rule of a reused AVP, whose Details it is, goes to the
 definition instead, and Back returns to the rule.
+
+A fact a popup states has the way to the place stating it on its own line: the member's
+line, which says its brackets and its bold, `Show in source` after `Here:`; an element and
+its category, `Element: Wildcarded PSI (See 7.1A) · O, optional`, the document, clause and
+table of the row stating it, `TS 29.328 · 6.1.3 · table 6.1.3.1`, a link to that row in
+that document's text, loaded as the view goes there and kept on the jump list, then `Show
+in source`, one for each table stating it; a row's flags and From, its table a link to the
+row and `Show in source`; a command's application id where its header prints none, the
+clause it is from a link. An Information Elements table's rows print no condition: their
+Description cell stays in the document, which `Show in source` opens at the table. What
+several tables say alike is said once: the row that applies where the name is read comes
+first, then this document's, and a row saying all of what a row above it says is not shown,
+named under that one, `Also in AVP Table 6.3.0.1 · TS 29.229`; a row giving the same flags
+beside cells of its own shows those cells alone, its table named under the first, `Same
+flags in AVP Table 7.1.0.1`; flags that differ from those of the first row giving flags are
+shown, with how, `Flags differ from AVP Table 6.3.1, which applies here: M not stated in
+this table, must not be set in that one`.
 
 A popup says nothing the place it was opened on prints: on a Grouped AVP's rule, no
 Contents, which the rule's lines print, and no Rule; on a table's row, its flags in one
@@ -142,7 +161,7 @@ names the clause of the one it describes, a link to it. The tables describing a 
 the export lists for its block, so where a clause prints a command twice, as TS 29.272's
 7.2.9 does IDR for S6a's and S6d's application ids, each block has its own. A member of
 the command's `; Type: Message` block that a table names has its popup or inspector name
-the element and its category and go to the table's row, `Element`. Its line shows the
+the element and its category, each with the row stating it, a link to that row. Its line shows the
 category only where it says what the brackets do not, laid over the text after its end and
 left out of a copy: a C, OC or OM, which no brackets say, and, in a warning's colour with a
 title saying how, a category the brackets contradict, an M on `[ ]`, an O, C, OC or OM on

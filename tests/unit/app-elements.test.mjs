@@ -3,7 +3,17 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { memberPlaces } from '../../src/element-places.ts';
 import { categoryNote, elementIndex, elementsTitle, memberMarks, tablesFor } from '../../src/elements.ts';
-import { absent, boot, commandNames, elementsOfFixture, popupOf, present, readFixture } from './helpers.mjs';
+import {
+  absent,
+  boot,
+  click,
+  commandNames,
+  elementsOfFixture,
+  popupOf,
+  present,
+  readFixture,
+  settle,
+} from './helpers.mjs';
 
 const nameOn = (document, name, line) =>
   [...document.querySelectorAll('pre [data-avp]')].find(
@@ -142,11 +152,21 @@ test("a C member is marked with its category after its line, which the line's te
     present(mark);
     assert.equal(mark.dataset.category, 'C');
     assert.ok(!mark.classList.contains('element-disagrees'));
-    assert.equal(mark.getAttribute('aria-hidden'), 'true');
-    assert.equal(mark.title, 'C: conditional · Application Server Name (See 7.10) · table 6.1.1.1');
+    assert.equal(mark.tagName, 'BUTTON', 'a click opens the row stating it');
+    assert.equal(
+      mark.title,
+      [
+        'C, conditional, in TS 29.328 table 6.1.1.1: Application Server Name (See 7.10)',
+        'Click to see the row stating it',
+      ].join('\n'),
+      'the row stating it, in its document and table',
+    );
+    assert.equal(mark.getAttribute('aria-label'), mark.title);
+    assert.equal(mark.dataset.reads, 'Server-Name');
     assert.equal(mark.textContent, '', 'drawn by CSS, so a copy of the text leaves it');
     assert.equal(line.textContent, '        [ Server-Name ]                    ; bold\n', 'the text as it was');
-    assert.equal(mark.nextSibling.textContent, '\n', 'before the newline, where it lies after the text');
+    assert.equal(mark.parentNode.className, 'line-marks');
+    assert.equal(mark.parentNode.nextSibling.textContent, '\n', 'before the newline, where it lies after the text');
     absent(lineAt(document, '24').querySelector('.element-mark'), '{ } says M already');
     absent(lineAt(document, '25').querySelector('.element-mark'), '[ ] says O already');
     absent(lineAt(document, '10').querySelector('.element-mark'), "the rule's head is no member");
@@ -166,8 +186,9 @@ test('a category its brackets contradict is marked as a disagreement, and a row 
     assert.equal(
       mark.title,
       [
-        'M: mandatory · MC Service ID · table 6.2.1-1',
+        'M, mandatory, in table 6.2.1-1: MC Service ID',
         'ABNF brackets mark User-Identifier as optional, but table 6.2.1-1 lists it as M, mandatory (element-optional-in-abnf)',
+        'Click to see the row stating it',
       ].join('\n'),
     );
     absent(lineAt(document, '23').querySelector('.line-mark'), 'an O on [ ]');
@@ -184,19 +205,18 @@ test("a member's popup names its element and category, and goes to the row of an
   const page = await boot({ hash: '#29329-j10' });
   try {
     const popup = await popupOf(page, nameOn(page.document, 'User-Identity', '24'));
-    assert.ok(texts(popup, '.popup-context p').includes('Element: User Identity (See 7.1) · M, mandatory'));
-    const row = popup.querySelector('.place-element');
-    present(row);
-    assert.equal(row.querySelector('.place-cell').textContent, 'TS 29.328 · 6.1.1 · table 6.1.1.1');
-    assert.equal(
-      row.querySelector('.place-table a').getAttribute('href'),
-      '#29328-j20/6.1.1?line=10',
-      "the table a link to its block in another document's text, not loaded, through tables.json",
-    );
-    assert.match(jump(row), /^#29328-j20\/6\.1\.1\?/);
-    const route = new URLSearchParams(jump(row).split('?')[1]);
+    const claim = popup.querySelector('.popup-claim');
+    present(claim, 'the element and category on a line of their own, with the row stating them');
+    assert.equal(claim.querySelector('.claim-text').textContent, 'Element: User Identity (See 7.1) · M, mandatory');
+    const where = claim.querySelector('a.claim-where');
+    assert.equal(where.textContent, 'TS 29.328 · 6.1.1 · table 6.1.1.1');
+    const href = where.getAttribute('href');
+    assert.match(href, /^#29328-j20\/6\.1\.1\?/, "the row in another document's text, loaded as the view goes there");
+    const route = new URLSearchParams(href.split('?')[1]);
     assert.equal(route.get('line'), '17');
     assert.equal(route.get('name'), 'User-Identity');
+    present(claim.querySelector('.pane-action, .source-action'), 'and Show in source beside it');
+    absent(popup.querySelector('.place-element'), 'no second way to the same row among the places');
   } finally {
     await page.close();
   }
@@ -274,6 +294,29 @@ test('without an element index the text has no marks and popups no elements', as
     absent(document.querySelector('.element-mark'));
     const popup = await popupOf(page, nameOn(document, 'User-Identity', '24'));
     absent(popup.querySelector('.place-element'));
+  } finally {
+    await page.close();
+  }
+});
+
+test("a click on a member's category opens its popup or the inspector at the rows stating it, flashing them", async () => {
+  const page = await boot({ hash: '#29329-j10' });
+  try {
+    const { document } = page;
+    const mark = lineAt(document, '27').querySelector('.element-mark');
+    click(page, mark);
+    await settle();
+    const holder = document.querySelector('.inspector-entry, .avp-popup');
+    present(holder, 'what a plain click on the name opens');
+    assert.equal(holder.getAttribute('aria-label'), 'Server-Name');
+    const claims = [...holder.querySelectorAll('.popup-claim')];
+    assert.equal(claims.length, 1);
+    assert.ok(claims[0].classList.contains('landing'), 'brought into view with a flash');
+    assert.equal(
+      claims[0].querySelector('.claim-text').textContent,
+      'Element: Application Server Name (See 7.10) · C, conditional',
+    );
+    assert.equal(claims[0].querySelector('.claim-where').textContent, 'TS 29.328 · 6.1.1 · table 6.1.1.1');
   } finally {
     await page.close();
   }

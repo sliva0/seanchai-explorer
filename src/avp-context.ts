@@ -228,3 +228,57 @@ export const otherCells = (row: AvpRow): [string, string][] =>
 
 /** Whether a row says anything the popup shows beyond the identity line. */
 export const rowSaysMore = (row: AvpRow) => flagRules(row).length > 0 || otherCells(row).length > 0;
+
+/**
+ * What `sayOnce` makes of a row: `also`, rows of other tables saying all it says, which are not shown; `sameFlagsIn`,
+ * rows of other tables giving its flags, shown apart for their other cells where they have any; `flagsShown`, its
+ * flags those of a row above, which leave them out; and `differs`, where its flags are not those of the first row
+ * giving flags, `from`, each bit that differs with what this row and that one say of it.
+ */
+export type Said<T extends { row: AvpRow }> = T & {
+  also: Said<T>[];
+  sameFlagsIn: Said<T>[];
+  flagsShown: boolean;
+  differs?: { from: Said<T>; bits: [bit: string, ours?: FlagRule, theirs?: FlagRule][] };
+};
+
+/** What a row's flag columns say, bit by bit, to compare one row's with another's. */
+const flagsKey = (row: AvpRow) => JSON.stringify(flagRules(row).map(({ bit, rule }) => [bit, rule]));
+
+/** The bits two rows' flags differ in, with what each says of them. */
+function flagDifferences(ours: AvpRow, theirs: AvpRow): [string, FlagRule?, FlagRule?][] {
+  const of = (row: AvpRow) => new Map(flagRules(row).map(({ bit, rule }) => [bit, rule]));
+  const [mine, other] = [of(ours), of(theirs)];
+  return Object.keys(bitMeaning)
+    .filter(bit => mine.get(bit) !== other.get(bit))
+    .map(bit => [bit, mine.get(bit), other.get(bit)]);
+}
+
+/**
+ * Rows of several tables, in the order they are shown, the one that applies where the name is read first, each said
+ * once: a row saying nothing beyond the identity is left out; one saying all a row before it says is left out and named
+ * under that one, "Also in"; one whose flags are those of the first row giving flags has them left out, named under
+ * that one, "Same flags in", and is shown for its other cells alone, where it has any; one whose flags are not those
+ * says how they differ, bit by bit.
+ */
+export function sayOnce<T extends { row: AvpRow }>(items: T[]): Said<T>[] {
+  const shown: { said: Said<T>; flags: string; cells: string }[] = [];
+  let leader: (typeof shown)[number] | undefined;
+  for (const item of items) {
+    if (!rowSaysMore(item.row)) continue;
+    const flags = flagRules(item.row).length ? flagsKey(item.row) : '';
+    const cells = JSON.stringify(otherCells(item.row));
+    const said: Said<T> = { ...item, also: [], sameFlagsIn: [], flagsShown: false };
+    const same = shown.find(other => other.flags === flags && other.cells === cells);
+    if (same) same.said.also.push(said);
+    else if (flags && leader?.flags === flags) {
+      leader.said.sameFlagsIn.push(said);
+      if (otherCells(item.row).length) shown.push({ said: { ...said, flagsShown: true }, flags, cells });
+    } else {
+      if (flags && leader) said.differs = { from: leader.said, bits: flagDifferences(item.row, leader.said.row) };
+      shown.push({ said, flags, cells });
+      if (flags && !leader) leader = shown[shown.length - 1];
+    }
+  }
+  return shown.map(({ said }) => said);
+}

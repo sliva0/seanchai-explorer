@@ -65,6 +65,11 @@ test("self-hosted: a command's popup says its header, where its application come
       'Code 265 · Answer · PXY',
       'Application-ID 16777223 · Gmb · from section 17 (not in header)',
     ]);
+    assert.equal(
+      popup.querySelector('.popup-identity a').getAttribute('href'),
+      '#29061-6f0/17',
+      'the clause the application comes from, a link to it',
+    );
     // Opened on its own block's ; Name: line, which is its Definition and prints its members.
     assert.deepEqual(placeRows(popup, '.popup-place'), [['Request:', '17.6.1 · AAR', 'Jump to', 'Show in source']]);
     assert.equal(popup.querySelector('.popup-contents'), null, 'no AVPs list: the block prints them');

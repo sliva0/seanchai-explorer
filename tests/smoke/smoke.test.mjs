@@ -385,7 +385,8 @@ test(
     const entry = page.locator('#source-pane .inspector-entry');
     await entry.waitFor();
     assert.match(await entry.textContent(), /Element: Application Server Name \(See 7\.10\) · C, conditional/);
-    await entry.locator('.place-element .view-action').click();
+    // The claim's own line goes to the row stating it, in another document, loaded as the view goes there.
+    await entry.locator('.popup-claim a.claim-where').click();
     await page.waitForSelector('.document-header h1:has-text("29.328")');
     assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
     await page.locator('.dad-line[data-line="27"] [data-avp="Server-Name"]').click({ button: 'right' });
@@ -394,6 +395,36 @@ test(
     await popup.locator('.place-member .view-action').click();
     await page.waitForSelector('.document-header h1:has-text("29.329")');
     assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
+    await done();
+  },
+);
+
+test(
+  "public, desktop: a click on a member's category opens the inspector at the row stating it, flashing, whose link goes there and Back returns",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29329-j10/6.1.1');
+    const mark = page.locator('.dad-line[data-line="27"] button.element-mark');
+    await mark.waitFor();
+    assert.match(
+      await mark.getAttribute('title'),
+      /^C, conditional, in TS 29\.328 table 6\.1\.1\.1: Application Server Name/,
+    );
+    await mark.click();
+    const claim = page.locator('#source-pane .inspector-entry .popup-claim');
+    await claim.waitFor();
+    assert.ok(await claim.evaluate(node => node.classList.contains('landing')), 'flashing');
+    await page.waitForTimeout(1000);
+    assert.ok(await claim.evaluate(node => node.classList.contains('landing')), 'held a second on');
+    assert.equal(await claim.locator('.claim-where').textContent(), 'TS 29.328 · 6.1.1 · table 6.1.1.1');
+    await claim.locator('a.claim-where').click();
+    await page.waitForSelector('.document-header h1:has-text("29.328")');
+    assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
+    await page.goBack();
+    await page.waitForSelector('.document-header h1:has-text("29.329")');
+    await page.waitForFunction(() => !document.querySelector('#source-pane .popup-claim.landing'), null, {
+      timeout: 6000,
+    });
     await done();
   },
 );
@@ -1545,7 +1576,7 @@ test(
     // Where the text reads it, as its own row opened on says no Definition.
     const mention = page.locator('pre .dad-line:not(.table-row) a[data-avp]', { hasText: 'DRMP' }).first();
     await mention.click({ button: 'right' });
-    const row = page.locator('.avp-popup .place-definition');
+    const row = page.locator('.avp-popup .popup-place:has(.pane-action)').first();
     for (const theme of ['light', 'dark']) {
       if (theme === 'dark') {
         await page.keyboard.press('Escape');
@@ -1557,8 +1588,9 @@ test(
         ['Jump to', 'Show in source'],
       );
       const look = await page.locator('.avp-popup').evaluate(popup => {
-        const jump = popup.querySelector('.view-action');
-        const show = popup.querySelector('.pane-action');
+        const place = popup.querySelector('.popup-place:has(.pane-action)');
+        const jump = place.querySelector('.view-action');
+        const show = place.querySelector('.pane-action');
         const looks = node => {
           const style = getComputedStyle(node);
           return [
@@ -1601,8 +1633,7 @@ test(
     assert.ok(await page.locator('.avp-popup').count(), 'still open, to walk on');
     assert.equal(await page.locator('.jump-button[data-walk="back"]').getAttribute('aria-disabled'), 'true');
     await row.locator('a').click();
-    await page.waitForSelector('.target-line');
-    assert.equal(await page.locator('.avp-popup').count(), 0);
+    await page.waitForFunction(() => !document.querySelector('.avp-popup'));
     assert.equal(await page.locator('.jump-button[data-walk="back"]').getAttribute('aria-disabled'), 'false');
     await done();
   },

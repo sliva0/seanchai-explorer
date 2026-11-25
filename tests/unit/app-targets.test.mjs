@@ -131,13 +131,15 @@ test('self-hosted: the popup gives each target both panels first and the pane al
     rightClick(page, tmgiMention(document));
     await settle();
     const popup = document.querySelector('.avp-popup');
-    const definition = popup.querySelector('.place-definition');
+    // Its Definition is the row whose flags it shows: that row's title says so and is the way there, no place again.
+    absent(popup.querySelector('.place-definition'));
+    const definition = popup.querySelector('.popup-row-title');
+    assert.match(definition.textContent, /^AVP Table 10 · Gmb · Definition/);
     const details = popup.querySelector('.place-details');
     const words = row => [...row.children].map(node => node.textContent);
-    assert.deepEqual(words(definition), ['Definition:', '17.7', 'Jump to', 'Show in source']);
     assert.deepEqual(words(details), ['Details:', '17.7.2', 'Jump to', 'Show in source']);
     assert.equal(definition.querySelector('button').className, 'control pane-action');
-    assert.equal(definition.querySelector('a').className, 'control view-action');
+    assert.equal(definition.querySelector('a').className, 'claim-where');
     assert.match(definition.querySelector('a').title, /both the document view and the source pane/);
     assert.match(definition.querySelector('button').title, /in the source pane only \(opens it if hidden\)/);
     definition.querySelector('button').click();
@@ -254,10 +256,14 @@ test("public: the popup has only the view's way to a target, under the publisher
     const name = tmgi(document);
     rightClick(page, tmgiMention(document));
     await settle();
-    const definition = document.querySelector('.avp-popup .place-definition');
+    // Its Definition is the row whose flags it shows: its title the way there, Show in source the publisher's copy.
+    const definition = document.querySelector('.avp-popup .popup-row-title');
     absent(definition.querySelector('button'));
-    assert.equal(definition.querySelector('.view-action').textContent, 'Jump to');
-    assert.match(definition.querySelector('.place-where').href, /etsi\.org.*#page=\d+$/);
+    assert.match(definition.querySelector('a.claim-where').getAttribute('href'), /^#29061-6f0\/17\.7\?name=TMGI/);
+    assert.match(definition.querySelector('a.source-action').href, /etsi\.org.*#page=\d+$/);
+    const details = document.querySelector('.avp-popup .place-details');
+    assert.equal(details.querySelector('.view-action').textContent, 'Jump to');
+    assert.match(details.querySelector('.place-where').href, /etsi\.org.*#page=\d+$/);
     document.querySelector('.avp-popup .popup-title button').click();
     click(page, name);
     await settle();

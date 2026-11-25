@@ -10,6 +10,7 @@ import {
   flagTable,
   groupedRules,
   otherCells,
+  sayOnce,
   presenceText,
   printed,
   ruleAt,
@@ -266,4 +267,83 @@ test("a table's commands are those of the nearest clause above it that holds any
   assert.deepEqual(sections('8.2.2.1.4'), ['8.2.2.1'], 'the clause itself');
   assert.deepEqual(sections('9.1'), [], 'no clause above it holds a command');
   assert.deepEqual(sections('5'), [], 'a top clause has none above it');
+});
+
+/** A row of an AVP table for `sayOnce`: its table and cells, as `[column, value]`. */
+const tableRow = (table, cells) => ({
+  row: {
+    type: 'AVP Table',
+    name: 'Wildcarded-Public-Identity',
+    section: table,
+    table,
+    cells: [['Name', 'Wildcarded-Public-Identity'], ...cells],
+    line: 1,
+    code: 634,
+    dataType: null,
+    vendor: 10415,
+  },
+  table,
+});
+
+test('rows of several tables saying the same are said once, the first holding; the others are named under it', () => {
+  const here = tableRow('6.3.1', [
+    ['Must', 'V'],
+    ['M.not', 'M'],
+  ]);
+  const reused = tableRow('6.3/2', [['From', 'TS29.229']]);
+  const origin = tableRow('6.3.0.1', [
+    ['Must', 'V'],
+    ['M.not', 'M'],
+  ]);
+  const said = sayOnce([here, reused, origin]);
+  assert.deepEqual(
+    said.map(item => item.table),
+    ['6.3.1', '6.3/2'],
+    "the origin's flags, the same as those applying here, are not shown again",
+  );
+  assert.deepEqual(
+    said[0].also.map(item => item.table),
+    ['6.3.0.1'],
+    'named under the row saying the same',
+  );
+  assert.equal(said[0].differs, undefined);
+  assert.equal(said[1].flagsShown, false);
+});
+
+test('a row giving the same flags beside cells of its own shows those alone, and flags that differ say which bits', () => {
+  const rfc = tableRow('4.5', [
+    ['Must', 'M'],
+    ['M.not', 'V'],
+  ]);
+  const charging = tableRow('7.1.0.1', [
+    ['Must', 'M'],
+    ['M.not', 'V'],
+    ['ACR', 'OC'],
+  ]);
+  const other = tableRow('9.2', [['M.not', 'V']]);
+  const said = sayOnce([rfc, charging, other]);
+  assert.deepEqual(
+    said.map(item => [item.table, item.flagsShown]),
+    [
+      ['4.5', false],
+      ['7.1.0.1', true],
+      ['9.2', false],
+    ],
+  );
+  assert.deepEqual(
+    said[0].sameFlagsIn.map(item => item.table),
+    ['7.1.0.1'],
+    'its flags named under the first row giving them',
+  );
+  assert.equal(said[2].differs.from, said[0]);
+  assert.deepEqual(said[2].differs.bits, [['M', undefined, 'must']], 'M: not stated here, must there');
+  // Only cells: one row giving the same flags and nothing else is no row of its own.
+  const twice = sayOnce([
+    rfc,
+    tableRow('4.5b', [
+      ['Must', 'M'],
+      ['M.not', 'V'],
+    ]),
+  ]);
+  assert.equal(twice.length, 1);
 });

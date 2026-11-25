@@ -355,14 +355,16 @@ function createText(
   }
 
   /**
-   * A mark of interpreted constraints opens what a plain click on its name opens where that shows them, the inspector,
-   * or else the name's popup, and brings their section into view with a flash; on a command's `* [ AVP ]` line, its
-   * command's.
+   * A line's mark opens what a plain click on the name it is about opens where that shows what the mark says, the
+   * inspector, or else the name's popup, and brings that part of it into view, flashing: for interpreted constraints'
+   * ¶ their section, on a command's `* [ AVP ]` line in its command's popup; for a member's category the lines stating
+   * it, each with the row of its table.
    */
-  function showConstraints(mark: HTMLElement) {
+  function showMark(mark: HTMLElement) {
     const reads = (mark.dataset.reads ?? '').split(' ');
+    const category = mark.classList.contains('element-mark');
     // On a command's `* [ AVP ]` line, rules on AVPs it does not name: its command's popup lists them.
-    const head = mark.dataset.head;
+    const head = category ? undefined : mark.dataset.head;
     const node =
       head === undefined
         ? [...mark.closest('.dad-line')!.querySelectorAll<HTMLElement>('[data-avp]')].find(name =>
@@ -380,12 +382,13 @@ function createText(
     );
     if (action.type === 'inspect') perform(action, node);
     else showUses(node);
-    const section = [...mark.ownerDocument.querySelectorAll<HTMLElement>('.popup-constraints')].find(
-      found => found.closest('.avp-popup') || found.closest('.inspector'),
-    );
-    if (!section) return;
-    section.scrollIntoView?.({ block: 'nearest' });
-    land(section);
+    const shown = [...mark.ownerDocument.querySelectorAll<HTMLElement>('.avp-popup, .inspector')];
+    const parts = shown.flatMap(holder => [
+      ...holder.querySelectorAll<HTMLElement>(category ? '.popup-claim' : '.popup-constraints'),
+    ]);
+    if (!parts.length) return;
+    parts[0].scrollIntoView?.({ block: 'nearest' });
+    for (const part of category ? parts : parts.slice(0, 1)) land(part);
   }
 
   pre.addEventListener('click', event => {
@@ -395,9 +398,9 @@ function createText(
       toggleCorrection(correction);
       return;
     }
-    const mark = target.closest<HTMLElement>('.line-mark.constraint-mark');
+    const mark = target.closest<HTMLElement>('button.line-mark');
     if (mark) {
-      showConstraints(mark);
+      showMark(mark);
       return;
     }
     const node = target.closest<HTMLElement>('[data-token]');

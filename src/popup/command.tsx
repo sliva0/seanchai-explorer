@@ -19,21 +19,37 @@ import type { CommandRef } from '../commands.ts';
 import { tablePlace as elementsPlace } from '../element-places.ts';
 import { categoriesOf, memberElements, tablesFor } from '../elements.ts';
 import { listingsFor } from '../result-codes.ts';
+import { routeFor } from '../navigation.ts';
 import { CommandConstraintFacts } from './constraints.tsx';
 import type { PopupProps } from './root.tsx';
 import { Counted, Panel, placeRows, RuleContents } from './shared.tsx';
 import { commandPopup as words } from '../text/popup.ts';
 
-/** "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none. */
-function commandIdentity(command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope'>): string[] {
+/**
+ * "Code 271 · Answer · PXY", then its application, and where the id comes from when the header prints none: that
+ * clause a link to it, where the reader can see it said.
+ */
+function commandIdentity(
+  command: Pick<Command, 'code' | 'flags' | 'header' | 'application' | 'scope' | 'document'>,
+): ComponentChild[] {
   const head = [words.code(command.code), isRequest(command) ? words.request : words.answer, command.flags.join(', ')]
     .filter(Boolean)
     .join(' · ');
   if (command.application === null) return [head, words.noApplicationId];
-  const from = command.header === null && command.scope ? words.idFrom(command.scope.section) : '';
+  const application = [words.applicationId(command.application), command.scope?.name ?? ''].filter(Boolean).join(' · ');
+  const scope = command.header === null ? command.scope : undefined;
   return [
     head,
-    [words.applicationId(command.application), command.scope?.name ?? '', from].filter(Boolean).join(' · '),
+    scope ? (
+      <>
+        {application}
+        {words.idFromBefore}
+        <a href={routeFor({ document: command.document, section: scope.section })}>{scope.section}</a>
+        {words.idFromAfter}
+      </>
+    ) : (
+      application
+    ),
   ];
 }
 

@@ -7,7 +7,7 @@ import { categoriesOf, categoryNote, categoryWords, memberMarks } from './elemen
 import type { MemberElement } from './elements.ts';
 import type { ValueToken } from './values.ts';
 import { markWords } from './text/document.ts';
-import { tableName } from './text/terms.ts';
+import { tableIn, tableName } from './text/terms.ts';
 
 /**
  * What a block type adds to a line of the text beside the grammar's highlighting: classes on the line, and a mark laid
@@ -19,14 +19,14 @@ export interface LineAnnotation {
 }
 
 /**
- * A block type's part of a line's mark: a class, the `data-` attributes the stylesheet draws it from, so a copy of the
- * text leaves it, and the lines of its title. A line's parts are one mark, in the order of `annotators`.
+ * A block type's mark on a line: a class, the `data-` attributes the stylesheet draws it from, so a copy of the text
+ * leaves it, and the lines of its title. A line's marks stand side by side, in the order of `annotators`.
  */
 interface MarkPart {
   class: string;
   data: Record<string, string>;
   title: string[];
-  /** A click on the mark opens what it is about: a mark with such a part is a button. */
+  /** A click on the mark opens what it is about: it is a button. */
   control?: boolean;
 }
 
@@ -35,25 +35,30 @@ type Annotator = (file: DadFile, document: string, site: Site) => Map<number, { 
 
 /**
  * A member's categories in the Information Elements tables describing its command, the mark's letters, and where they
- * contradict its brackets, `element-disagrees`, its title saying how.
+ * contradict its brackets, `element-disagrees`, its title saying how. Its title names each row stating a category, in
+ * its document, `label` where that is another, and table; a click opens the member's popup at them, `reads` its name.
  */
-const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkPart => ({
+const categoryPart = (
+  member: string,
+  elements: MemberElement[],
+  disagreements: string[],
+  label: (document: string) => string,
+): MarkPart => ({
   class: disagreements.length ? 'element-mark element-disagrees' : 'element-mark',
-  data: { category: categoriesOf(elements) },
+  data: { category: categoriesOf(elements), reads: member },
   title: [
-    ...elements.map(({ table, row }) =>
-      [
-        row.category
-          ? markWords.category(row.category, categoryWords[row.category] ?? row.category)
-          : markWords.noCategory,
-        row.name,
-        table.table ? tableName(table.table) : table.section,
-      ]
+    ...elements.map(({ table, row }) => {
+      const where = [label(table.document), table.table ? tableName(table.table) : tableIn(table.section)]
         .filter(Boolean)
-        .join(' · '),
-    ),
+        .join(' ');
+      return row.category
+        ? markWords.category(row.category, categoryWords[row.category] ?? row.category, where, row.name)
+        : markWords.noCategory(where, row.name);
+    }),
     ...disagreements,
+    markWords.categoryClick,
   ],
+  control: true,
 });
 
 /**
@@ -63,9 +68,11 @@ const categoryPart = (elements: MemberElement[], disagreements: string[]): MarkP
  */
 const elements: Annotator = (file, document, site) => {
   const lines = new Map<number, { class?: string; mark?: MarkPart }>();
+  const label = (id: string) => (id === document ? '' : site.summary(id) ? site.label(site.summary(id)!) : id);
   for (const [line, { member, elements: found }] of memberMarks(file, document, site.elements())) {
     const note = categoryNote(member, found);
-    if (note && categoriesOf(found)) lines.set(line, { mark: categoryPart(found, note.disagreements) });
+    if (note && categoriesOf(found))
+      lines.set(line, { mark: categoryPart(member.name, found, note.disagreements, label) });
   }
   return lines;
 };
@@ -119,23 +126,22 @@ const constraints: Annotator = (file, document, site) => {
 const annotators: Annotator[] = [elements, constraints];
 
 /**
- * One mark of a line's parts, laid over the text after its end, its title saying what it means: `aria-hidden`, or a
- * button named by its title where a part opens something.
+ * A line's marks, laid over the text after its end, side by side in the order of `annotators`: each part a mark of its
+ * own, its title saying what it means, a button named by its title where it opens something and else `aria-hidden`.
  */
 function markNode(parts: MarkPart[]): HTMLElement {
-  const control = parts.some(part => part.control);
-  const mark = element(
-    control ? 'button' : 'span',
-    undefined,
-    ['line-mark', ...parts.map(part => part.class)].join(' '),
-  );
-  for (const part of parts) Object.assign(mark.dataset, part.data);
-  mark.title = parts.flatMap(part => part.title).join('\n');
-  if (control) {
-    (mark as HTMLButtonElement).type = 'button';
-    mark.setAttribute('aria-label', mark.title);
-  } else mark.setAttribute('aria-hidden', 'true');
-  return mark;
+  const group = element('span', undefined, 'line-marks');
+  for (const part of parts) {
+    const mark = element(part.control ? 'button' : 'span', undefined, `line-mark ${part.class}`);
+    Object.assign(mark.dataset, part.data);
+    mark.title = part.title.join('\n');
+    if (part.control) {
+      (mark as HTMLButtonElement).type = 'button';
+      mark.setAttribute('aria-label', mark.title);
+    } else mark.setAttribute('aria-hidden', 'true');
+    group.append(mark);
+  }
+  return group;
 }
 
 /** What the block types add to a file's lines, by line index. */

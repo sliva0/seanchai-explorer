@@ -260,7 +260,7 @@ Do not edit `src/types.ts` by hand.
 | `clicks.ts`, `click-target.ts`, `avp-places.ts`, `command-places.ts`, `element-places.ts` | what a click on a name does, and the places it can go |
 | `popup/` | the popups: `index.tsx` opens and closes them, `root.tsx` holds what one stands on and has loaded, `avp.tsx`, `command.tsx` and `value.tsx` draw each kind, `constraints.tsx` an AVP's interpreted constraints, `shared.tsx` what they share, `place.ts` where they go by their name |
 | `source-pane.tsx`, `pdf-navigation.ts` | the pane beside the text and the place it is sent to, and where it cannot show the source, its inspector of the name last clicked, drawn by the popups' components |
-| `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts` | the jump list, its keys and buttons, and where each document was left |
+| `jump-list.ts`, `jump-controls.tsx`, `positions.ts`, `scroll.ts`, `keys.ts`, `landing.ts` | the jump list, its keys and buttons, where each document was left, and the highlight of where a move lands |
 | `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
@@ -293,8 +293,9 @@ shows plugs in at a few places, each a list or a switch to add to:
 
 - a reader marking the tokens its lines name, run once per file: `readers` in `data.ts`;
 - what a line of it adds beside the highlighting: `annotators` in `annotations.ts`, a class
-  and a part of the one mark after the line's end, which joins the parts of every type, as
-  a member's category and its interpreted constraints' i;
+  and a mark of its own after the line's end, beside every other type's, as a member's
+  category and its interpreted constraints' ¶, a button where a click opens what it says,
+  which `showMark` in `document-view.tsx` opens the name's popup or inspector at;
 - what a name's line in it is: a kind of `Use` in `avp-context.ts`'s `useAt`, which
   `UseContext` in `popup/avp.tsx` says under "Here:", with the facts and places it
   offers drawn beside `elementFacts`; the inspector draws the same components;

@@ -3,7 +3,7 @@
 // the fixture's longest text, seconds to draw, so the checks of one view share its page.
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { absent, boot, click, popupOf, present, settle } from './helpers.mjs';
+import { absent, boot, click, popupOf, present, same, settle } from './helpers.mjs';
 
 const nameOn = (document, name, line) =>
   [...document.querySelectorAll('pre [data-avp]')].find(
@@ -82,34 +82,41 @@ test('the corrected text of TS 29.272', async t => {
     );
 
     await t.test(
-      "a member's mark joins its category and a ¶, its title where the rules were read and the rules in words, a button; a copy leaves both",
+      "a member's category and ¶ are marks side by side, each a button with its title, the ¶'s where the rules were read and the rules in words; a copy leaves both",
       () => {
         const line = lineAt(document, DSR_MEMBER);
-        const mark = line.querySelector('.line-mark');
+        const [category, mark] = line.querySelectorAll('.line-mark');
         present(mark);
-        assert.ok(mark.classList.contains('element-mark') && mark.classList.contains('constraint-mark'));
-        assert.equal(mark.dataset.category, 'C');
+        same(category.parentNode, mark.parentNode, 'in one group after the line');
+        assert.ok(category.classList.contains('element-mark') && !category.classList.contains('constraint-mark'));
+        assert.ok(mark.classList.contains('constraint-mark') && !mark.classList.contains('element-mark'));
+        assert.equal(category.dataset.category, 'C');
+        assert.equal(category.tagName, 'BUTTON');
+        assert.equal(category.dataset.reads, 'Context-Identifier');
+        assert.deepEqual(category.title.split('\n'), [
+          'C, conditional, in table 5.2.2.2.1/1: Context Identifier (See 7.3.27)',
+          'Click to see the row stating it',
+        ]);
         assert.equal(mark.dataset.interpreted, '1');
-        assert.equal(mark.textContent, '');
+        assert.equal(mark.textContent + category.textContent, '');
         assert.equal(mark.tagName, 'BUTTON');
         assert.equal(mark.getAttribute('aria-hidden'), null);
         assert.equal(mark.getAttribute('aria-label'), mark.title);
         assert.equal(mark.dataset.reads, 'Context-Identifier');
         assert.deepEqual(mark.title.split('\n'), [
-          'C: conditional · Context Identifier (See 7.3.27) · table 5.2.2.2.1/1',
           "From this member's description in table 5.2.2.2.1/1:",
           '• present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
-          mark.title.split('\n')[3],
+          mark.title.split('\n')[2],
           '• not 0',
           'Click to view each rule, its source quote, and a link to its block.',
         ]);
         assert.match(
-          mark.title.split('\n')[3],
+          mark.title.split('\n')[2],
           /^• cannot be checked on a single message: “In the "PDN subscription contexts Withdrawal" case, .{20,100}…”$/,
           'a rule no checker can run, as its quote, shortened',
         );
-        assert.equal(line.querySelectorAll('.line-mark').length, 1, 'one mark');
-        assert.equal(mark.nextSibling.textContent, '\n');
+        assert.equal(line.querySelectorAll('.line-marks').length, 1, 'one group of marks');
+        assert.equal(mark.parentNode.nextSibling.textContent, '\n');
         const onlyRules = lineAt(document, APN_MEMBER).querySelector('.line-mark');
         assert.ok(onlyRules.classList.contains('constraint-mark') && !onlyRules.classList.contains('element-mark'));
         assert.match(
@@ -267,14 +274,14 @@ test('the corrected text of TS 29.272', async t => {
       );
       await closePopup(page);
       assert.match(
-        lineAt(document, DSR_FLAGS_MEMBER).querySelector('.line-mark').title,
+        lineAt(document, DSR_FLAGS_MEMBER).querySelector('.constraint-mark').title,
         /at most one of bits 3, 6 set/,
       );
       const nor = await popupOf(page, nameOn(document, 'NOR-Flags', NOR_FLAGS_MEMBER));
       assert.ok(texts(nor, '.constraint-reading .constraint-words').includes('defaults to 0 when absent'));
       await closePopup(page);
       assert.match(
-        lineAt(document, NOR_FLAGS_MEMBER).querySelector('.line-mark').title,
+        lineAt(document, NOR_FLAGS_MEMBER).querySelector('.constraint-mark').title,
         /^From this member's description in table 5\.2\.5\.1\.1\/1:\n• defaults to 0 when absent$/m,
       );
     });
@@ -299,7 +306,7 @@ test('the corrected text of TS 29.272', async t => {
       );
       await closePopup(page);
       assert.match(
-        lineAt(document, NOR_TERMINAL_MEMBER).querySelector('.line-mark').title,
+        lineAt(document, NOR_TERMINAL_MEMBER).querySelector('.constraint-mark').title,
         /^• no members present except IMEI, Software-Version$/m,
       );
       const member = await popupOf(page, nameOn(document, 'IMEI', NOR_MEMBERS_RULE));

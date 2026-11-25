@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { followOrigin } from '../../src/avp-places.ts';
 import { standIn, standInSummary } from '../fixtures/stand-in-29336.mjs';
-import { absent, boot, click, popupOf, readFixture, rightClick, settle } from './helpers.mjs';
+import { absent, boot, click, factText, popupOf, present, readFixture, rightClick, settle } from './helpers.mjs';
 
 const AVP = 'Communication-Pattern-Set';
 /** TS 29.272's lines: its Reused AVPs row, and the head of its Grouped rule in 7.3.194. */
@@ -105,12 +105,14 @@ test("a reused AVP's popup lists where it is declared, each one click away, and 
     popup.querySelector('.popup-title button').click();
     popup = await popupOf(page, at(document, RULE));
     assert.match(popup.querySelector('.popup-context p').textContent, /^Here: rule for Grouped AVP/);
-    assert.deepEqual(places(popup), [
-      ['Definition:', 'TS 29.336, which this build does not hold'],
-      ['Reused:', '7.3.1 · table 7.3.1/2'],
-    ]);
+    // Its Reused row is a row the popup shows: that row's title says so and goes there, no place repeating it.
+    assert.deepEqual(places(popup), [['Definition:', 'TS 29.336, which this build does not hold']]);
     absent(popup.querySelector('.popup-contents'), 'its members are printed under its head');
-    assert.match(popup.querySelector('.place-reused .view-action').getAttribute('href'), /&line=939$/);
+    const reused = [...popup.querySelectorAll('.popup-row-title')].find(title =>
+      title.textContent.includes('· Reused'),
+    );
+    present(reused);
+    assert.match(reused.querySelector('a.claim-where').getAttribute('href'), /&line=939$/);
   } finally {
     await page.close();
   }
@@ -130,9 +132,14 @@ test('with the defining document in the build, its definition is one click from 
       /^#29336-j10\/8\.4\.26\?name=Communication-Pattern-Set/,
     );
     assert.deepEqual(
-      [...popup.querySelectorAll('.popup-row-title')].map(node => node.textContent),
+      [...popup.querySelectorAll('.popup-row-title')].map(factText),
       ['AVP Table 8.4.1/1 · TS 29.336'],
       "the definition's row, its flags and code, under the one-line form of the row opened on",
+    );
+    assert.match(
+      popup.querySelector('.popup-row-title a.claim-where').getAttribute('href'),
+      /^#29336-j10\/8\.4\.1\?/,
+      'its table a link to the row there',
     );
     popup.querySelector('.popup-title button').click();
     // Alt on the rule, which is its Details here, goes to the definition there; Back comes back to the rule.
