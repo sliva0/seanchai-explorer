@@ -41,16 +41,31 @@ export const wiresharkPage = {
   install: 'Install',
   /** Where the build has no plugin. [unlinked] */
   missing: 'The Wireshark plugin is not included in this build.',
+  /**
+   * Over the install commands and the download, where the plugin was built to link to another site than the one
+   * showing the page, `address`, to none, or, in a build naming nothing of the project, to a site not its own, which
+   * it does not name: why they set this site's address in it.
+   */
+  otherSite: (address: string) =>
+    `The plugin was built to link to ${address}, not this site, so the commands and the download below set this site's address in it.`,
+  noSite:
+    "The plugin was built to link to no site, so the commands and the download below set this site's address in it.",
+  anotherSite:
+    "The plugin was built to link to another site, so the commands and the download below set this site's address in it.",
   /** The heading over the install commands. */
   terminal: 'Install from a terminal (Linux and macOS)',
   /** The choice of shell, for a screen reader, and its options. [limit] short */
   shell: 'Shell',
   posixShells: 'bash / zsh / sh',
   fishShell: 'fish',
-  /** [limit] The copy button, a word, and its name for a screen reader. */
+  /**
+   * [limit] The copy button, a word, and its name for a screen reader: beside the commands, or beside the one command
+   * where the plugin links to this site already.
+   */
   copy: 'Copy',
   copied: 'Copied',
   copyLabel: 'Copy commands',
+  copyCommandLabel: 'Copy command',
   /** Beside the button, where the browser let the commands be selected but not copied. */
   selected: 'Selected — press Ctrl+C to copy',
   /** The heading over the download, where the terminal's commands are there too, and where they cannot be written. */

@@ -4,7 +4,7 @@ import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { elementIndex } from '../src/elements.ts';
 import { tableIndex } from '../src/tables.ts';
-import { PLUGIN_PATH, withExplorer } from '../src/plugin-file.ts';
+import { PLUGIN_PATH, explorerAddresses, explorerOf, explorerProblem, withExplorer } from '../src/plugin-file.ts';
 import { SCHEMA_VERSION } from '../src/types.ts';
 import {
   hasCommand,
@@ -36,6 +36,22 @@ function runExport(output) {
     args.push('--wireshark', path.join(specifications, 'wireshark'));
   return seanchai(args);
 }
+
+/**
+ * The address the plugin's links go to, its `seanchai.explorer_url` preference's default: the first of
+ * `SEANCHAI_EXPLORER_URLS`, normal (a closing slash, a scheme's default port dropped), else undefined, seanchai's own
+ * default, the public site, in every build, or the line of the plugin `SEANCHAI_PLUGIN` gives as it is. A value that is
+ * no list of addresses the plugin can hold fails the build, saying why.
+ */
+function explorerSetting() {
+  const raw = process.env.SEANCHAI_EXPLORER_URLS;
+  if (!raw?.trim()) return undefined;
+  const checked = explorerAddresses(raw);
+  if ('problem' in checked) throw new Error(explorerProblem(raw, checked));
+  return checked.addresses[0];
+}
+// Read before anything is exported, so that a bad address fails the build at once.
+const explorer = explorerSetting();
 
 const temporary = path.join(project, '.data-tmp');
 await rm(temporary, { recursive: true, force: true });
@@ -117,7 +133,12 @@ async function makePlugin() {
     await cp(path.resolve(process.env.SEANCHAI_PLUGIN), plugin);
     return;
   }
-  const made = runSeanchai(['wireshark-plugin', '-o', plugin]);
+  const made = runSeanchai([
+    'wireshark-plugin',
+    '-o',
+    plugin,
+    ...(explorer === undefined ? [] : ['--explorer', explorer]),
+  ]);
   if (made?.status === 0) return;
   await rm(plugin, { force: true });
   const has = made && hasCommand('wireshark-plugin');
@@ -131,10 +152,17 @@ async function makePlugin() {
 }
 await makePlugin();
 
-// A build naming nothing of the project ships a plugin that links nowhere until the page sets this site's address in
-// it, as its download and install commands do: its default is the project's own site.
-if (process.env.SEANCHAI_UNLINKED === '1' && existsSync(plugin)) {
-  const rewrite = withExplorer(await readFile(plugin, 'utf8'), '');
-  if (!rewrite.written) throw new Error(`Cannot unlink the Wireshark plugin: ${rewrite.reason}`);
-  await writeFile(plugin, rewrite.text);
+// The plugin's links go to the address asked for, which seanchai wrote, and a plugin SEANCHAI_PLUGIN gives is set to.
+// Asked for none, every build ships seanchai's default, the public site, a SEANCHAI_UNLINKED=1 one too: its page never
+// shows it, and sets the site's own address where it is hosted elsewhere. The line is checked as the page reads it.
+if (explorer !== undefined && existsSync(plugin)) {
+  const text = await readFile(plugin, 'utf8');
+  if (explorerOf(text) !== explorer) {
+    const rewrite = withExplorer(text, explorer);
+    if (!rewrite.written) throw new Error(`Cannot set the Wireshark plugin's explorer address: ${rewrite.reason}`);
+    await writeFile(plugin, rewrite.text);
+  }
+  const written = explorerOf(await readFile(plugin, 'utf8'));
+  if (written !== explorer)
+    throw new Error(`The Wireshark plugin links to ${JSON.stringify(written)}, not ${JSON.stringify(explorer)}`);
 }

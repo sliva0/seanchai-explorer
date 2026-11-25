@@ -27,21 +27,14 @@ const types = {
 let browser;
 let server;
 let base;
+/** The addresses the build counts as its own, the first its plugin's. */
+let own;
 
 before(async () => {
   if (skip) return;
-  const env = {
-    ...process.env,
-    SEANCHAI_EXPORT: path.join(root, 'tests/fixtures/export'),
-    SEANCHAI_PLUGIN: path.join(root, 'tests/fixtures/plugin/seanchai_diameter.lua'),
-  };
-  for (const [command, args] of [
-    ['node', ['scripts/prepare.mjs']],
-    ['npx', ['vite', 'build', '--outDir', dist, '--logLevel', 'error']],
-  ]) {
-    const result = spawnSync(command, args, { cwd: root, env, encoding: 'utf8' });
-    assert.equal(result.status, 0, result.stderr);
-  }
+  // The server first, so that the build knows its port: it counts two addresses its own, the first written into the
+  // plugin, the second this server by the name localhost, where the Wireshark page offers the plugin as served; the
+  // tests at 127.0.0.1 are at neither, as a copy hosted elsewhere is.
   server = http
     .createServer(async (request, response) => {
       const { pathname } = new URL(request.url, 'http://localhost');
@@ -58,6 +51,20 @@ before(async () => {
     .listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   base = `http://127.0.0.1:${server.address().port}/`;
+  own = ['http://smoke.invalid/', `http://localhost:${server.address().port}/`];
+  const env = {
+    ...process.env,
+    SEANCHAI_EXPORT: path.join(root, 'tests/fixtures/export'),
+    SEANCHAI_PLUGIN: path.join(root, 'tests/fixtures/plugin/seanchai_diameter.lua'),
+    SEANCHAI_EXPLORER_URLS: JSON.stringify(own),
+  };
+  for (const [command, args] of [
+    ['node', ['scripts/prepare.mjs']],
+    ['npx', ['vite', 'build', '--outDir', dist, '--logLevel', 'error']],
+  ]) {
+    const result = spawnSync(command, args, { cwd: root, env, encoding: 'utf8' });
+    assert.equal(result.status, 0, result.stderr);
+  }
   browser = await chromium.launch({ executablePath });
 });
 
@@ -2132,6 +2139,50 @@ test(
     await page.goto(new URL('#index/3gpp/19', page.url()).href);
     await page.locator('.doc-interpreted').first().waitFor();
     assert.deepEqual(await page.locator('.doc-interpreted').allTextContents(), ['¶ 157', '¶ 258', '¶ 15']);
+    await done();
+  },
+);
+
+test(
+  "viewed at one of the build's addresses, the plugin page offers the file as served; elsewhere it says why it sets this one",
+  { skip },
+  async () => {
+    const served = await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8');
+    assert.match(served, /^local EXPLORER = "http:\/\/smoke\.invalid\/" -- seanchai:explorer$/m, 'the first address');
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const page = await context.newPage();
+    const errors = [];
+    page.on('pageerror', error => errors.push(String(error)));
+    page.on('console', message => message.type() === 'error' && errors.push(message.text()));
+    await page.goto(`${own[1]}#wireshark`);
+    const link = page.locator('.plugin-download a[download]');
+    await link.waitFor();
+    assert.equal(await page.locator('.plugin-elsewhere').count(), 0);
+    assert.equal(await page.locator('.shell-choice input').count(), 0, 'one command for every shell');
+    const command = await page.locator('.plugin-command code').textContent();
+    assert.equal(
+      command,
+      `curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua \\\n  '${own[1]}plugin/seanchai_diameter.lua'\n`,
+    );
+    const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
+    assert.equal(download.suggestedFilename(), 'seanchai_diameter.lua');
+    assert.equal(await readFile(await download.path(), 'utf8'), served, 'as served, its address the first');
+    for (const [shell, at] of installShells())
+      for (const how of ['-c', 'stdin']) {
+        const run = await runInstall(at, command, undefined, how);
+        assert.equal(run.code, 0, `${shell} ${how}`);
+        assert.equal(run.file?.toString('utf8'), served, `${shell} ${how}`);
+      }
+    await context.close();
+    assert.deepEqual(errors, []);
+
+    const { page: elsewhere, done } = await open('#wireshark');
+    await elsewhere.locator('.plugin-elsewhere').waitFor();
+    assert.equal(
+      await elsewhere.locator('.plugin-elsewhere').textContent(),
+      "The plugin was built to link to http://smoke.invalid/, not this site, so the commands and the download below set this site's address in it.",
+    );
+    assert.equal(await elsewhere.locator('.plugin-download a[download]').count(), 0);
     await done();
   },
 );

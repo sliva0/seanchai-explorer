@@ -13,6 +13,7 @@ import './tsx.mjs';
 
 // The build options vite.config.ts defines (src/build-options.d.ts), as a build without any of them has them.
 globalThis.SEANCHAI_UNLINKED ??= false;
+globalThis.SEANCHAI_EXPLORER_ADDRESSES ??= ['https://sliva0.github.io/seanchai-explorer/'];
 
 /** A node as `<a#id.class>`, or its node name if it is not an element. */
 export const nodeName = node =>

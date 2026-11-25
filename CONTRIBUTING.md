@@ -197,10 +197,18 @@ Prepare also writes `public/plugin/seanchai_diameter.lua`, the Wireshark plugin,
 `seanchai wireshark-plugin` from the same `seanchai` as the export, or copies `SEANCHAI_PLUGIN`. It ships in both
 modes. A build fails if `seanchai` ran for the export and the plugin command failed, saying so where that `seanchai`
 is too old to have it; from `SEANCHAI_EXPORT` it goes on without the plugin, and the Wireshark page gives the command
-making one instead. The page fetches the file and rewrites its one line ending `-- seanchai:explorer`, through
-`src/plugin-file.ts`, to the address it is served at, as its install commands for POSIX shells or fish do with a `sed`
-that edits no file in place, which GNU's and BSD's sed spell differently;
-it reads the versions from its `-- seanchai:versions` line.
+making one instead. `SEANCHAI_EXPLORER_URLS` (`explorerAddresses` in `src/plugin-file.ts`) gives the site's own
+addresses, the first passed to `seanchai wireshark-plugin --explorer` or set in `SEANCHAI_PLUGIN`'s line, and prepare
+checks the line says it, as the page reads it (`explorerOf`); `vite.config.ts` defines them as
+`SEANCHAI_EXPLORER_ADDRESSES`, else the line's address, but none in a `SEANCHAI_UNLINKED=1` build asked for none, whose
+line keeps seanchai's default, the public site, which `scripts/check-unlinked.mjs` allows there and nowhere else. The
+page reads the served file's head for its versions line and its marked line. Viewed at one of the own addresses
+(`isOwnAddress`, `sameAddress`: exactly, once each is `normalAddress`), with that line the first of them, it offers the
+file as served and one `curl` (`directInstall`), its install section empty until the file is read; anywhere else, or
+where the line says another or cannot be read, it rewrites the one line ending `-- seanchai:explorer` to the address it
+is served at, as its install commands for POSIX shells or fish do with a `sed` that edits no file in place, which GNU's
+and BSD's sed spell differently, and says why above them, naming the line's site but in an unlinked build, where it
+names only one of its own.
 `tests/fixtures/plugin/` holds a few lines standing in for it, which the unit and smoke tests serve.
 
 `syntax/dad.tmLanguage.json` is a committed copy of the corpus's grammar for an export
@@ -251,7 +259,7 @@ Do not edit `src/types.ts` by hand.
 | `tables.ts` | a block's `; Table:` as a link to the source, and every document's tables by number |
 | `index-view.tsx`, `index-tabs.ts`, `search.ts`, `fuzzy.ts`, `search-view.tsx` | the index page, its tabs by publisher and release and their routes, and search |
 | `wireshark-view.tsx`, `plugin-file.ts` | the Wireshark plugin's page, and the plugin file it offers and rewrites |
-| `build-options.d.ts` | what a build is asked for beyond its mode, as globals `vite.config.ts` defines: `SEANCHAI_UNLINKED` |
+| `build-options.d.ts` | what a build is asked for beyond its mode, as globals `vite.config.ts` defines: `SEANCHAI_UNLINKED`, `SEANCHAI_EXPLORER_ADDRESSES` |
 | `help.tsx`, `notice.ts`, `theme.ts` | the help dialog, notices, the theme |
 | `text/` | every word of the interface that is not the corpus's, by where it shows: `site.ts` the header, the index and errors, `search.ts`, `document.ts`, `popup.ts`, `rules.ts` the interpreted constraints', `pane.ts`, `wireshark.ts`, `help.ts`, `terms.ts` what several share, and `controls.ts` the list of controls the help shows |
 | `rfc.ts`, `rfc-text.ts`, `viewer.ts`, `zoom.ts` | the pane's readers: `rfc.html` for RFC text and `viewer.html` for PDFs |

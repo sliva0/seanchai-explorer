@@ -5,13 +5,21 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { WIRESHARK, namesDocument, parseRoute } from '../../src/navigation.ts';
 import {
+  directInstall,
   explorerAddress,
+  explorerAddresses,
+  explorerEntry,
+  explorerOf,
+  explorerProblem,
   fishInstall,
+  isOwnAddress,
   generateCommand,
   pluginVersions,
   posixInstall,
+  normalAddress,
   quotable,
   resolveInstallShell,
+  sameAddress,
   withExplorer,
 } from '../../src/plugin-file.ts';
 import { absent, boot, click, pluginFixture, present, press, same } from './helpers.mjs';
@@ -157,6 +165,7 @@ test('the page shows its versions, the script for the chosen shell and the downl
         'Noteseanchai.noteseanchai.notes > 0Incomplete corpus data, or an unknown AVP or command without the M bit.',
         'Noteseanchai.interpretedseanchai.interpretedViolated interpreted constraints; the source ends in "interpreted". Rules on the request an answer answers are checked only when the capture holds the request.',
         'Interpreted notes are counted in seanchai.notes, and the rules an answer leaves unchecked without its request in seanchai.request_missing. Requires Wireshark 4.2 or later, and also works with tshark: tshark -r capture.pcap -X lua_script:seanchai_diameter.lua -Y "seanchai.errors > 0".',
+        "The plugin was built to link to https://sliva0.github.io/seanchai-explorer/, not this site, so the commands and the download below set this site's address in it.",
         'Install from a terminal (Linux and macOS)',
         'bash / zsh / sh',
         'fish',
@@ -469,5 +478,260 @@ test('what a shell, sed or Lua would read as its own is percent-encoded in both 
     // Each literal is closed where it was opened: the quotes pair up with nothing inside them but the script's own.
     assert.equal(script.split("'").length % 2, 1);
     assert.ok(script.endsWith('\n'));
+  }
+});
+
+test('two addresses are one site only exactly, a closing slash and a default port apart', () => {
+  for (const [a, b] of [
+    ['https://host/sub/', 'https://host/sub'],
+    ['https://host/sub/', 'https://HOST:443/sub/'],
+    ['http://host:80/', 'http://host'],
+    ['https://host/sub/', 'https://host/sub/#wireshark'],
+    ['https://host/sub/', 'https://host/sub/?q=1'],
+    ['http://192.168.3.3:4173/', 'http://192.168.3.3:4173'],
+    ["https://host/o'b/", 'https://host/o%27b/'],
+  ])
+    assert.ok(sameAddress(a, b), `${a} is ${b}`);
+  for (const [a, b] of [
+    ['https://host/', 'http://host/'],
+    ['https://www.host/', 'https://host/'],
+    ['https://host/', 'https://host:8443/'],
+    ['http://host:8080/', 'http://host/'],
+    ['https://host/sub/', 'https://host/'],
+    ['https://host/sub/', 'https://host/sub/index.html'],
+    ['https://host/sub/', 'https://host/other/'],
+    ['https://host/', 'https://other/'],
+    ['', ''],
+    ['', 'https://host/'],
+    ['ftp://host/', 'ftp://host/'],
+    [null, 'https://host/'],
+    [undefined, undefined],
+  ])
+    assert.ok(!sameAddress(a, b), `${a} is not ${b}`);
+  assert.equal(normalAddress('https://Host:443/a/b'), 'https://host/a/b/');
+  assert.equal(normalAddress('https://host/index.html'), 'https://host/index.html');
+  assert.equal(normalAddress('not a url'), null);
+});
+
+test("the plugin's marked line gives the address it links to, empty or none", () => {
+  assert.equal(explorerOf(plugin), 'https://sliva0.github.io/seanchai-explorer/');
+  assert.equal(explorerOf(plugin.replace(MARKED, marked(''))), '');
+  assert.equal(explorerOf(plugin.replace(MARKED, '')), null);
+  assert.equal(explorerOf(plugin.replace(MARKED, `${MARKED}\n${MARKED}`)), null);
+  assert.equal(explorerOf(plugin.replace(MARKED, `${MARKED} `)), null);
+});
+
+test("each of a build's addresses is an http(s) URL the plugin's line can hold, written with a closing slash", () => {
+  assert.deepEqual(explorerEntry('https://example.org/explorer'), { address: 'https://example.org/explorer/' });
+  assert.deepEqual(explorerEntry('http://Example.org:80'), { address: 'http://example.org/' });
+  assert.deepEqual(explorerEntry('https://example.org:8443/x/'), { address: 'https://example.org:8443/x/' });
+  assert.deepEqual(explorerEntry("https://example.org/o'b/"), { address: 'https://example.org/o%27b/' });
+  for (const [raw, problem] of [
+    ['https://example.org/"/', 'characters'],
+    ['https://example.org/\\', 'characters'],
+    ['https://example.org/\n', 'characters'],
+    ['example.org/explorer/', 'url'],
+    ['', 'url'],
+    ['ftp://example.org/', 'scheme'],
+    ['javascript:alert(1)', 'scheme'],
+    ['https://user:secret@example.org/', 'credentials'],
+    ['https://example.org/?x=1', 'query'],
+    ['https://example.org/#wireshark', 'query'],
+    ['https://example.org/?', 'query'],
+  ])
+    assert.deepEqual(explorerEntry(raw), { problem }, raw);
+});
+
+test('the one command installing a plugin that links here already writes the file as served', () => {
+  assert.equal(
+    directInstall('https://host/plugin/seanchai_diameter.lua'),
+    "curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua \\\n  'https://host/plugin/seanchai_diameter.lua'\n",
+  );
+  assert.ok(directInstall("https://host/o'b/plugin/seanchai_diameter.lua").includes("'https://host/o%27b/plugin/"));
+  assert.equal(directInstall('https://host/\u0007'), null);
+});
+
+test("a build's addresses are a JSON array of URLs or one URL, each normal and once, the first the plugin's", () => {
+  assert.deepEqual(explorerAddresses('["http://abcdef:9001/seanchai", "http://172.28.2.3:9001/seanchai"]'), {
+    addresses: ['http://abcdef:9001/seanchai/', 'http://172.28.2.3:9001/seanchai/'],
+  });
+  assert.deepEqual(explorerAddresses(' https://example.org/explorer '), {
+    addresses: ['https://example.org/explorer/'],
+  });
+  assert.deepEqual(
+    explorerAddresses('["https://a.example/x", "https://A.example:443/x/", "https://b.example/"]'),
+    { addresses: ['https://a.example/x/', 'https://b.example/'] },
+    'an address given twice, once',
+  );
+  for (const [raw, refused] of [
+    ['[]', { problem: 'list' }],
+    ['["https://a.example/", 3]', { problem: 'list' }],
+    ['{"url": "https://a.example/"}', { problem: 'characters', entry: '{"url": "https://a.example/"}' }],
+    ['[https://a.example/]', { problem: 'list' }],
+    ['https://a.example/, https://b.example/', { problem: 'several', entry: 'https://a.example/, https://b.example/' }],
+    ['https://a.example/,https://b.example/', { problem: 'several', entry: 'https://a.example/,https://b.example/' }],
+    ['["https://a.example/", "ftp://b.example/"]', { problem: 'scheme', entry: 'ftp://b.example/' }],
+    ['["https://a.example/?x"]', { problem: 'query', entry: 'https://a.example/?x' }],
+  ])
+    assert.deepEqual(explorerAddresses(raw), refused, raw);
+  assert.equal(
+    explorerProblem('["https://a.example/", "ftp://b.example/"]', { problem: 'scheme', entry: 'ftp://b.example/' }),
+    'SEANCHAI_EXPLORER_URLS "[\\"https://a.example/\\", \\"ftp://b.example/\\"]" cannot be the site\'s addresses: no http or https URL in "ftp://b.example/"',
+  );
+  const own = ['http://abcdef:9001/seanchai/', 'http://172.28.2.3:9001/seanchai/'];
+  assert.ok(isOwnAddress('http://abcdef:9001/seanchai', own), 'the first');
+  assert.ok(isOwnAddress('http://172.28.2.3:9001/seanchai/', own), 'a later one');
+  assert.ok(!isOwnAddress('https://172.28.2.3:9001/seanchai/', own), 'none');
+  assert.ok(!isOwnAddress('http://abcdef:9001/', own), 'none');
+  assert.ok(!isOwnAddress('http://abcdef:9001/seanchai/', []), 'a build with none');
+});
+
+/**
+ * Boots the page with the build's own addresses and the served file's line naming one; they are the build's until
+ * the page closes.
+ */
+async function bootAt(constant, line, options = {}) {
+  const before = globalThis.SEANCHAI_EXPLORER_ADDRESSES;
+  globalThis.SEANCHAI_EXPLORER_ADDRESSES = typeof constant === 'string' ? (constant ? [constant] : []) : constant;
+  const page = await boot({
+    hash: '#wireshark',
+    transform: (path, data) => (path.startsWith('plugin/') ? data.replace(MARKED, line) : data),
+    ...options,
+  });
+  const close = page.close;
+  page.close = async () => {
+    globalThis.SEANCHAI_EXPLORER_ADDRESSES = before;
+    await close.call(page);
+  };
+  return page;
+}
+
+test('a plugin built for the site showing the page is offered as served: one command and a plain download', async () => {
+  const page = await bootAt('http://localhost', marked('http://localhost/'));
+  try {
+    const { document } = page;
+    await page.settle();
+    absent(document.querySelector('.plugin-elsewhere'), 'no step to explain');
+    absent(document.querySelector('.shell-choice input'), 'one command for every shell');
+    const from = 'http://localhost/plugin/seanchai_diameter.lua';
+    assert.equal(document.querySelector('.plugin-command code').textContent, directInstall(from));
+    assert.equal(document.querySelector('.plugin-command-bar button').getAttribute('aria-label'), 'Copy command');
+    const link = document.querySelector('.plugin-download a[download]');
+    assert.equal(link.getAttribute('download'), 'seanchai_diameter.lua');
+    assert.equal(link.href, from);
+    assert.equal(link.textContent, 'Download seanchai_diameter.lua');
+    absent(downloadButton(document) ?? null, 'no rewriting download');
+    assert.deepEqual(
+      [...document.querySelectorAll('main h2')].map(node => node.textContent),
+      ['Install from a terminal (Linux and macOS)', 'Manual install (any system)'],
+    );
+    present(document.querySelector('.plugin-folders'));
+  } finally {
+    await page.close();
+  }
+});
+
+test('viewed at a later one of its addresses, a build offers the plugin as served, still linking to its first', async () => {
+  const own = ['http://abcdef:9001/seanchai/', 'http://localhost/'];
+  const page = await bootAt(own, marked('http://abcdef:9001/seanchai/'));
+  try {
+    const { document } = page;
+    await page.settle();
+    absent(document.querySelector('.plugin-elsewhere'));
+    assert.equal(
+      document.querySelector('.plugin-command code').textContent,
+      directInstall('http://localhost/plugin/seanchai_diameter.lua'),
+    );
+    present(document.querySelector('.plugin-download a[download]'));
+  } finally {
+    await page.close();
+  }
+  const other = await bootAt(
+    ['http://abcdef:9001/seanchai/', 'http://172.28.2.3:9001/seanchai/'],
+    marked('http://abcdef:9001/seanchai/'),
+  );
+  try {
+    const { document } = other;
+    await other.settle();
+    present(downloadButton(document), 'at none of them, the address set as before');
+    assert.equal(
+      document.querySelector('.plugin-elsewhere').textContent,
+      "The plugin was built to link to http://abcdef:9001/seanchai/, not this site, so the commands and the download below set this site's address in it.",
+    );
+  } finally {
+    await other.close();
+  }
+});
+
+test('where the build and the served file disagree on the site, or either is another, the page sets this one', async () => {
+  for (const [constant, line, said] of [
+    ['http://localhost/', marked('https://example.org/'), 'https://example.org/'],
+    ['https://example.org/', marked('http://localhost/'), null],
+    ['http://localhost/', marked(''), ''],
+    ['http://localhost/', '', null],
+    ['', marked('http://localhost/'), null],
+    ['https://localhost/', marked('https://localhost/'), 'https://localhost/'],
+    [['https://example.org/', 'http://localhost/'], marked('http://localhost/'), null],
+  ]) {
+    const page = await bootAt(constant, line);
+    try {
+      const { document } = page;
+      await page.settle();
+      const what = `${constant} and ${JSON.stringify(line)}`;
+      present(downloadButton(document), what);
+      absent(document.querySelector('.plugin-download a[download]'), what);
+      assert.equal(
+        document.querySelector('.plugin-command code').textContent,
+        posixInstall('http://localhost/', 'http://localhost/plugin/seanchai_diameter.lua'),
+        what,
+      );
+      const note = document.querySelector('.plugin-elsewhere')?.textContent ?? null;
+      assert.equal(
+        note,
+        said === null
+          ? null
+          : said
+            ? `The plugin was built to link to ${said}, not this site, so the commands and the download below set this site's address in it.`
+            : "The plugin was built to link to no site, so the commands and the download below set this site's address in it.",
+        what,
+      );
+    } finally {
+      await page.close();
+    }
+  }
+});
+
+test('until the file says what site it links to, a build saying it is this one offers nothing it might take back', async () => {
+  let release;
+  const held = new Promise(resolve => (release = resolve));
+  const page = await bootAt('http://localhost/', marked('http://localhost/'), {
+    serve: async path => (path.startsWith('plugin/') ? (await held, undefined) : undefined),
+  });
+  try {
+    const { document } = page;
+    absent(document.querySelector('.plugin-command'), 'no command yet');
+    absent(downloadButton(document) ?? null);
+    absent(document.querySelector('.plugin-download a'));
+    present(document.querySelector('.plugin-then'), 'the rest of the page is there');
+    release();
+    await page.settle();
+    present(document.querySelector('.plugin-download a[download]'));
+  } finally {
+    await page.close();
+  }
+});
+
+test('where the file cannot be read, a build saying it is this site falls back to setting the address', async () => {
+  const page = await bootAt('http://localhost/', marked('http://localhost/'), {
+    serve: async path => (path.startsWith('plugin/') ? { ok: false, status: 500 } : undefined),
+  });
+  try {
+    const { document } = page;
+    await page.settle();
+    present(downloadButton(document));
+    absent(document.querySelector('.plugin-download a[download]'));
+    absent(document.querySelector('.plugin-elsewhere'), 'nothing it cannot tell');
+  } finally {
+    await page.close();
   }
 });

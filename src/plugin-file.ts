@@ -35,6 +35,114 @@ export function explorerAddress(href: string): string {
   return quotable(url.href);
 }
 
+/**
+ * An explorer address as two are compared and a build writes one: an http(s) URL without its fragment, which is the
+ * route, or its query, which no route reads, its scheme and host in lower case and a port its scheme's default
+ * dropped, as `URL` writes them, and a path naming no page ended by a slash, `https://host/sub` as `https://host/sub/`;
+ * `quotable`, as the page's own address is. Null for anything else, as an empty line's `''`.
+ */
+export function normalAddress(address: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(address);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+  url.hash = '';
+  url.search = '';
+  if (!url.pathname.endsWith('/') && !/\.html?$/i.test(url.pathname)) url.pathname += '/';
+  return quotable(url.href);
+}
+
+/**
+ * Whether two explorer addresses are the same site, exactly, once each is normal: a scheme, host, port or path
+ * differing in anything but a closing slash or a default port is another site, `http:` and `https:`, `www.host` and
+ * `host`, `/sub/` and `/sub/index.html` alike. An address that is no http(s) URL is the same as none.
+ */
+export function sameAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  const [one, other] = [a, b].map(address => (address ? normalAddress(address) : null));
+  return one !== null && one === other;
+}
+
+/** The address on the plugin's one marked line, `''` where it is empty; null where it has no such line, or several. */
+export function explorerOf(text: string): string | null {
+  const lines = [...text.matchAll(EXPLORER_LINE)];
+  return lines.length === 1 ? lines[0][0].slice('local EXPLORER = "'.length, -'" -- seanchai:explorer'.length) : null;
+}
+
+/** Why an explorer address a build is given cannot be one, for the build's message: `list` for a list of no shape. */
+export type ExplorerProblem = 'characters' | 'several' | 'url' | 'scheme' | 'credentials' | 'query' | 'list';
+
+/**
+ * One address a build is given as its own (`SEANCHAI_EXPLORER_URLS`), normal, or what is wrong with it: a double
+ * quote, a backslash or a control character, which the plugin's marked line cannot hold; a space or a second `://`,
+ * as of URLs listed otherwise than as a JSON array; no URL, or one of another
+ * scheme than http(s); a user or password, which the plugin would show in every link; a query or a fragment, which
+ * the links' routes would follow.
+ */
+export function explorerEntry(raw: string): { address: string } | { problem: ExplorerProblem } {
+  if (/["\\\p{Cc}]/u.test(raw)) return { problem: 'characters' };
+  if (/\s/u.test(raw) || raw.indexOf('://') !== raw.lastIndexOf('://')) return { problem: 'several' };
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    return { problem: 'url' };
+  }
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') return { problem: 'scheme' };
+  if (url.username || url.password) return { problem: 'credentials' };
+  if (url.search || url.hash || raw.includes('?') || raw.includes('#')) return { problem: 'query' };
+  return { address: normalAddress(raw)! };
+}
+
+/**
+ * The addresses a build counts as its own, as `SEANCHAI_EXPLORER_URLS` gives them: a JSON array of URLs, or one URL
+ * alone, each normal and once, in the order given; the first is the one the plugin's links go to. Else the first
+ * thing wrong, with the entry it is wrong in: a list that is no JSON array of strings, or empty, is `list`.
+ */
+export function explorerAddresses(raw: string): { addresses: string[] } | { problem: ExplorerProblem; entry?: string } {
+  const text = raw.trim();
+  let entries: unknown = [text];
+  if (text.startsWith('[')) {
+    try {
+      entries = JSON.parse(text);
+    } catch {
+      return { problem: 'list' };
+    }
+  }
+  if (!Array.isArray(entries) || !entries.length || !entries.every(entry => typeof entry === 'string'))
+    return { problem: 'list' };
+  const addresses: string[] = [];
+  for (const entry of entries as string[]) {
+    const checked = explorerEntry(entry.trim());
+    if ('problem' in checked) return { problem: checked.problem, entry };
+    if (!addresses.includes(checked.address)) addresses.push(checked.address);
+  }
+  return { addresses };
+}
+
+/** What is wrong with each kind of address or list `explorerAddresses` refuses, for the build's message. */
+const explorerProblems: Record<ExplorerProblem, string> = {
+  characters: "a double quote, a backslash or a control character, which the plugin's line cannot hold",
+  several:
+    'what reads as several URLs: list them as a JSON array, as ["https://host/explorer/", "http://10.0.0.2/explorer/"]',
+  url: 'no URL',
+  scheme: 'no http or https URL',
+  credentials: 'a user or a password, which every link of the plugin would show',
+  query: "a query or a fragment, where the plugin's links put the route",
+  list: 'neither a JSON array of URLs, as ["https://host/explorer/", "http://10.0.0.2/explorer/"], nor one URL',
+};
+
+/** The build's message for a `SEANCHAI_EXPLORER_URLS` refused: the value, the entry and what is wrong with it. */
+export function explorerProblem(raw: string, { problem, entry }: { problem: ExplorerProblem; entry?: string }) {
+  const where = entry === undefined || entry === raw.trim() ? '' : ` in ${JSON.stringify(entry)}`;
+  return `SEANCHAI_EXPLORER_URLS ${JSON.stringify(raw)} cannot be the site's addresses: ${explorerProblems[problem]}${where}`;
+}
+
+/** Whether `address` is one of a build's own, exactly, once each is normal. */
+export const isOwnAddress = (address: string, own: readonly string[]) => own.some(item => sameAddress(item, address));
+
 /** Where Wireshark looks for a reader's own Lua plugins on Linux, as a path the shell expands. */
 const PERSONAL_PLUGINS = '~/.local/lib/wireshark/plugins';
 
@@ -84,6 +192,18 @@ mkdir -p ${PERSONAL_PLUGINS} &&
   rm -f "$file.part" &&
   echo "Installed $file"
 `;
+}
+
+/**
+ * The one command installing the plugin as served, for a plugin whose links are this site's already: curl makes the
+ * folder and writes the file, and with `-f` writes nothing where the server refuses it. The same in dash, bash, zsh
+ * and fish, which all expand the leading `~` and carry a line ending in `\` on to the next, as it is written to fit
+ * its box. Null where the address would hold a control character.
+ */
+export function directInstall(plugin: string): string | null {
+  const url = quotable(plugin);
+  if (/\p{Cc}/u.test(url)) return null;
+  return `curl -fsSL --create-dirs \\\n  -o ${PERSONAL_PLUGINS}/${PLUGIN_NAME} \\\n  '${url}'\n`;
 }
 
 /**

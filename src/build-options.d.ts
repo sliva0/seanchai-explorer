@@ -9,3 +9,12 @@
  * no introduction of the site, and no command installing anything from them.
  */
 declare const SEANCHAI_UNLINKED: boolean;
+
+/**
+ * The addresses the site counts as its own, normal, the first the one on the marked line of the Wireshark plugin it
+ * ships, `local EXPLORER = "…" -- seanchai:explorer`: `SEANCHAI_EXPLORER_URLS`, else that line's address as seanchai
+ * wrote it, else none. Viewed at one of them, the Wireshark page offers the plugin as served once the served file's
+ * line says the first. A `SEANCHAI_UNLINKED=1` build asked for none has none, so that no chunk spells the public
+ * site its plugin's line holds.
+ */
+declare const SEANCHAI_EXPLORER_ADDRESSES: readonly string[];

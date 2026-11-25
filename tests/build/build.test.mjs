@@ -95,8 +95,8 @@ async function corpusMentions() {
 }
 
 /**
- * What a SEANCHAI_UNLINKED=1 build must hold: nothing of the project in the site's own files, its plugin linking
- * nowhere, and no word of another build of it, as a self-hosted one, in any text it ships or page it serves.
+ * What a SEANCHAI_UNLINKED=1 build must hold: nothing of the project in the site's own files but its plugin's marked
+ * line, and no word of another build of it, as a self-hosted one, in any text it ships or page it serves.
  */
 async function checkUnlinked() {
   const check = unlinkedCheck();
@@ -114,11 +114,15 @@ async function checkUnlinked() {
         /Unofficial, and not affiliated|self-hosted build|Generate it with|seanchai\[corpus\]/i,
         file,
       );
+  // Its plugin links to seanchai's default, the public site, as every build's asked for no address of its own does,
+  // on its one marked line alone, which the check leaves out and the page never shows.
   if (existsSync(path.join(dist, 'plugin')))
     assert.match(
       await readFile(path.join(dist, 'plugin/seanchai_diameter.lua'), 'utf8'),
-      /^local EXPLORER = "" -- seanchai:explorer$/m,
+      /^local EXPLORER = "https:\/\/[^"]+\/" -- seanchai:explorer$/m,
     );
+  for (const file of await readdir(path.join(dist, 'assets')))
+    assert.doesNotMatch(await readFile(path.join(dist, 'assets', file), 'utf8'), /github\.io/, file);
   const mentions = await corpusMentions();
   if (mentions.length) console.log(`The corpus's own data naming the project, left as it is: ${mentions.join(', ')}`);
 }

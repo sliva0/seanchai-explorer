@@ -36,7 +36,11 @@ keyboard controls and line marks as below, the PDF viewer's keys in a self-hoste
 and what interpreted constraints are.
 
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
-copy of the site it is downloaded from, and says what a finding's line is, `Severity:
+copy of the site it is downloaded from. Viewed at one of the addresses the build counts as its
+own (`SEANCHAI_EXPLORER_URLS`, below), where the served file's line says the first of them, it
+offers the file as served, a plain download and one `curl` command; anywhere else it sets this
+site's address in the file as its download and install commands fetch it, saying in a sentence
+why. It says what a finding's line is, `Severity:
 place: problem [source]`, and which expert info field and filter each severity has: an
 error `seanchai.violation`, a warning `seanchai.warning`, a note `seanchai.note`, and an
 interpreted constraint broken a note too, under `seanchai.interpreted`.
@@ -297,10 +301,13 @@ Either build, with `SEANCHAI_UNLINKED=1` in its environment, names nothing of th
 open-source project: no link to it or word of GitHub or PyPI, no introduction of the site
 on the index, which keeps its search box, its line of the corpus, seanchai and build mode,
 and its hint, no pointer to another build in the source pane, no command generating the
-Wireshark plugin from PyPI where the build has none, and a plugin whose links go nowhere
-until the Wireshark page sets this site's address in it, as its download and install
-commands do. The build ends by checking it, `scripts/check-unlinked.mjs`, and fails if a
-file of the site's own, outside the corpus's `data/`, still names the project.
+Wireshark plugin from PyPI where the build has none. Its plugin links where every build's
+does, to the addresses `SEANCHAI_EXPLORER_URLS` gives, else to seanchai's default, the public
+site, which only the raw file's one marked line then holds: the page never shows it, nor
+names it in a sentence or a command, and its install commands find the line by its pattern;
+no chunk of the site spells it, as such a build counts no address its own. The build ends by
+checking it, `scripts/check-unlinked.mjs`, and fails if a file of the site's own, outside the
+corpus's `data/` and that one line, still names the project.
 
 ```sh
 SEANCHAI_UNLINKED=1 npm run build
@@ -355,6 +362,27 @@ its data says so.
 A plugin passed in `SEANCHAI_PLUGIN` must name the export's `seanchai` and corpus
 versions on its `-- seanchai:versions` line, or the build fails.
 
+### The plugin's address
+
+The Wireshark plugin's references link to a copy of this site, the default of its
+`seanchai.explorer_url` preference, which a build writes on its one line marked
+`-- seanchai:explorer`. `SEANCHAI_EXPLORER_URLS` names the addresses a build is served at,
+a JSON array, or one URL alone:
+
+```sh
+SEANCHAI_EXPLORER_URLS='["http://abcdef:9001/seanchai", "http://172.28.2.3:9001/seanchai"]' npm run build:self-hosted
+```
+
+The first, `http://abcdef:9001/seanchai/`, is the plugin's, which `seanchai wireshark-plugin
+--explorer` writes, or the build sets in a plugin `SEANCHAI_PLUGIN` gives; every one is the
+site's own, so the Wireshark page viewed at the host's name or straight at its IP offers the
+plugin as served, still linking to the first. Each is an http or https URL with no user,
+password, query or fragment, nor a double quote, backslash, control character or space,
+and is written normal, with a closing slash and without a default port; an address given
+twice counts once. Two addresses are one only exactly so: `http:` is not `https:`, nor
+`www.host` `host`. A value that is none of this fails the build, saying which entry and why.
+Without it, a plugin seanchai makes links to its default, the public site, in every build.
+
 ### Bumping the pinned release
 
 `seanchai-release.json` names the versions the export must name. With `commit` it also
@@ -401,6 +429,7 @@ contract.
 | `SEANCHAI_SPECIFICATIONS` | The directory `npm run sources` fills and a build reads. Default: `specifications/` here for both; a build reads the one of the checkout `SEANCHAI_ROOT` names or this repository is inside where there is none here. |
 | `SEANCHAI_EXPORT` | A prebuilt export to use instead of running `seanchai`. Its mode must match the build's. |
 | `SEANCHAI_UNLINKED` | `1` builds a site naming nothing of the open-source project (see "Two build modes"). |
+| `SEANCHAI_EXPLORER_URLS` | The addresses the site is served at, as a JSON array or one URL: the first is written into the Wireshark plugin, its links' default, and all count as the site's own (see "The plugin's address"). Default: none, the plugin linking to seanchai's default, the public site. |
 | `SEANCHAI_PLUGIN` | A prebuilt Wireshark plugin to ship instead of running `seanchai wireshark-plugin`. Without it, a build from `SEANCHAI_EXPORT` still makes one if a `seanchai` with the command runs, and otherwise ships none. |
 
 ## License

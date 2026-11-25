@@ -6,12 +6,16 @@ import { attempt } from './notice.ts';
 import {
   PLUGIN_NAME,
   PLUGIN_PATH,
+  directInstall,
   explorerAddress,
+  explorerOf,
   fishInstall,
+  isOwnAddress,
   generateCommand,
   pluginVersions,
   posixInstall,
   resolveInstallShell,
+  sameAddress,
   withExplorer,
 } from './plugin-file.ts';
 import type { InstallShell } from './plugin-file.ts';
@@ -116,17 +120,19 @@ const SHELLS = [
 ] as const;
 
 /**
- * The terminal way: a choice of shell, kept for the next visit, and its commands with a Copy button. A copy is said
- * once where the reader looks, on the button, and to a screen reader in a status line unseen; text selected instead
- * is said in that line, shown, the button left as it was. Nothing where the address cannot be quoted for a shell.
+ * The terminal way: a choice of shell, kept for the next visit, and its commands with a Copy button, or where the
+ * plugin links to this site already, its one command for every shell. A copy is said once where the reader looks, on
+ * the button, and to a screen reader in a status line unseen; text selected instead is said in that line, shown, the
+ * button left as it was. Nothing where the address cannot be quoted for a shell.
  */
-function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
+function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> | string }) {
   const [current, setCurrent] = useState(() => resolveInstallShell(readStored('installShell')));
   const [copied, setCopied] = useState<boolean | undefined>(undefined);
   const text = useRef<HTMLElement>(null);
   const reset = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(reset.current), []);
-  const script = scripts.get(current) ?? '';
+  const single = typeof scripts === 'string';
+  const script = single ? scripts : (scripts.get(current) ?? '');
   const onCopy = async () => {
     const done = await copy(script, text.current!);
     setCopied(done);
@@ -137,8 +143,8 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
     <>
       <h2>{words.terminal}</h2>
       <div class="plugin-command-bar">
-        <div class="shell-choice" role="radiogroup" aria-label={words.shell}>
-          {SHELLS.map(([shell, label]) => (
+        <div class="shell-choice" role="radiogroup" aria-label={words.shell} hidden={single}>
+          {(single ? [] : SHELLS).map(([shell, label]) => (
             <label key={shell} class="visibility-toggle">
               <input
                 type="radio"
@@ -162,7 +168,12 @@ function TerminalInstall({ scripts }: { scripts: Map<InstallShell, string> }) {
         <span class={copied ? 'copy-status sr-only' : 'copy-status'} role="status">
           {copied === undefined ? '' : copied ? words.copied : words.selected}
         </span>
-        <button type="button" class="control" aria-label={words.copyLabel} onClick={() => void onCopy()}>
+        <button
+          type="button"
+          class="control"
+          aria-label={single ? words.copyCommandLabel : words.copyLabel}
+          onClick={() => void onCopy()}
+        >
           {copied ? words.copied : words.copy}
         </button>
       </div>
@@ -212,7 +223,16 @@ export function WiresharkView({ site }: { site: Site }) {
   const held = useRef<string | undefined>(undefined);
   const live = useRef(true);
 
-  // Whether the build has the plugin, and what it was generated from, are in its first lines.
+  // Viewed at one of the build's own addresses, the plain download waits for the served file to say it links to the
+  // first, as the build wrote it: the install section is empty until then. Anywhere else, or where the file says
+  // another, the rewriting one is right whatever the file says.
+  const expected = isOwnAddress(address, SEANCHAI_EXPLORER_ADDRESSES);
+  // The address on the served file's marked line: undefined until read, null where it has none or could not be read.
+  const [built, setBuilt] = useState<string | null | undefined>(undefined);
+  const direct = expected && sameAddress(built, SEANCHAI_EXPLORER_ADDRESSES[0]);
+  const pending = expected && built === undefined && !missing;
+
+  // Whether the build has the plugin, what it was generated from and the site it links to are in its first lines.
   useEffect(() => {
     live.current = true;
     void fetchPlugin(true).then(
@@ -222,10 +242,14 @@ export function WiresharkView({ site }: { site: Site }) {
         else {
           if (found.whole) held.current = found.text;
           setSaid(pluginVersions(found.text));
+          setBuilt(explorerOf(found.text));
         }
       },
       // The download says so with a Retry; until then the page offers it as if it were there.
-      (error: unknown) => console.warn(error),
+      (error: unknown) => {
+        console.warn(error);
+        if (live.current) setBuilt(null);
+      },
     );
     return () => {
       live.current = false;
@@ -327,8 +351,11 @@ export function WiresharkView({ site }: { site: Site }) {
             )}
             <FolderTable />
           </>
+        ) : pending ? null : direct ? (
+          <DirectInstall />
         ) : (
           <>
+            <ElsewhereNote built={built ?? null} address={address} />
             {scripts && <TerminalInstall scripts={scripts} />}
             <h2>{scripts ? words.byHandAnySystem : words.byHand}</h2>
             <div class="plugin-download">
@@ -351,6 +378,43 @@ export function WiresharkView({ site }: { site: Site }) {
         )}
       </section>
       <p class="plugin-then">{words.restart}</p>
+    </>
+  );
+}
+
+/**
+ * Why the install below sets this site's address in the plugin: the site the served file links to, or none, where
+ * that is not this one. A build naming nothing of the project names only a site of its own there, never the public
+ * one its plugin links to by default. Nothing where the file names no site the page can tell, as one without its
+ * marked line, or until it is read.
+ */
+function ElsewhereNote({ built, address }: { built: string | null; address: string }) {
+  if (built === null || sameAddress(built, address)) return null;
+  const said = !built
+    ? words.noSite
+    : SEANCHAI_UNLINKED && !isOwnAddress(built, SEANCHAI_EXPLORER_ADDRESSES)
+      ? words.anotherSite
+      : words.otherSite(built);
+  return <p class="plugin-elsewhere">{said}</p>;
+}
+
+/**
+ * The install where the plugin links to this site already: one command for every shell, and the file as served,
+ * neither rewriting the line that names the site.
+ */
+function DirectInstall() {
+  const plugin = siteURL(PLUGIN_PATH).href;
+  const command = directInstall(plugin);
+  return (
+    <>
+      {command && <TerminalInstall scripts={command} />}
+      <h2>{command ? words.byHandAnySystem : words.byHand}</h2>
+      <div class="plugin-download">
+        <a class="control" href={plugin} download={PLUGIN_NAME}>
+          {words.download(PLUGIN_NAME)}
+        </a>
+      </div>
+      <FolderTable />
     </>
   );
 }

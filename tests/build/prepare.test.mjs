@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, cp, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -260,5 +260,114 @@ test('a build refuses SEANCHAI_PLUGIN made by another seanchai or corpus than th
     prepare(fixture);
   } finally {
     await rm(directory, { recursive: true, force: true });
+  }
+});
+
+const ALIASES = '["http://abcdef:9001/seanchai", "http://172.28.2.3:9001/seanchai"]';
+const markedLine = text => text.match(/^local EXPLORER = "([^"\\]*)" -- seanchai:explorer$/m)?.[1];
+
+test("SEANCHAI_EXPLORER_URLS's first address is the plugin's, in the file the build serves, and all are the site's own", async () => {
+  const out = await mkdtemp(path.join(tmpdir(), 'seanchai-explorer-'));
+  try {
+    const env = {
+      SEANCHAI_EXPORT: fixture,
+      SEANCHAI_PLUGIN: standIn,
+      SEANCHAI_EXPLORER_URLS: ALIASES,
+      SEANCHAI_UNLINKED: '',
+    };
+    const prepared = run(env);
+    assert.equal(prepared.status, 0, prepared.stderr);
+    assert.equal(markedLine(await readFile(plugin, 'utf8')), 'http://abcdef:9001/seanchai/');
+    const built = spawnSync('npx', ['vite', 'build', '--outDir', out, '--logLevel', 'error'], {
+      cwd: root,
+      encoding: 'utf8',
+      env: { ...process.env, ...env },
+    });
+    assert.equal(built.status, 0, built.stderr);
+    assert.equal(
+      markedLine(await readFile(path.join(out, 'plugin/seanchai_diameter.lua'), 'utf8')),
+      'http://abcdef:9001/seanchai/',
+      'the file served',
+    );
+    const chunks = await Promise.all(
+      (await readdir(path.join(out, 'assets')))
+        .filter(file => file.endsWith('.js'))
+        .map(file => readFile(path.join(out, 'assets', file), 'utf8')),
+    );
+    assert.ok(
+      chunks.some(chunk =>
+        /\[(["`])http:\/\/abcdef:9001\/seanchai\/\1,\1http:\/\/172\.28\.2\.3:9001\/seanchai\/\1\]/.test(chunk),
+      ),
+      "the site's own addresses, for its Wireshark page",
+    );
+  } finally {
+    await rm(out, { recursive: true, force: true });
+  }
+});
+
+test('a build passes the first address to seanchai wireshark-plugin, and refuses a value that is no list of addresses', async () => {
+  const directory = await mkdtemp(path.join(tmpdir(), 'seanchai-explorer-'));
+  try {
+    const pin = JSON.parse(await readFile(path.join(root, 'seanchai-release.json'), 'utf8'));
+    const index = JSON.parse(await readFile(path.join(fixture, 'index.json'), 'utf8'));
+    const pinned = path.join(directory, 'pinned');
+    await cp(fixture, pinned, { recursive: true });
+    await writeFile(
+      path.join(pinned, 'index.json'),
+      JSON.stringify({ ...index, seanchai_version: pin.seanchai, corpus_version: pin['seanchai-corpus'] }),
+    );
+    const env = await pinnedStandIn(path.join(directory, 'one'), pinned);
+    const result = run({ ...env, SEANCHAI_EXPLORER_URLS: ALIASES, SEANCHAI_UNLINKED: '' });
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stderr, /seanchai wireshark-plugin -o \S+ --explorer http:\/\/abcdef:9001\/seanchai\/\n/);
+    const plain = run({ ...env, SEANCHAI_EXPLORER_URLS: '', SEANCHAI_UNLINKED: '1' });
+    assert.equal(plain.status, 0, plain.stderr);
+    assert.match(
+      plain.stderr,
+      /seanchai wireshark-plugin -o \S+\n/,
+      "none asked for, seanchai's default, unlinked too",
+    );
+    assert.equal(markedLine(await readFile(plugin, 'utf8')), markedLine(await readFile(standIn, 'utf8')));
+    for (const [value, said] of [
+      ['ftp://host/', /SEANCHAI_EXPLORER_URLS "ftp:\/\/host\/" cannot be the site's addresses: no http or https URL/],
+      ['["https://a.example/", "https://b.example/?x"]', /a query or a fragment.* in "https:\/\/b\.example\/\?x"/],
+      ['https://a.example/ https://b.example/', /list them as a JSON array/],
+      ['[]', /neither a JSON array of URLs/],
+    ]) {
+      const refused = run({ SEANCHAI_EXPORT: fixture, SEANCHAI_PLUGIN: standIn, SEANCHAI_EXPLORER_URLS: value });
+      assert.notEqual(refused.status, 0, value);
+      assert.match(refused.stderr, said, value);
+    }
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+    prepare(fixture);
+  }
+});
+
+test("the unlinked check lets the public site stand on the plugin's one marked line, and nowhere else", async () => {
+  const dist = await mkdtemp(path.join(tmpdir(), 'seanchai-unlinked-'));
+  const check = () =>
+    spawnSync('node', ['scripts/check-unlinked.mjs', '--always', dist], { cwd: root, encoding: 'utf8' });
+  try {
+    const text = await readFile(standIn, 'utf8');
+    await mkdir(path.join(dist, 'plugin'), { recursive: true });
+    await mkdir(path.join(dist, 'assets'), { recursive: true });
+    await writeFile(path.join(dist, 'assets/main.js'), 'console.log("site")\n');
+    await writeFile(path.join(dist, 'plugin/seanchai_diameter.lua'), text);
+    assert.match(text, /^local EXPLORER = "https:\/\/sliva0\.github\.io\/seanchai-explorer\/" -- seanchai:explorer$/m);
+    assert.equal(check().status, 0, check().stderr);
+    await writeFile(path.join(dist, 'plugin/seanchai_diameter.lua'), `${text}-- see https://sliva0.github.io/x\n`);
+    assert.match(check().stderr, /plugin\/seanchai_diameter\.lua: github\.io/, 'another line of the plugin');
+    const line = text.match(/^local EXPLORER = .*$/m)[0];
+    await writeFile(path.join(dist, 'plugin/seanchai_diameter.lua'), text.replace(line, `${line}\n${line}`));
+    assert.notEqual(check().status, 0, 'a second marked line');
+    await writeFile(path.join(dist, 'plugin/seanchai_diameter.lua'), text);
+    await writeFile(
+      path.join(dist, 'assets/main.js'),
+      'const own = ["https://sliva0.github.io/seanchai-explorer/"];\n',
+    );
+    assert.match(check().stderr, /assets\/main\.js: github\.io/, 'a chunk spelling it');
+  } finally {
+    await rm(dist, { recursive: true, force: true });
   }
 });
