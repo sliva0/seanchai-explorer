@@ -397,6 +397,8 @@ export interface Document {
  *   `Command-Section`, `Request-Section` or `Within`) and `Versions`.
  *   `interpreted` is true only here: a person read the block in the
  *   clause's prose, and no document prints it as structure.
+ *   `quoted_from_pdf` is true for a hand transcription's block, its quotes
+ *   held to the text of the PDF the document was copied from.
  *
  * `commands` marks where its lines name a command.
  */
@@ -421,6 +423,7 @@ export interface Block {
   line: number;
   name?: string | null;
   page: number | null;
+  quoted_from_pdf?: boolean;
   readings?: ConstraintReading[];
   request_target?: Target | null;
   reservations?: Reservation[];
@@ -539,7 +542,8 @@ export interface ConstraintQuote {
   text: string;
 }
 /**
- * A rule of an Interpreted Constraints block at `line`, by `kind`, as
+ * A rule of an Interpreted Constraints block at `line`, a rule wrapped
+ * over several lines at its first, by `kind`, as
  * the dictionary's `Rule`: `length` has `unit`, `low` and `high`; `range`
  * `low` and `high`; `exclude` `values`; `encoding` `codec`, and an
  * `element`'s `document`, `clause` and `element`, with `element_entry`,

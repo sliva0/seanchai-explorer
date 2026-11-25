@@ -154,16 +154,16 @@ carries `table`, which the pane's readers find the caption by.
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
 `Command` with `Application-ID`, `Command-Section` and `Request-Section`) and `Versions`,
-which an RFC's block has not and nothing reads,
+which an RFC's block has not and nothing reads, `quoted_from_pdf`, true for a hand
+transcription's block, which nothing reads either, its `;; interpreted` note saying so,
 `request_target`, where the request its rules read is printed, and `readings`, each `quotes`
 and `rules` by line. `src/constraints.ts` reads them: which hold where a name is read
 (unscoped ones always, a `Within` one as a member of that grouped AVP, a `Command` one in
 that command's Message block or Information Elements table, at its `Command-Section` where
 it names one, the place read saying which print it is by its section), a rule in words,
 and the lines a hide leaves out, of which the quotes and rules wrap at the pane's edge. A
-rule's `line` may be the last of those the formatter wrapped it onto, each indented eight
-spaces after a comma of its `in` list: `ruleLines` gives them all, from the line its kind
-opens, and `ruleLineText` the rule as one line, which the marks, the words' titles and the
+rule's `line` is the first of those the formatter wrapped it onto, each after it indented
+eight spaces after a comma of its `in` list: `ruleLines` gives them all, and `ruleLineText` the rule as one line, which the marks, the words' titles and the
 popup's printed rule read. `rulePieces` says a rule as `ruleWords` does with each `in`
 list a piece of its own, which `Folded` in `popup/constraints.tsx` shows the first few of,
 and the title words (`listWords`) cut after the first. A
@@ -179,13 +179,22 @@ AVP), `request` and `/` left as text the grammar scopes; marks every value or bi
 names (`namedValues`, a condition's, a `default`'s, a `bits` rule's) whose row the file holds
 (`namedValueRow` in `src/values.ts`) as that row's name, `valueRow` as a value table's has,
 inside its quotes where the line quotes it, an `Enumerated AVP` block's values read as rows
-(`enumeratedTables`) for it; links `; Command:` to the print `scopeMessage` finds, where the
+(`enumeratedTables`) for it, and one it has no row of, where its AVP's link (the block's
+`avp_target`, else `linkOf`, the file's first) names another document, as a link to that
+clause there by the value's name, `elsewhereOf` its AVP, which the router finds the row by
+(`valueRowAt`) and the pane by `heldPosition` once that document has loaded; links `; Command:` to the print `scopeMessage` finds, where the
 export gave no link or one to another print; and links `; Command-Section:` and
 `; Request-Section:`. `readersFor` gives the blocks on other AVPs whose rules read a name
 where it is read, `commandConstraints` those of a command its lines cannot show, on an AVP
 only its `* [ AVP ]` admits or `absent`, which the ¶ on that line and the command's popup
 list, those saying only `absent` (`onlyAbsent`) in one line where there are `ABSENT_GROUP`
-or more. `ruleKinds` there lists every
+or more. `constraintsHere` in `popup/constraints.tsx` adds the blocks of other documents: the
+document's own unscoped blocks on the AVP or else those of the document its link names, and
+within a grouped AVP another document defines (`withinOrigin`) the document's own there or
+else that document's, each once its popup has loaded it, as Seanchaí's constraints.md's
+"Precedence" says; a block on a command never reaches another document. `absentElsewhere`
+gives an AVP's popup the blocks saying it is never sent in commands other than where it is
+read, one line of links. `ruleKinds` there lists every
 kind the schema has, each as the text prints one and what it says, for `ruleWords` and the
 help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
 or `members` relation, is said as its line prints it, never refused. A `unique` rule is

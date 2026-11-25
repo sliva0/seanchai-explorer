@@ -125,7 +125,7 @@ function wrapped() {
   ];
   const rule = {
     kind: 'absent-if',
-    line: 5,
+    line: 3,
     conditions: [
       [
         { path: ['A'], values: ['X', 'Y', 'Z'] },
@@ -157,13 +157,11 @@ function wrapped() {
   };
 }
 
-test('a rule the formatter wrapped is read over all its lines, from its first, whichever the export names', () => {
+test('a rule the formatter wrapped is read over all its lines, from the first, which the export names', () => {
   const file = wrapped();
   const [rule, length] = file.blocks[0].readings[0].rules;
-  assert.deepEqual(ruleLines(file, rule), [3, 4, 5], 'the export names its last line');
-  assert.deepEqual(ruleLines(file, { ...rule, line: 3 }), [3, 4, 5], 'or its first');
+  assert.deepEqual(ruleLines(file, rule), [3, 4, 5]);
   assert.deepEqual(ruleLines(file, length), [6], 'a rule of one line');
-  assert.deepEqual(ruleLines(file, { kind: 'requires', line: 5 }), [5], 'a line its kind opens no rule above: alone');
   assert.equal(ruleLineText(file, rule), '    absent-if A in X, Y, Z and B = Q');
   const kinds = interpretedLines(file);
   assert.deepEqual(

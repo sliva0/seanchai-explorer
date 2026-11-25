@@ -129,7 +129,7 @@ test("an AVP's tables: its value tables and its Enumerated AVP block, in file or
     avpTables(doc, 'Feature-List').map(table => [table.kind, table.featureListId, table.application]),
     [['features', 1, 'Np']],
   );
-  assert.deepEqual(avpTables(await fresh('rfc7944'), 'DRMP'), [{ name: 'DRMP', section: '9.1', page: 12, line: 13 }]);
+  assert.deepEqual(avpTables(await fresh('rfc7944'), 'DRMP'), [{ name: 'DRMP', section: '9.1', page: 12, line: 21 }]);
   assert.deepEqual(avpTables(doc, 'Congestion-Location-Id'), []);
 });
 

@@ -28,7 +28,7 @@ import type { SourcePane } from './source-pane.tsx';
 import type { Document, Line, RawDocument } from './types.ts';
 import { valueRowAt, valueTables, valueTableTitle } from './values.ts';
 import type { ValueRow } from './values.ts';
-import { strip } from './text/document.ts';
+import { clickWords, strip } from './text/document.ts';
 
 export interface ViewServices {
   site: Site;
@@ -160,6 +160,10 @@ function tokenNode(
       paneless,
       fallbackPlace(token, lines, doc, prefer, commands, { ...names, section: line.section ?? undefined }),
     );
+  if (token.elsewhereOf && token.target) {
+    const summary = site.summary(token.target.document);
+    node.title = clickWords.valueElsewhere(token.elsewhereOf, summary ? site.label(summary) : token.target.document);
+  }
   if (token.avp || token.command || token.target || token.source) node.dataset.token = String(index);
   return node;
 }

@@ -89,6 +89,8 @@ export const clickWords = {
   sourceInNewTab: 'source in new tab',
   /** The place where it has no other name. */
   definition: 'definition',
+  /** On a value an interpreted rule names that another document defines: "Value of Monitoring-Type, row in TS 29.336". */
+  valueElsewhere: (avp: string, document: string) => `Value of ${avp}, row in ${document}`,
 };
 
 /** What the marks after a line say, in their tooltips. */

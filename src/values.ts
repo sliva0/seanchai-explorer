@@ -50,6 +50,8 @@ export interface ValueToken extends Token {
    * through the grouped AVPs it names.
    */
   constraintRef?: { root: 'request' | null; path: string[] };
+  /** On an Interpreted Constraints rule's line, a value of this AVP that another document defines, its `target` the row there. */
+  elsewhereOf?: string;
 }
 
 /** The value tables of a file. The first reading marks the rows' tokens, so a row links as any table row does. */

@@ -76,7 +76,7 @@ export const controlGroups: ControlGroup[] = [
       {
         keys: ['¶'],
         mark: 'constraint',
-        does: "Interpreted constraints apply to the AVP here: hover to preview the rules, or click it (or press Enter) to open them in the popup or inspector. On a command's * [ AVP ] line, they are on AVPs only that line admits, as one never sent in the command, and open in the command's popup.",
+        does: "Interpreted constraints apply to the AVP here: hover to preview the rules, or click it (or press Enter) to open them in the popup or inspector. On a command's * [ AVP ] line, they are on AVPs only that line admits, as one never sent in the command: the tooltip names the AVP of each, those of many never sent there in one line, and a click opens them in the command's popup.",
       },
     ],
   },

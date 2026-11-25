@@ -8,6 +8,7 @@ import type { SourcePosition } from './navigation.ts';
 import { avpRows, blockAt } from './blocks.ts';
 import type { AvpRow, DadFile } from './blocks.ts';
 import type { Document, Line, Target } from './types.ts';
+import { valueRowAt } from './values.ts';
 import type { ValueRow, ValueToken } from './values.ts';
 
 /**
@@ -406,4 +407,17 @@ export function linePosition(file: DadFile, line: number, name?: string | null):
   if (!member || !names(member.name)) return undefined;
   // On its block's page, the name's first mention there; with no page, the clause and the name.
   return block.page ? { ...at, name: member.name, exact: true, occurrence: true } : { ...at, name: member.name };
+}
+
+/**
+ * Where the source prints a place of another document once that document is loaded: a line known by its line alone,
+ * as `linePosition` reads it, or a value's row known by its clause and name, as an interpreted rule links a value that
+ * document defines. Nothing where neither says more than the clause.
+ */
+export function heldPosition(
+  file: DadFile,
+  { line, target }: Pick<Place, 'line' | 'target'>,
+): SourcePosition | undefined {
+  if (line !== undefined) return linePosition(file, line, target?.name);
+  return target?.name && target.section ? valueRowAt(file, target.section, target.name)?.position : undefined;
 }

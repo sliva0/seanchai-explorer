@@ -634,21 +634,17 @@ const CONTINUED = /^ {8}\S/;
 const textOf = (lines: Line[], index: number) => (lines[index]?.tokens ?? []).map(token => token.text).join('');
 
 /**
- * The lines a rule is printed on, first to last: its own, and those the formatter wrapped it onto, which the export's
- * `line` may be the last of. A line its kind does not start alone where the lines around it are no rule's.
+ * The lines a rule is printed on, first to last: its own, the export's `line`, and those the formatter wrapped it onto
+ * after it.
  */
-export function ruleLines({ lines }: Pick<DadFile, 'lines'>, rule: Pick<ConstraintRule, 'line' | 'kind'>): number[] {
-  const opens = (index: number) => textOf(lines, index).trimStart().startsWith(String(rule.kind));
-  let first = rule.line;
-  while (first > 0 && CONTINUED.test(textOf(lines, first))) first--;
-  if (!opens(first)) first = rule.line;
+export function ruleLines({ lines }: Pick<DadFile, 'lines'>, rule: Pick<ConstraintRule, 'line'>): number[] {
   let last = rule.line;
-  while (opens(first) && CONTINUED.test(textOf(lines, last + 1))) last++;
-  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+  while (CONTINUED.test(textOf(lines, last + 1))) last++;
+  return Array.from({ length: last - rule.line + 1 }, (_, index) => rule.line + index);
 }
 
 /** A rule as the file prints it, its wrapped lines joined into one, their indent left out. */
-export const ruleLineText = (file: DadFile, rule: Pick<ConstraintRule, 'line' | 'kind'>) =>
+export const ruleLineText = (file: DadFile, rule: Pick<ConstraintRule, 'line'>) =>
   ruleLines(file, rule)
     .map((line, index) => (index ? lineText(file, line).trim() : lineText(file, line)))
     .join(' ');
@@ -820,6 +816,20 @@ const firstTargets = perFile(({ lines }) => {
   return found;
 });
 
+/** The first link a file gives an AVP's name: where the document reading it says it is defined. */
+export const linkOf = (file: DadFile, name: string): Target | undefined => firstTargets(file).get(name);
+
+/**
+ * The grouped AVP a name is read within, where another document defines it: its link, whose document's blocks within
+ * it hold here too on the members this file has none of its own on (constraints.md, "Precedence").
+ */
+export function withinOrigin(file: DadFile, context: ReadContext): (Target & { name: string }) | undefined {
+  const own = (file as DadFile & { id?: string }).id;
+  const grouped = context.within;
+  const target = grouped ? linkOf(file, grouped) : undefined;
+  return grouped && target && own && target.document !== own ? { ...target, name: target.name ?? grouped } : undefined;
+}
+
 /** The link a rule's or block's member line gives a name: the member of that name in `block`'s rule, if it has one. */
 function memberTarget(file: DadFile, block: Block | undefined, name: string): Target | undefined {
   const member = block?.rule?.members.find(item => item.name === name);
@@ -985,14 +995,56 @@ function ruleWalk(file: DadFile, rule: ConstraintRule) {
   };
 }
 
-/** Marks the values a rule's lines name that the file gives its AVP's numbers or bits, in the order it prints them. */
-function markValues(file: DadFile, rule: ConstraintRule, own: string) {
+/**
+ * Marks `start` to `end` of a line as a link to a value's row in the document defining its AVP, `target` that AVP's
+ * clause there and the value's name, which the view finds the row by once that document has loaded: a plain token
+ * holding just that, split around it. Anything else is left as it is.
+ */
+function markLinkedValue(line: Line, start: number, end: number, target: Target, avp: string) {
+  let at = 0;
+  for (const [index, token] of (line.tokens as ValueToken[]).entries()) {
+    const stop = at + token.text.length;
+    if (start >= at && end <= stop) {
+      if (token.kind || token.correction || token.command || token.source || token.avp || token.target) return;
+      const parts: ValueToken[] = [
+        { text: token.text.slice(0, start - at) },
+        { text: token.text.slice(start - at, end - at), target, elsewhereOf: avp },
+        { text: token.text.slice(end - at) },
+      ];
+      line.tokens.splice(index, 1, ...parts.filter(part => part.text));
+      return;
+    }
+    at = stop;
+  }
+}
+
+/**
+ * Where a value of AVP `avp` a block's rule names is defined, where the file gives it no row: the clause of the
+ * document its AVP links to, the block's own `; AVP:` line's link or else the file's first, as TS 29.128's rules name
+ * TS 29.336's Monitoring-Type values and many documents RFC 6733's DIAMETER_SUCCESS. None where that is this file.
+ */
+function valueOrigin(file: DadFile, item: ConstraintBlock, avp: string, name: string): Target | undefined {
+  const own = (file as DadFile & { id?: string }).id;
+  const link = (avp === item.avp ? item.block.avp_target : undefined) ?? linkOf(file, avp);
+  if (!link?.section || !own || link.document === own) return undefined;
+  return { document: link.document, section: link.section, name };
+}
+
+/**
+ * Marks the values a rule's lines name, in the order it prints them: those the file gives its AVP's numbers or bits
+ * as their rows, and those it does not as links to their rows in the document defining the AVP.
+ */
+function markValues(file: DadFile, rule: ConstraintRule, item: ConstraintBlock) {
   const find = ruleWalk(file, rule);
-  for (const { avp, name, bit } of namedValues(rule, own)) {
+  for (const { avp, name, bit } of namedValues(rule, item.avp)) {
     const found = find((text, from) => printedValue(text, name, from));
     if (!found) continue;
     const row = namedValueRow(file, avp, name, bit);
     if (row) markValue(found.line, found.span[0], found.span[1], row);
+    else {
+      const origin = valueOrigin(file, item, avp, name);
+      if (origin) markLinkedValue(found.line, found.span[0], found.span[1], origin, avp);
+    }
   }
 }
 
@@ -1070,7 +1122,7 @@ export const markConstraints = perFile(file => {
             at += name.length + 1;
           });
         }
-        markValues(file, rule, item.avp);
+        markValues(file, rule, item);
       }
   }
   return true;

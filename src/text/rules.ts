@@ -297,8 +297,10 @@ export const constraintsSection = {
    * [limit] After the folded heading's count, what the blocks are: how many hold on the name itself and how many are on
    * other AVPs reading it, "2 on this AVP · 3 reading it", either left out where there are none.
    */
-  gist: (on: number, reading: number) =>
-    [on > 0 && `${on} on this AVP`, reading > 0 && `${reading} reading it`].filter(Boolean).join(' · '),
+  gist: (on: number, reading: number, absent = 0) =>
+    [on > 0 && `${on} on this AVP`, reading > 0 && `${reading} reading it`, absent > 0 && `${absent} never sent`]
+      .filter(Boolean)
+      .join(' · '),
   /** [limit] Its button opening the help at what they are, at the heading's right, and the button's tooltip. */
   about: 'What is this?',
   aboutTitle:
@@ -329,6 +331,16 @@ export const constraintsSection = {
     [`${absent} never sent`, other > 0 && `${other} other`].filter(Boolean).join(' · '),
   /** In a command's popup, the words before the AVPs never sent there, which follow as links: "never sent in CER: ". */
   absentBefore: (words: string) => `${words}: `,
+  /**
+   * In an AVP's popup, the words before the commands the document says it is never sent in, other than the one where it
+   * is read, which follow as links to those blocks: "never sent in: CER, CEA, DWR". The tooltip of each link.
+   */
+  absentIn: 'never sent in: ',
+  absentInTitle: (command: string, section: string) => `Never sent in ${command}: the block in ${section}`,
+  /** One of those commands where the line names it more than once, with the clause printing it or else the block's. */
+  absentInClause: (command: string, clause: string) => `${command} (${clause})`,
+  /** In a popup's Uses, before a line of an Interpreted Constraints block scoped to a command: "in CER". */
+  usedIn: (command: string) => `in ${command}`,
   /** [limit] A block's place's label, before its colon. */
   readIn: 'From',
   /** [limit] The place of the request a block's rules read, before its colon: the request's block. */

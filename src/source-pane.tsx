@@ -1,6 +1,6 @@
 import type { ComponentChildren } from 'preact';
 import { useLayoutEffect, useReducer, useRef, useState } from 'preact/hooks';
-import { linePosition } from './avp-places.ts';
+import { heldPosition } from './avp-places.ts';
 import type { Place } from './avp-places.ts';
 import {
   docSubject,
@@ -400,8 +400,9 @@ export function createSourcePane(site: Site, currentTheme: () => string, onChang
         return;
       }
       const target = place.target!;
-      // A line of another document, known only by its line until it loaded: the row or member it is, on its page.
-      const precise = place.line === undefined ? undefined : linePosition(held, place.line, target.name);
+      // A line of another document, known only by its line until it loaded, the row or member it is, on its page; or a
+      // value's row there, known by its clause and name, as a rule's value another document defines links.
+      const precise = heldPosition(held, place);
       const clause = held.sections.find(section => section.section === target.section) ?? held.sections[0];
       if (!precise && !clause) return;
       setVisible(true);

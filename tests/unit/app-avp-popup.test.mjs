@@ -118,7 +118,7 @@ test("a name's popup leaves out what it has nothing for, shows an Enumerated AVP
       );
       assert.match(
         popup.querySelector('.place-table .view-action').getAttribute('href'),
-        /^#rfc7944\/9\.1\?.*&line=13$/,
+        /^#rfc7944\/9\.1\?.*&line=21$/,
       );
       popup.querySelector('.place-table .pane-action').click();
       await settle();
@@ -153,7 +153,7 @@ test('a name defined in another document has its identity, flags and tables from
       tableRows(popup).map(cells => cells.slice(0, 3)),
       [['Enumerated:', 'RFC 7944 · 9.1', 'Jump to']],
     );
-    assert.match(popup.querySelector('.place-table .view-action').getAttribute('href'), /^#rfc7944\/9\.1\?line=13$/);
+    assert.match(popup.querySelector('.place-table .view-action').getAttribute('href'), /^#rfc7944\/9\.1\?line=21$/);
   } finally {
     await page.close();
   }

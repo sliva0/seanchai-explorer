@@ -129,6 +129,8 @@ const STA_DEA = 148;
 const STA_DEA_WILDCARD = 197;
 const SWA_DEA_WILDCARD = 73;
 const S6B_BLOCK = 5355;
+// STa's STA (5.2.2.2.1), printing Auth-Session-State, which clause 5.2.4 says is never sent in STa's other commands.
+const STA_AUTH_SESSION_STATE = 213;
 
 test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the clauses a block names", async t => {
   const page = await boot({ hash: '#29273-j20/5.2.2.1.2' });
@@ -184,6 +186,40 @@ test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the 
       );
       await closePopup(page);
     });
+
+    await t.test(
+      "an AVP's popup says in one line the commands it is never sent in, each named once or with its clause, and its uses in them",
+      async () => {
+        const popup = await popupOf(page, nameOn(document, 'Auth-Session-State', STA_AUTH_SESSION_STATE));
+        const links = [...popup.querySelectorAll('.popup-constraints .constraint-command')];
+        assert.equal(links.length, 8, 'the first eight, then the rest on a click');
+        const more = popup.querySelector('.popup-constraints .constraint-more');
+        present(more);
+        assert.match(more.textContent, /^and \d+ more$/);
+        assert.equal(
+          links[0].textContent,
+          'DER (5.2.2.1.1)',
+          "DER is never sent in three applications: its print's clause",
+        );
+        assert.equal(links[0].getAttribute('href'), '#29273-j20/5.2.4?line=3115');
+        assert.equal(links[0].title, 'Never sent in DER: the block in 5.2.4');
+        assert.match(
+          popup.querySelector('.popup-constraints .constraint-words').textContent,
+          /^never sent in: DER \(5\.2\.2\.1\.1\), DEA \(5\.2\.2\.1\.2\), .* and \d+ more$/,
+        );
+        assert.match(popup.querySelector('.constraints-title').textContent, /\d+ never sent$/);
+        click(page, more);
+        await settle();
+        assert.ok(popup.querySelectorAll('.popup-constraints .constraint-command').length > 20);
+        assert.ok(
+          texts(popup, '.popup-uses .usage-link').some(text =>
+            text.startsWith('5.2.4 · in DER · ; AVP: Auth-Session-State'),
+          ),
+          texts(popup, '.popup-uses .usage-link').join('\n'),
+        );
+        await closePopup(page);
+      },
+    );
 
     await t.test('; Command-Section: and ; Request-Section: of a block link to their clauses', () => {
       const link = (line, section) =>

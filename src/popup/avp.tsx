@@ -24,13 +24,13 @@ import type { Place } from '../avp-places.ts';
 import { avpRows as rowsOf, blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import type { Site } from '../data.ts';
-import { constraintBlocks, referenceText, requestMessage, scopeMessage } from '../constraints.ts';
+import { commandShort, constraintBlocks, referenceText, requestMessage, scopeMessage } from '../constraints.ts';
 import type { ConstraintRef } from '../constraints.ts';
 import { elementPlace, memberPlaces } from '../element-places.ts';
 import { blockRowKey, elementText, memberElements, sameElementRow, tablesFor, tablesOf } from '../elements.ts';
 import type { Block } from '../types.ts';
 import { valueTableTitle } from '../values.ts';
-import { ConstraintFacts } from './constraints.tsx';
+import { ConstraintFacts, groupedOriginOf } from './constraints.tsx';
 import type { PopupProps, PopupRequest } from './root.tsx';
 import {
   Counted,
@@ -45,6 +45,7 @@ import {
 } from './shared.tsx';
 import { avpPopup as words, flagText, popupShared } from '../text/popup.ts';
 import { tableName } from '../text/terms.ts';
+import { constraintsSection } from '../text/rules.ts';
 
 /** An identity in a line: "Code 1405 · Vendor-ID 10415 · Unsigned32". IETF's vendor 0 is no vendor to name. */
 const identityText = ({ code, vendor, type }: AvpIdentity) =>
@@ -608,7 +609,14 @@ export function AvpPopup(props: PopupProps) {
         .trim();
       // The rule a member line is in, as a command is abbreviated: a bare `[ TMGI ]` says nothing of which.
       const rule = ruleAt(opened.file, Number(line.dataset.line));
-      const inRule = rule && rule.line !== Number(line.dataset.line) ? `${rule.short} · ` : '';
+      // A line of an Interpreted Constraints block scoped to a command, as RFC 6733's table 10.1 has one per command.
+      const scoped = constraintBlocks(doc).find(item => item.block === blockAt(opened.file, Number(line.dataset.line)));
+      const inRule =
+        rule && rule.line !== Number(line.dataset.line)
+          ? `${rule.short} · `
+          : scoped?.scope.command
+            ? `${constraintsSection.usedIn(commandShort(doc, scoped.scope.command))} · `
+            : '';
       const label = `${line.dataset.section ?? ''} · ${inRule}${text}`;
       return { text: label, title: label };
     });
@@ -667,6 +675,9 @@ export function AvpPopup(props: PopupProps) {
     )
     .filter(row => row !== undefined);
   const use = useAt(request.file, Number(lineOf(here).dataset.line), name, request.token);
+  // The document defining the grouped AVP the name is read within, whose blocks within it may hold here too.
+  const groupedAway = groupedOriginOf(request, use);
+  useLayoutEffect(() => demand(groupedAway), [groupedAway]);
   const { rows: definitionRows, rule } = definitionFacts(site, request, use, defining);
   const key = definitionRows.length ? keyEntries(definitionRows.map(({ row }) => row)) : [];
   const keyed = definitionRows.find(item => flagTable(item.row).length && !item.flagsShown) ?? definitionRows[0];

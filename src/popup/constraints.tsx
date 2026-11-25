@@ -32,6 +32,7 @@ import {
   textOnly,
   unscoped,
   elementRowContext,
+  withinOrigin,
 } from '../constraints.ts';
 import type { ConstraintBlock, ReadContext, RuleWhere, WordPiece } from '../constraints.ts';
 import { docName, newestOf } from '../data.ts';
@@ -57,8 +58,9 @@ function useContext(file: DadFile, use: Use | undefined): ReadContext {
 
 /**
  * The Interpreted Constraints that hold for a name where it is read, with the document they are in: the corrected
- * text's, which a raw view reads too, for its place; and wherever it is read, the document's own, or else those of the
- * document its link names, once loaded, as the corpus takes an AVP's from its origin.
+ * text's, which a raw view reads too, for its place; wherever it is read, the document's own, or else those of the
+ * document its link names, once loaded, as the corpus takes an AVP's from its origin; and within a grouped AVP another
+ * document defines, the document's own there, or else that document's, once loaded (constraints.md, "Precedence").
  */
 export function constraintsHere(
   site: Site,
@@ -67,11 +69,30 @@ export function constraintsHere(
 ): { doc: Document; item: ConstraintBlock }[] {
   const { doc, token } = request;
   const name = token.avp!;
-  const found = constraintsFor(doc, name, useContext(request.file, use)).map(item => ({ doc, item }));
+  const context = useContext(request.file, use);
+  const found = constraintsFor(doc, name, context).map(item => ({ doc, item }));
+  const listed = [...found];
   const away = token.target && token.target.document !== doc.id ? site.held(token.target.document) : undefined;
-  if (!away || found.some(({ item }) => unscoped(item))) return found;
-  const origin = constraintsFor(away, token.target!.name ?? name, {}).filter(unscoped);
-  return [...found, ...origin.map(item => ({ doc: away, item }))];
+  if (away && !found.some(({ item }) => unscoped(item)))
+    listed.push(
+      ...constraintsFor(away, token.target!.name ?? name, {})
+        .filter(unscoped)
+        .map(item => ({ doc: away, item })),
+    );
+  const grouped = withinOrigin(doc, context);
+  const origin = grouped && site.held(grouped.document);
+  if (origin && !found.some(({ item }) => !!item.scope.within))
+    listed.push(
+      ...constraintsFor(origin, name, { within: grouped.name })
+        .filter(item => !!item.scope.within)
+        .map(item => ({ doc: origin, item })),
+    );
+  return listed;
+}
+
+/** The document defining the grouped AVP a name is read within, where it is another: what its popup loads. */
+export function groupedOriginOf(request: PopupRequest, use: Use | undefined): string | undefined {
+  return withinOrigin(request.doc, useContext(request.file, use))?.document;
 }
 
 /** Whether two blocks hold in the same place: the same grouped AVP, or the same print of the same command. */
@@ -110,18 +131,21 @@ function ScopeLine({
   item: { block, scope, avp },
   on,
   bare,
+  label,
 }: {
   site: Site;
   doc: Document;
   item: ConstraintBlock;
   on?: boolean;
   bare?: boolean;
+  /** The document the block is in, where it is another than the popup's: the one defining the AVP. */
+  label?: string;
 }) {
   const short = (name: string) => shortName(site, doc, name);
   const words = bare ? [avp] : [on && constraintsSection.ruleOn(avp), scopeWords({ scope }, short)];
   return (
     <div class="constraint-scope">
-      {[...words, block.section].filter(Boolean).join(' · ')}
+      {[...words, label, block.section].filter(Boolean).join(' · ')}
       {block.fields.Table && (
         <>
           {' · '}
@@ -520,6 +544,58 @@ function AbsentGroup({
   );
 }
 
+/**
+ * The blocks of the document saying only that a name is never sent in a command, but for those holding where it is
+ * read, `found`: RFC 6733's table 10.1 says so of most of its AVPs in each of its own commands.
+ */
+export function absentElsewhere(request: Pick<PopupRequest, 'doc' | 'token'>, found: { item: ConstraintBlock }[]) {
+  const held = new Set(found.map(({ item }) => item.block));
+  return constraintBlocks(request.doc).filter(
+    item => item.avp === request.token.avp && !!item.scope.command && onlyAbsent(item) && !held.has(item.block),
+  );
+}
+
+/**
+ * Those blocks as one line: "never sent in: CER, CEA, DWR", each command a link to its block, folded after a few; a
+ * command named more than once with its clause, "DEA (5.2.4), DEA (7.2.4)", as TS 29.273 says so of each application.
+ */
+function AbsentIn({ site, doc, items }: { site: Site; doc: Document; items: ConstraintBlock[] }) {
+  const short = (item: ConstraintBlock) => shortName(site, doc, item.scope.command!);
+  const counts = new Map<string, number>();
+  for (const item of items) counts.set(short(item), (counts.get(short(item)) ?? 0) + 1);
+  return (
+    <div class="constraint-group constraint-absent">
+      <ul class="constraint-readings">
+        <li class="constraint-reading">
+          <span class="constraint-rule">
+            <span class="constraint-words">
+              {constraintsSection.absentIn}
+              <Folded
+                shown={ABSENT_SHOWN}
+                items={items.map(item => {
+                  const { block, scope } = item;
+                  const command = short(item);
+                  const clause = scope.commandSection ?? block.section;
+                  return (
+                    <a
+                      key={block.line}
+                      class="constraint-command"
+                      href={routeFor({ document: doc.id, section: block.section }, { line: block.line })}
+                      title={constraintsSection.absentInTitle(command, block.section)}
+                    >
+                      {counts.get(command)! > 1 ? constraintsSection.absentInClause(command, clause) : command}
+                    </a>
+                  );
+                })}
+              />
+            </span>
+          </span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
 /** A block as a popup lists it, with the document it is in; `on` a block on another AVP, `bare` in its command's popup. */
 interface Listed {
   doc: Document;
@@ -608,7 +684,7 @@ function ConstraintGroup({
     .join(' · ');
   return (
     <div class={`constraint-group${on ? ' constraint-reader' : ''}`}>
-      {!here && <ScopeLine site={site} doc={doc} item={item} on={on} bare={bare} />}
+      {!here && <ScopeLine site={site} doc={doc} item={item} on={on} bare={bare} label={label} />}
       <ul class="constraint-readings">
         {(block.readings ?? []).map((reading, index) => {
           const only = textOnly(reading.rules);
@@ -756,10 +832,15 @@ export function ConstraintFacts({
     .filter(item => !listed.has(item) && !opened(request.doc, item))
     .map(item => ({ doc: request.doc, item, on: true }));
   const all = [...found, ...readers];
-  if (!all.length) return null;
+  const absent = absentElsewhere(request, found);
+  if (!all.length && !absent.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
   return (
-    <ConstraintSection count={all.length} gist={constraintsSection.gist(found.length, readers.length)}>
+    <ConstraintSection
+      count={all.length + absent.length}
+      gist={constraintsSection.gist(found.length, readers.length, absent.length)}
+    >
+      {absent.length > 0 && <AbsentIn site={site} doc={request.doc} items={absent} />}
       {all.map(item => (
         <ConstraintGroup
           key={`${item.doc.id}:${item.item.block.line}`}

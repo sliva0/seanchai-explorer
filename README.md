@@ -63,7 +63,7 @@ interpreted constraint broken a note too, under `seanchai.interpreted`.
 |---|---|
 | `C`, `OC`, `OM` | a member's category in its command's Information Elements table that its brackets cannot say: C conditional, TS 32.299's OC and OM conditional or mandatory where the operator provisions it; its title names the row stating it, `C, conditional, in TS 29.328 table 6.1.3.1: Service Indication (See 7.4)`, and a click or Enter opens the popup or inspector at that row's line, flashing |
 | `M`, `O`, `C`, `-` in a warning's colour | a category its brackets contradict, as an M on `[ ]`, or a member the ABNF holds, not struck out, that the table marks `-`, not used; its title says how, and a click opens the rows stating it |
-| `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them; on a command's `* [ AVP ]` line, those on AVPs only that line admits, each named, which open in the command's popup |
+| `¶` | interpreted constraints hold for the AVP here: its title lists them, and a click or Enter opens them; on a command's `* [ AVP ]` line, those on AVPs only that line admits, as one never sent in the command, its title naming the AVP of each, those of many never sent there in one line, which open in the command's popup |
 
 The text is what is being read and the pane only beside it, so a plain click leaves the
 text where it is. "Click goes to" is kept in the browser for every document. In a window
@@ -204,7 +204,10 @@ interpreted-constraint blocks it is written in, `(TS29.272.dadx#imei-digits)`: u
 correction's `;; corrected`, `;; supplied`, `;; inserted` or `;; deleted`, which opens its
 record under the line, what it cites on a line of its own, then why, nothing else printing
 it, its record would say only the clause and the quotes the block prints right under it.
-The raw text has none.
+A hand transcription's block, ETSI TS 183 017's, whose quotes are held to the PDF the
+document was copied from, says so at the note's end, `, quoted from the PDF`, and nowhere
+else; its quotes' `Source` opens that PDF where the build holds it, and where it does not
+there is no `Source`. The raw text has none.
 "Interpreted" in a document toolbar hides them and shows them again, kept in the browser
 for every document; a move to a line among them shows them for that page. A block holds
 for its AVP wherever the document reads it, within a grouped AVP (`; Within:`), or in a
@@ -261,7 +264,12 @@ member of the request, read by an interpreted rule on EPS-User-State`, with `Mem
 to that line. A value or bit a rule names is the name of its row where the document lists it, in
 a value table or its AVP's `Enumerated AVP` block: `3GPP_PS_DATA_OFF_CHANGE`, or in its quotes
 `"H(E)NB_LOCAL_IP_ADDRESS_CHANGE"`, a link, a popup and a place in the source as the row's own
-name is; one another document defines, as RFC 6733's `DIAMETER_SUCCESS`, is text. A name of
+name is; one another document defines, as TS 29.336's Monitoring-Type values in TS 29.128's
+rules or RFC 6733's `DIAMETER_SUCCESS` in most documents', is a link to its row there, by the
+clause the AVP's own link names and the value's name, its title naming that document, "Value
+of Monitoring-Type, row in TS 29.336": a click sends the pane to that row, an alt-click the
+text too, loading that document and kept on the jump list as any move is; where the AVP is
+this document's and no row names the value, it is text. A name of
 digits only, which the line quotes, `"16"` (TS 29.272's Report-Amount, its value 4), reads
 “16” in words, where a number reads 16. A rule reading the request has its `needs request` tag, whose title says the Wireshark plugin
 checks it only when the capture holds the request, and its block offers `Request`, the request's
@@ -283,7 +291,12 @@ table 10.1 does of dozens in each of its own commands, they are one line of the 
 "never sent in CER: Acct-Interim-Interval, Accounting-Realtime-Required, …", and one of the
 popup, its AVPs links to their definitions, the first eight shown and `and 19 more` the
 rest, with `From` the first block of each clause they are in; the folded heading counts
-them, `Interpreted 27  27 never sent`. A block of a document with one edition, an RFC's,
+them, `Interpreted 27  27 never sent`. An AVP's own popup says in one line the commands
+blocks of its document say it is never sent in, other than where it is read, `never sent in:
+CER, CEA, DPR, DPA, DWR, DWA, RAA, ASR and 3 more`, each a link to its block, a command
+named twice with its print's clause, `DER (5.2.2.1.1)`, and the heading counts them,
+`11 never sent`; its Uses name the command of each such block, `10.1 · in CER · ; AVP:
+Acct-Interim-Interval`. A block of a document with one edition, an RFC's,
 names no `; Versions:`, and nothing reads it. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
 rule's names link to their AVPs as the text's do. Under an element rule, what its layout
@@ -295,7 +308,13 @@ documents, editions and clauses its layout was read from, each a link where the 
 holds it; the ¶'s title says only how far. Each block offers `From`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
-its origin. The help says what each kind of rule says, as the text prints one, what
+its origin, its scope line and `From` naming that document, `wherever used · TS 29.061 ·
+16.4.7.2` in TS 29.212's 3GPP-User-Location-Info; and a member read within a grouped AVP
+another document defines shows that document's blocks within it, once loaded, where this
+one has none of its own there, as RFC 6733's on Vendor-Specific-Application-Id's
+Auth-Application-Id in TS 29.154's rule reading it (Seanchaí's constraints.md, "Precedence").
+The ¶ marks are of the document's own blocks only, as its lines are drawn before any other
+document is loaded. The help says what each kind of rule says, as the text prints one, what
 each encoding's codec is, and above them, in two short paragraphs, what they are and how far
 to trust them, and how the site shows them and the Wireshark plugin checks them, which the
 section's "What is this?" opens it at;
@@ -455,7 +474,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "21f276e25e05c97a1fd11e64c65cf28420899783"
+  "commit": "10f070f505cba9ad77dcc8b8a2f2fc404e5331d8"
 }
 ```
 
