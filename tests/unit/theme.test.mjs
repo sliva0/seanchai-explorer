@@ -137,6 +137,17 @@ for (const theme of ['light', 'dark']) {
     check(3, '--ui-border-strong', '--ui-bg', '--ui-surface', '--ui-chrome');
     check(3, '--warning', '--warning-bg');
     check(3, '--target-edge', '--target-bg');
+    // Interpreted material in a popup (the raised panel) or the inspector (the pane, on the page's own or the surface):
+    // its rule on them, at 3:1, and its text on its tint over them, at 4.5:1.
+    const panels = ['--ui-bg', '--ui-surface', '--ui-raised'];
+    check(3, '--interpreted-rule', ...panels);
+    for (const surface of panels) {
+      const tinted = over(tokens['--interpreted-tint'], over(tokens[surface], tokens['--ui-bg']));
+      for (const name of ['--ui-fg', '--ui-muted', '--ui-link', '--interpreted']) {
+        const value = contrast(tokens[name], tinted);
+        if (value < 4.5) failures.push(`${name} on --interpreted-tint on ${surface}: ${value.toFixed(2)} < 4.5`);
+      }
+    }
     for (const name of ['--find-bg', '--find-current-bg']) {
       const { paper, text } = pdfPage[theme];
       const value = contrast(over(tokens[name], text), over(tokens[name], paper));

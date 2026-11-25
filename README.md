@@ -191,7 +191,8 @@ prose, beside any category. Its title says where the rules were read from, "From
 description:", "From this member's description in table 5.2.2.2.1/1" or "From the prose of
 section 7.3.102", then each in words, a text-only one as "cannot be checked on a single
 message" and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
-pane is one, at them, flashing. The popup and the inspector list them, each rule in words
+pane is one, at them, flashing. The popup and the inspector list them in a section of their
+own, on a faint tint of the ¶'s hue behind a firmer rule than the text's, each rule in words
 and, under it, as the text prints it ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
 "present only if DSR-Flags has bit … set", "defaults to FALSE when absent" for a `default`,
 "at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bits set except 9"

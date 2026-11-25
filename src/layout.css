@@ -1443,7 +1443,11 @@ mark {
 .fact-note {
   color: var(--ui-muted);
 }
-/* What interpreted constraints hold where the name is read: a thin rule, as their blocks have in the text. It gives way and scrolls where the popup is full. */
+/*
+ * What interpreted constraints hold where the name is read: a rule left of it, as their blocks have in the text, but
+ * firmer and on a faint tint of their hue, for a reader to tell it at a glance from what the tables and ABNF say. It
+ * gives way and scrolls where the popup is full.
+ */
 .popup-constraints {
   display: flex;
   flex: 0 1 auto;
@@ -1453,8 +1457,10 @@ mark {
   overflow: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  padding-left: var(--space-2);
-  border-left: 2px solid var(--interpreted-edge);
+  padding: var(--space-1) var(--space-2);
+  border-left: 3px solid var(--interpreted-rule);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  background: var(--interpreted-tint);
 }
 /* A popup listing them stands taller: its list, the one part giving way, scrolls in what the facts above it leave, and
    beside an AVP's table rows that was a block at a time where a name is read by a score of rules (TS 29.212's
