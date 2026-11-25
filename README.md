@@ -195,8 +195,10 @@ description:", "From this member's description in table 5.2.2.2.1/1" or "From th
 section 7.3.102", then each in words, a text-only one as "cannot be checked on a single
 message" and its quote; a click on it, or Enter, opens the AVP's popup, or the inspector where the
 pane is one, at them, flashing. The popup and the inspector list them in a section of their
-own, on a faint tint of the ¶'s hue behind a firmer rule than the text's, each rule in words
-and, under it, as the text prints it ("3 octets", "0 to 255", "TBCD-encoded E.164 number",
+own, on a faint tint of the ¶'s hue behind a firmer rule than the text's, each rule once, in
+words, as the text prints it its title, and under them too where `As written` beside the
+heading asks, kept in the browser; a rule the words cannot say, of a kind or shape the site
+does not know, is shown as printed alone ("3 octets", "0 to 255", "always 3", "TBCD-encoded E.164 number",
 "present only if DSR-Flags has bit … set", "defaults to FALSE when absent" for a `default`,
 "at most one of bits 3, 6 set", "bit 1 set", "bits 4, 5, 6, 7 clear" or "no bits set except 9"
 for `bits`, of an unsigned integer or an OctetString's octets read as one big-endian
@@ -204,7 +206,10 @@ number, "at least one of A, B present" or "no members present except IMEI, Softw
 for `members`, "unique across APN-Configuration instances" for `unique` within one,
 "is 1 if Monitoring-Type is 1" for `values`, "holds the same value as the request's User-Name"
 for `equals`, "never sent in STR" for `absent`), with its quote, and a text-only one, a rule
-no checker can run on one message, as "Cannot be checked on a single message" and its quote. A rule's conditions read as the
+no checker can run on one message, as a `not checked` tag and its quote. What the
+Wireshark plugin makes of a rule is a terse tag at most, its title saying more: `partly
+checked` or `not checked` for an element rule it checks so, `needs request` for one reading
+the request; the help and the Wireshark page say how checking works. A rule's conditions read as the
 grammar joins them, `and` binding tighter than `or`, `not` negating one: "present if
 Result-Code is DIAMETER_SUCCESS and TWAN-Connection-Mode has bit “MC-MODE” set", and a
 comma before `or` where an alternative joins several. A name may be a path through grouped
@@ -220,8 +225,8 @@ a value table or its AVP's `Enumerated AVP` block: `3GPP_PS_DATA_OFF_CHANGE`, or
 `"H(E)NB_LOCAL_IP_ADDRESS_CHANGE"`, a link, a popup and a place in the source as the row's own
 name is; one another document defines, as RFC 6733's `DIAMETER_SUCCESS`, is text. A name of
 digits only, which the line quotes, `"16"` (TS 29.272's Report-Amount, its value 4), reads
-“16” in words, where a number reads 16. A rule reading the request says under it that the Wireshark plugin checks it
-only when the capture holds the request, and its block offers `Request`, the request's
+“16” in words, where a number reads 16. A rule reading the request has its `needs request` tag, whose title says the Wireshark plugin
+checks it only when the capture holds the request, and its block offers `Request`, the request's
 block, where `request_target` and `; Request-Section:` put it. A member of the request, or
 of a path's grouped AVP, lists in its popup the rules on other AVPs that read it there,
 `rule on EPS-User-State · in IDA`. A block scoped to a command holds in the print its
@@ -236,11 +241,13 @@ command's `* [ AVP ]` line, its title naming the AVP, "Auth-Session-State: never
 DEA", and a click opens the command's popup, which lists, as its inspector does, the blocks
 its lines cannot show, those on such an AVP and every `absent` rule of the command. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
-rule's names link to their AVPs as the text's do. Under an element rule, what the corpus's
-element registry says of it: what the element is, what the Wireshark plugin checks of it
-and how far ("full layout", "partly", "length only", or not checked), what that leaves
-unchecked and why, and the documents, editions and clauses its layout was read from, each
-a link where the corpus holds it; the ¶'s title says only how far. Each block offers `From`, its clause
+rule's names link to their AVPs as the text's do. Under an element rule, what its layout
+means for the value where that is short, "1 to 8 octets", "an integer 0 to 255"; only the
+inspector says, under a closed `Checking`, what the corpus's element registry says of it:
+what the element is, what the Wireshark plugin checks of it and how far ("full layout",
+"partly", "length only", or not checked), what that leaves unchecked and why, and the
+documents, editions and clauses its layout was read from, each a link where the corpus
+holds it; the ¶'s title says only how far. Each block offers `From`, its clause
 in the publisher's copy and `Jump to` the block. An AVP read in a document with no block on it wherever read
 shows those of the document its link names, once loaded, as the corpus takes an AVP's from
 its origin. The help says what each kind of rule says, as the text prints one, what

@@ -591,7 +591,7 @@ export function AvpPopup(props: PopupProps) {
         </div>
       )}
       {use && <UseContext site={site} document={doc.id} use={use} elements={elements.notes} />}
-      <ConstraintFacts site={site} pane={pane} request={request} use={use} />
+      <ConstraintFacts site={site} pane={pane} request={request} use={use} inline={props.inline} />
       {definitionRows.map((item, index) =>
         use?.kind === 'row' && item.row === use.row ? (
           <RowLine key={index} row={item.row} keyButton={item === keyed ? keyButton : undefined} />

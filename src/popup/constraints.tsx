@@ -1,4 +1,5 @@
 import { Fragment } from 'preact';
+import { useState } from 'preact/hooks';
 import type { ComponentChild } from 'preact';
 import type { Use } from '../avp-context.ts';
 import type { Place } from '../avp-places.ts';
@@ -32,6 +33,7 @@ import { docName, newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
 import type { ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
+import { readStored, writeStored } from '../storage.ts';
 import type { PopupRequest } from './root.tsx';
 import { Counted, placeRows, TableLink } from './shared.tsx';
 import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
@@ -197,7 +199,7 @@ function RuleText({
  * A rule as the text prints it, its kind the keyword, as the block's line has it, less its indent: `requires DSR-Flags
  * bit "Trace Data Withdrawal"`. A name the line links wraps whole, never at its hyphens, as in the document view.
  */
-function Printed({ doc, line }: { doc: Document; line: number }) {
+function Printed({ doc, line, title }: { doc: Document; line: number; title?: string }) {
   const parts: ComponentChild[] = [];
   let started = false;
   for (const [index, token] of (doc.lines[line]?.tokens ?? []).entries()) {
@@ -225,7 +227,11 @@ function Printed({ doc, line }: { doc: Document; line: number }) {
       ),
     );
   }
-  return <code class="constraint-printed">{parts}</code>;
+  return (
+    <code class="constraint-printed" title={title}>
+      {parts}
+    </code>
+  );
 }
 
 /**
@@ -255,8 +261,8 @@ function SourceText({ site, source }: { site: Site; source: ElementSource }) {
 
 /**
  * What an element rule's element is and how far the Wireshark plugin checks it, as the corpus's element registry
- * says, under the rule: the element, what is checked and how far, what is not and why (or, checked in full, what is
- * left open), and the editions its layout was read from.
+ * says: the element, what is checked and how far, what is not and why (or, checked in full, what is left open), and
+ * the editions its layout was read from. Only the inspector shows it, under a closed Checking.
  */
 function ElementRows({ site, entry }: { site: Site; entry: ElementEntry }) {
   const row = (label: string, value: ComponentChild, kind: string) => (
@@ -297,6 +303,43 @@ function showConstraintsHelp() {
 /** What the section is, in two sentences: the title of its button opening the help there. */
 export const INTERPRETED_NOTE = constraintsSection.aboutTitle;
 
+/**
+ * What an element's layout means for the value, where it says it in a few words: the first part of what the plugin
+ * checks, "1 to 8 octets", "an integer 0 to 255", "at least 2 octets", and nothing for a longer account or one checking
+ * nothing.
+ */
+export function shortCheck(entry: ElementEntry): string | undefined {
+  if (entry.depth === 'none') return undefined;
+  const first = entry.check.split(';')[0].trim();
+  return first.length <= 40 && /^(an integer |at least |at most |\d)/.test(first) ? first : undefined;
+}
+
+/** A terse tag after a rule on what the Wireshark plugin makes of it, its tooltip saying more. */
+const Tag = ({ text, title }: { text: string; title: string }) => (
+  <span class="constraint-tag" title={title}>
+    {text}
+  </span>
+);
+
+/** The tags after an element rule checked partly or not at all, and after a rule reading the request. */
+function checkTags(rule: ConstraintRule, entry: ElementEntry | undefined): ComponentChild[] {
+  const tags: ComponentChild[] = [];
+  if (entry && entry.depth !== 'full') {
+    const how =
+      entry.depth === 'none' ? elementDepth('none') : elementText.checks(elementDepth(entry.depth), entry.check);
+    tags.push(
+      <Tag
+        key="element"
+        text={entry.depth === 'none' ? constraintsSection.notChecked : constraintsSection.partlyChecked}
+        title={constraintsSection.elementTitle(how)}
+      />,
+    );
+  }
+  if (readsRequest(rule))
+    tags.push(<Tag key="request" text={constraintsSection.needsRequestTag} title={constraintsSection.needsRequest} />);
+  return tags;
+}
+
 /** A block as a popup lists it, with the document it is in; `on` a block on another AVP, `bare` in its command's popup. */
 interface Listed {
   doc: Document;
@@ -306,10 +349,13 @@ interface Listed {
 }
 
 /**
- * A block's rules in a popup: where they hold, each reading's rules in plain words and under them as the text prints
- * them, with the sentences they were read from, and the way to the block, its clause and the request its rules read.
- * `here`, opened in the block itself, it says only its rules in words and an element rule's registry entry, as the
- * text prints the rest right there.
+ * A block's rules in a popup: where they hold, each reading's rules once, in plain words, the rule as the text prints it
+ * their tooltip and, where `written`, under them, or as printed alone where the words could not say it; what an
+ * element's layout means for the value where that is short; a terse tag where the plugin checks a rule partly, not at
+ * all or only with the request; the sentences they were read from, and the way to the block, its clause and the
+ * request its rules read. `here`, opened in the block itself, it says only its rules in words, as the text prints the
+ * rest right there. `inline`, in the inspector, an element rule has what the registry says of its checking under a
+ * closed Checking.
  */
 function ConstraintGroup({
   site,
@@ -317,12 +363,16 @@ function ConstraintGroup({
   request,
   listed: { doc, item, on, bare },
   here,
+  written,
+  inline,
 }: {
   site: Site;
   placeRow: ReturnType<typeof placeRows>;
   request: PopupRequest;
   listed: Listed;
   here: boolean;
+  written: boolean;
+  inline?: boolean;
 }) {
   const { block } = item;
   const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
@@ -367,8 +417,8 @@ function ConstraintGroup({
           if (textOnly(reading.rules))
             return (
               <li key={index} class="constraint-reading constraint-text-only">
-                <span class="constraint-rule" title={constraintsSection.textOnlyTitle}>
-                  <span class="constraint-words">{constraintsSection.textOnly}</span>
+                <span class="constraint-rule">
+                  <Tag text={constraintsSection.notChecked} title={constraintsSection.textOnlyTitle} />
                 </span>
                 {quotes}
               </li>
@@ -379,14 +429,40 @@ function ConstraintGroup({
               {rules.map(rule => {
                 const printed = lineText(doc, rule.line);
                 const entry = elementEntry(rule);
+                const note = ruleNote(rule);
+                // Where the words cannot say the rule, they are the line as printed: that alone, as the text prints it.
+                const fallback = ruleWords(rule, printed, where) === printed.trim();
+                const value = entry && shortCheck(entry);
+                const tags = checkTags(rule, entry);
                 return (
-                  <span key={rule.line} class="constraint-rule" title={ruleNote(rule)}>
-                    <span class="constraint-words">
-                      <RuleText site={site} doc={doc} rule={rule} printed={printed} where={where} />
-                    </span>
-                    {!here && <Printed doc={doc} line={rule.line} />}
-                    {entry && <ElementRows site={site} entry={entry} />}
-                    {readsRequest(rule) && <span class="constraint-note">{constraintsSection.needsRequest}</span>}
+                  <span key={rule.line} class="constraint-rule">
+                    {fallback ? (
+                      <Printed doc={doc} line={rule.line} title={note} />
+                    ) : (
+                      <span
+                        class="constraint-words"
+                        title={
+                          [here ? '' : constraintsSection.printedTitle(printed.trim()), note]
+                            .filter(Boolean)
+                            .join('\n') || undefined
+                        }
+                      >
+                        <RuleText site={site} doc={doc} rule={rule} printed={printed} where={where} />
+                      </span>
+                    )}
+                    {!fallback && written && !here && <Printed doc={doc} line={rule.line} />}
+                    {(value || tags.length > 0) && (
+                      <span class="constraint-meta">
+                        {value && <span class="constraint-value">{value}</span>}
+                        {tags}
+                      </span>
+                    )}
+                    {entry && inline && (
+                      <details class="constraint-checking">
+                        <summary>{constraintsSection.checking}</summary>
+                        <ElementRows site={site} entry={entry} />
+                      </details>
+                    )}
                   </span>
                 );
               })}
@@ -410,20 +486,44 @@ function ConstraintGroup({
   );
 }
 
-/** The section of a popup listing blocks, its heading counting them, with its button opening the help at them. */
+/** Whether rules show as printed under their words, as the reader last chose in any popup. */
+const readWritten = () => readStored('rulesAsWritten') === 'shown';
+
+/**
+ * The section of a popup listing blocks, its heading counting them, with the toggle showing each rule as printed under
+ * its words where `toggle` and its button opening the help at them.
+ */
 function ConstraintSection({
   count,
   children,
   className = '',
+  written,
+  setWritten,
 }: {
   count: number;
   children: ComponentChild;
   className?: string;
+  written: boolean;
+  setWritten?: (written: boolean) => void;
 }) {
   return (
     <section class={`popup-constraints ${className}`.trim()} aria-label={constraintsSection.label}>
       <div class="constraints-title">
         <Counted title={constraintsSection.heading} count={count} />
+        {setWritten && (
+          <label class="constraints-written" title={constraintsSection.asWrittenTitle}>
+            <input
+              type="checkbox"
+              checked={written}
+              onChange={event => {
+                const shown = (event.currentTarget as HTMLInputElement).checked;
+                writeStored('rulesAsWritten', shown ? 'shown' : 'hidden');
+                setWritten(shown);
+              }}
+            />
+            {constraintsSection.asWritten}
+          </label>
+        )}
         <button type="button" class="constraints-about" title={INTERPRETED_NOTE} onClick={showConstraintsHelp}>
           {constraintsSection.about}
         </button>
@@ -444,12 +544,15 @@ export function ConstraintFacts({
   pane,
   request,
   use,
+  inline,
 }: {
   site: Site;
   pane: Parameters<typeof placeRows>[1];
   request: PopupRequest;
   use: Use | undefined;
+  inline?: boolean;
 }) {
+  const [written, setWritten] = useState(readWritten);
   const found: Listed[] = constraintsHere(site, request, use);
   // Opened in a block of them, the text prints its scope, rules and quotes right there: of that block the popup says
   // only what the text does not, its rules in words and an element rule's registry entry.
@@ -462,8 +565,10 @@ export function ConstraintFacts({
   const all = [...found, ...readers];
   if (!all.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
+  // Opened in the one block listed, the text prints its rules right there: there is nothing to toggle.
+  const toggles = all.some(item => !opened(item.doc, item.item));
   return (
-    <ConstraintSection count={all.length}>
+    <ConstraintSection count={all.length} written={written} setWritten={toggles ? setWritten : undefined}>
       {all.map(item => (
         <ConstraintGroup
           key={`${item.doc.id}:${item.item.block.line}`}
@@ -472,6 +577,8 @@ export function ConstraintFacts({
           request={request}
           listed={item}
           here={opened(item.doc, item.item)}
+          written={written}
+          inline={inline}
         />
       ))}
     </ConstraintSection>
@@ -491,6 +598,7 @@ export function CommandConstraintFacts({
   doc,
   context,
   members,
+  inline,
 }: {
   site: Site;
   pane: Parameters<typeof placeRows>[1];
@@ -498,12 +606,14 @@ export function CommandConstraintFacts({
   doc: Document;
   context: ReadContext;
   members: Set<string>;
+  inline?: boolean;
 }) {
+  const [written, setWritten] = useState(readWritten);
   const found = commandConstraints(doc, context, members);
   if (!found.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
   return (
-    <ConstraintSection count={found.length} className="command-constraints">
+    <ConstraintSection count={found.length} className="command-constraints" written={written} setWritten={setWritten}>
       {found.map(item => (
         <ConstraintGroup
           key={`${doc.id}:${item.block.line}`}
@@ -512,6 +622,8 @@ export function CommandConstraintFacts({
           request={request}
           listed={{ doc, item, bare: true }}
           here={false}
+          written={written}
+          inline={inline}
         />
       ))}
     </ConstraintSection>

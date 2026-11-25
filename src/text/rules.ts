@@ -124,6 +124,8 @@ export const ruleText = {
   counted: (count: number, unit: string) => `${count} ${unit}`,
   /** A length's or a range's bounds: "3 to 255", "at least 1 character", "at most 3 octets". */
   between: (low: number, high: string) => `${low} to ${high}`,
+  /** A range of one value, which alone would read as a bare number: "always 3". */
+  always: (value: number) => `always ${value}`,
   atLeast: (low: string) => `at least ${low}`,
   atMost: (high: string) => `at most ${high}`,
   anyNumberOf: (unit: string) => `any number of ${unit}`,
@@ -275,15 +277,31 @@ export const constraintsSection = {
   about: 'What is this?',
   aboutTitle:
     'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
-  /** A text-only rule, in place of its words, and its tooltip. */
-  textOnly: 'Cannot be checked on a single message',
+  /**
+   * [limit] The toggle at the heading's right showing each rule as the document view prints it under its words, kept
+   * for every popup, and its tooltip. A rule's words have it as their tooltip whatever the toggle says.
+   */
+  asWritten: 'As written',
+  asWrittenTitle: 'Show each rule as the document view prints it, under its words',
+  printedTitle: (printed: string) => `As written: ${printed}`,
+  /**
+   * [limit] Terse tags after a rule on what the Wireshark plugin makes of it, a word or two, with tooltips: a text-only
+   * reading, in place of a rule, before its quote; an element rule checked partly or not at all; a rule reading the
+   * request. The help and the Wireshark page say more.
+   */
+  notChecked: 'not checked',
   textOnlyTitle:
     'Cannot be checked automatically on a single message (marked text-only in the document view); read the quote directly.',
+  partlyChecked: 'partly checked',
+  elementTitle: (how: string) => `The Wireshark plugin checks this element: ${how}`,
+  needsRequestTag: 'needs request',
+  /** [inspector] The disclosure under an element rule over what the element registry says of how far it is checked. */
+  checking: 'Checking',
   /** [limit] A block's place's label, before its colon. */
   readIn: 'From',
   /** [limit] The place of the request a block's rules read, before its colon: the request's block. */
   request: 'Request',
-  /** Under a rule reading the request its answer answers. */
+  /** The tooltip of the tag after a rule reading the request its answer answers. */
   needsRequest: 'The Wireshark plugin checks this only when the capture holds the request.',
   /**
    * The scope line of a block on another AVP whose rules read the name here: "rule on Subscription-Data", before where it

@@ -173,28 +173,41 @@ test('the corrected text of TS 29.272', async t => {
         assert.ok(document.getElementById('help').querySelector('.help-constraints'));
         document.querySelector('.help-toggle').click();
         assert.deepEqual(texts(section, '.constraint-scope'), ['within APN-Configuration · 7.3.35']);
-        assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
+        // Each rule once, in words, as printed its tooltip; the toggle shows it as printed under them too.
+        assert.deepEqual(texts(section, '.constraint-reading .constraint-printed'), [], 'not said twice');
         assert.deepEqual(texts(section, '.constraint-reading .constraint-words').slice(0, 2), [
           'not 0',
           'unique across APN-Configuration instances',
         ]);
         const first = section.querySelector('.constraint-rule');
+        assert.equal(first.querySelector('.constraint-words').title, 'As written: exclude 0');
+        const written = section.querySelector('.constraints-written input');
+        assert.equal(written.checked, false);
+        click(page, written);
+        await settle();
+        const shown = document.querySelector('.avp-popup .popup-constraints');
+        assert.deepEqual(texts(shown, '.constraint-reading .constraint-printed'), ['exclude 0', 'unique']);
         assert.deepEqual(
-          [...first.children].map(part => part.className),
+          [...shown.querySelector('.constraint-rule').children].map(part => part.className),
           ['constraint-words', 'constraint-printed'],
           'the words first, as printed under them',
         );
+        assert.equal(window.localStorage.getItem('seanchai-rules-as-written'), 'shown', 'kept for every popup');
+        assert.equal(shown.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
+        click(page, shown.querySelector('.constraints-written input'));
+        await settle();
+        assert.equal(window.localStorage.getItem('seanchai-rules-as-written'), 'hidden');
         assert.equal(
           section.querySelector('.constraints-about').title,
           'Rules extracted manually from specification prose rather than tables or ABNF, each paired with its source quote. Verify against the quote before relying on a rule.',
         );
-        assert.equal(section.querySelector('.constraint-printed .constraint-keyword').textContent, 'exclude');
         assert.match(section.querySelector('.constraint-reading q').textContent, /shall not have a value of zero/);
         const textOnly = texts(section, '.constraint-text-only');
         assert.equal(textOnly.length, 1);
-        assert.deepEqual(texts(section, '.constraint-text-only .constraint-words'), [
-          'Cannot be checked on a single message',
-        ]);
+        // No rule to say: a terse tag, which its tooltip explains, then the quote.
+        assert.deepEqual(texts(section, '.constraint-text-only .constraint-tag'), ['not checked']);
+        assert.match(section.querySelector('.constraint-text-only .constraint-tag').title, /^Cannot be checked/);
+        absent(section.querySelector('.constraint-text-only .constraint-words'));
         absent(section.querySelector('.constraint-text-only .constraint-printed'));
         assert.match(
           section.querySelector('.constraint-text-only q').textContent,
@@ -208,13 +221,16 @@ test('the corrected text of TS 29.272', async t => {
         const inCommand = await popupOf(page, nameOn(document, 'Context-Identifier', DSR_MEMBER));
         const dsr = inCommand.querySelector('.popup-constraints');
         assert.deepEqual(texts(dsr, '.constraint-scope'), ['in DSR · 5.2.2.2.1 · table 5.2.2.2.1/1']);
-        assert.deepEqual(texts(dsr, '.constraint-reading .constraint-printed'), [
-          'requires DSR-Flags bit "PDN subscription contexts Withdrawal" or DSR-Flags bit "PDP contexts Withdrawal"',
-          'exclude 0',
-        ]);
-        assert.deepEqual(texts(dsr, '.constraint-reading .constraint-words'), [
+        assert.deepEqual(
+          [...dsr.querySelectorAll('.constraint-reading .constraint-words')].map(words => words.title),
+          [
+            'As written: requires DSR-Flags bit "PDN subscription contexts Withdrawal" or DSR-Flags bit "PDP contexts Withdrawal"',
+            'As written: exclude 0',
+          ],
+        );
+        assert.deepEqual(texts(dsr, '.constraint-reading .constraint-words, .constraint-reading .constraint-tag'), [
           'present only if DSR-Flags has bit “PDN subscription contexts Withdrawal” set or DSR-Flags has bit “PDP contexts Withdrawal” set',
-          'Cannot be checked on a single message',
+          'not checked',
           'not 0',
         ]);
         assert.ok(!dsr.textContent.includes('APN-Configuration'));
@@ -232,7 +248,8 @@ test('the corrected text of TS 29.272', async t => {
       assert.equal(popup.querySelector('.constraint-quote'), null);
       assert.equal(popup.querySelector('.place-constraint'), null);
       assert.equal(rule.querySelector('.constraint-words').textContent, 'PLMN ID (MCC and MNC in 3 octets)');
-      assert.match(rule.title, /^MCC and MNC in 3 octets/);
+      // The codec's layout its tooltip; not the rule as printed, which its line is.
+      assert.match(rule.querySelector('.constraint-words').title, /^MCC and MNC in 3 octets/);
       await closePopup(page);
       const condition = await popupOf(page, nameOn(document, 'DSR-Flags', DSR_QUOTE + 1));
       assert.equal(
@@ -265,11 +282,10 @@ test('the corrected text of TS 29.272', async t => {
     await t.test("a members rule's names link to their AVPs, and a name on it says it is one", async () => {
       const popup = await popupOf(page, nameOn(document, 'Terminal-Information', NOR_TERMINAL_MEMBER));
       const rule = [...popup.querySelectorAll('.constraint-rule')].find(node =>
-        node.querySelector('.constraint-printed').textContent.startsWith('members'),
+        node.querySelector('.constraint-words')?.title.startsWith('As written: members'),
       );
       present(rule);
-      assert.equal(rule.querySelector('.constraint-printed').textContent, 'members only IMEI Software-Version');
-      assert.deepEqual(texts(rule, '.constraint-printed .constraint-name'), ['IMEI', 'Software-Version'], 'whole');
+      assert.equal(rule.querySelector('.constraint-words').title, 'As written: members only IMEI Software-Version');
       assert.equal(
         rule.querySelector('.constraint-words').textContent,
         'no members present except IMEI, Software-Version',
@@ -312,55 +328,58 @@ test('the corrected text of TS 29.272', async t => {
       await closePopup(page);
     });
 
-    await t.test('an element rule says what the element is, how far it is checked, and where it was read', async () => {
-      const rows = popup => texts(popup, '.constraint-element .element-row');
-      const ecgi = await popupOf(
-        page,
-        document.querySelector('.dad-line.interpreted [data-avp="E-UTRAN-Cell-Global-Identity"]'),
-      );
-      const rule = ecgi.querySelector('.constraint-rule');
-      assert.equal(
-        rule.querySelector('.constraint-words').textContent,
-        'encoded as TS 29.002 section 17.7.8 “E-UTRAN-CGI”',
-      );
-      assert.equal(rule.title, '', 'the rows say it, not a title');
-      const said = rows(ecgi);
-      assert.match(said[0], /^Element: /);
-      assert.equal(said[1], 'Checked: full layout — 7 octets; a PLMN identity in octets 1 to 3');
-      assert.match(
-        said.at(-1),
-        /^Read from: TS 29\.002 V19\.1\.0 \(17\.7\.8\), TS 29\.118 V19\.1\.0 \(9\.4\.3a\), TS 29\.274 /,
-      );
-      absent(ecgi.querySelector('.constraint-element a'), 'the corpus holds none of them');
-      assert.match(ecgi.querySelector('.element-source').title, /E-UTRAN-CGI ::= OCTET STRING/);
-      await closePopup(page);
-      const trace = await popupOf(
-        page,
-        document.querySelector('.dad-line.interpreted [data-avp="Trace-Interface-List"]'),
-      );
-      const traced = rows(trace);
-      assert.equal(traced[1], 'Checked: length only — 23 octets');
-      assert.match(traced[2], /^Not checked: the spare bits/);
-      await closePopup(page);
-      const csg = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="CSG-Id"]'));
-      const none = [...csg.querySelectorAll('.constraint-element')].find(node =>
-        node.classList.contains('element-depth-none'),
-      );
-      present(none);
-      assert.ok(!texts(none, '.element-row').some(row => row.startsWith('Checked:')), 'no Checked row');
-      assert.ok(texts(none, '.element-row').some(row => row.startsWith('Not checked: ')));
-      await closePopup(page);
-      const rand = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="RAND"]'));
-      const source = rand.querySelector('.constraint-element a.constraint-document');
-      present(source);
-      assert.equal(source.textContent, 'TS 29.329');
-      assert.equal(source.getAttribute('href'), '#29329-j10');
-      assert.match(
-        texts(rand, '.element-row').at(-1),
-        /^Read from: TS 29\.329 V19\.1\.0 \(6\.1\.2\), TS 33\.102 V19\.1\.0 \(6\.3\.7\)$/,
-      );
-      await closePopup(page);
-    });
+    await t.test(
+      'an element rule says in a line what it is encoded as, and what that means for the value where short; only the inspector says how far it is checked',
+      async () => {
+        const ecgi = await popupOf(
+          page,
+          document.querySelector('.dad-line.interpreted [data-avp="E-UTRAN-Cell-Global-Identity"]'),
+        );
+        const rule = ecgi.querySelector('.constraint-rule');
+        assert.equal(
+          rule.querySelector('.constraint-words').textContent,
+          'encoded as TS 29.002 section 17.7.8 “E-UTRAN-CGI”',
+        );
+        assert.deepEqual(texts(rule, '.constraint-value'), ['7 octets'], 'the first of what is checked, short');
+        absent(rule.querySelector('.constraint-tag'), 'checked in full: no tag');
+        absent(ecgi.querySelector('.constraint-element, .constraint-checking'), 'no account of the checking');
+        await closePopup(page);
+        const trace = await popupOf(
+          page,
+          document.querySelector('.dad-line.interpreted [data-avp="Trace-Interface-List"]'),
+        );
+        assert.deepEqual(texts(trace, '.constraint-value'), ['23 octets']);
+        const partly = trace.querySelector('.constraint-tag');
+        assert.equal(partly.textContent, 'partly checked');
+        assert.equal(partly.title, 'The Wireshark plugin checks this element: length only — 23 octets');
+        await closePopup(page);
+        const csg = await popupOf(page, document.querySelector('.dad-line.interpreted [data-avp="CSG-Id"]'));
+        assert.ok(texts(csg, '.constraint-tag').includes('not checked'), 'an element checked not at all');
+        await closePopup(page);
+        // The inspector, the one deliberate place: the registry's account under a closed Checking.
+        click(page, document.querySelector('.dad-line.interpreted [data-avp="E-UTRAN-Cell-Global-Identity"]'));
+        await settle();
+        const entry = document.querySelector('.inspector-entry');
+        const checking = entry.querySelector('.constraint-checking');
+        present(checking);
+        assert.equal(checking.open, false);
+        assert.equal(checking.querySelector('summary').textContent, 'Checking');
+        const said = texts(checking, '.element-row');
+        assert.match(said[0], /^Element: /);
+        assert.equal(said[1], 'Checked: full layout — 7 octets; a PLMN identity in octets 1 to 3');
+        assert.match(
+          said.at(-1),
+          /^Read from: TS 29\.002 V19\.1\.0 \(17\.7\.8\), TS 29\.118 V19\.1\.0 \(9\.4\.3a\), TS 29\.274 /,
+        );
+        click(page, document.querySelector('.dad-line.interpreted [data-avp="RAND"]'));
+        await settle();
+        const rand = document.querySelector('.inspector-entry .constraint-checking');
+        const source = rand.querySelector('a.constraint-document');
+        present(source);
+        assert.equal(source.textContent, 'TS 29.329');
+        assert.equal(source.getAttribute('href'), '#29329-j10');
+      },
+    );
 
     await t.test('the inspector says what the popup says of them', async () => {
       click(page, nameOn(document, 'Context-Identifier', APN_MEMBER));

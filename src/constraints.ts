@@ -248,7 +248,8 @@ export const textOnly = (rules: Pick<ConstraintRule, 'kind'>[]) =>
 /** "3 octets", "14 to 15 digits", "at least 1 character": a length's or a range's bounds, with a unit if it has one. */
 function boundsWords(low: number | null | undefined, high: number | null | undefined, unit = ''): string {
   const counted = (count: number) => (unit ? ruleText.counted(count, ruleText.unit(count, unit)) : String(count));
-  if (low != null && high != null) return low === high ? counted(low) : ruleText.between(low, counted(high));
+  if (low != null && high != null)
+    return low === high ? (unit ? counted(low) : ruleText.always(low)) : ruleText.between(low, counted(high));
   if (low != null) return ruleText.atLeast(counted(low));
   if (high != null) return ruleText.atMost(counted(high));
   return unit ? ruleText.anyNumberOf(unit) : ruleText.anyValue;

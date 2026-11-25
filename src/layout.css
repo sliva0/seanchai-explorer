@@ -1508,7 +1508,7 @@ mark {
   padding: 0;
   list-style: none;
 }
-/* A reading: each rule in words, as the text prints it under them, dimmer, then the sentences it was read from. */
+/* A reading: each rule in words, as the text prints it under them where asked for, dimmer, then the sentences it was read from. */
 .constraint-reading + .constraint-reading {
   margin-top: var(--space-1);
 }
@@ -1558,11 +1558,52 @@ mark {
 .element-source {
   white-space: nowrap;
 }
-/* Under a rule reading the request its answer answers: that the Wireshark plugin checks it only with the request. */
-.constraint-note {
-  display: block;
+/*
+ * After a rule: what an element's layout means for the value, in a few words, and terse tags on what the plugin makes
+ * of the rule, each with a tooltip saying more.
+ */
+.constraint-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px var(--space-1);
   margin-top: 2px;
+}
+.constraint-value {
+  color: var(--ui-fg);
+}
+.constraint-tag {
+  padding: 0 0.4em;
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 1px var(--ui-border);
   color: var(--ui-muted);
+  font: 600 0.85em/1.5 var(--sans);
+  cursor: help;
+}
+.constraint-text-only .constraint-rule {
+  display: inline;
+}
+.constraint-text-only .constraint-quote {
+  display: inline;
+  margin-left: var(--space-1);
+}
+/* The inspector's account of how far an element is checked: closed until asked for. */
+.constraint-checking {
+  margin-top: 2px;
+}
+.constraint-checking summary {
+  color: var(--ui-muted);
+  cursor: pointer;
+}
+/* The toggle showing each rule as printed under its words, quiet beside the heading. */
+.constraints-written {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  cursor: pointer;
+}
+.constraints-written input {
+  margin: 0;
 }
 .constraint-quote {
   display: block;

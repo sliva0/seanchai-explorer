@@ -20,6 +20,7 @@ test('the keys are the names the site has always stored under, so a reader keeps
     theme: 'seanchai-theme',
     clickTarget: 'seanchai-click-target',
     interpreted: 'seanchai-interpreted',
+    rulesAsWritten: 'seanchai-rules-as-written',
     installShell: 'seanchai-install-shell',
     outline: 'seanchai-outline',
     indexTab: 'seanchai-index-tab',

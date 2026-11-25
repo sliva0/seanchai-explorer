@@ -89,10 +89,9 @@ test('TS 29.272: rules reading the request, and names on a path', async t => {
           readers[0].querySelector('.constraint-scope').textContent,
           /^rule on EPS-User-State · in IDA · 5\.2\.2\.1\.1/,
         );
-        assert.equal(
-          readers[0].querySelector('.constraint-note').textContent,
-          'The Wireshark plugin checks this only when the capture holds the request.',
-        );
+        const tag = readers[0].querySelector('.constraint-tag');
+        assert.equal(tag.textContent, 'needs request', 'a terse tag');
+        assert.equal(tag.title, 'The Wireshark plugin checks this only when the capture holds the request.');
         await closePopup(page);
       },
     );
@@ -100,7 +99,7 @@ test('TS 29.272: rules reading the request, and names on a path', async t => {
     await t.test("an answer's AVP whose rule reads the request goes to the request's block", async () => {
       const popup = await popupOf(page, nameOn(document, 'EPS-User-State', IDA_EPS_USER_STATE));
       const group = [...popup.querySelectorAll('.constraint-group')].find(item =>
-        item.querySelector('.constraint-note'),
+        item.querySelector('.constraint-tag'),
       );
       present(group);
       assert.deepEqual(texts(group, '.place-request > span:first-child'), ['Request:']);
@@ -165,7 +164,12 @@ test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the 
       present(section);
       assert.match(section.querySelector('.constraints-title').textContent, /^Interpreted 1/);
       assert.deepEqual(texts(section, '.constraint-words'), ['never sent in DEA']);
-      assert.equal(section.querySelector('.constraint-printed').textContent, 'absent');
+      assert.equal(
+        section.querySelector('.constraint-words').title,
+        'As written: absent',
+        'once, as printed its tooltip',
+      );
+      absent(section.querySelector('.constraint-printed'));
       assert.match(
         section.querySelector('.constraint-quote').textContent,
         /shall not include the Auth-Session-State AVP/,

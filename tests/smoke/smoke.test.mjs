@@ -2053,10 +2053,7 @@ test(
       return box.top >= 0 && box.top < innerHeight;
     });
     assert.ok(inView, 'in view');
-    assert.match(
-      await section.locator('.constraint-words').first().textContent(),
-      /^Cannot be checked on a single message$/,
-    );
+    assert.equal(await section.locator('.constraint-text-only .constraint-tag').first().textContent(), 'not checked');
 
     // Too narrow for the pane, the name's popup.
     await page.setViewportSize({ width: 700, height: 800 });
@@ -2107,8 +2104,10 @@ test(
       await readers.first().locator('.constraint-words').textContent(),
       "present if the request's IDR-Flags has bit “EPS User State Request” set and Result-Code is DIAMETER_SUCCESS",
     );
+    const tag = readers.first().locator('.constraint-tag');
+    assert.equal(await tag.textContent(), 'needs request');
     assert.equal(
-      await readers.first().locator('.constraint-note').textContent(),
+      await tag.getAttribute('title'),
       'The Wireshark plugin checks this only when the capture holds the request.',
     );
     await page.keyboard.press('Escape');

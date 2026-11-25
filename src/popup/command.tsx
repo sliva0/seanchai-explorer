@@ -242,6 +242,7 @@ export function CommandPopup(props: PopupProps & { command: CommandRef }) {
           doc={constraintDoc}
           context={{ command: { name: command.name, application: command.application, section: command.section } }}
           members={new Set(rule.members.map(member => member.name))}
+          inline={props.inline}
         />
       )}
       {kept.length > 0 && <div class="popup-places command-places">{kept}</div>}
