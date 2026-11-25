@@ -713,10 +713,16 @@ pre [class*="link.declaration"] {
 .correction-toggle[aria-expanded="true"] {
   border-bottom-style: solid;
 }
-/* The record a note opens, under its line: what it cites on a line of its own, then why, in the note's colour. */
+/*
+ * The record a note opens, under its line: what it cites on a line of its own, then why, in the note's colour. Set in
+ * a character from the line's edge, whatever indent its line has, so an italic first glyph leaning left, "(" or "—",
+ * stays clear of anything drawn at the edge.
+ */
 .correction-detail {
+  padding-left: 1ch;
   color: var(--syntax-reference);
   font-style: italic;
+  text-indent: 0;
 }
 .correction-detail,
 .correction-citation,
@@ -736,7 +742,7 @@ pre [class*="link.declaration"] {
  * An Interpreted Constraints block: a reader's reading of a clause's prose, which the document prints as no structure.
  * It is .dad text and reads as any other block does, in the same font and colours. What marks it as interpreted is one
  * thin rule in the gutter left of its lines, in the hue of the ¶ beside a name it holds for, and its `; Type:` line's
- * `;; interpreted` note, which opens the declaration's record: that line has no corrected line's tint.
+ * `;; interpreted` note, plain text whose tooltip says what it cites: that line has no corrected line's tint.
  */
 .dad-line.interpreted {
   position: relative;
@@ -784,9 +790,11 @@ pre [class*="link.declaration"] {
 #document.interpreted-hidden .dad-line.interpreted-gap {
   display: none;
 }
+/* The bar of a line pointed at, or of a raw line a correction changed, is in the gutter just left of the text, so it
+   crosses no character of the line or of a note's record under it, and clears an interpreted block's rule further out. */
 .dad-line.target-line {
   background: var(--target-bg);
-  box-shadow: inset 3px 0 var(--target-edge);
+  box-shadow: -3px 0 var(--target-edge);
 }
 /*
  * Where the reader was sent, a line of the text or a section of a popup: a stronger tint fading in over whatever the
@@ -819,7 +827,7 @@ pre [class*="link.declaration"] {
 }
 .dad-line.raw-warning {
   background: var(--warning-bg);
-  box-shadow: inset 3px 0 var(--warning);
+  box-shadow: -3px 0 var(--warning);
   outline: 1px dotted var(--warning-outline);
 }
 .avp-name {

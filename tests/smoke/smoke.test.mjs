@@ -315,7 +315,10 @@ test(
       rule: { wraps: true, firstAtLine: 0, hanging: true, withinPane: true, offPaneUnwrapped: true, sameFont: true },
     });
     assert.match(await rule.textContent(), /^ {4}requires DSR-Flags bit/);
-    assert.equal(await type.locator('.correction-toggle').textContent(), ';; interpreted');
+    // Its note's record would repeat the block: plain text, what it cites its tooltip.
+    assert.equal(await type.locator('.correction-toggle').count(), 0);
+    assert.equal(await type.locator('.plain-note').textContent(), ';; interpreted');
+    assert.match(await type.locator('.plain-note').getAttribute('title'), /^Written in \(TS29\.272\.dadx#[\w-]+\)$/);
     await done();
   },
 );
@@ -392,6 +395,43 @@ test(
     await page.waitForSelector('.document-header h1:has-text("29.329")');
     assert.equal(await page.locator('.target-line').getAttribute('data-line'), '27');
     await done();
+  },
+);
+
+test(
+  "a note's record, and a line pointed at, cross no character: the line's bar and an interpreted block's rule are in the gutter",
+  { skip },
+  async () => {
+    for (const width of [1280, 520]) {
+      const { page, done } = await open('#29272-j60');
+      await page.setViewportSize({ width, height: 800 });
+      const line = await page.evaluate(() =>
+        Number(document.querySelector('.correction-toggle').closest('.dad-line').dataset.line),
+      );
+      await page.goto(page.url().replace(/#.*/, `#29272-j60?line=${line}`));
+      const row = page.locator(`.dad-line[data-line="${line}"]`);
+      await row.locator('.correction-toggle').click();
+      const laid = await row.evaluate(node => {
+        const detail = node.querySelector('.correction-detail');
+        const text = document.createRange();
+        text.selectNodeContents(detail);
+        const glyphs = Math.min(...[...text.getClientRects()].map(rect => rect.left));
+        const left = node.getBoundingClientRect().left;
+        return {
+          target: node.classList.contains('target-line'),
+          bar: getComputedStyle(node).boxShadow,
+          clear: glyphs - left,
+          interpretedRule: parseFloat(
+            getComputedStyle(document.querySelector('.dad-line.interpreted'), '::before').left,
+          ),
+        };
+      });
+      assert.ok(laid.target, JSON.stringify(laid));
+      assert.match(laid.bar, /^rgb\([^)]*\) -3px 0px/, 'the bar left of the line, not over it');
+      assert.ok(laid.clear >= 4, `the record a character in: ${JSON.stringify(laid)}`);
+      assert.ok(laid.interpretedRule <= -6, 'the rule further out than the bar');
+      await done();
+    }
   },
 );
 

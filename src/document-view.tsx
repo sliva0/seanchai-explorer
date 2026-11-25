@@ -9,7 +9,7 @@ import { sourceHref } from './data.ts';
 import type { Site } from './data.ts';
 import { lineAnnotations } from './annotations.ts';
 import type { LineAnnotation } from './annotations.ts';
-import { citationSpans, compactComment } from './comments.ts';
+import { citationSpans, commentCitations, compactComment } from './comments.ts';
 import { interpretedLines } from './constraints.ts';
 import { elementsTitle } from './elements.ts';
 import { element, externalLink, link, scrollTopFor } from './dom.ts';
@@ -92,6 +92,24 @@ function correctionNode(token: HighlightedToken, reason: string, id: string): HT
   full.hidden = true;
   toggle.setAttribute('aria-controls', id);
   comment.append(toggle, full);
+  return comment;
+}
+
+/**
+ * The kinds of `;;` note whose record says nothing the text does not print right under it: `;; interpreted`, whose
+ * record is the clause and the quotes its block prints. Each of the corpus's 1943 is "interpreted from clause X: '…'",
+ * every quote one of its block's. A `corrected`, `supplied`, `inserted` or `deleted` note's record says why, which
+ * nothing else prints, and opens as before.
+ */
+const PLAIN_NOTES = new Set(['interpreted']);
+const noteKind = (text: string) => text.match(/^;;\s*([a-z-]+)/)?.[1];
+
+/** A note of a kind in `PLAIN_NOTES`: the short note as styled text, what it cites its tooltip. */
+function plainNote(token: HighlightedToken): HTMLElement {
+  const comment = element('span', undefined, 'correction correction-note plain-note');
+  const compact = compactComment(token.text);
+  comment.append(...(token.text.startsWith(compact) ? noteText(token, 0, compact.length) : [compact]));
+  comment.title = strip.noteCites(commentCitations(token.text));
   return comment;
 }
 
@@ -180,7 +198,9 @@ function renderLines(
     line.tokens.forEach((token, index) => {
       const reason = token.correction && doc.corrections[token.correction]?.reason;
       if (reason) {
-        const node = correctionNode(token, reason, `correction-${doc.id}-${correction++}`);
+        const node = PLAIN_NOTES.has(noteKind(token.text) ?? '')
+          ? plainNote(token)
+          : correctionNode(token, reason, `correction-${doc.id}-${correction++}`);
         node.dataset.token = String(index);
         row.append(node);
       } else row.append(tokenNode(token, index, line, lines, doc, site, prefer, names));

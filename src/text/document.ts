@@ -40,6 +40,11 @@ export const strip = {
   documentText: 'Document view',
   /** A raw line's tooltip, where the corrected text changes it. */
   modified: 'Modified in corrected view',
+  /**
+   * The tooltip of a `;; interpreted` note, which opens no record, the block under it printing its clause and quotes:
+   * what it cites, the file of interpreted-constraint blocks and the block's id, "(TS29.329.dadx#call-reference-number-element)".
+   */
+  noteCites: (citation: string) => `Written in ${citation}`,
 };
 
 /** The four buttons left of a document's title walking the jump list. Their glyphs, ‹ › « », are not words. */

@@ -52,7 +52,7 @@ test('the corrected text of TS 29.272', async t => {
   const { document, window } = page;
   try {
     await t.test(
-      "a block's lines are interpreted, its quotes wrap, and its note opens the declaration's record",
+      "a block's lines are interpreted, its quotes wrap, and its note is plain text citing the declaration",
       () => {
         const type = lineAt(document, DSR_BLOCK);
         assert.ok(type.classList.contains('interpreted'));
@@ -64,22 +64,20 @@ test('the corrected text of TS 29.272', async t => {
         assert.ok(!lineAt(document, DSR_BLOCK).classList.contains('interpreted-rule'));
         assert.ok(lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted-gap'));
         assert.ok(!lineAt(document, DSR_BLOCK - 1).classList.contains('interpreted'));
-        const note = type.querySelector('.correction-toggle');
+        // Its record would say the clause and the quotes the block prints right under it: it opens none.
+        absent(type.querySelector('.correction-toggle'), 'no record to open');
+        absent(type.querySelector('.correction-detail'));
+        const note = type.querySelector('.plain-note');
         assert.equal(note.textContent, ';; interpreted');
-        click(page, note);
-        assert.equal(note.textContent, ';; interpreted', 'open as shut');
-        const citation = type.querySelector('.correction-citation');
-        assert.match(citation.textContent, /^\(TS29\.272\.dadx#[\w-]+\)$/, 'the .dadx file the block is written in');
-        assert.equal(
-          citation.querySelector('.markup\\.underline\\.link\\.declaration\\.dad')?.textContent,
-          citation.textContent.slice(1, -1),
-          'scoped as the grammar scopes a declaration',
+        assert.match(note.title, /^Written in \(TS29\.272\.dadx#[\w-]+\)$/, 'the .dadx file the block is written in');
+        // A note whose record says why, which nothing else prints, still opens it.
+        const corrected = [...document.querySelectorAll('.dad-line .correction-toggle')].find(toggle =>
+          toggle.textContent.startsWith(';; corrected'),
         );
-        assert.match(
-          type.querySelector('.correction-reason').textContent,
-          /^— interpreted from table 5\.2\.2\.2\.1\/1: /,
-        );
-        click(page, note);
+        present(corrected, 'a corrected note opens its record');
+        click(page, corrected);
+        assert.match(corrected.closest('.dad-line').querySelector('.correction-reason').textContent, /^— \S/);
+        click(page, corrected);
       },
     );
 
