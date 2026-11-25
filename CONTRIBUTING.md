@@ -204,7 +204,8 @@ checks the line says it, as the page reads it (`explorerOf`); `vite.config.ts` d
 line keeps seanchai's default, the public site, which `scripts/check-unlinked.mjs` allows there and nowhere else. The
 page reads the served file's head for its versions line and its marked line. Viewed at one of the own addresses
 (`isOwnAddress`, `sameAddress`: exactly, once each is `normalAddress`), with that line the first of them, it offers the
-file as served and one `curl` (`directInstall`), its install section empty until the file is read; anywhere else, or
+file as served and one command (`directInstall`), a `curl` to a `.part` file beside the plugin and, once it ends well,
+a `mv` over it, its install section empty until the file is read; anywhere else, or
 where the line says another or cannot be read, it rewrites the one line ending `-- seanchai:explorer` to the address it
 is served at, as its install commands for POSIX shells or fish do with a `sed` that edits no file in place, which GNU's
 and BSD's sed spell differently, and says why above them, naming the line's site but in an unlinked build, where it

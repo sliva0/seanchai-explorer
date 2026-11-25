@@ -38,7 +38,9 @@ and what interpreted constraints are.
 The header's Wireshark page offers Seanchaí's Wireshark plugin, with its links set to the
 copy of the site it is downloaded from. Viewed at one of the addresses the build counts as its
 own (`SEANCHAI_EXPLORER_URLS`, below), where the served file's line says the first of them, it
-offers the file as served, a plain download and one `curl` command; anywhere else it sets this
+offers the file as served, a plain download and one command for every POSIX shell and fish,
+a `curl` to a `.part` file beside the plugin and a `mv` over it once whole, so a dropped
+connection leaves the plugin as it was; anywhere else it sets this
 site's address in the file as its download and install commands fetch it, saying in a sentence
 why. It says what a finding's line is, `Severity:
 place: problem [source]`, and which expert info field and filter each severity has: an

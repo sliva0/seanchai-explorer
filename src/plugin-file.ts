@@ -196,14 +196,18 @@ mkdir -p ${PERSONAL_PLUGINS} &&
 
 /**
  * The one command installing the plugin as served, for a plugin whose links are this site's already: curl makes the
- * folder and writes the file, and with `-f` writes nothing where the server refuses it. The same in dash, bash, zsh
- * and fish, which all expand the leading `~` and carry a line ending in `\` on to the next, as it is written to fit
- * its box. Null where the address would hold a control character.
+ * folder and downloads beside the plugin, to a `.part` file Wireshark never loads, as it loads only files ending
+ * `.lua`, and with `-f` writes nothing where the server refuses it; only once the download has ended well does `mv`
+ * put it over the installed plugin, in one rename, so a dropped connection leaves the plugin as it was. The same in
+ * dash, bash, zsh and fish, which all expand a word's leading `~`, run what follows `&&` only after a success and carry
+ * a line ending in `\` on to the next, as it is written to fit its box. Null where the address would hold a control
+ * character.
  */
 export function directInstall(plugin: string): string | null {
   const url = quotable(plugin);
   if (/\p{Cc}/u.test(url)) return null;
-  return `curl -fsSL --create-dirs \\\n  -o ${PERSONAL_PLUGINS}/${PLUGIN_NAME} \\\n  '${url}'\n`;
+  const file = `${PERSONAL_PLUGINS}/${PLUGIN_NAME}`;
+  return `curl -fsSL --create-dirs \\\n  -o ${file}.part \\\n  '${url}' && \\\nmv ${file}.part \\\n  ${file}\n`;
 }
 
 /**

@@ -2202,7 +2202,8 @@ test(
     const command = await page.locator('.plugin-command code').textContent();
     assert.equal(
       command,
-      `curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua \\\n  '${own[1]}plugin/seanchai_diameter.lua'\n`,
+      `curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part \\\n  '${own[1]}plugin/seanchai_diameter.lua' && \\\n` +
+        'mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part \\\n  ~/.local/lib/wireshark/plugins/seanchai_diameter.lua\n',
     );
     const [download] = await Promise.all([page.waitForEvent('download'), link.click()]);
     assert.equal(download.suggestedFilename(), 'seanchai_diameter.lua');
@@ -2212,6 +2213,11 @@ test(
         const run = await runInstall(at, command, undefined, how);
         assert.equal(run.code, 0, `${shell} ${how}`);
         assert.equal(run.file?.toString('utf8'), served, `${shell} ${how}`);
+        // A download that fails, here a file the server does not have, leaves the plugin installed before as it was.
+        const missing = command.replace('plugin/seanchai_diameter.lua', 'plugin/missing.lua');
+        const failed = await runInstall(at, missing, 'the plugin before', how);
+        assert.notEqual(failed.code, 0, `${shell} ${how}: fails`);
+        assert.equal(failed.file?.toString('utf8'), 'the plugin before', `${shell} ${how}: left as it was`);
       }
     await context.close();
     assert.deepEqual(errors, []);

@@ -542,10 +542,11 @@ test("each of a build's addresses is an http(s) URL the plugin's line can hold, 
     assert.deepEqual(explorerEntry(raw), { problem }, raw);
 });
 
-test('the one command installing a plugin that links here already writes the file as served', () => {
+test('the one command installing a plugin that links here already downloads beside it and moves it in once whole', () => {
   assert.equal(
     directInstall('https://host/plugin/seanchai_diameter.lua'),
-    "curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua \\\n  'https://host/plugin/seanchai_diameter.lua'\n",
+    "curl -fsSL --create-dirs \\\n  -o ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part \\\n  'https://host/plugin/seanchai_diameter.lua' && \\\n" +
+      'mv ~/.local/lib/wireshark/plugins/seanchai_diameter.lua.part \\\n  ~/.local/lib/wireshark/plugins/seanchai_diameter.lua\n',
   );
   assert.ok(directInstall("https://host/o'b/plugin/seanchai_diameter.lua").includes("'https://host/o%27b/plugin/"));
   assert.equal(directInstall('https://host/\u0007'), null);
