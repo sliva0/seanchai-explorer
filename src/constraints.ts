@@ -299,9 +299,16 @@ export interface ConstraintRef {
   path: string[];
 }
 
-/** A condition of a rule as the site reads it: the AVP its reference names present, holding `value`, or with `bit`. */
+/** A value an `in` list holds: a number, a name, or a range of numbers, both ends included. */
+export type ListedValue = number | string | { low: number; high: number };
+
+/**
+ * A condition of a rule as the site reads it: the AVP its reference names present, holding `value`, holding one of
+ * `values` (an `in` list), or with `bit`.
+ */
 export interface Condition extends ConstraintRef {
   value?: number | string | ConstraintRef;
+  values?: ListedValue[];
   bit?: number | string;
   negated: boolean;
 }
@@ -320,7 +327,18 @@ export function referenceOf(value: unknown): ConstraintRef | undefined {
   return { root, path: path as string[] };
 }
 
-/** A condition as the export gives one, an older export's `avp` read as a path of one; none for any other shape. */
+/** An `in` list's value as the export gives one; none for a shape the site does not know. */
+function listedOf(value: unknown): ListedValue | undefined {
+  if (isScalar(value)) return value;
+  if (!isObject(value) || Object.keys(value).some(key => key !== 'low' && key !== 'high')) return undefined;
+  const { low, high } = value;
+  return Number.isInteger(low) && Number.isInteger(high) ? { low: low as number, high: high as number } : undefined;
+}
+
+/**
+ * A condition as the export gives one, an older export's `avp` read as a path of one, `values` empty for a test of
+ * another kind; none for any other shape.
+ */
 function conditionOf(raw: unknown): Condition | undefined {
   if (!isObject(raw)) return undefined;
   const ref =
@@ -330,13 +348,17 @@ function conditionOf(raw: unknown): Condition | undefined {
       : undefined);
   if (!ref || (raw.negated != null && typeof raw.negated !== 'boolean')) return undefined;
   const { value, bit } = raw;
-  if (value != null && bit != null) return undefined;
+  if (raw.values != null && !Array.isArray(raw.values)) return undefined;
+  const values = ((raw.values ?? []) as unknown[]).map(listedOf);
+  if (values.some(item => item === undefined)) return undefined;
+  if ([value != null, bit != null, values.length > 0].filter(Boolean).length > 1) return undefined;
   const read = value == null ? undefined : isScalar(value) ? value : referenceOf(value);
   if (value != null && read === undefined) return undefined;
   if (bit != null && !isScalar(bit)) return undefined;
   return {
     ...ref,
     ...(read === undefined ? {} : { value: read }),
+    ...(values.length ? { values: values as ListedValue[] } : {}),
     ...(bit == null ? {} : { bit }),
     negated: raw.negated === true,
   };
@@ -386,12 +408,54 @@ export function referenceWords({ root, path }: ConstraintRef): string {
 }
 
 /**
+ * Words with the lists of values a condition holds one of left apart, `{ values }` each value in words, which a popup
+ * folds after the first few and a title cuts after the first (`piecesText`).
+ */
+export type WordPiece = string | { values: string[] };
+
+/** Where a template's words put what is filled in: they are split around it, so a list goes there as a piece. */
+const SLOT = '\u0000';
+
+/** A template's words around a piece put in its slot: "Result-Code is one of ", the list, "". */
+const around = (template: (slot: string) => string, piece: WordPiece | WordPiece[]): WordPiece[] => {
+  const [before, after = ''] = template(SLOT).split(SLOT);
+  return [before, ...(Array.isArray(piece) ? piece : [piece]), after].filter(part => part !== '');
+};
+
+/** How many of a list's values a popup shows before its "and 11 more". */
+export const LIST_SHOWN = 3;
+
+/** A list in a title: whole where short, else its first value and how many there are, "A, … (14 values)". */
+export const listWords = (values: string[]) =>
+  values.length > LIST_SHOWN + 1 ? ruleText.listCut(values[0], values.length) : values.join(ruleText.listJoin);
+
+/** Pieces as one string, each list as `listWords` says it. */
+export const piecesText = (pieces: WordPiece[]) =>
+  pieces.map(piece => (typeof piece === 'string' ? piece : listWords(piece.values))).join('');
+
+/** A value of an `in` list in words: a number or a name as a rule names it, a range "5000 to 5999". */
+const listedWords = (value: ListedValue) =>
+  isObject(value) ? ruleText.between(value.low, String(value.high)) : valueWords(value);
+
+/**
  * A condition in words: "DSR-Flags has bit “Trace Data Withdrawal” set", "Result-Code is DIAMETER_SUCCESS", "the
  * request's ULR-Flags does not have bit “Skip Subscriber Data” set", "MIP-Home-Agent-Host in MIP6-Agent-Info is
- * absent", "Result-Code equals the request's Result-Code".
+ * absent", "Result-Code equals the request's Result-Code", "Result-Code is one of A, B, 5000 to 5999", the list a
+ * piece of its own.
  */
+export function conditionPieces(condition: Condition): WordPiece[] {
+  const { values, negated } = condition;
+  if (!values?.length) return [conditionWords(condition)];
+  const avp = referenceWords(condition);
+  const said = values.map(listedWords);
+  if (said.length === 1) return [negated ? ruleText.isNot(avp, said[0]) : ruleText.is(avp, said[0])];
+  return around(slot => (negated ? ruleText.isNoneOf(avp, slot) : ruleText.isOneOf(avp, slot)), { values: said });
+}
+
+/** A condition in words, a list of values as a title says it: "Result-Code is one of A, … (14 values)". */
 export function conditionWords(condition: Condition): string {
-  const { bit, value, negated } = condition;
+  const { bit, value, values, negated } = condition;
+  if (values?.length) return piecesText(conditionPieces(condition));
   const avp = referenceWords(condition);
   if (bit != null) return negated ? ruleText.lacksBit(avp, bitWords(bit)) : ruleText.hasBit(avp, bitWords(bit));
   if (isObject(value)) {
@@ -409,10 +473,16 @@ export function conditionWords(condition: Condition): string {
  * Alternatives in words, the conditions of each joined by "and" and the alternatives by "or", after a comma where one
  * of them joins several, as "and" binds tighter.
  */
-export function alternativesWords(alternatives: Condition[][]): string {
-  const said = alternatives.map(alternative => alternative.map(conditionWords).join(ruleText.and));
-  return said.join(alternatives.some(alternative => alternative.length > 1) ? ruleText.orAfterAnd : ruleText.or);
+export function alternativesPieces(alternatives: Condition[][]): WordPiece[] {
+  const or = alternatives.some(alternative => alternative.length > 1) ? ruleText.orAfterAnd : ruleText.or;
+  return alternatives.flatMap((alternative, index) => [
+    ...(index ? [or] : []),
+    ...alternative.flatMap((condition, at) => [...(at ? [ruleText.and] : []), ...conditionPieces(condition)]),
+  ]);
 }
+
+/** Alternatives in words, as `alternativesPieces` says them, each list cut as a title cuts it. */
+export const alternativesWords = (alternatives: Condition[][]) => piecesText(alternativesPieces(alternatives));
 
 const predicateWords: Record<string, string> = {
   'present-if': ruleText.presentIf,
@@ -466,7 +536,16 @@ export interface RuleWhere {
  * the same value as the request's User-Name", "never sent in STR" for an `absent` rule in that command. `printed` is
  * the rule's line as the file prints it, which a kind, relation or condition the site does not know is said by.
  */
-export function ruleWords(rule: ConstraintRule, printed: string, where: RuleWhere = {}): string {
+export const ruleWords = (rule: ConstraintRule, printed: string, where: RuleWhere = {}): string =>
+  piecesText(rulePieces(rule, printed, where));
+
+/** A rule in words as `ruleWords` says it, with each list of values a condition holds one of a piece of its own. */
+export function rulePieces(rule: ConstraintRule, printed: string, where: RuleWhere = {}): WordPiece[] {
+  const said = sayRule(rule, printed, where);
+  return Array.isArray(said) ? said : [said];
+}
+
+function sayRule(rule: ConstraintRule, printed: string, where: RuleWhere): string | WordPiece[] {
   const { within } = where;
   const kind = rule.kind as string;
   if (!KNOWN_KINDS.has(kind)) return printed.trim();
@@ -500,7 +579,7 @@ export function ruleWords(rule: ConstraintRule, printed: string, where: RuleWher
       const alternatives = alternativesOf(rule);
       if (!alternatives || !values.length) return printed.trim();
       const said = values.length > 1 ? ruleText.oneOf(values.map(valueWords).join(', ')) : valueWords(values[0]);
-      return ruleText.values(said, alternativesWords(alternatives));
+      return around(slot => ruleText.values(said, slot), alternativesPieces(alternatives));
     }
     case 'equals': {
       const reference = referenceOf(rule.reference);
@@ -515,7 +594,7 @@ export function ruleWords(rule: ConstraintRule, printed: string, where: RuleWher
     default: {
       const alternatives = alternativesOf(rule);
       if (!alternatives || !(kind in predicateWords)) return printed.trim();
-      return `${predicateWords[kind]} ${alternativesWords(alternatives)}`;
+      return [`${predicateWords[kind]} `, ...alternativesPieces(alternatives)];
     }
   }
 }
@@ -550,6 +629,30 @@ export const lineText = (file: DadFile, line: number) =>
     .join('')
     .replace(/\n$/, '');
 
+/** A line the formatter wrapped a rule onto, after a comma of an `in` list: indented eight spaces. */
+const CONTINUED = /^ {8}\S/;
+const textOf = (lines: Line[], index: number) => (lines[index]?.tokens ?? []).map(token => token.text).join('');
+
+/**
+ * The lines a rule is printed on, first to last: its own, and those the formatter wrapped it onto, which the export's
+ * `line` may be the last of. A line its kind does not start alone where the lines around it are no rule's.
+ */
+export function ruleLines({ lines }: Pick<DadFile, 'lines'>, rule: Pick<ConstraintRule, 'line' | 'kind'>): number[] {
+  const opens = (index: number) => textOf(lines, index).trimStart().startsWith(String(rule.kind));
+  let first = rule.line;
+  while (first > 0 && CONTINUED.test(textOf(lines, first))) first--;
+  if (!opens(first)) first = rule.line;
+  let last = rule.line;
+  while (opens(first) && CONTINUED.test(textOf(lines, last + 1))) last++;
+  return Array.from({ length: last - first + 1 }, (_, index) => first + index);
+}
+
+/** A rule as the file prints it, its wrapped lines joined into one, their indent left out. */
+export const ruleLineText = (file: DadFile, rule: Pick<ConstraintRule, 'line' | 'kind'>) =>
+  ruleLines(file, rule)
+    .map((line, index) => (index ? lineText(file, line).trim() : lineText(file, line)))
+    .join(' ');
+
 /** A quote cut at a word near `length` characters, for a title. */
 function shortQuote(text: string, length = 100): string {
   if (text.length <= length) return text;
@@ -581,9 +684,29 @@ export function markTitle(file: DadFile, source: DadFile, line: number, blocks: 
   const groups = new Map<string, string[]>();
   // On a command's `* [ AVP ]` line, each rule says which AVP it is on, as the line names none of them.
   const admitted = new Set(admittedBy(file, line, blocks));
+  // There, many AVPs never sent in the command are said in one line, as RFC 6733's table 10.1 has dozens of them.
+  const absent = new Map<string, ConstraintBlock[]>();
+  for (const item of blocks)
+    if (admitted.has(item.avp) && onlyAbsent(item)) {
+      const heading = readFrom(file, line, item);
+      absent.set(heading, [...(absent.get(heading) ?? []), item]);
+    }
   for (const item of blocks) {
     const heading = readFrom(file, line, item);
     const said = groups.get(heading) ?? [];
+    const together = absent.get(heading) ?? [];
+    if (together.length >= ABSENT_GROUP && together.includes(item)) {
+      if (together[0] === item) {
+        const words = ruleWords(
+          { kind: 'absent', line: item.block.line },
+          '',
+          ruleWhere(item, command => commandShort(source, command)),
+        );
+        said.push(markText.grouped(words, [...new Set(together.map(other => other.avp))].join(ruleText.listJoin)));
+      }
+      groups.set(heading, said);
+      continue;
+    }
     for (const reading of item.block.readings ?? []) {
       const words = textOnly(reading.rules)
         ? markText.textOnly(shortQuote(reading.quotes.map(quote => quote.text).join(' ')))
@@ -593,7 +716,7 @@ export function markTitle(file: DadFile, source: DadFile, line: number, blocks: 
               .map(rule =>
                 ruleWords(
                   rule,
-                  lineText(source, rule.line),
+                  ruleLineText(source, rule),
                   ruleWhere(item, command => commandShort(source, command)),
                 ),
               )
@@ -613,6 +736,14 @@ export function markTitle(file: DadFile, source: DadFile, line: number, blocks: 
     MARK_CLICK,
   ];
 }
+
+/** How many blocks saying only that an AVP is never sent in a command are said together, in a ¶'s title and a popup. */
+export const ABSENT_GROUP = 3;
+
+/** Whether all a block says is that its AVP is never sent where it holds. */
+export const onlyAbsent = ({ block }: Pick<ConstraintBlock, 'block'>) =>
+  !!block.readings?.length &&
+  block.readings.every(reading => reading.rules.length > 0 && reading.rules.every(rule => rule.kind === 'absent'));
 
 /** A command's `* [ AVP ]` line, and the blocks on AVPs its rule does not print that hold in it, which that line admits. */
 function admittedLine(block: Block, source: DadFile, context: ReadContext): [number, ConstraintBlock[]] {
@@ -669,7 +800,7 @@ export const interpretedLines = perFile(({ lines, blocks }) => {
     for (let line = block.line; line <= block.last; line++) kinds.set(line, 'interpreted');
     for (const reading of block.readings ?? []) {
       for (const quote of reading.quotes) kinds.set(quote.line, 'quote');
-      for (const rule of reading.rules) kinds.set(rule.line, 'rule');
+      for (const rule of reading.rules) for (const line of ruleLines({ lines }, rule)) kinds.set(line, 'rule');
     }
     for (let line = block.line - 1; line >= 0 && !kinds.has(line); line--) {
       const text = (lines[line]?.tokens ?? []).map(token => token.text).join('');
@@ -771,9 +902,10 @@ export function namedValues(rule: ConstraintRule, own: string): NamedValue[] {
     for (const value of (rule.values ?? []) as unknown[])
       if (typeof value === 'string') found.push({ avp: own, name: value, bit: false });
   for (const alternative of alternativesOf(rule) ?? [])
-    for (const { path, value, bit } of alternative) {
+    for (const { path, value, values, bit } of alternative) {
       const avp = path[path.length - 1];
       if (typeof value === 'string') found.push({ avp, name: value, bit: false });
+      for (const listed of values ?? []) if (typeof listed === 'string') found.push({ avp, name: listed, bit: false });
       if (typeof bit === 'string') found.push({ avp, name: bit, bit: true });
     }
   return found;
@@ -831,17 +963,45 @@ function markValue(line: Line, start: number, end: number, row: ValueRow) {
   }
 }
 
-/** Marks the values a rule's line names that the file gives its AVP's numbers or bits, in the order it prints them. */
-function markValues(file: DadFile, line: Line, rule: ConstraintRule, own: string) {
-  const text = line.tokens.map(token => token.text).join('');
-  let from = text.length - text.trimStart().length + rule.kind.length;
+/**
+ * A walk through a rule's lines in the order they print it, from after its kind: `find` looks for the next thing it
+ * prints from where the last ended, on that line and then on each wrapped line after it, and moves on past it; none,
+ * and the walk stays, where no line prints it.
+ */
+function ruleWalk(file: DadFile, rule: ConstraintRule) {
+  const lines = ruleLines(file, rule).map(index => file.lines[index]);
+  const texts = lines.map(line => line.tokens.map(token => token.text).join(''));
+  let at = 0;
+  let from = texts[0].length - texts[0].trimStart().length + rule.kind.length;
+  return (look: (text: string, from: number) => [number, number] | undefined) => {
+    for (let index = at; index < lines.length; index++) {
+      const span = look(texts[index], index === at ? from : 0);
+      if (!span) continue;
+      at = index;
+      from = span[1];
+      return { line: lines[index], text: texts[index], span };
+    }
+    return undefined;
+  };
+}
+
+/** Marks the values a rule's lines name that the file gives its AVP's numbers or bits, in the order it prints them. */
+function markValues(file: DadFile, rule: ConstraintRule, own: string) {
+  const find = ruleWalk(file, rule);
   for (const { avp, name, bit } of namedValues(rule, own)) {
-    const span = printedValue(text, name, from);
-    if (!span) continue;
-    from = span[1];
+    const found = find((text, from) => printedValue(text, name, from));
+    if (!found) continue;
     const row = namedValueRow(file, avp, name, bit);
-    if (row) markValue(line, span[0], span[1], row);
+    if (row) markValue(found.line, found.span[0], found.span[1], row);
   }
+}
+
+/** Where a line prints a path, as a whole, at or past `from`. */
+function printedPath(text: string, printed: string, from: number): [number, number] | undefined {
+  let start = text.indexOf(printed, from);
+  while (start >= 0 && (NAME_CHAR.test(text[start - 1] ?? '') || NAME_CHAR.test(text[start + printed.length] ?? '')))
+    start = text.indexOf(printed, start + 1);
+  return start < 0 ? undefined : [start, start + printed.length];
 }
 
 /**
@@ -897,28 +1057,20 @@ export const markConstraints = perFile(file => {
     markSectionLine(file, block, 'Request-Section', block.request_target?.document ?? undefined);
     for (const reading of block.readings ?? [])
       for (const rule of reading.rules) {
-        const line = file.lines[rule.line];
-        if (!line) continue;
-        const text = line.tokens.map(token => token.text).join('');
-        let from = text.length - text.trimStart().length + rule.kind.length;
+        if (!file.lines[rule.line]) continue;
+        const find = ruleWalk(file, rule);
         for (const ref of ruleReferences(rule)) {
           const printed = [...(ref.root ? [ref.root] : []), ...ref.path].join('/');
-          let start = text.indexOf(printed, from);
-          while (
-            start >= 0 &&
-            (NAME_CHAR.test(text[start - 1] ?? '') || NAME_CHAR.test(text[start + printed.length] ?? ''))
-          )
-            start = text.indexOf(printed, start + 1);
-          if (start < 0) continue;
-          let at = start + (ref.root ? ref.root.length + 1 : 0);
+          const found = find((text, from) => printedPath(text, printed, from));
+          if (!found) continue;
+          let at = found.span[0] + (ref.root ? ref.root.length + 1 : 0);
           ref.path.forEach((name, index) => {
             const prefix = { root: ref.root, path: ref.path.slice(0, index + 1) };
-            markReference(line, at, at + name.length, name, prefix, referenceTarget(file, item, prefix));
+            markReference(found.line, at, at + name.length, name, prefix, referenceTarget(file, item, prefix));
             at += name.length + 1;
           });
-          from = start + printed.length;
         }
-        markValues(file, line, rule, item.avp);
+        markValues(file, rule, item.avp);
       }
   }
   return true;

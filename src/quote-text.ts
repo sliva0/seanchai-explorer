@@ -23,6 +23,16 @@ export function quoteNeedles(quote: string): string[] {
   ];
 }
 
+/**
+ * A clause and the clauses containing it, nearest first, where a quote is looked for in turn: a clause may print for
+ * its subclauses what a block of one of them quotes, as RFC 6733's clause 10 the symbols of 10.1's table. `10.1`,
+ * `10`; `A.1.2`, `A.1`, `A`.
+ */
+export function clauseAndParents(section: string): string[] {
+  const parts = section.split('.').filter(Boolean);
+  return parts.map((_, index) => parts.slice(0, parts.length - index).join('.'));
+}
+
 /** A running header or footer of an RFC's page, which a paragraph running on over the break has between its lines. */
 export const runningLine = (text: string) =>
   /\[Page \d+\]\s*$/.test(text) || /^RFC \d+\s{2,}\S.*\s{2,}\S.*\b\d{4}\s*$/.test(text);

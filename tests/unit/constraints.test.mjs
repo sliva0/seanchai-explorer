@@ -501,9 +501,9 @@ test("TS 29.273's blocks hold in the print their Command-Section names, and an a
   assert.ok(!lines.has(swaWildcard), "SWa's DEA has no such block");
   // ; Command-Section: and ; Request-Section: of an Interpreted Constraints block link to their clauses.
   const linked = (line, section) => doc.lines[line].tokens.find(token => token.text === section)?.target;
-  assert.deepEqual(linked(5350, '9.2.2.2.2'), { document: '29273-j20', section: '9.2.2.2.2' });
-  assert.deepEqual(linked(5351, '9.2.2.2.1'), { document: '29273-j20', section: '9.2.2.2.1' });
-  const block = constraintBlocks(doc).find(item => item.block.line === 5346);
+  assert.deepEqual(linked(5359, '9.2.2.2.2'), { document: '29273-j20', section: '9.2.2.2.2' });
+  assert.deepEqual(linked(5360, '9.2.2.2.1'), { document: '29273-j20', section: '9.2.2.2.1' });
+  const block = constraintBlocks(doc).find(item => item.block.line === 5355);
   assert.equal(block.scope.commandSection, '9.2.2.2.2');
   assert.equal(block.scope.requestSection, '9.2.2.2.1');
   assert.equal(requestMessage(doc, block.block).section, '9.2.2.2.1');

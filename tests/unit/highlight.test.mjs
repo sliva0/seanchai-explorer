@@ -316,3 +316,25 @@ test('syntax splitting preserves corpus bytes and every navigation or correction
     }
   }
 });
+
+test("an interpreted rule's in list is scoped as the rule is, on the lines the formatter wrapped it onto", () => {
+  const lines = highlight([
+    line('; Type: Interpreted Constraints'),
+    line('; AVP: Result-Code'),
+    line('"When one of the result codes defined here is included in a response ..."'),
+    line('    absent-if Experimental-Result/Experimental-Result-Code in DIAMETER_ERROR_A,'),
+    line('        "DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC", 5000..5999,'),
+    line('        DIAMETER_ERROR_B and not Origin-Host in X, Y'),
+    line('        < Session-Id >'),
+  ]);
+  assert.equal(scopeFor(lines[3], 'in'), 'keyword.operator.condition.dad');
+  assert.equal(scopeFor(lines[3], 'DIAMETER_ERROR_A'), 'variable.other.avp.dad');
+  assert.equal(scopeFor(lines[3], ','), 'punctuation.separator.comma.dad');
+  assert.equal(scopeFor(lines[4], '"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"'), 'string.quoted.double.mark.dad');
+  assert.equal(scopeFor(lines[4], '..'), 'keyword.operator.dad');
+  assert.equal(scopeFor(lines[4], '5000'), 'constant.numeric.dad');
+  assert.equal(scopeFor(lines[5], 'DIAMETER_ERROR_B'), 'variable.other.avp.dad');
+  assert.equal(scopeFor(lines[5], 'not'), 'keyword.operator.condition.dad');
+  assert.equal(scopeFor(lines[5], 'Origin-Host'), 'variable.other.avp.dad');
+  assert.equal(scopeFor(lines[6], 'Session-Id'), 'support.class.avp.fixed.dad', 'a rule line indented as much is none');
+});

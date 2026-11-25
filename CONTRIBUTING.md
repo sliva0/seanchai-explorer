@@ -154,15 +154,23 @@ carries `table`, which the pane's readers find the caption by.
 An `Interpreted Constraints` block, only in a corrected file, has `interpreted`, the AVP
 its `; AVP:` names as `name` with `avp_target`, its scope in `fields` (`Within`, or
 `Command` with `Application-ID`, `Command-Section` and `Request-Section`) and `Versions`,
+which an RFC's block has not and nothing reads,
 `request_target`, where the request its rules read is printed, and `readings`, each `quotes`
 and `rules` by line. `src/constraints.ts` reads them: which hold where a name is read
 (unscoped ones always, a `Within` one as a member of that grouped AVP, a `Command` one in
 that command's Message block or Information Elements table, at its `Command-Section` where
 it names one, the place read saying which print it is by its section), a rule in words,
 and the lines a hide leaves out, of which the quotes and rules wrap at the pane's edge. A
+rule's `line` may be the last of those the formatter wrapped it onto, each indented eight
+spaces after a comma of its `in` list: `ruleLines` gives them all, from the line its kind
+opens, and `ruleLineText` the rule as one line, which the marks, the words' titles and the
+popup's printed rule read. `rulePieces` says a rule as `ruleWords` does with each `in`
+list a piece of its own, which `Folded` in `popup/constraints.tsx` shows the first few of,
+and the title words (`listWords`) cut after the first. A
 rule's `conditions` are alternatives, each a list of conditions that must all hold, each
-`{root, path, value, bit, negated}`, `value` a number, a name or a reference `{root, path}`,
-as an `equals` rule's `reference` is; `alternativesOf` reads them, an older export's flat
+`{root, path, value, values, bit, negated}`, `value` a number, a name or a reference `{root, path}`,
+as an `equals` rule's `reference` is, `values` an `in` list of numbers, names and ranges
+`{low, high}`, empty for a test of another kind; `alternativesOf` reads them, an older export's flat
 list too, and a shape it does not know makes the rule said as its line prints it, never
 thrown on. `markConstraints`, one of `data.ts`'s readers, makes every name of a path its
 own token on the rule's line, with `constraintRef`, the path to it, and the link of the
@@ -176,7 +184,8 @@ export gave no link or one to another print; and links `; Command-Section:` and
 `; Request-Section:`. `readersFor` gives the blocks on other AVPs whose rules read a name
 where it is read, `commandConstraints` those of a command its lines cannot show, on an AVP
 only its `* [ AVP ]` admits or `absent`, which the ¶ on that line and the command's popup
-list. `ruleKinds` there lists every
+list, those saying only `absent` (`onlyAbsent`) in one line where there are `ABSENT_GROUP`
+or more. `ruleKinds` there lists every
 kind the schema has, each as the text prints one and what it says, for `ruleWords` and the
 help, and a test holds it to the schema's list; a kind the export adds later, or a `bits`
 or `members` relation, is said as its line prints it, never refused. A `unique` rule is
@@ -192,7 +201,8 @@ check means for the value where that is short (`shortCheck`) and a tag where the
 not `full`. A rule is said once, in words (`ruleWords`), its line as printed their title; where the
 words are the line as printed, a kind or shape the site does not know, it is shown as printed
 alone. A block's place carries its first quote's needle as `quote` in its position, which
-the route keeps as `sourceQuote` and the readers take as `quote`; each quote has a button of
+the route keeps as `sourceQuote` and the readers take as `quote`, looking for it from its
+clause and then from each clause containing it (`clauseAndParents`); each quote has a button of
 its own where the pane shows the document. A place in another document whose position the
 index cannot give is read by `linePosition` once that document loads, in `showPlace` and the
 router, as the row or member at its line. Its quotes are folded to a line each where longer (`Quote` in `popup/constraints.tsx`,

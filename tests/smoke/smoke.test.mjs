@@ -2301,21 +2301,48 @@ test(
   },
 );
 
-test("an interpreted rule's value goes to its row and has the row's popup", { skip }, async () => {
-  const { page, done } = await open('#29329-j10');
-  const value = page.locator('.dad-line[data-line="330"] a.value-name', {
-    hasText: 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC',
-  });
-  await value.scrollIntoViewIfNeeded();
-  await value.click({ button: 'right' });
-  await page.locator('.avp-popup[data-value="DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"]').waitFor();
-  assert.match(await page.locator('.avp-popup').textContent(), /Result code \d+ of Experimental-Result-Code/);
-  await page.keyboard.press('Escape');
-  await value.click({ modifiers: ['Alt'] });
-  await page.waitForFunction(() => location.hash.includes('?name=DIAMETER_ERROR_TRANSPARENT_DATA+OUT_OF_SYNC'));
-  assert.match(await page.locator('.target-line').textContent(), /^"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"/);
-  await done();
-});
+test(
+  "an interpreted rule's value goes to its row and has the row's popup, on a line its in list wraps onto",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29329-j10');
+    // UDA's Result-Code rule at 330, its in list wrapped onto the ten lines after it.
+    const value = page.locator('.dad-line[data-line="336"] a.value-name', {
+      hasText: 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC',
+    });
+    await value.scrollIntoViewIfNeeded();
+    await value.click({ button: 'right' });
+    await page.locator('.avp-popup[data-value="DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"]').waitFor();
+    assert.match(await page.locator('.avp-popup').textContent(), /Result code \d+ of Experimental-Result-Code/);
+    await page.keyboard.press('Escape');
+    await value.click({ modifiers: ['Alt'] });
+    await page.waitForFunction(() => location.hash.includes('?name=DIAMETER_ERROR_TRANSPARENT_DATA+OUT_OF_SYNC'));
+    assert.match(await page.locator('.target-line').textContent(), /^"DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"/);
+    await done();
+  },
+);
+
+test(
+  "public: a rule's in list wraps over lines highlighted as the rule, and a popup folds it after its first values",
+  { skip },
+  async () => {
+    const { page, done } = await open('#29329-j10/6.1.2');
+    const wrapped = page.locator('.dad-line[data-line="337"]');
+    await wrapped.scrollIntoViewIfNeeded();
+    assert.ok(await wrapped.evaluate(line => line.classList.contains('interpreted-rule')));
+    assert.equal(await wrapped.locator('a.value-name').count(), 2, 'two values, each a link to its row');
+    const member = page.locator('.dad-line[data-line="56"] [data-avp="Result-Code"]');
+    await member.scrollIntoViewIfNeeded();
+    await member.click({ button: 'right' });
+    await page.locator('.avp-popup .popup-constraints summary').click();
+    const rule = page.locator('.avp-popup .constraint-words', { hasText: 'is one of' });
+    assert.match(await rule.textContent(), /CANNOT_BE_READ and 11 more$/);
+    await rule.locator('.constraint-more').click();
+    assert.equal(await rule.locator('.constraint-more').count(), 0);
+    assert.match(await rule.textContent(), /DIAMETER_USER_DATA_NOT_AVAILABLE, DIAMETER_PRIOR_UPDATE_IN_PROGRESS$/);
+    await done();
+  },
+);
 
 test(
   "viewed at one of the build's addresses, the plugin page offers the file as served; elsewhere it says why it sets this one",

@@ -128,7 +128,7 @@ test('TS 29.272: rules reading the request, and names on a path', async t => {
 const STA_DEA = 148;
 const STA_DEA_WILDCARD = 197;
 const SWA_DEA_WILDCARD = 73;
-const S6B_BLOCK = 5346;
+const S6B_BLOCK = 5355;
 
 test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the clauses a block names", async t => {
   const page = await boot({ hash: '#29273-j20/5.2.2.1.2' });
@@ -196,7 +196,8 @@ test("TS 29.273: an AVP a command's body admits only through * [ AVP ], and the 
   }
 });
 
-// TS 29.329's Result-Code rules, one a command, each on a path into Experimental-Result: UDA's at 330.
+// TS 29.329's Result-Code rules, one a command, each on a path into Experimental-Result: UDA's at 330, its in list
+// wrapped onto 331 to 340.
 const UDA_RESULT_CODE_RULE = 330;
 
 test("TS 29.329: a path's name in one answer's rule lists no other answer's rule reading the same path", async () => {
@@ -204,10 +205,10 @@ test("TS 29.329: a path's name in one answer's rule lists no other answer's rule
   const { document } = page;
   try {
     const name = [...lineAt(document, UDA_RESULT_CODE_RULE).querySelectorAll('[data-avp="Experimental-Result-Code"]')];
-    assert.equal(name.length, 14, 'each condition names it');
+    assert.equal(name.length, 1, 'the in list names it once, its values wrapped onto the lines after it');
     assert.ok(
       name.every(node => node.previousSibling?.textContent === '/'),
-      'each a name of its own after Experimental-Result/',
+      'a name of its own after Experimental-Result/',
     );
     const popup = await popupOf(page, name[0]);
     assert.equal(
@@ -215,6 +216,124 @@ test("TS 29.329: a path's name in one answer's rule lists no other answer's rule
       'Here: member of Experimental-Result, read by an interpreted rule on Result-Code · in User-Data-Answer · 6.2',
     );
     assert.equal(popup.querySelectorAll('.constraint-reader').length, 0, "PUA's, SNA's and PNA's rules are not UDA's");
+  } finally {
+    await page.close();
+  }
+});
+
+test("TS 29.329: a rule's in list is folded in a popup after its first values, and shown whole on a click", async () => {
+  const page = await boot({ hash: '#29329-j10/6.1.2' });
+  const { document } = page;
+  try {
+    // UDA's Result-Code member, which the block on Result-Code in UDA holds for.
+    const popup = await popupOf(page, nameOn(document, 'Result-Code', 56));
+    const section = popup.querySelector('.popup-constraints');
+    present(section);
+    const rule = [...section.querySelectorAll('.constraint-words')].find(node => /is one of/.test(node.textContent));
+    present(rule);
+    assert.equal(
+      rule.textContent,
+      'absent if Experimental-Result-Code in Experimental-Result is one of DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED, ' +
+        'DIAMETER_ERROR_OPERATION_NOT_ALLOWED, DIAMETER_ERROR_USER_DATA_CANNOT_BE_READ and 11 more',
+    );
+    assert.match(
+      rule.title,
+      /^As written: absent-if Experimental-Result\/Experimental-Result-Code in DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED, DIAMETER_ERROR_OPERATION_NOT_ALLOWED, .* DIAMETER_PRIOR_UPDATE_IN_PROGRESS$/,
+      'the rule as printed, its wrapped lines joined',
+    );
+    rule.querySelector('.constraint-more').click();
+    await settle();
+    absent(rule.querySelector('.constraint-more'), 'shown whole');
+    assert.equal(rule.textContent.split(', ').length, 14);
+    assert.match(rule.textContent, /, "?DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC"?, /);
+    assert.match(rule.textContent, /DIAMETER_PRIOR_UPDATE_IN_PROGRESS$/);
+  } finally {
+    await page.close();
+  }
+});
+
+/** TS 29.273 with `count` more AVPs never sent in STa's DEA, at the end of its text, of no version as an RFC's are. */
+const moreAbsent = count => (path, data) => {
+  if (path !== 'data/documents/29273-j20.json') return data;
+  const original = data.blocks.find(
+    block => block.interpreted && block.name === 'Auth-Session-State' && block.fields.Command === 'Diameter-EAP-Answer',
+  );
+  const lines = [...data.lines];
+  const blocks = [...data.blocks];
+  for (let index = 1; index <= count; index++) {
+    const avp = `Example-${index}`;
+    const line = lines.length;
+    const text = [
+      '\n',
+      '; Type: Interpreted Constraints\n',
+      `; AVP: ${avp}\n`,
+      '; Command: Diameter-EAP-Answer\n',
+      '; Application-ID: 16777250\n',
+      '; Command-Section: 5.2.2.1.2\n',
+      '; Section: 5.2.4\n',
+      '"The AVP MUST NOT be present in the message."\n',
+      '    absent\n',
+    ];
+    lines.push(...text.map(item => ({ section: '11.1.2.1.1', tokens: [{ text: item }] })));
+    const { Versions: _, ...fields } = original.fields;
+    blocks.push({
+      ...original,
+      avp_target: null,
+      name: avp,
+      fields: { ...fields, AVP: avp },
+      line: line + 1,
+      last: line + 8,
+      readings: [
+        {
+          quotes: [{ line: line + 7, text: 'The AVP MUST NOT be present in the message.' }],
+          rules: [{ kind: 'absent', line: line + 8 }],
+        },
+      ],
+    });
+  }
+  return { ...data, lines, blocks };
+};
+
+test("a command never sending many AVPs says so in one line of its popup, folded after the first few, and of its ¶'s title", async () => {
+  const page = await boot({ hash: '#29273-j20/5.2.2.1.2', transform: moreAbsent(10) });
+  const { document } = page;
+  try {
+    const mark = lineAt(document, STA_DEA_WILDCARD).querySelector('.constraint-mark');
+    present(mark);
+    assert.ok(
+      mark.title.includes(
+        '• never sent in DEA: Auth-Session-State, Example-1, Example-2, Example-3, Example-4, Example-5, Example-6, ' +
+          'Example-7, Example-8, Example-9, Example-10',
+      ),
+      mark.title,
+    );
+    const head = [...document.querySelectorAll('.dad-line')]
+      .filter(line => Number(line.dataset.line) >= STA_DEA && Number(line.dataset.line) < STA_DEA_WILDCARD)
+      .map(line => line.querySelector('[data-command]'))
+      .find(Boolean);
+    const popup = await popupOf(page, head);
+    const section = popup.querySelector('.popup-constraints');
+    assert.equal(section.querySelector('.constraints-title').textContent, 'Interpreted 11 11 never sent');
+    assert.equal(section.querySelectorAll('.constraint-group').length, 1, 'one line for all of them');
+    const said = section.querySelector('.constraint-absent .constraint-words');
+    assert.equal(
+      said.textContent,
+      'never sent in DEA: Auth-Session-State, Example-1, Example-2, Example-3, Example-4, Example-5, Example-6, ' +
+        'Example-7 and 3 more',
+    );
+    assert.match(
+      said.querySelector('a.constraint-avp').getAttribute('href'),
+      /^#rfc6733\/8\.11/,
+      'a name with a definition links to it',
+    );
+    said.querySelector('.constraint-more').click();
+    await settle();
+    assert.match(said.textContent, /Example-7, Example-8, Example-9, Example-10$/);
+    assert.deepEqual(
+      texts(section, '.constraint-absent .place-constraint .place-where'),
+      ['5.2.4'],
+      'the way to the first block of each clause they are in, one here',
+    );
   } finally {
     await page.close();
   }

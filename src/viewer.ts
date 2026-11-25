@@ -3,6 +3,7 @@ import { EventBus, FindState, PDFFindController, PDFLinkService, PDFViewer } fro
 import worker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import { attempt, noticeRegion, notifyFailure } from './notice.ts';
 import { createSectionNavigator, matchOnRow } from './pdf-navigation.ts';
+import { clauseAndParents } from './quote-text.ts';
 import { readStored, writeStored } from './storage.ts';
 import { initTheme } from './theme.ts';
 import { restoreZoom, showZoom, zoomStep, zoomSteps } from './zoom.ts';
@@ -218,9 +219,14 @@ async function navigate() {
   // A table's caption, which a clause of several tables tells them apart by; its clause where no page prints it.
   const caption = table && !exact ? await navigator.locateTable(table, hint, active) : null;
   if (generation !== navigation) return;
-  // A sentence an interpreted rule was read from: its first words, from its clause on; the clause where none is found.
-  const quoted = quote && section && !exact ? await navigator.locateQuote(section, hint, active, quote) : null;
-  if (generation !== navigation) return;
+  // A sentence an interpreted rule was read from: its first words, from its clause on, else from the clause containing
+  // it and so on up, as a clause may print what its subclauses' blocks quote; the clause where none is found.
+  let quoted: Awaited<ReturnType<typeof navigator.locateQuote>> = null;
+  for (const clause of quote && section && !exact ? clauseAndParents(section) : []) {
+    quoted = await navigator.locateQuote(clause, hint, active, quote!);
+    if (generation !== navigation) return;
+    if (quoted) break;
+  }
   const destination = quoted
     ? quoted
     : caption

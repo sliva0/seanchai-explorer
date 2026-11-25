@@ -110,6 +110,11 @@ export const codecs: Record<Exclude<Codec, 'element'>, { words: string; layout: 
     layout:
       'An IP filter rule as TS 29.212 restricts it, describing one IP flow: no "assigned", and the source port, where given, a single port, not a list or range (for example, "permit in 17 from 192.0.2.10 5060 to 198.51.100.7 5060"; RFC 6733 section 4.3.1, as TS 29.214 section 5.3.8 restricts it).',
   },
+  'session-id': {
+    words: "Session-Id: the sender's DiameterIdentity first",
+    layout:
+      'A Session-Id as text: the sender\'s DiameterIdentity first, then nothing, or a ";" and any text (for example, "aaa.example.com;1876543210;523"; RFC 6733 sections 8.8 and 9.8.5).',
+  },
   element: {
     layout:
       "An information element of another specification, named by its document, section, and name. The rule's popup and the inspector show what the element is, how far the Wireshark plugin checks it, and the editions its layout was read from.",
@@ -166,6 +171,19 @@ export const ruleText = {
   isNot: (avp: string, value: string) => `${avp} is not ${value}`,
   equalsOther: (avp: string, other: string) => `${avp} equals ${other}`,
   differsFrom: (avp: string, other: string) => `${avp} differs from ${other}`,
+  /**
+   * A condition on an AVP holding one of an `in` list's values, "Result-Code is one of A, B, 5000 to 5999", and with
+   * "not" "is none of"; `values` the list, which a popup folds and a title cuts.
+   */
+  isOneOf: (avp: string, values: string) => `${avp} is one of ${values}`,
+  isNoneOf: (avp: string, values: string) => `${avp} is none of ${values}`,
+  /** Between a list's values. */
+  listJoin: ', ',
+  /** A long list in a title: its first value and how many there are, "DIAMETER_SUCCESS, … (14 values)". */
+  listCut: (first: string, count: number) => `${first}, … (${count} values)`,
+  /** [limit] After a list's first few values in a popup, the button showing the rest: "and 11 more". */
+  andMore: (count: number) => `and ${count} more`,
+  andMoreTitle: 'Show every value',
   isPresent: (avp: string) => `${avp} is present`,
   isAbsent: (avp: string) => `${avp} is absent`,
   /** Conditions that must all hold, joined; then alternatives, and alternatives of which one joins several conditions. */
@@ -258,6 +276,8 @@ export const markText = {
   item: (words: string) => `• ${words}`,
   /** On a command's `* [ AVP ]` line, a rule on an AVP the line does not name: "Auth-Session-State: never sent in DEA". */
   named: (avp: string, words: string) => `${avp}: ${words}`,
+  /** On a command's `* [ AVP ]` line, the many AVPs never sent there in one line: "never sent in CER: A, B, C". */
+  grouped: (words: string, avps: string) => `${words}: ${avps}`,
   /** A rule no checker can run, as its quote, cut at a word near 100 characters with … */
   textOnly: (quote: string) => `cannot be checked on a single message: “${quote}”`,
   cut: (quote: string) => `${quote}…`,
@@ -301,6 +321,14 @@ export const constraintsSection = {
   needsRequestTag: 'needs request',
   /** [inspector] The disclosure under an element rule over what the element registry says of how far it is checked. */
   checking: 'Checking',
+  /**
+   * [limit] After a command's folded heading's count, where many blocks say only that an AVP is never sent in it:
+   * "27 never sent · 3 other", the other left out where there are none.
+   */
+  commandGist: (absent: number, other: number) =>
+    [`${absent} never sent`, other > 0 && `${other} other`].filter(Boolean).join(' · '),
+  /** In a command's popup, the words before the AVPs never sent there, which follow as links: "never sent in CER: ". */
+  absentBefore: (words: string) => `${words}: `,
   /** [limit] A block's place's label, before its colon. */
   readIn: 'From',
   /** [limit] The place of the request a block's rules read, before its colon: the request's block. */

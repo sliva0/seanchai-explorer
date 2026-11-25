@@ -245,9 +245,21 @@ test("an interpreted rule's value is its row's name: a popup of the row, and an 
   const page = await boot({ hash: '#29329-j10' });
   try {
     const { document, window } = page;
-    const rule = document.querySelector('.dad-line[data-line="330"]');
-    const values = [...rule.querySelectorAll('a.value-name')];
+    // The rule's in list, wrapped from 330 onto the ten lines after it.
+    const lines = Array.from({ length: 11 }, (_, index) =>
+      document.querySelector(`.dad-line[data-line="${330 + index}"]`),
+    );
+    const values = lines.flatMap(line => [...line.querySelectorAll('a.value-name')]);
     assert.equal(values.length, 14, "each of the rule's result codes, which the document's table defines");
+    assert.deepEqual(
+      lines.map(line => line.querySelectorAll('a.value-name').length),
+      [1, 1, 1, 1, 1, 1, 1, 2, 1, 2, 2],
+      'each on the line printing it',
+    );
+    assert.ok(
+      lines.every(line => line.classList.contains('interpreted-rule')),
+      'every line of it a rule line',
+    );
     const spaced = values.find(node => node.textContent === 'DIAMETER_ERROR_TRANSPARENT_DATA OUT_OF_SYNC');
     assert.ok(spaced, 'a quoted name, its quotes left outside the link');
     assert.equal(spaced.previousSibling.textContent.at(-1), '"');

@@ -20,6 +20,6 @@ export const helpText = {
   ruleKinds: 'Rule kinds:',
   /** After the list of rule kinds: how a predicate's or a values rule's conditions are written. */
   conditions:
-    'A condition names a sibling AVP, or a member of a grouped AVP as Grouped-AVP/Member; in a block on an answer, request/Name is a member of the request it answers. "and" binds tighter than "or", and "not" negates one condition. A value is a number or a name its table gives, quoted where it is digits only ("16") or holds other characters ("H(E)NB_LOCAL_IP_ADDRESS_CHANGE"); a name links to its row where the document lists it.',
+    'A condition names a sibling AVP, or a member of a grouped AVP as Grouped-AVP/Member; in a block on an answer, request/Name is a member of the request it answers. "and" binds tighter than "or", and "not" negates one condition. A value is a number or a name its table gives, quoted where it is digits only ("16") or holds other characters ("H(E)NB_LOCAL_IP_ADDRESS_CHANGE"); a name links to its row where the document lists it. "Name in A, B, 5000..5999" holds where the AVP has any of the values listed, a range of numbers among them, "not Name in …" where it has none; a rule too long for a line goes on in lines indented eight spaces after a comma of its list.',
   codecs: 'Encoding rules use one of these codecs:',
 };

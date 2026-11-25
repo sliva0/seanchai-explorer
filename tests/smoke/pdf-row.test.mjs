@@ -811,3 +811,34 @@ test(
     }
   },
 );
+
+test(
+  "the RFC reader finds a quote in the clause containing the block's where its own does not print it",
+  { skip: skip || (!existsSync(path.join(specifications, 'rfc/rfc6733.txt')) && 'no RFC 6733') },
+  async () => {
+    const context = await browser.newContext({ viewport: { width: 1000, height: 600 } });
+    const page = await context.newPage();
+    try {
+      // A block of clause 10.1's table quotes the symbol clause 10 prints for it.
+      const marked = async (section, quote) => {
+        await page.goto(
+          `${base}rfc.html?file=${encodeURIComponent(`${base}rfc6733.txt`)}#page=133&section=${section}&quote=${encodeURIComponent(quote)}`,
+        );
+        await page.waitForSelector('.rfc-match-line');
+        return page.evaluate(() =>
+          [...document.querySelectorAll('.rfc-match-line')].map(node => node.textContent.trim()),
+        );
+      };
+      assert.deepEqual(await marked('10.1', '0 The AVP MUST NOT be present in the message.'), [
+        '0     The AVP MUST NOT be present in the message.',
+      ]);
+      assert.deepEqual(
+        await marked('10.1', 'Acct-Interim- |0 |0 |0 |0 |0 |0 |0-1|0 |0 |0 |0 |0 | Interval | | | | | | | | | | | | |'),
+        ['Acct-Interim-       |0  |0  |0  |0  |0  |0  |0-1|0  |0  |0  |0  |0  |'],
+        'and one its own clause prints there, the row its first dozen words start',
+      );
+    } finally {
+      await context.close();
+    }
+  },
+);

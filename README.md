@@ -232,7 +232,9 @@ whole and closes again, and where the pane shows the document a `Source` button 
 pane to that sentence, as the block's place's `Show in source` does to its first: the PDF
 viewer finds its first dozen words, or six, from the clause's heading on through its
 subclauses and a page past, compared on letters and digits alone, and selects them; the RFC
-reader marks and flashes every line of it, over a page's running footer and header; where it
+reader marks and flashes every line of it, over a page's running footer and header; where the
+clause does not print it, each in turn looks in the clause containing it and so on up, as RFC
+6733's clause 10 prints the symbol "0" its table 10.1's blocks quote; where it
 is not found the clause is the place, with nothing highlighted; and a text-only one, a rule
 no checker can run on one message, as a `not checked` tag and its quote. What the
 Wireshark plugin makes of a rule is a terse tag at most, its title saying more: `partly
@@ -240,7 +242,15 @@ checked` or `not checked` for an element rule it checks so, `needs request` for 
 the request; the help and the Wireshark page say how checking works. A rule's conditions read as the
 grammar joins them, `and` binding tighter than `or`, `not` negating one: "present if
 Result-Code is DIAMETER_SUCCESS and TWAN-Connection-Mode has bit “MC-MODE” set", and a
-comma before `or` where an alternative joins several. A name may be a path through grouped
+comma before `or` where an alternative joins several. A condition may test an AVP for any of a
+list, `Result-Code in DIAMETER_SUCCESS, DIAMETER_MULTI_ROUND_AUTH`, numbers and ranges of
+numbers among them, said "is one of DIAMETER_SUCCESS, DIAMETER_MULTI_ROUND_AUTH", a range
+"5000 to 5999", and with `not` "is none of"; a title cuts a long one after its first value,
+"is one of DIAMETER_ERROR_USER_DATA_NOT_RECOGNIZED, … (14 values)", and a popup shows its
+first three and `and 11 more`, a button showing the rest. A rule the corpus's formatter
+wraps after a comma of such a list goes on in lines indented eight spaces, highlighted,
+linked and tinted as its first line is, and said and printed as one line (TS 29.329's
+clause 6.2). A name may be a path through grouped
 AVPs, `MIP6-Agent-Info/MIP-Home-Agent-Host`, said "MIP-Home-Agent-Host in MIP6-Agent-Info",
 and in a block on an answer `request/` names a member of the request it answers, said "the
 request's": "present if the request's IDR-Flags has bit “EPS User State Request” set and
@@ -267,7 +277,14 @@ admits only through `* [ AVP ]`, as TS 29.273's session-handling clauses keep
 Auth-Session-State out of STa's commands, has no member line to mark: its ¶ is on the
 command's `* [ AVP ]` line, its title naming the AVP, "Auth-Session-State: never sent in
 DEA", and a click opens the command's popup, which lists, as its inspector does, the blocks
-its lines cannot show, those on such an AVP and every `absent` rule of the command. An `encoding element` rule names another document's
+its lines cannot show, those on such an AVP and every `absent` rule of the command. Where
+three or more blocks of a command say only that an AVP is never sent there, as RFC 6733's
+table 10.1 does of dozens in each of its own commands, they are one line of the ¶'s title,
+"never sent in CER: Acct-Interim-Interval, Accounting-Realtime-Required, …", and one of the
+popup, its AVPs links to their definitions, the first eight shown and `and 19 more` the
+rest, with `From` the first block of each clause they are in; the folded heading counts
+them, `Interpreted 27  27 never sent`. A block of a document with one edition, an RFC's,
+names no `; Versions:`, and nothing reads it. An `encoding element` rule names another document's
 element; where the corpus holds that document, its name links to it, and a `members`
 rule's names link to their AVPs as the text's do. Under an element rule, what its layout
 means for the value where that is short, "1 to 8 octets", "an integer 0 to 255"; only the
@@ -438,7 +455,7 @@ themselves 0.2.0 and 2026.11.12:
   "seanchai": "0.2.0",
   "seanchai-corpus": "2026.11.12",
   "repository": "https://github.com/sliva0/seanchai",
-  "commit": "2bd9acc62b7b57515c6dd60e2fe7f8ca753811e6"
+  "commit": "21f276e25e05c97a1fd11e64c65cf28420899783"
 }
 ```
 

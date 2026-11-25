@@ -103,6 +103,9 @@ export type CommandFlag = 'REQ' | 'PXY' | 'ERR';
  * - `ip-filter-flow`: an `ip-filter` describing one flow as TS 29.214
  *   clause 5.3.8 restricts it further: no `assigned`, and the source
  *   port, where given, one port, no list or range.
+ * - `session-id`: a Session-Id's text, the sender's DiameterIdentity
+ *   first, then nothing or a `;` and any text (RFC 6733 clauses 8.8 and
+ *   9.8.5), `aaa.example.com;1876543210;523`.
  * - `element`: an information element another document defines, carried
  *   whole: `document`, and the `clause` and `element` name where the
  *   clause gives them. Checked no further than a length rule states.
@@ -122,6 +125,7 @@ export type Codec =
   | 'ip-filter'
   | 'ip-filter-out'
   | 'ip-filter-flow'
+  | 'session-id'
   | 'element';
 /**
  * What a `bits` rule says of the bits it names, and a `members` rule of
@@ -585,8 +589,9 @@ export interface ConstraintRule {
 /**
  * A predicate's condition: the AVP `root` and `path` name present,
  * holding `value` (a number, a name, or the value of the AVP a
- * `ConstraintReference` names), or with `bit` set, a number or a name; with
- * `negated`, not so.
+ * `ConstraintReference` names), holding one of `values` (each a number, a
+ * name or a `ConstraintValueRange`), or with `bit` set, a number or a name;
+ * with `negated`, not so.
  */
 export interface ConstraintCondition {
   bit?: number | string | null;
@@ -594,6 +599,7 @@ export interface ConstraintCondition {
   path: string[];
   root?: 'request' | null;
   value?: number | string | ConstraintReference | null;
+  values?: (number | string | ConstraintValueRange)[];
 }
 /**
  * An AVP a rule reads beside its own, by `path`, the names from the
@@ -603,6 +609,13 @@ export interface ConstraintCondition {
 export interface ConstraintReference {
   path: string[];
   root?: 'request' | null;
+}
+/**
+ * A range in a condition's `values`, `low` and `high` included.
+ */
+export interface ConstraintValueRange {
+  high: number;
+  low: number;
 }
 /**
  * The element registry's entry for an `encoding element` rule

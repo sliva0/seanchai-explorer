@@ -1564,6 +1564,20 @@ mark {
 .constraint-name {
   white-space: nowrap;
 }
+/* A list's "and 11 more", after its first few values or names: a link-like button showing the rest in place. */
+.constraint-more {
+  padding: 0;
+  border: 0;
+  color: var(--ui-link);
+  background: none;
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.constraint-more:hover {
+  color: var(--ui-link-hover);
+  text-decoration: underline;
+}
 /* What an element rule's element is and how far it is checked, under the rule: a row each, wrapping under its label. */
 .constraint-element {
   display: block;

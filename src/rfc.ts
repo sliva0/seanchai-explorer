@@ -1,6 +1,6 @@
 import { locateRow, rfcPages, tableLines } from './rfc-text.ts';
 import { land } from './landing.ts';
-import { findQuote, quoteNeedles, runningLine } from './quote-text.ts';
+import { clauseAndParents, findQuote, quoteNeedles, runningLine } from './quote-text.ts';
 import { namePattern } from './table-row.ts';
 import type { RfcLine } from './rfc-text.ts';
 import { initTheme } from './theme.ts';
@@ -63,7 +63,8 @@ function navigate() {
         )?.lines
       : null;
   const table = params.get('table') ? tableLines(lines, params.get('table')!) : null;
-  const quote = params.get('quote') && params.get('exact') !== '1' ? quoteAt(params.get('quote')!, section) : null;
+  const quote =
+    params.get('quote') && params.get('exact') !== '1' ? quoteAt(params.get('quote')!, params.get('section')) : null;
   goTo(
     params.get('exact') === '1'
       ? page
@@ -101,14 +102,34 @@ function navigate() {
     marked.push(row[0]);
   }
 }
+/** The first line past a clause, its subclauses' too: the next heading of another clause, else the text's end. */
+function clauseEnd(from: number, clause: string) {
+  const end = lines.findIndex(
+    (line, index) => index > from && line.section && line.section !== clause && !line.section.startsWith(`${clause}.`),
+  );
+  return end < 0 ? lines.length : end;
+}
+
 /**
- * The lines a quote an interpreted rule was read from runs over, from its clause's heading on, across a page's running
- * footer and header: the longer needle first, then a shorter one. Null where neither is found.
+ * The lines a quote an interpreted rule was read from runs over, across a page's running footer and header: starting
+ * in its clause or a subclause of it, else in the clause containing that and so on up, as RFC 6733's clause 10 prints
+ * the symbols 10.1's table uses, else anywhere from its clause's heading on; the longer needle first, then a shorter
+ * one. Null where neither is found.
  */
-function quoteAt(quote: string, section: HTMLElement | undefined): [number, number] | null {
-  const from = section ? spans.indexOf(section) : 0;
+function quoteAt(quote: string, section: string | null): [number, number] | null {
   const texts = lines.map(line => (runningLine(line.text) ? '' : line.text));
-  for (const needle of quoteNeedles(quote)) {
+  const needles = quoteNeedles(quote);
+  const clauses = section ? clauseAndParents(section).filter(clause => sections.has(clause)) : [];
+  for (const clause of clauses) {
+    const from = spans.indexOf(sections.get(clause)!);
+    const end = clauseEnd(from, clause);
+    for (const needle of needles) {
+      const found = findQuote(texts, needle, from);
+      if (found && found[0] < end) return found;
+    }
+  }
+  const from = clauses.length ? spans.indexOf(sections.get(clauses[0])!) : 0;
+  for (const needle of needles) {
     const found = findQuote(texts, needle, Math.max(0, from));
     if (found) return found;
   }

@@ -6,6 +6,8 @@ import type { Place } from '../avp-places.ts';
 import { blockAt } from '../blocks.ts';
 import type { DadFile } from '../blocks.ts';
 import {
+  ABSENT_GROUP,
+  LIST_SHOWN,
   blockContext,
   commandConstraints,
   constraintBlocks,
@@ -13,14 +15,17 @@ import {
   constraintsFor,
   elementEntry,
   elementParts,
-  lineText,
   membersParts,
+  onlyAbsent,
   readersFor,
   readsRequest,
   referenceContext,
   referenceText,
   requestMessage,
+  ruleLines,
+  ruleLineText,
   ruleNote,
+  rulePieces,
   ruleWhere,
   ruleWords,
   scopeWords,
@@ -28,15 +33,15 @@ import {
   unscoped,
   elementRowContext,
 } from '../constraints.ts';
-import type { ConstraintBlock, ReadContext, RuleWhere } from '../constraints.ts';
+import type { ConstraintBlock, ReadContext, RuleWhere, WordPiece } from '../constraints.ts';
 import { docName, newestOf } from '../data.ts';
 import type { Site } from '../data.ts';
 import { routeFor } from '../navigation.ts';
-import type { ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
+import type { Block, ConstraintRule, Document, ElementEntry, ElementSource } from '../types.ts';
 import type { PopupRequest } from './root.tsx';
 import { quoteNeedle } from '../quote-text.ts';
 import { Counted, placeRows, TableLink } from './shared.tsx';
-import { constraintsSection, elementDepth, elementText } from '../text/rules.ts';
+import { constraintsSection, elementDepth, elementText, ruleText } from '../text/rules.ts';
 
 /**
  * Where a use reads its name: in the command or grouped AVP of its block, or wherever; a name an interpreted rule reads
@@ -132,7 +137,7 @@ function ScopeLine({
  * name links in a value's popup, or text where the line links it nowhere.
  */
 function MemberNames({ doc, rule, names }: { doc: Document; rule: ConstraintRule; names: string[] }) {
-  const tokens = doc.lines[rule.line]?.tokens ?? [];
+  const tokens = ruleLines(doc, rule).flatMap(line => doc.lines[line]?.tokens ?? []);
   return (
     <>
       {names.map((name, index) => {
@@ -153,6 +158,42 @@ function MemberNames({ doc, rule, names }: { doc: Document; rule: ConstraintRule
     </>
   );
 }
+
+/**
+ * Items joined by commas, the first `shown` of them and then a button showing the rest, "and 11 more", where there are
+ * more than one past them. Nothing keeps it open from one popup to the next.
+ */
+export function Folded({ items, shown }: { items: ComponentChild[]; shown: number }) {
+  const [open, setOpen] = useState(false);
+  const cut = !open && items.length > shown + 1;
+  return (
+    <span class="constraint-list">
+      {(cut ? items.slice(0, shown) : items).map((item, index) => (
+        <Fragment key={index}>
+          {index > 0 && ruleText.listJoin}
+          {item}
+        </Fragment>
+      ))}
+      {cut && (
+        <>
+          {' '}
+          <button type="button" class="constraint-more" title={ruleText.andMoreTitle} onClick={() => setOpen(true)}>
+            {ruleText.andMore(items.length - shown)}
+          </button>
+        </>
+      )}
+    </span>
+  );
+}
+
+/** Words as pieces, each list of values folded after its first few. */
+const Pieces = ({ pieces }: { pieces: WordPiece[] }) => (
+  <>
+    {pieces.map((piece, index) =>
+      typeof piece === 'string' ? piece : <Folded key={index} items={piece.values} shown={LIST_SHOWN} />,
+    )}
+  </>
+);
 
 /**
  * A rule in words, an element rule's document a link to its newest edition where the corpus holds it, TS 24.008 text
@@ -182,7 +223,7 @@ function RuleText({
     );
   const held = rule.kind === 'encoding' && rule.codec === 'element' && rule.document;
   const doc = held ? newestOf(site.index.documents, rule.document!) : undefined;
-  if (!doc) return <>{ruleWords(rule, printed, where)}</>;
+  if (!doc) return <Pieces pieces={rulePieces(rule, printed, where)} />;
   const { before, after } = elementParts(rule);
   return (
     <>
@@ -196,14 +237,24 @@ function RuleText({
 }
 
 /**
- * A rule as the text prints it, its kind the keyword, as the block's line has it, less its indent: `requires DSR-Flags
- * bit "Trace Data Withdrawal"`. A name the line links wraps whole, never at its hyphens, as in the document view.
+ * A rule as the text prints it, its kind the keyword, as the block's lines have it, less their indent and joined where
+ * the formatter wrapped it: `requires DSR-Flags bit "Trace Data Withdrawal"`. A name the line links wraps whole, never
+ * at its hyphens, as in the document view.
  */
-function Printed({ doc, line, title }: { doc: Document; line: number; title?: string }) {
+function Printed({ doc, lines, title }: { doc: Document; lines: number[]; title?: string }) {
   const parts: ComponentChild[] = [];
   let started = false;
-  for (const [index, token] of (doc.lines[line]?.tokens ?? []).entries()) {
+  const tokens = lines.flatMap((line, at) =>
+    (doc.lines[line]?.tokens ?? []).map((token, index) => ({
+      token,
+      key: `${line}:${index}`,
+      lead: at > 0 && index === 0,
+    })),
+  );
+  for (const { token, key: index, lead } of tokens) {
     let text = token.text.replace(/\n$/, '');
+    // A wrapped line goes on after a space, its indent left out.
+    if (lead) text = ` ${text.trimStart()}`;
     if (!started) {
       text = text.trimStart();
       if (!text) continue;
@@ -390,6 +441,85 @@ function Quote({ text, whole }: { text: string; whole?: boolean }) {
   );
 }
 
+/** A block's document, as a place's label names it: nothing for the document the popup was opened in. */
+const docLabel = (site: Site, doc: Document, request: PopupRequest) =>
+  doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
+
+/** The way to a block: its line in the text, and in the source its clause, at its first quote where it has one. */
+function blockPlace(doc: Document, block: Block): Place {
+  const quote = quoteNeedle((block.readings ?? []).flatMap(reading => reading.quotes)[0]?.text ?? '');
+  return {
+    document: doc.id,
+    position: { section: block.section, page: block.page, ...(quote ? { quote } : {}) },
+    target: { document: doc.id, section: block.section },
+    line: block.line,
+  };
+}
+
+/** How many AVPs a popup names never sent in a command before its "and 19 more". */
+const ABSENT_SHOWN = 8;
+
+/**
+ * Many blocks saying only that an AVP is never sent in a command, as one line: "never sent in CER:" and the AVPs, each
+ * a link to its definition, folded after the first few; then the way to the first block of each clause they are in.
+ */
+function AbsentGroup({
+  site,
+  placeRow,
+  request,
+  doc,
+  items,
+}: {
+  site: Site;
+  placeRow: ReturnType<typeof placeRows>;
+  request: PopupRequest;
+  doc: Document;
+  items: ConstraintBlock[];
+}) {
+  const where = ruleWhere(items[0], name => shortName(site, doc, name));
+  const words = ruleWords({ kind: 'absent', line: items[0].block.line }, '', where);
+  const named = [...new Map(items.map(item => [item.avp, item])).values()];
+  const clauses = [...new Map(items.map(item => [item.block.section, item])).values()];
+  const label = docLabel(site, doc, request);
+  return (
+    <div class="constraint-group constraint-absent">
+      <ul class="constraint-readings">
+        <li class="constraint-reading">
+          <span class="constraint-rule">
+            <span class="constraint-words">
+              {constraintsSection.absentBefore(words)}
+              <Folded
+                shown={ABSENT_SHOWN}
+                items={named.map(({ avp, block }) =>
+                  block.avp_target ? (
+                    <a key={avp} class="constraint-avp" href={routeFor({ ...block.avp_target, name: avp })}>
+                      {avp}
+                    </a>
+                  ) : (
+                    avp
+                  ),
+                )}
+              />
+            </span>
+          </span>
+        </li>
+      </ul>
+      <div class="popup-places constraint-places">
+        {clauses.map(({ block }) => (
+          <Fragment key={block.line}>
+            {placeRow(
+              constraintsSection.readIn,
+              'place-constraint',
+              blockPlace(doc, block),
+              [label, block.section].filter(Boolean).join(' · '),
+            )}
+          </Fragment>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** A block as a popup lists it, with the document it is in; `on` a block on another AVP, `bare` in its command's popup. */
 interface Listed {
   doc: Document;
@@ -452,18 +582,9 @@ function ConstraintGroup({
         {constraintsSection.quoteSource}
       </button>
     ) : null;
-  const label = doc.id === request.doc.id ? '' : site.summary(doc.id) ? site.label(site.summary(doc.id)!) : doc.id;
+  const label = docLabel(site, doc, request);
   const where = ruleWhere(item, name => shortName(site, doc, name));
-  const place: Place = {
-    document: doc.id,
-    position: {
-      section: block.section,
-      page: block.page,
-      ...quoted((block.readings ?? []).flatMap(reading => reading.quotes)[0]?.text),
-    },
-    target: { document: doc.id, section: block.section },
-    line: block.line,
-  };
+  const place = blockPlace(doc, block);
   // The request the block's rules read: its Message block, where the document printing it is at hand.
   const target = block.request_target;
   const requestDoc = target && (target.document === doc.id ? doc : site.held(target.document));
@@ -510,7 +631,7 @@ function ConstraintGroup({
           return (
             <li key={index} class="constraint-reading">
               {rules.map(rule => {
-                const printed = lineText(doc, rule.line);
+                const printed = ruleLineText(doc, rule);
                 const entry = elementEntry(rule);
                 const note = ruleNote(rule);
                 // Where the words cannot say the rule, they are the line as printed: that alone, as the text prints it.
@@ -520,7 +641,7 @@ function ConstraintGroup({
                 return (
                   <span key={rule.line} class="constraint-rule">
                     {fallback ? (
-                      <Printed doc={doc} line={rule.line} title={note} />
+                      <Printed doc={doc} lines={ruleLines(doc, rule)} title={note} />
                     ) : (
                       <span
                         class="constraint-words"
@@ -681,9 +802,18 @@ export function CommandConstraintFacts({
   const found = commandConstraints(doc, context, members);
   if (!found.length) return null;
   const placeRow = placeRows(site, pane, { ...request, raw: false });
+  // Many AVPs never sent in the command, as RFC 6733's table 10.1 says of dozens in CER, are said in one line.
+  const absent = found.filter(onlyAbsent);
+  const grouped = absent.length >= ABSENT_GROUP;
+  const rest = grouped ? found.filter(item => !absent.includes(item)) : found;
   return (
-    <ConstraintSection count={found.length} className="command-constraints">
-      {found.map(item => (
+    <ConstraintSection
+      count={found.length}
+      className="command-constraints"
+      {...(grouped ? { gist: constraintsSection.commandGist(absent.length, rest.length) } : {})}
+    >
+      {grouped && <AbsentGroup site={site} placeRow={placeRow} request={request} doc={doc} items={absent} />}
+      {rest.map(item => (
         <ConstraintGroup
           key={`${doc.id}:${item.block.line}`}
           site={site}
